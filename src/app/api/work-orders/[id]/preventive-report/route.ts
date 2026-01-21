@@ -1,4 +1,7 @@
 // src/app/api/work-orders/[id]/preventive-report/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -7,7 +10,7 @@ import { Role, NotificationType, CaseEventType } from "@prisma/client";
 import { z } from "zod";
 import { notifyTenantUsers } from "@/lib/notifications";
 
-export const runtime = "nodejs";
+
 
 // Guardado tipo borrador (ticket no obligatorio aquí)
 const schema = z.object({

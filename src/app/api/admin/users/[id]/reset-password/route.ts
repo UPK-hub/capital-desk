@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -5,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import crypto from "node:crypto";
 
-export const runtime = "nodejs";
+
 
 function sha256(s: string) {
   return crypto.createHash("sha256").update(s).digest("hex");

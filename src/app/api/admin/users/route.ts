@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -10,9 +12,11 @@ async function getAdminContext() {
   const email = session?.user?.email ? String(session.user.email).toLowerCase() : null;
 
   if (!session?.user || !email) return { ok: false as const, status: 401, error: "Unauthorized" };
-  if (session.user.role !== Role.ADMIN && session.user.role !== "ADMIN") {
-    return { ok: false as const, status: 403, error: "Forbidden" };
-  }
+  const role = (session.user as any).role as Role | undefined;
+if (role !== Role.ADMIN) {
+  return { ok: false as const, status: 403, error: "Forbidden" };
+}
+
 
   // Fuente de verdad: BD
   const me = await prisma.user.findUnique({

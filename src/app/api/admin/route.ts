@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -6,7 +8,7 @@ import { Role } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
-export const runtime = "nodejs";
+
 
 const createSchema = z.object({
   name: z.string().trim().min(2, "Nombre muy corto"),

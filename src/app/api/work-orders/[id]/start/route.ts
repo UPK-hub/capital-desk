@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -6,7 +9,7 @@ import { saveUpload } from "@/lib/uploads";
 import { CaseEventType, CaseStatus, MediaKind, NotificationType, Role, WorkOrderStatus } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
 
-export const runtime = "nodejs";
+
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);

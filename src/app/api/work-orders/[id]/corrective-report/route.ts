@@ -1,4 +1,7 @@
 // src/app/api/work-orders/[id]/corrective-report/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -14,7 +17,7 @@ import {
 import { notifyTenantUsers } from "@/lib/notifications";
 import { Prisma as PrismaNS } from "@prisma/client";
 
-export const runtime = "nodejs";
+
 
 function emptyToNull(v: any): string | null {
   const s = String(v ?? "").trim();
