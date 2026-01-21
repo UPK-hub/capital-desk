@@ -3,11 +3,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+
+    "postinstall": "prisma generate",
+
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+
     "db:seed": "tsx prisma/seed.ts",
     "import:placas": "tsx prisma/import-placas.ts",
     "import:seriales": "tsx prisma/import-seriales.ts"
