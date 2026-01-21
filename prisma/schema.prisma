@@ -1,0 +1,466 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  BACKOFFICE
+  TECHNICIAN
+}
+
+enum CaseType {
+  NOVEDAD
+  CORRECTIVO
+  PREVENTIVO
+  MEJORA_PRODUCTO
+  SOLICITUD_DESCARGA_VIDEO
+}
+
+enum CaseStatus {
+  NUEVO
+  OT_ASIGNADA
+  EN_EJECUCION
+  RESUELTO
+  CERRADO
+}
+
+enum WorkOrderStatus {
+  CREADA
+  ASIGNADA
+  EN_CAMPO
+  FINALIZADA
+}
+
+enum MediaKind {
+  FOTO_INICIO
+  FOTO_FIN
+}
+
+enum CaseEventType {
+  CREATED
+  ASSIGNED
+  NOTIFIED
+  STATUS_CHANGE
+  COMMENT
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  buses         Bus[]
+  cases         Case[]
+  workOrders    WorkOrder[]
+  users         User[]
+  notifications Notification[]
+
+  sequence      TenantSequence?
+}
+
+model TenantSequence {
+  tenantId String @id
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  nextCaseNo      Int @default(1)
+  nextWorkOrderNo Int @default(1)
+
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String @id @default(cuid())
+  tenantId     String
+  tenant       Tenant @relation(fields: [tenantId], references: [id])
+
+  name         String
+  email        String @unique
+
+  // ✅ opcional para permitir "crear usuario" y luego enviar reset por correo
+  passwordHash String?
+
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedWorkOrders   WorkOrder[] @relation("WOAssignedTo")
+  notifications        Notification[]
+  passwordResetTokens  PasswordResetToken[]
+
+  @@index([tenantId, role])
+  @@index([tenantId, active])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model Bus {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  code   String
+  plate  String?
+  active Boolean @default(true)
+
+  createdAt  DateTime @default(now())
+  equipments BusEquipment[]
+  cases      Case[]
+  lifecycle  BusLifecycleEvent[]
+
+  @@unique([tenantId, code])
+}
+
+model EquipmentType {
+  id            String @id @default(cuid())
+  name          String @unique
+  busEquipments BusEquipment[]
+}
+
+model BusEquipment {
+  id    String @id @default(cuid())
+  busId String
+  bus   Bus    @relation(fields: [busId], references: [id])
+
+  equipmentTypeId String
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+
+  serial   String?
+  location String?
+  active   Boolean @default(true)
+
+  cases     Case[]
+  lifecycle BusLifecycleEvent[]
+}
+
+model Case {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // ✅ opcional mientras existan filas viejas; luego lo vuelves required
+  caseNo   Int?
+
+  busId String
+  bus   Bus    @relation(fields: [busId], references: [id])
+
+  busEquipmentId String?
+  busEquipment   BusEquipment? @relation(fields: [busEquipmentId], references: [id])
+
+  type     CaseType
+  status   CaseStatus @default(NUEVO)
+  priority Int        @default(3)
+
+  title       String
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workOrder WorkOrder?
+  events    CaseEvent[]
+
+  videoDownloadRequest VideoDownloadRequest?
+
+  @@unique([tenantId, caseNo])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+}
+
+model CaseEvent {
+  id     String @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  type    CaseEventType
+  message String?
+  meta    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([caseId, createdAt])
+}
+
+model WorkOrder {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // ✅ opcional mientras existan filas viejas; luego lo vuelves required
+  workOrderNo Int?
+
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id])
+
+  status        WorkOrderStatus @default(CREADA)
+  assignedToId  String?
+  assignedTo    User? @relation("WOAssignedTo", fields: [assignedToId], references: [id])
+  assignedAt    DateTime?
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  steps WorkOrderStep[]
+
+  correctiveReport CorrectiveReport?
+  preventiveReport PreventiveReport?
+
+  @@unique([tenantId, workOrderNo])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([assignedToId, status])
+}
+
+model WorkOrderStep {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  stepType  String
+  notes     String
+  createdAt DateTime @default(now())
+
+  media WorkOrderMedia[]
+}
+
+model WorkOrderMedia {
+  id              String        @id @default(cuid())
+  workOrderStepId String
+  workOrderStep   WorkOrderStep @relation(fields: [workOrderStepId], references: [id])
+
+  kind      MediaKind
+  filePath  String
+  createdAt DateTime @default(now())
+}
+
+model BusLifecycleEvent {
+  id    String @id @default(cuid())
+  busId String
+  bus   Bus    @relation(fields: [busId], references: [id])
+
+  busEquipmentId String?
+  busEquipment   BusEquipment? @relation(fields: [busEquipmentId], references: [id])
+
+  caseId      String?
+  workOrderId String?
+
+  eventType  String
+  summary    String
+  occurredAt DateTime @default(now())
+
+  @@index([busId, occurredAt])
+  @@index([busEquipmentId, occurredAt])
+}
+
+enum FailureType {
+  HARDWARE_FISICA
+  SOFTWARE
+  CONECTIVIDAD
+  OTRO
+}
+
+enum ProcedureType {
+  AJUSTE_FISICO
+  CAMBIO_COMPONENTE
+  RECONFIGURACION
+  REVISION
+  OTRO
+}
+
+enum DeviceLocation {
+  VAGON_1
+  VAGON_2
+  VAGON_3
+  BO
+  BFE
+  BTE
+  GABINETE_EQUIPOS
+  FUELLE_V2_3
+  OTRO
+}
+
+model CorrectiveReport {
+  id String @id @default(cuid())
+
+  workOrderId String    @unique
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  ticketNumber    String?
+  workOrderNumber String?
+
+  busCode      String?
+  productionSp String?
+  plate        String?
+
+  deviceType String?
+  brand      String?
+  model      String?
+  serial     String?
+
+  procedureType  ProcedureType?
+  procedureOther String?
+
+  location      DeviceLocation?
+  locationOther String?
+
+  dateDismount     DateTime?
+  dateDeliveredMfr DateTime?
+
+  accessoriesSupplied Boolean @default(false)
+  accessoriesWhich    String?
+
+  physicalState String?
+  diagnosis     String?
+  failureType   FailureType?
+  failureOther  String?
+
+  solution        String?
+  manufacturerEta String?
+
+  installDate DateTime?
+  newBrand    String?
+  newModel    String?
+  newSerial   String?
+  inStock     Boolean?
+
+  removedBrand  String?
+  removedModel  String?
+  removedSerial String?
+
+  associatedCost Decimal? @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PreventiveReport {
+  id String @id @default(cuid())
+
+  workOrderId String    @unique
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  ticketNumber    String?
+  workOrderNumber String?
+
+  biarticuladoNo String?
+  productionSp   String?
+  mileage        String?
+  plate          String?
+
+  scheduledAt   DateTime?
+  executedAt    DateTime?
+  rescheduledAt DateTime?
+
+  devicesInstalled Json?
+  activities      Json?
+
+  voltageNvrFromCard        String?
+  voltageCollectorFromCard  String?
+  voltageBatteriesMasterOff String?
+  voltageCardMasterOn       String?
+  voltageCardMasterOff      String?
+  voltageSwitch             String?
+  voltageCardBusOpen        String?
+  commCableState            String?
+
+  observations          String?
+  timeStart             String?
+  timeEnd               String?
+  responsibleSkg        String?
+  responsibleCapitalBus String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum VideoReqOrigin {
+  TRANSMILENIO_SA
+  INTERVENTORIA
+  CAPITAL_BUS
+  OTRO
+}
+
+enum VideoDeliveryMethod {
+  WINSCP
+  USB
+  ONEDRIVE
+}
+
+model VideoDownloadRequest {
+  id     String @id @default(cuid())
+
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  origin      VideoReqOrigin
+  requestType String?
+
+  tmsaRadicado          String?
+  tmsaFiledAt           DateTime?
+  concessionaireFiledAt DateTime?
+
+  requesterName  String?
+  requesterId    String?
+  requesterRole  String?
+  requesterPhone String?
+  requesterEmail String?
+
+  vehicleId String?
+
+  eventStart DateTime?
+  eventEnd   DateTime?
+
+  camerasRequested String?
+  deliveryMethod   VideoDeliveryMethod?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum NotificationType {
+  CASE_CREATED
+  CASE_ASSIGNED
+  WO_STARTED
+  WO_FINISHED
+  FORM_SAVED
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+
+  type      NotificationType
+  title     String
+  body      String?
+  meta      Json?
+
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([tenantId, createdAt])
+}

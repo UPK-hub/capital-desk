@@ -1,0 +1,187 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+
+type NotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  meta: any;
+  readAt: string | null;
+  createdAt: string;
+};
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+}
+
+function inferHref(n: NotificationItem): string | null {
+  // Preferimos meta.href (si existe)
+  const href = n.meta?.href;
+  if (typeof href === "string" && href.startsWith("/")) return href;
+
+  // Fallback: si viene caseId/workOrderId
+  if (n.meta?.workOrderId) return `/work-orders/${n.meta.workOrderId}`;
+  if (n.meta?.caseId) return `/cases/${n.meta.caseId}`;
+
+  return null;
+}
+
+export default function NotificationsBell() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/notifications?take=25", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setItems(Array.isArray(data.items) ? data.items : []);
+      setUnreadCount(Number(data.unreadCount ?? 0));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function markRead(id: string) {
+    await fetch(`/api/notifications/${id}/read`, { method: "POST" }).catch(() => null);
+    // refrescamos el badge/lista
+    await load();
+    // refresca server components si aplica
+    router.refresh();
+  }
+
+  // Cargar al montar y cuando cambie ruta (para mantener badge actualizado)
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const hasItems = items.length > 0;
+
+  const badge = useMemo(() => {
+    if (unreadCount <= 0) return null;
+    const label = unreadCount > 99 ? "99+" : String(unreadCount);
+    return (
+      <span className="absolute -top-1 -right-1 rounded-full bg-black text-white text-[10px] px-1.5 py-0.5">
+        {label}
+      </span>
+    );
+  }, [unreadCount]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={async () => {
+          const next = !open;
+          setOpen(next);
+          if (next) await load();
+        }}
+        className="relative rounded-md border px-3 py-2 text-sm"
+        aria-label="Notificaciones"
+      >
+        Notificaciones
+        {badge}
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 mt-2 w-[420px] max-w-[90vw] rounded-xl border bg-white shadow-sm overflow-hidden z-50">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold">Notificaciones</p>
+              <p className="text-xs text-muted-foreground">
+                {loading ? "Cargando…" : `${unreadCount} sin leer`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-md border px-2 py-1 text-xs"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div className="max-h-[480px] overflow-auto">
+            {!hasItems ? (
+              <div className="p-4 text-sm text-muted-foreground">No hay notificaciones.</div>
+            ) : (
+              items.map((n) => {
+                const href = inferHref(n);
+                const isUnread = !n.readAt;
+
+                return (
+                  <div key={n.id} className="border-b last:border-b-0">
+                    <div className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className={`text-sm ${isUnread ? "font-semibold" : "font-medium"}`}>
+                            {n.title}
+                          </p>
+                          {n.body ? (
+                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                              {n.body}
+                            </p>
+                          ) : null}
+                          <p className="mt-2 text-xs text-muted-foreground">{fmtDate(n.createdAt)}</p>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          {isUnread ? (
+                            <button
+                              type="button"
+                              onClick={() => markRead(n.id)}
+                              className="rounded-md border px-2 py-1 text-xs"
+                            >
+                              Marcar leída
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Leída</span>
+                          )}
+
+                          {href ? (
+                            <Link
+                              href={href}
+                              onClick={() => setOpen(false)}
+                              className="text-xs underline"
+                            >
+                              Abrir
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="border-t px-4 py-3 flex justify-end">
+            <button
+              type="button"
+              className="rounded-md bg-black px-3 py-2 text-sm text-white"
+              onClick={async () => {
+                await load();
+                router.refresh();
+              }}
+            >
+              Actualizar
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
