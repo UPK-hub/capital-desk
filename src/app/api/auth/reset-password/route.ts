@@ -1,11 +1,13 @@
 // src/app/api/auth/reset-password/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { hashToken } from "@/lib/reset-token";
 
-export const runtime = "nodejs";
+
 
 const schema = z.object({
   token: z.string().trim().min(10),
