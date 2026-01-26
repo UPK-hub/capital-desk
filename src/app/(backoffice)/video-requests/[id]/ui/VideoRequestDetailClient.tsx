@@ -135,7 +135,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-3xl font-semibold tracking-tight">
             Solicitud {item.case.caseNo ?? item.case.id}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -144,20 +144,20 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link className="rounded-md border px-3 py-2 text-sm" href="/video-requests">
+          <Link className="sts-btn-ghost text-sm" href="/video-requests">
             Volver
           </Link>
-          <Link className="rounded-md bg-black px-3 py-2 text-sm text-white" href={`/cases/${item.case.id}`}>
+          <Link className="sts-btn-primary text-sm" href={`/cases/${item.case.id}`}>
             Ver caso
           </Link>
         </div>
       </div>
 
-      {msg ? <div className="rounded-lg border p-3 text-sm">{msg}</div> : null}
+      {msg ? <div className="sts-card p-3 text-sm">{msg}</div> : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Datos de la solicitud</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
@@ -203,7 +203,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Gestion</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
@@ -253,14 +253,14 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+                className="sts-btn-primary text-sm disabled:opacity-60"
               >
                 {saving ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Adjuntos</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
@@ -307,7 +307,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Historial</h2>
             <div className="mt-3 space-y-2 text-sm">
               {item.events.length === 0 ? (

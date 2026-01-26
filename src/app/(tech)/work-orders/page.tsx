@@ -20,7 +20,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autenticado.</p>
           <Link className="underline" href="/login">
             Ir a login
@@ -37,7 +37,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
   if (role !== Role.TECHNICIAN && role !== Role.ADMIN) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>
@@ -84,11 +84,11 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Ordenes de Trabajo</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Ordenes de Trabajo</h1>
         <p className="text-sm text-muted-foreground">Bandeja Tecnico</p>
       </div>
 
-      <div className="rounded-xl border bg-white p-4">
+      <div className="sts-card p-4">
         <form className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between" method="get">
           <input
             name="q"
@@ -106,17 +106,17 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
               <option value="FINALIZADA">FINALIZADA</option>
             </select>
 
-            <button className="rounded-md bg-black px-4 py-2 text-sm text-white" type="submit">
+            <button className="sts-btn-primary text-sm" type="submit">
               Filtrar
             </button>
-            <Link className="rounded-md border px-4 py-2 text-sm" href="/work-orders">
+            <Link className="sts-btn-ghost text-sm" href="/work-orders">
               Limpiar
             </Link>
           </div>
         </form>
       </div>
 
-      <div className="rounded-xl border bg-white">
+      <div className="sts-card">
         <div className="grid grid-cols-12 border-b px-4 py-2 text-xs text-muted-foreground">
           <div className="col-span-3">Bus</div>
           <div className="col-span-3">Caso</div>

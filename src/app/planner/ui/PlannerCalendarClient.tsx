@@ -198,13 +198,13 @@ export default function PlannerCalendarClient() {
   const days = Array.from({ length: 7 }, (_, i) => i);
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-4">
+    <section className="sts-card p-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <button className="rounded-md border px-2 py-1 text-sm" onClick={() => goWeek(-1)} disabled={loading}>
+          <button className="sts-btn-ghost text-sm" onClick={() => goWeek(-1)} disabled={loading}>
             Semana anterior
           </button>
-          <button className="rounded-md border px-2 py-1 text-sm" onClick={() => goWeek(1)} disabled={loading}>
+          <button className="sts-btn-ghost text-sm" onClick={() => goWeek(1)} disabled={loading}>
             Semana siguiente
           </button>
         </div>
@@ -241,7 +241,7 @@ export default function PlannerCalendarClient() {
         </div>
 
         <button
-          className="rounded-md bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary text-sm disabled:opacity-50"
           onClick={save}
           disabled={saving || loading || !dirty}
         >

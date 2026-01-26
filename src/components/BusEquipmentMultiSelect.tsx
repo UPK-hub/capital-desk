@@ -75,12 +75,12 @@ export function BusEquipmentMultiSelect({
   }
 
   if (!busId) {
-    return <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">Selecciona un bus primero</div>;
+    return <div className="sts-card px-3 py-2 text-sm text-muted-foreground">Selecciona un bus primero</div>;
   }
 
   const activeItems = items.filter((x) => x.active);
   if (!activeItems.length) {
-    return <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">Sin equipos activos</div>;
+    return <div className="sts-card px-3 py-2 text-sm text-muted-foreground">Sin equipos activos</div>;
   }
 
   return (

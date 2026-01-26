@@ -126,10 +126,28 @@ export default function UsersAdminClient() {
     setMsg(`Reset token generado (prueba): ${data.rawToken} (expira ${new Date(data.expiresAt).toLocaleString()})`);
   }
 
+  async function deleteUser(id: string) {
+    setBusy(true);
+    setError(null);
+    setMsg(null);
+
+    const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+
+    if (!res.ok) {
+      setError(data?.error ?? "No se pudo eliminar usuario");
+      return;
+    }
+
+    setMsg("Usuario eliminado.");
+    await load();
+  }
+
   return (
     <div className="space-y-6">
       {/* Crear */}
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-4">
+      <section className="sts-card p-5 space-y-4">
         <h2 className="text-sm font-semibold">Crear usuario</h2>
 
         {error ? <div className="rounded-md border p-3 text-sm">{error}</div> : null}
@@ -170,17 +188,17 @@ export default function UsersAdminClient() {
           type="button"
           onClick={createUser}
           disabled={busy || loading}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary text-sm disabled:opacity-50"
         >
           {busy ? "Procesando..." : "Crear"}
         </button>
       </section>
 
       {/* Listado */}
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <section className="sts-card p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Usuarios</h2>
-          <button className="rounded-md border px-3 py-1.5 text-sm" disabled={loading} onClick={load}>
+          <button className="sts-btn-ghost text-sm" disabled={loading} onClick={load}>
             {loading ? "Cargando..." : "Refrescar"}
           </button>
         </div>
@@ -191,8 +209,8 @@ export default function UsersAdminClient() {
           ) : users.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay usuarios en este tenant.</p>
           ) : (
-            <div className="overflow-auto rounded-lg border">
-              <table className="w-full text-sm">
+            <div className="overflow-auto sts-card">
+              <table className="sts-table">
                 <thead className="bg-zinc-50">
                   <tr>
                     <th className="text-left p-2">Nombre</th>
@@ -211,6 +229,7 @@ export default function UsersAdminClient() {
                       disabled={busy}
                       onPatch={patchUser}
                       onReset={createResetToken}
+                      onDelete={deleteUser}
                     />
                   ))}
                 </tbody>
@@ -223,16 +242,18 @@ export default function UsersAdminClient() {
   );
 }
 
-  function UserRowItem({
+function UserRowItem({
   u,
   disabled,
   onPatch,
   onReset,
+  onDelete,
 }: {
   u: UserRow;
   disabled: boolean;
   onPatch: (id: string, patch: any) => Promise<void>;
   onReset: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [newPass, setNewPass] = React.useState("");
   const caps = new Set(u.capabilities ?? []);
@@ -308,8 +329,17 @@ export default function UsersAdminClient() {
           </button>
         </div>
 
-        <button className="rounded-md border px-2 py-1 text-sm" disabled={disabled} onClick={() => onReset(u.id)}>
+        <button className="sts-btn-ghost text-sm" disabled={disabled} onClick={() => onReset(u.id)}>
           Generar reset token
+        </button>
+        <button
+          className="sts-btn-ghost text-sm text-red-600"
+          disabled={disabled}
+          onClick={() => {
+            if (confirm(`¿Eliminar usuario ${u.email}?`)) onDelete(u.id);
+          }}
+        >
+          Eliminar
         </button>
       </td>
     </tr>

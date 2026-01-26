@@ -204,13 +204,13 @@ export default function StsAdminClient() {
       {error ? <div className="rounded-md border p-3 text-sm text-red-600">{error}</div> : null}
       {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+      <section className="sts-card p-5 space-y-3 fade-up">
         <h2 className="text-sm font-semibold">Componentes STS</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <input className={clsInput()} placeholder="Codigo" value={compCode} onChange={(e) => setCompCode(e.target.value)} />
           <input className={clsInput()} placeholder="Nombre" value={compName} onChange={(e) => setCompName(e.target.value)} />
           <button
-            className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+            className="sts-btn-primary"
             onClick={createComponent}
             disabled={saving || compCode.trim().length < 2 || compName.trim().length < 2}
           >
@@ -218,8 +218,8 @@ export default function StsAdminClient() {
           </button>
         </div>
 
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-auto sts-card">
+          <table className="sts-table">
             <thead className="bg-zinc-50">
               <tr>
                 <th className="text-left p-2">Codigo</th>
@@ -240,10 +240,10 @@ export default function StsAdminClient() {
         </div>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+      <section className="sts-card p-5 space-y-3 fade-up">
         <h2 className="text-sm font-semibold">Matriz SLA</h2>
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-auto sts-card">
+          <table className="sts-table">
             <thead className="bg-zinc-50">
               <tr>
                 <th className="text-left p-2">Componente</th>
@@ -318,7 +318,7 @@ export default function StsAdminClient() {
           </table>
         </div>
         <button
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary"
           onClick={saveSlaPolicies}
           disabled={saving}
         >
@@ -326,10 +326,10 @@ export default function StsAdminClient() {
         </button>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+      <section className="sts-card p-5 space-y-3 fade-up">
         <h2 className="text-sm font-semibold">KPIs por componente</h2>
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-auto sts-card">
+          <table className="sts-table">
             <thead className="bg-zinc-50">
               <tr>
                 <th className="text-left p-2">Componente</th>
@@ -369,7 +369,7 @@ export default function StsAdminClient() {
           </table>
         </div>
         <button
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary"
           onClick={saveKpiPolicies}
           disabled={saving}
         >
@@ -377,7 +377,7 @@ export default function StsAdminClient() {
         </button>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+      <section className="sts-card p-5 space-y-3 fade-up">
         <h2 className="text-sm font-semibold">Ventanas de mantenimiento</h2>
         <div className="grid gap-3 md:grid-cols-4">
           <select className={clsInput()} value={mwComponentId} onChange={(e) => setMwComponentId(e.target.value)}>
@@ -393,15 +393,15 @@ export default function StsAdminClient() {
           <input className={clsInput()} placeholder="Motivo" value={mwReason} onChange={(e) => setMwReason(e.target.value)} />
         </div>
         <button
-          className="rounded-md border px-3 py-2 text-sm"
+          className="sts-btn-ghost"
           onClick={createMaintenance}
           disabled={saving || !mwStart || !mwEnd}
         >
           Crear ventana
         </button>
 
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-auto sts-card">
+          <table className="sts-table">
             <thead className="bg-zinc-50">
               <tr>
                 <th className="text-left p-2">Componente</th>

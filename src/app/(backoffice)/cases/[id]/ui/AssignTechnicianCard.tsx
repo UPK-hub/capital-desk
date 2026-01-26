@@ -124,11 +124,11 @@ export default function AssignTechnicianCard({
   }
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm">
+    <section className="sts-card p-5">
       <h2 className="text-base font-semibold">Asignación</h2>
 
       <div className="mt-3 space-y-3">
-        <div className="rounded-lg border p-3">
+        <div className="sts-card p-3">
           <p className="text-xs text-muted-foreground">Técnico actual</p>
           <p className="mt-1 text-sm font-medium">
             {currentAssignedToId
@@ -153,7 +153,7 @@ export default function AssignTechnicianCard({
             ))}
           </select>
 
-          <div className="rounded-lg border p-3 space-y-2">
+          <div className="sts-card p-3 space-y-2">
             <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>
             {!technicianId ? (
               <p className="text-xs text-muted-foreground">Selecciona un tecnico para ver horarios.</p>
@@ -184,7 +184,7 @@ export default function AssignTechnicianCard({
             type="button"
             onClick={assign}
             disabled={saving || !technicianId || !selectedSlot}
-            className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center sts-btn-primary text-sm disabled:opacity-60"
           >
             {saving ? "Asignando…" : "Asignar a técnico"}
           </button>

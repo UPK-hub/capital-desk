@@ -27,7 +27,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autenticado.</p>
           <Link className="underline" href="/login">
             Ir a login
@@ -45,7 +45,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   if (role !== Role.ADMIN && role !== Role.TECHNICIAN) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   if (role !== Role.ADMIN && wo.assignedToId !== userId) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autorizado. Esta OT no está asignada a tu usuario.</p>
           <Link className="underline text-sm" href="/work-orders">
             Volver
@@ -127,7 +127,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
           <p className="text-sm text-muted-foreground">
             Caso: <span className="font-medium">{fmtCaseNo(wo.case.caseNo)}</span> •{" "}
             <span className="font-medium">{wo.case.title}</span> • Bus:{" "}
@@ -137,10 +137,10 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link className="rounded-md border px-3 py-2 text-sm" href="/work-orders">
+          <Link className="sts-btn-ghost text-sm" href="/work-orders">
             Volver
           </Link>
-          <Link className="rounded-md bg-black px-3 py-2 text-sm text-white" href={`/cases/${wo.case.id}`}>
+          <Link className="sts-btn-primary text-sm" href={`/cases/${wo.case.id}`}>
             Abrir caso
           </Link>
         </div>
@@ -149,11 +149,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Izquierda */}
         <div className="lg:col-span-2 space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Contexto</h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Estado OT</p>
                 <p className="mt-1 text-sm font-medium">{wo.status}</p>
                 {wo.assignedAt ? (
@@ -161,30 +161,30 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 ) : null}
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Técnico</p>
                 <p className="mt-1 text-sm font-medium">{wo.assignedTo?.name ?? wo.assignedToId ?? "—"}</p>
                 {wo.assignedTo?.email ? <p className="mt-1 text-xs text-muted-foreground">{wo.assignedTo.email}</p> : null}
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Tipo de caso</p>
                 <p className="mt-1 text-sm font-medium">{wo.case.type}</p>
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Equipo</p>
                 <p className="mt-1 text-sm font-medium">{equipmentLabel}</p>
               </div>
 
-              <div className="rounded-lg border p-3 md:col-span-2">
+              <div className="sts-card p-3 md:col-span-2">
                 <p className="text-xs text-muted-foreground">Descripción del caso</p>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{wo.case.description}</p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Evidencias y pasos</h2>
               <p className="text-xs text-muted-foreground">{wo.steps.length} pasos</p>
@@ -195,7 +195,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 <div className="text-sm text-muted-foreground">Aún no hay pasos registrados.</div>
               ) : (
                 wo.steps.map((s) => (
-                  <div key={s.id} className="rounded-lg border p-4">
+                  <div key={s.id} className="sts-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold">{s.stepType}</p>
@@ -222,12 +222,12 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Formularios</h2>
 
             <div className="mt-3 space-y-4">
               {!requiresFinishForm ? (
-                <div className="rounded-lg border p-4">
+                <div className="sts-card p-4">
                   <p className="text-sm text-muted-foreground">Este tipo de OT no requiere formulario para finalizar.</p>
                 </div>
               ) : cfg?.formKind === "CORRECTIVE" ? (
@@ -237,7 +237,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               )}
 
               {requiresFinishForm ? (
-                <div className="rounded-lg border p-4">
+                <div className="sts-card p-4">
                   <p className="text-sm">
                     Estado formulario:{" "}
                     <span
@@ -301,14 +301,14 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             }
           />
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Estado</h2>
             <div className="mt-3 space-y-2 text-sm">
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Inicio</p>
                 <p className="mt-1 font-medium">{wo.startedAt ? fmtDate(wo.startedAt) : "No iniciada"}</p>
               </div>
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Finalización</p>
                 <p className="mt-1 font-medium">{wo.finishedAt ? fmtDate(wo.finishedAt) : "No finalizada"}</p>
               </div>

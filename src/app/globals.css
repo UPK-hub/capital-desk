@@ -33,6 +33,12 @@
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.75rem;
+
+    --sts-bg: 210 30% 97%;
+    --sts-card: 0 0% 100%;
+    --sts-border: 214 28% 88%;
+    --sts-accent: 171 66% 36%;
+    --sts-accent-2: 207 73% 45%;
   }
 
   .dark {
@@ -71,5 +77,229 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  .theme-shell input,
+  .theme-shell select,
+  .theme-shell textarea {
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .theme-shell input::placeholder,
+  .theme-shell textarea::placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .theme-shell {
+    --background: var(--background-light);
+    --foreground: var(--foreground-light);
+    --card: var(--card-light);
+    --card-foreground: var(--card-foreground-light);
+    --primary: var(--primary-light);
+    --primary-foreground: var(--primary-foreground-light);
+    --border: var(--border-light);
+    --muted: var(--muted-light);
+    --muted-foreground: var(--muted-foreground-light);
+    --sts-bg: var(--sts-bg-light);
+    --sts-accent: var(--sts-accent-light);
+    --sts-accent-2: var(--sts-accent-2-light);
+  }
+
+  .theme-shell.dark {
+    --background: var(--background-dark);
+    --foreground: var(--foreground-dark);
+    --card: var(--card-dark);
+    --card-foreground: var(--card-foreground-dark);
+    --primary: var(--primary-dark);
+    --primary-foreground: var(--primary-foreground-dark);
+    --border: var(--border-dark);
+    --muted: var(--muted-dark);
+    --muted-foreground: var(--muted-foreground-dark);
+    --sts-bg: var(--sts-bg-dark);
+    --sts-accent: var(--sts-accent-dark);
+    --sts-accent-2: var(--sts-accent-2-dark);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-shell.theme-system {
+      --background: var(--background-dark);
+      --foreground: var(--foreground-dark);
+      --card: var(--card-dark);
+      --card-foreground: var(--card-foreground-dark);
+      --primary: var(--primary-dark);
+      --primary-foreground: var(--primary-foreground-dark);
+      --border: var(--border-dark);
+      --muted: var(--muted-dark);
+      --muted-foreground: var(--muted-foreground-dark);
+      --sts-bg: var(--sts-bg-dark);
+      --sts-accent: var(--sts-accent-dark);
+      --sts-accent-2: var(--sts-accent-2-dark);
+    }
+  }
+
+  .sts-shell {
+    background: hsl(var(--background));
+  }
+
+  .sts-card {
+    @apply rounded-2xl border shadow-sm;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--card-foreground));
+  }
+
+  .app-sidebar {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+    border-color: hsl(var(--border));
+  }
+
+  .app-sidebar a {
+    color: inherit;
+  }
+
+  .theme-shell.dark .app-sidebar,
+  .theme-shell.theme-system .app-sidebar {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .app-topbar {
+    @apply border-b backdrop-blur;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+
+  .app-search {
+    @apply flex items-center gap-2 rounded-full border px-4 py-2 text-sm;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .app-pill {
+    @apply rounded-full border px-3 py-2 text-sm;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+
+  .app-menu-item {
+    @apply block rounded-lg px-3 py-2;
+  }
+
+  .app-menu-item:hover {
+    background: hsl(var(--muted));
+  }
+
+  .sts-btn {
+    @apply inline-flex items-center justify-center rounded-full border px-4 py-2 text-sm font-medium transition;
+  }
+
+  .sts-btn-primary {
+    @apply sts-btn border-transparent text-white;
+    background-color: hsl(var(--sts-accent));
+  }
+
+  .sts-btn-ghost {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  .sts-btn-soft {
+    @apply sts-btn;
+    background: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+  }
+
+  .sts-btn-soft:hover {
+    filter: brightness(0.98);
+    transform: translateY(-1px);
+  }
+
+  .sts-btn-primary:hover {
+    filter: brightness(0.96);
+  }
+
+  .sts-chip {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .sts-table {
+    @apply w-full text-sm border-collapse;
+  }
+
+  .sts-table thead th {
+    @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide border-b;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .sts-table tbody td {
+    @apply px-4 py-3 align-top border-b;
+    border-color: hsl(var(--border));
+  }
+
+  .sts-table tbody tr {
+    @apply border-t;
+    border-color: hsl(var(--border));
+  }
+
+  .sts-table tbody tr:hover {
+    @apply bg-zinc-50/70;
+  }
+
+  .sts-table th + th,
+  .sts-table td + td {
+    @apply border-l;
+    border-color: hsl(var(--border));
+  }
+}
+
+@layer utilities {
+  .fade-up {
+    animation: fade-up 500ms ease-out both;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .stagger > * {
+    animation: fade-up 520ms ease-out both;
+  }
+
+  .stagger > *:nth-child(1) { animation-delay: 40ms; }
+  .stagger > *:nth-child(2) { animation-delay: 120ms; }
+  .stagger > *:nth-child(3) { animation-delay: 200ms; }
+  .stagger > *:nth-child(4) { animation-delay: 280ms; }
+  .stagger > *:nth-child(5) { animation-delay: 360ms; }
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

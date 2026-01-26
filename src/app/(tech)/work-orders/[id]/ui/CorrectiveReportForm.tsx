@@ -273,7 +273,7 @@ export default function CorrectiveReportForm(props: Props) {
   }
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+    <div className="sts-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold">Formato Correctivo (inline)</h3>
@@ -283,7 +283,7 @@ export default function CorrectiveReportForm(props: Props) {
           type="button"
           onClick={form.handleSubmit(onSubmit)}
           disabled={saving || loading}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary text-sm disabled:opacity-50"
         >
           {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
         </button>
@@ -293,7 +293,7 @@ export default function CorrectiveReportForm(props: Props) {
 
       <form className="mt-4 space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         {/* 1. DATOS DEL DISPOSITIVO / EQUIPO */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">1. Datos del dispositivo / equipo</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -398,7 +398,7 @@ export default function CorrectiveReportForm(props: Props) {
         </section>
 
         {/* 2. DESCRIPCIÓN DE LA FALLA (AQUÍ ESTABA TU BLOQUEO) */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">2. Descripción de la falla</h4>
 
           <div className="mt-3 grid gap-3">
@@ -452,7 +452,7 @@ export default function CorrectiveReportForm(props: Props) {
         </section>
 
         {/* 3. DATOS NUEVO INSTALADO */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">3. Datos del dispositivo/equipo (nuevo instalado)</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -492,7 +492,7 @@ export default function CorrectiveReportForm(props: Props) {
         </section>
 
         {/* 4. DATOS RETIRADO */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">4. Datos del dispositivo/equipo (retirado)</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">

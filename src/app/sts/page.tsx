@@ -67,45 +67,49 @@ export default async function StsDashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 fade-up">
         <div>
-          <h1 className="text-2xl font-semibold">Dashboard STS</h1>
-          <p className="text-sm text-muted-foreground">Resumen mensual de SLA y KPIs.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Dashboard STS</h1>
+          <p className="text-sm text-muted-foreground">Resumen mensual de SLA y KPIs operativos.</p>
         </div>
-        <Link className="underline text-sm" href="/sts/tickets">
+        <Link className="sts-btn-primary" href="/sts/tickets">
           Ver tickets
         </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4">
+      <div className="grid gap-4 md:grid-cols-4 stagger">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Tickets abiertos</p>
-          <p className="mt-2 text-2xl font-semibold">{statusMap.get("OPEN") ?? 0}</p>
+          <p className="mt-2 text-3xl font-semibold">{statusMap.get("OPEN") ?? 0}</p>
+          <p className="mt-2 text-xs text-emerald-600">Prioridad en cola</p>
         </div>
-        <div className="rounded-xl border bg-white p-4">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">En progreso</p>
-          <p className="mt-2 text-2xl font-semibold">{statusMap.get("IN_PROGRESS") ?? 0}</p>
+          <p className="mt-2 text-3xl font-semibold">{statusMap.get("IN_PROGRESS") ?? 0}</p>
+          <p className="mt-2 text-xs text-sky-700">Atencion activa</p>
         </div>
-        <div className="rounded-xl border bg-white p-4">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">SLA respuesta (30 dias)</p>
-          <p className="mt-2 text-2xl font-semibold">{responseCompliance}</p>
+          <p className="mt-2 text-3xl font-semibold">{responseCompliance}</p>
+          <p className="mt-2 text-xs text-zinc-500">Meta mensual</p>
         </div>
-        <div className="rounded-xl border bg-white p-4">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">SLA resolucion (30 dias)</p>
-          <p className="mt-2 text-2xl font-semibold">{resolutionCompliance}</p>
+          <p className="mt-2 text-3xl font-semibold">{resolutionCompliance}</p>
+          <p className="mt-2 text-xs text-zinc-500">Meta mensual</p>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border bg-white p-5 shadow-sm">
+        <section className="sts-card p-5 fade-up">
           <h2 className="text-base font-semibold">Breaches recientes</h2>
           <div className="mt-3 space-y-2">
             {breaches.length === 0 ? (
               <p className="text-sm text-muted-foreground">No hay incumplimientos recientes.</p>
             ) : (
               breaches.map((t) => (
-                <div key={t.id} className="rounded-lg border p-3">
+                <div key={t.id} className="sts-card p-3">
                   <p className="text-sm font-medium">{t.component.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {t.severity} | {t.status} | {t.openedAt.toLocaleString("es-CO")}
@@ -116,7 +120,7 @@ export default async function StsDashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border bg-white p-5 shadow-sm">
+        <section className="sts-card p-5 fade-up">
           <h2 className="text-base font-semibold">KPIs (ultimo valor)</h2>
           <div className="mt-3 space-y-2">
             {kpiPolicies.length === 0 ? (
@@ -126,7 +130,7 @@ export default async function StsDashboardPage() {
                 const key = `${p.componentId}:${p.metric}:${p.periodicity}`;
                 const m = measurementMap.get(key);
                 return (
-                  <div key={p.id} className="rounded-lg border p-3">
+                  <div key={p.id} className="sts-card p-3">
                     <p className="text-sm font-medium">
                       {p.component.name} | {p.metric} ({p.periodicity})
                     </p>

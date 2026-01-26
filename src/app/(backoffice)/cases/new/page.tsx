@@ -135,14 +135,14 @@ export default function NewCasePage() {
   return (
     <div className="mx-auto max-w-5xl p-6 space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Crear caso</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Crear caso</h1>
         <p className="text-sm text-muted-foreground">
           Flujo unificado basado en registry. Buscado rápido por código o placa.
         </p>
       </div>
 
       {error ? (
-        <div className="rounded-lg border p-4">
+        <div className="sts-card p-4">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       ) : null}
@@ -163,7 +163,7 @@ export default function NewCasePage() {
               type="button"
               disabled={saving}
               onClick={submit}
-              className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+              className="sts-btn-primary text-sm disabled:opacity-60"
             >
               {saving ? "Guardando…" : "Crear caso"}
             </button>

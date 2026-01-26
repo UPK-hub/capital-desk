@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="mx-auto max-w-md p-6">
-      <div className="rounded-xl border bg-white p-5 space-y-3">
+      <div className="sts-card p-5 space-y-3">
         <h1 className="text-xl font-semibold">Restablecer contraseña</h1>
 
         {!token ? <p className="text-sm text-red-600">Token inválido.</p> : null}
@@ -50,7 +50,7 @@ export default function ResetPasswordPage() {
 
         <button
           disabled={!token || pwd.length < 8 || saving}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary text-sm disabled:opacity-50"
           onClick={submit}
         >
           {saving ? "Guardando..." : "Confirmar"}

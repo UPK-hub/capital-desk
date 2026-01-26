@@ -1,0 +1,14 @@
+-- AlterTable
+ALTER TABLE "ThemeSettings" ADD COLUMN     "backgroundDark" TEXT NOT NULL DEFAULT '222.2 84% 4.9%',
+ADD COLUMN     "borderDark" TEXT NOT NULL DEFAULT '217.2 32.6% 17.5%',
+ADD COLUMN     "cardDark" TEXT NOT NULL DEFAULT '222.2 84% 4.9%',
+ADD COLUMN     "cardForegroundDark" TEXT NOT NULL DEFAULT '210 40% 98%',
+ADD COLUMN     "foregroundDark" TEXT NOT NULL DEFAULT '210 40% 98%',
+ADD COLUMN     "mode" TEXT NOT NULL DEFAULT 'light',
+ADD COLUMN     "mutedDark" TEXT NOT NULL DEFAULT '217.2 32.6% 17.5%',
+ADD COLUMN     "mutedForegroundDark" TEXT NOT NULL DEFAULT '215 20.2% 65.1%',
+ADD COLUMN     "primaryDark" TEXT NOT NULL DEFAULT '210 40% 98%',
+ADD COLUMN     "primaryForegroundDark" TEXT NOT NULL DEFAULT '222.2 47.4% 11.2%',
+ADD COLUMN     "stsAccent2Dark" TEXT NOT NULL DEFAULT '207 73% 45%',
+ADD COLUMN     "stsAccentDark" TEXT NOT NULL DEFAULT '171 66% 36%',
+ADD COLUMN     "stsBgDark" TEXT NOT NULL DEFAULT '222 40% 12%';

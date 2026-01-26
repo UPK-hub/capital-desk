@@ -8,7 +8,7 @@ export default async function HomePage() {
   if (!session) {
     return (
       <div className="mx-auto max-w-xl p-8 space-y-4">
-        <h1 className="text-2xl font-semibold">Capital Desk</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Capital Desk</h1>
         <p className="text-sm text-muted-foreground">Debes iniciar sesion.</p>
         <Link className="underline" href="/login">Ir a login</Link>
       </div>
@@ -35,74 +35,74 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-3xl p-8 space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Capital Desk</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Capital Desk</h1>
         <p className="text-sm text-muted-foreground">Selecciona tu area de trabajo.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border p-5 space-y-2">
+        <div className="sts-card p-5 space-y-2 fade-up">
           <h2 className="text-lg font-semibold">Backoffice</h2>
           <p className="text-sm text-muted-foreground">
             Gestion de casos, asignacion de tecnicos, trazabilidad.
           </p>
           {canBackoffice ? (
-            <Link className="underline" href="/cases">Entrar a Backoffice</Link>
+            <Link className="sts-btn-soft" href="/cases">Entrar a Backoffice</Link>
           ) : (
             <p className="text-sm text-muted-foreground">Sin permisos.</p>
           )}
         </div>
 
-        <div className="rounded-xl border p-5 space-y-2">
+        <div className="sts-card p-5 space-y-2 fade-up">
           <h2 className="text-lg font-semibold">Tecnico</h2>
           <p className="text-sm text-muted-foreground">
             Ordenes de trabajo asignadas, evidencia, formularios y cierre.
           </p>
           {canTech ? (
-            <Link className="underline" href="/work-orders">Entrar a Tecnico</Link>
+            <Link className="sts-btn-soft" href="/work-orders">Entrar a Tecnico</Link>
           ) : (
             <p className="text-sm text-muted-foreground">Sin permisos.</p>
           )}
         </div>
 
-        <div className="rounded-xl border p-5 space-y-2">
+        <div className="sts-card p-5 space-y-2 fade-up">
           <h2 className="text-lg font-semibold">Videos</h2>
           <p className="text-sm text-muted-foreground">
             Gestion de solicitudes de videos, estados y adjuntos.
           </p>
           {canVideo ? (
-            <Link className="underline" href="/video-requests">Ver solicitudes</Link>
+            <Link className="sts-btn-soft" href="/video-requests">Ver solicitudes</Link>
           ) : (
             <p className="text-sm text-muted-foreground">Sin permisos.</p>
           )}
         </div>
 
-        <div className="rounded-xl border p-5 space-y-2">
+        <div className="sts-card p-5 space-y-2 fade-up">
           <h2 className="text-lg font-semibold">Planner</h2>
           <p className="text-sm text-muted-foreground">Calendario semanal y disponibilidad de tecnicos.</p>
           {canPlanner ? (
-            <Link className="underline" href="/planner">Abrir planner</Link>
+            <Link className="sts-btn-soft" href="/planner">Abrir planner</Link>
           ) : (
             <p className="text-sm text-muted-foreground">Sin permisos.</p>
           )}
         </div>
 
-        <div className="rounded-xl border p-5 space-y-2">
+        <div className="sts-card p-5 space-y-2 fade-up">
           <h2 className="text-lg font-semibold">STS</h2>
           <p className="text-sm text-muted-foreground">Tickets, SLA y KPIs del sistema STS.</p>
           {canSts ? (
-            <Link className="underline" href="/sts">Abrir STS</Link>
+            <Link className="sts-btn-soft" href="/sts">Abrir STS</Link>
           ) : (
             <p className="text-sm text-muted-foreground">Sin permisos.</p>
           )}
         </div>
 
-        <div className="rounded-xl border p-5 space-y-2">
+        <div className="sts-card p-5 space-y-2 fade-up">
           <h2 className="text-lg font-semibold">Administracion</h2>
           <p className="text-sm text-muted-foreground">
             Usuarios, roles y configuracion.
           </p>
           {isAdmin ? (
-            <Link className="underline" href="/admin">Ir a administracion</Link>
+            <Link className="sts-btn-soft" href="/admin">Ir a administracion</Link>
           ) : (
             <p className="text-sm text-muted-foreground">Solo admin.</p>
           )}

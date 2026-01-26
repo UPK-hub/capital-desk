@@ -130,8 +130,11 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <section className="lg:col-span-2 space-y-4">
-        <div className="rounded-xl border bg-white p-5 shadow-sm space-y-2">
-          <h2 className="text-base font-semibold">{ticket.component.name}</h2>
+        <div className="sts-card p-5 space-y-2 fade-up">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{ticket.component.name}</h2>
+            <span className="sts-chip">{ticket.status}</span>
+          </div>
           <p className="text-sm text-muted-foreground">{ticket.description}</p>
           <p className="text-xs text-muted-foreground">
             {ticket.severity} | {ticket.channel} | Abierto {new Date(ticket.openedAt).toLocaleString("es-CO")}
@@ -143,11 +146,11 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
           ) : null}
         </div>
 
-        <div className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+        <div className="sts-card p-5 space-y-3 fade-up">
           <h3 className="text-sm font-semibold">Timeline</h3>
           <div className="space-y-2">
             {ticket.events.map((e) => (
-              <div key={e.id} className="rounded border p-3">
+              <div key={e.id} className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">
                   {new Date(e.createdAt).toLocaleString("es-CO")} | {e.type} {e.status ? `-> ${e.status}` : ""}
                 </p>
@@ -159,7 +162,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
       </section>
 
       <section className="space-y-4">
-        <div className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+        <div className="sts-card p-5 space-y-3 fade-up">
           <h3 className="text-sm font-semibold">SLA</h3>
           <p className="text-xs text-muted-foreground">
             Respuesta: {sla?.responseMinutes ?? "-"} min {sla?.breachResponse ? "(breach)" : ""}
@@ -185,7 +188,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
           ) : null}
         </div>
 
-        <div className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+        <div className="sts-card p-5 space-y-3 fade-up">
           <h3 className="text-sm font-semibold">Gestion</h3>
           {error ? <div className="rounded-md border p-3 text-sm text-red-600">{error}</div> : null}
           {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
@@ -219,7 +222,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
 
           <button
             type="button"
-            className="rounded-md bg-black px-3 py-2 text-sm text-white disabled:opacity-50"
+            className="sts-btn-primary"
             disabled={saving}
             onClick={saveChanges}
           >
@@ -227,7 +230,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
           </button>
         </div>
 
-        <div className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+        <div className="sts-card p-5 space-y-3 fade-up">
           <h3 className="text-sm font-semibold">Agregar comentario</h3>
           <textarea
             className="min-h-24 w-full rounded-md border px-3 py-2 text-sm"
@@ -240,7 +243,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
           </label>
           <button
             type="button"
-            className="rounded-md border px-3 py-2 text-sm"
+            className="sts-btn-ghost"
             disabled={saving || comment.trim().length === 0}
             onClick={addComment}
           >

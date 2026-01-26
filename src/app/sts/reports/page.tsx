@@ -49,43 +49,43 @@ export default async function StsReportsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 fade-up">
         <div>
-          <h1 className="text-2xl font-semibold">Reportes STS</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Reportes STS</h1>
           <p className="text-sm text-muted-foreground">Cumplimiento SLA y KPIs.</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <Link className="underline" href="/api/sts/reports/tickets">
+          <Link className="sts-btn-ghost" href="/api/sts/reports/tickets">
             Exportar CSV
           </Link>
-          <Link className="underline" href="/api/sts/reports/tickets?format=xlsx">
+          <Link className="sts-btn-primary" href="/api/sts/reports/tickets?format=xlsx">
             Exportar Excel
           </Link>
         </div>
       </div>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <section className="sts-card p-5 fade-up">
         <h2 className="text-base font-semibold">Cumplimiento SLA por componente y severidad (30 dias)</h2>
-        <div className="mt-3 overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50">
+        <div className="mt-3 overflow-auto sts-card">
+          <table className="sts-table">
+            <thead>
               <tr>
-                <th className="text-left p-2">Componente</th>
-                <th className="text-left p-2">Severidad</th>
-                <th className="text-left p-2">Cumpl. respuesta</th>
-                <th className="text-left p-2">Cumpl. resolucion</th>
+                <th>Componente</th>
+                <th>Severidad</th>
+                <th>Cumpl. respuesta</th>
+                <th>Cumpl. resolucion</th>
               </tr>
             </thead>
             <tbody>
               {Array.from(byComponentSeverity.entries()).map(([key, row]) => {
                 const [component, severity] = key.split("|");
                 return (
-                  <tr key={key} className="border-t">
-                    <td className="p-2">{component}</td>
-                    <td className="p-2">{severity}</td>
-                    <td className="p-2">{pct(row.total - row.responseBreaches, row.total)}</td>
-                    <td className="p-2">{pct(row.total - row.resolutionBreaches, row.total)}</td>
+                  <tr key={key}>
+                    <td>{component}</td>
+                    <td>{severity}</td>
+                    <td>{pct(row.total - row.responseBreaches, row.total)}</td>
+                    <td>{pct(row.total - row.resolutionBreaches, row.total)}</td>
                   </tr>
                 );
               })}
@@ -94,23 +94,23 @@ export default async function StsReportsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <section className="sts-card p-5 fade-up">
         <h2 className="text-base font-semibold">Disponibilidad semanal</h2>
-        <div className="mt-3 overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50">
+        <div className="mt-3 overflow-auto sts-card">
+          <table className="sts-table">
+            <thead>
               <tr>
-                <th className="text-left p-2">Componente</th>
-                <th className="text-left p-2">Semana</th>
-                <th className="text-left p-2">Valor</th>
+                <th>Componente</th>
+                <th>Semana</th>
+                <th>Valor</th>
               </tr>
             </thead>
             <tbody>
               {weeklyAvailability.map((m) => (
-                <tr key={m.id} className="border-t">
-                  <td className="p-2">{m.component.name}</td>
-                  <td className="p-2">{m.periodStart.toLocaleDateString("es-CO")}</td>
-                  <td className="p-2">{Number(m.value).toFixed(2)}%</td>
+                <tr key={m.id}>
+                  <td>{m.component.name}</td>
+                  <td>{m.periodStart.toLocaleDateString("es-CO")}</td>
+                  <td>{Number(m.value).toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -118,25 +118,25 @@ export default async function StsReportsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <section className="sts-card p-5 fade-up">
         <h2 className="text-base font-semibold">KPIs diarios (transmision, captura, grabacion)</h2>
-        <div className="mt-3 overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50">
+        <div className="mt-3 overflow-auto sts-card">
+          <table className="sts-table">
+            <thead>
               <tr>
-                <th className="text-left p-2">Componente</th>
-                <th className="text-left p-2">KPI</th>
-                <th className="text-left p-2">Fecha</th>
-                <th className="text-left p-2">Valor</th>
+                <th>Componente</th>
+                <th>KPI</th>
+                <th>Fecha</th>
+                <th>Valor</th>
               </tr>
             </thead>
             <tbody>
               {dailyKpis.map((m) => (
-                <tr key={m.id} className="border-t">
-                  <td className="p-2">{m.component.name}</td>
-                  <td className="p-2">{m.metric}</td>
-                  <td className="p-2">{m.periodStart.toLocaleDateString("es-CO")}</td>
-                  <td className="p-2">{Number(m.value).toFixed(2)}%</td>
+                <tr key={m.id}>
+                  <td>{m.component.name}</td>
+                  <td>{m.metric}</td>
+                  <td>{m.periodStart.toLocaleDateString("es-CO")}</td>
+                  <td>{Number(m.value).toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>

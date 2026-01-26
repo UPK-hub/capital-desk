@@ -13,7 +13,7 @@ export default async function CorrectiveReportPage({ params }: PageProps) {
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-4xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="underline text-sm" href="/login">Ir a login</Link>
         </div>
@@ -49,12 +49,12 @@ export default async function CorrectiveReportPage({ params }: PageProps) {
           </p>
         </div>
 
-        <Link className="rounded-md border px-3 py-2 text-sm" href={`/work-orders/${wo.id}`}>
+        <Link className="sts-btn-ghost text-sm" href={`/work-orders/${wo.id}`}>
           Volver a OT
         </Link>
       </div>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <section className="sts-card p-5">
         <CorrectiveReportForm workOrderId={wo.id} initial={wo.correctiveReport} />
       </section>
     </div>

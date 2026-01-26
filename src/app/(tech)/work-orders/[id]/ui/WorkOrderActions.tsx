@@ -69,18 +69,18 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border p-3">
+      <div className="sts-card p-3">
         <p className="text-xs text-muted-foreground">Estado actual</p>
         <p className="mt-1 text-sm font-medium">{currentStatus}</p>
       </div>
 
       {msg ? (
-        <div className="rounded-lg border p-3">
+        <div className="sts-card p-3">
           <p className="text-sm">{msg}</p>
         </div>
       ) : null}
 
-      <div className="rounded-xl border p-4 space-y-3">
+      <div className="sts-card p-4 space-y-3">
         <h3 className="text-sm font-semibold">Iniciar OT</h3>
         <textarea
           className="w-full rounded-md border p-2 text-sm"
@@ -100,7 +100,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
           type="button"
           onClick={onStart}
           disabled={!canStart || loading}
-          className="w-full rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+          className="w-full sts-btn-primary text-sm disabled:opacity-60"
         >
           {loading ? "Procesando..." : "Iniciar"}
         </button>
@@ -109,7 +109,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
         ) : null}
       </div>
 
-      <div className="rounded-xl border p-4 space-y-3">
+      <div className="sts-card p-4 space-y-3">
         <h3 className="text-sm font-semibold">Finalizar OT</h3>
         <textarea
           className="w-full rounded-md border p-2 text-sm"
@@ -129,7 +129,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
           type="button"
           onClick={onFinish}
           disabled={!canFinish || loading}
-          className="w-full rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+          className="w-full sts-btn-primary text-sm disabled:opacity-60"
         >
           {loading ? "Procesando..." : "Finalizar"}
         </button>

@@ -43,7 +43,7 @@ export default async function BusLifePage({ params }: PageProps) {
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="underline text-sm" href="/login">
             Ir a login
@@ -57,7 +57,7 @@ export default async function BusLifePage({ params }: PageProps) {
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>
@@ -234,7 +234,7 @@ export default async function BusLifePage({ params }: PageProps) {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-3xl font-semibold tracking-tight">
             Hoja de vida • Bus {bus.code} {bus.plate ? `• ${bus.plate}` : ""}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -244,10 +244,10 @@ export default async function BusLifePage({ params }: PageProps) {
 
         <div className="flex items-center gap-2">
           <span className={statusBadge(bus.active)}>{bus.active ? "ACTIVO" : "INACTIVO"}</span>
-          <Link className="rounded-md border px-3 py-2 text-sm" href="/buses">
+          <Link className="sts-btn-ghost text-sm" href="/buses">
             Volver
           </Link>
-          <Link className="rounded-md bg-black px-3 py-2 text-sm text-white" href="/cases/new">
+          <Link className="sts-btn-primary text-sm" href="/cases/new">
             Crear caso
           </Link>
         </div>
@@ -255,22 +255,22 @@ export default async function BusLifePage({ params }: PageProps) {
 
       {/* KPIs */}
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Equipos</p>
           <p className="mt-1 text-lg font-semibold">{totalEquipments}</p>
           <p className="text-xs text-muted-foreground">{activeEquipments} activos</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Casos recientes</p>
           <p className="mt-1 text-lg font-semibold">{totalCases}</p>
           <p className="text-xs text-muted-foreground">últimos 50</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">OT asociadas</p>
           <p className="mt-1 text-lg font-semibold">{casesWithWo}</p>
           <p className="text-xs text-muted-foreground">derivadas de casos</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Eventos timeline</p>
           <p className="mt-1 text-lg font-semibold">{timeline.length}</p>
           <p className="text-xs text-muted-foreground">bus + casos + OT</p>
@@ -281,14 +281,14 @@ export default async function BusLifePage({ params }: PageProps) {
         {/* Izquierda */}
         <div className="lg:col-span-2 space-y-6">
           {/* Inventario */}
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Inventario de equipos</h2>
               <p className="text-xs text-muted-foreground">{bus.equipments.length} registros</p>
             </div>
 
             <div className="mt-4 overflow-auto">
-              <table className="w-full text-sm">
+              <table className="sts-table">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 text-left">Tipo</th>
@@ -326,14 +326,14 @@ export default async function BusLifePage({ params }: PageProps) {
           </section>
 
           {/* Casos */}
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Casos recientes</h2>
               <p className="text-xs text-muted-foreground">últimos {bus.cases.length}</p>
             </div>
 
             <div className="mt-4 overflow-auto">
-              <table className="w-full text-sm">
+              <table className="sts-table">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 text-left">Fecha</th>
@@ -392,7 +392,7 @@ export default async function BusLifePage({ params }: PageProps) {
           </section>
 
           {/* Timeline */}
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Trazabilidad (timeline)</h2>
               <p className="text-xs text-muted-foreground">
@@ -405,7 +405,7 @@ export default async function BusLifePage({ params }: PageProps) {
                 <p className="text-sm text-muted-foreground">No hay eventos para mostrar.</p>
               ) : (
                 timeline.map((it, idx) => (
-                  <div key={`${it.kind}-${idx}`} className="rounded-lg border p-4">
+                  <div key={`${it.kind}-${idx}`} className="sts-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -461,39 +461,39 @@ export default async function BusLifePage({ params }: PageProps) {
 
         {/* Derecha: panel rápido */}
         <div className="space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Acciones rápidas</h2>
             <div className="mt-3 space-y-2">
               <Link
-                className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
+                className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
                 href="/cases/new"
               >
                 Crear caso para este bus
               </Link>
-              <Link className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm" href="/cases">
+              <Link className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm" href="/cases">
                 Ir a bandeja de casos
               </Link>
-              <Link className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm" href="/buses">
+              <Link className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm" href="/buses">
                 Volver a listado buses
               </Link>
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Resumen</h2>
             <div className="mt-3 space-y-2 text-sm">
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 font-medium">{bus.code}</p>
                 <p className="text-xs text-muted-foreground">{bus.plate ?? "Sin placa"}</p>
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Estado</p>
                 <p className="mt-1 font-medium">{bus.active ? "ACTIVO" : "INACTIVO"}</p>
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Equipos activos</p>
                 <p className="mt-1 font-medium">
                   {activeEquipments} / {totalEquipments}

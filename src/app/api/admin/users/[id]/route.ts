@@ -68,3 +68,37 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     user: { ...updated, hasPassword: Boolean(updated.passwordHash) },
   });
 }
+
+export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = (session.user as any).role as Role;
+  if (role !== Role.ADMIN) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const tenantId = (session.user as any).tenantId as string;
+  const userId = String(ctx.params.id);
+  const selfId = (session.user as any).id as string | undefined;
+
+  if (selfId && selfId === userId) {
+    return NextResponse.json({ error: "No puedes eliminar tu propio usuario" }, { status: 400 });
+  }
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, tenantId },
+    select: { id: true },
+  });
+  if (!target) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        error: "No se pudo eliminar. Intenta desactivar si tiene registros asociados.",
+      },
+      { status: 400 }
+    );
+  }
+}

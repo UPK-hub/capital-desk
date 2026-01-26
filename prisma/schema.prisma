@@ -137,6 +137,7 @@ model Tenant {
   stsKpiMeasurements StsKpiMeasurement[]
   stsMaintenanceWindows StsMaintenanceWindow[]
   stsAuditLogs StsAuditLog[]
+  themeSettings ThemeSettings?
 
   sequence      TenantSequence?
 }
@@ -412,6 +413,48 @@ model StsAuditLog {
   createdAt DateTime @default(now())
 
   @@index([tenantId, createdAt])
+}
+
+model ThemeSettings {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  mode String @default("light")
+
+  background       String
+  foreground       String
+  card             String
+  cardForeground   String
+  primary          String
+  primaryForeground String
+  border           String
+  muted            String
+  mutedForeground  String
+  radius           String
+
+  stsBg      String
+  stsAccent  String
+  stsAccent2 String
+
+  backgroundDark       String @default("222.2 84% 4.9%")
+  foregroundDark       String @default("210 40% 98%")
+  cardDark             String @default("222.2 84% 4.9%")
+  cardForegroundDark   String @default("210 40% 98%")
+  primaryDark          String @default("210 40% 98%")
+  primaryForegroundDark String @default("222.2 47.4% 11.2%")
+  borderDark           String @default("217.2 32.6% 17.5%")
+  mutedDark            String @default("217.2 32.6% 17.5%")
+  mutedForegroundDark  String @default("215 20.2% 65.1%")
+  stsBgDark      String @default("222 40% 12%")
+  stsAccentDark  String @default("171 66% 36%")
+  stsAccent2Dark String @default("207 73% 45%")
+
+  fontSans    String
+  fontDisplay String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PasswordResetToken {

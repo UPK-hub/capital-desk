@@ -11,7 +11,7 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="underline text-sm" href="/login">
             Ir a login
@@ -25,7 +25,7 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>

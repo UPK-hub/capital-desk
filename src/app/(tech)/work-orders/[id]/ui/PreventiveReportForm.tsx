@@ -355,7 +355,7 @@ export default function PreventiveReportForm(props: Props) {
   }
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+    <div className="sts-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold">Formato Preventivo (inline)</h3>
@@ -370,7 +370,7 @@ export default function PreventiveReportForm(props: Props) {
           type="button"
           onClick={form.handleSubmit(onSubmit)}
           disabled={saving || loading}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary text-sm disabled:opacity-50"
         >
           {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
         </button>
@@ -380,7 +380,7 @@ export default function PreventiveReportForm(props: Props) {
 
       <form className="mt-4 space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         {/* DATOS DEL BIARTICULADO */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">Datos del biarticulado</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
@@ -415,7 +415,7 @@ export default function PreventiveReportForm(props: Props) {
         </section>
 
         {/* PROGRAMACIÓN */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">Programación del mantenimiento</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
@@ -434,11 +434,11 @@ export default function PreventiveReportForm(props: Props) {
         </section>
 
         {/* TABLA DISPOSITIVOS */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">Dispositivos del STS instalados en el biarticulado</h4>
 
           <div className="mt-3 overflow-auto">
-            <table className="min-w-[1100px] w-full text-sm">
+            <table className="min-w-[1100px] sts-table">
               <thead className="text-xs text-muted-foreground">
                 <tr className="border-b">
                   <th className="py-2 text-left">Descripción</th>
@@ -516,11 +516,11 @@ export default function PreventiveReportForm(props: Props) {
         </section>
 
         {/* ACTIVIDADES + VOLTAJES */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">Actividades mantenimiento preventivo</h4>
 
           <div className="mt-3 overflow-auto">
-            <table className="min-w-[980px] w-full text-sm">
+            <table className="min-w-[980px] sts-table">
               <thead className="text-xs text-muted-foreground">
                 <tr className="border-b">
                   <th className="py-2 text-left">Área</th>
@@ -602,7 +602,7 @@ export default function PreventiveReportForm(props: Props) {
         </section>
 
         {/* OBSERVACIONES + TIEMPO + RESPONSABLES */}
-        <section className="rounded-lg border p-4">
+        <section className="sts-card p-4">
           <h4 className="text-sm font-semibold">Cierre</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">

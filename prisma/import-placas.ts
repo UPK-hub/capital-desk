@@ -5,7 +5,7 @@ import path from "path";
 
 const prisma = new PrismaClient();
 
-type Row = { busCode: string; plate: string };
+type Row = { busCode: string; plate: string | null };
 
 function parsePlatesCsv(raw: string): Row[] {
   const lines = raw
@@ -13,29 +13,30 @@ function parsePlatesCsv(raw: string): Row[] {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  if (lines.length < 2) return [];
+  if (!lines.length) return [];
 
-  // Detecta delimitador: si el header tiene ';' usamos ';', si no ','.
-  const header = lines[0];
-  const delim = header.includes(";") ? ";" : ",";
+  const sep = lines[0].includes(";") ? ";" : lines[0].includes("\t") ? "\t" : ",";
+  const header = lines[0].split(sep).map((h) => h.trim().toLowerCase());
+  const codeIdx = header.findIndex((h) => ["code", "bus", "bus_id", "buscode", "vehiculo", "biarticulado", "codigo"].includes(h));
+  const plateIdx = header.findIndex((h) => ["plate", "placa"].includes(h));
 
-  // Header esperado: Bus_ID;Placa  (o Bus_ID,Placa)
-  // Si el archivo viniera "mal leído" como una sola columna, igual lo manejamos.
+  const hasHeader = codeIdx !== -1;
+  const start = hasHeader ? 1 : 0;
   const out: Row[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(delim).map((p) => p.trim());
-    if (parts.length < 2) continue;
-
-    const busCode = parts[0];
-    const plate = parts[1];
-
-    if (!busCode || !plate) continue;
-
+  for (const line of lines.slice(start)) {
+    const parts = line.split(sep).map((p) => p.trim());
+    const rawCode = parts[hasHeader ? codeIdx : 0] ?? "";
+    const busCode = rawCode.trim().toUpperCase();
+    if (!busCode) continue;
+    const rawPlate = parts[hasHeader && plateIdx >= 0 ? plateIdx : 1] ?? "";
+    const plate = rawPlate ? rawPlate.trim() : null;
     out.push({ busCode, plate });
   }
 
-  return out;
+  const map = new Map<string, Row>();
+  for (const row of out) map.set(row.busCode, row);
+  return Array.from(map.values());
 }
 
 async function main() {

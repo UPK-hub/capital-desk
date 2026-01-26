@@ -32,29 +32,34 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-sm p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Ingreso</h1>
+      <div className="sts-card p-6 space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Capital Desk</p>
+          <h1 className="text-2xl font-semibold">Ingreso</h1>
+        </div>
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        <input
-          className="w-full rounded-md border px-3 py-2"
-          placeholder="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          className="w-full rounded-md border px-3 py-2"
-          placeholder="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <form onSubmit={onSubmit} className="space-y-3">
+          <input
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+            placeholder="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+            placeholder="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button className="w-full rounded-md bg-black px-3 py-2 text-white">
-          Entrar
-        </button>
-      </form>
+          <button className="w-full sts-btn-primary text-sm">
+            Entrar
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

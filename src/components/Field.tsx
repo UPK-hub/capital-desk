@@ -12,7 +12,7 @@ export function Field({
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
-        <label className="text-sm font-medium">{label}</label>
+        <label className="text-xs font-semibold text-muted-foreground">{label}</label>
         {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
       </div>
       {children}
@@ -28,8 +28,8 @@ export function Input(props: BaseProps) {
     <input
       {...rest}
       className={
-        "h-10 w-full rounded-md border bg-white px-3 text-sm outline-none " +
-        "focus:ring-2 focus:ring-black/20 disabled:opacity-60 " +
+        "h-10 w-full sts-card border-zinc-200/70 bg-white/90 px-3 text-sm outline-none " +
+        "focus:ring-2 focus:ring-black/10 disabled:opacity-60 " +
         (className ?? "")
       }
     />
@@ -42,8 +42,8 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea
       {...rest}
       className={
-        "w-full rounded-md border bg-white px-3 py-2 text-sm outline-none " +
-        "focus:ring-2 focus:ring-black/20 disabled:opacity-60 " +
+        "w-full sts-card border-zinc-200/70 bg-white/90 px-3 py-2 text-sm outline-none " +
+        "focus:ring-2 focus:ring-black/10 disabled:opacity-60 " +
         (className ?? "")
       }
     />
@@ -56,8 +56,8 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement> & { 
     <select
       {...rest}
       className={
-        "h-10 w-full rounded-md border bg-white px-3 text-sm outline-none " +
-        "focus:ring-2 focus:ring-black/20 disabled:opacity-60 " +
+        "h-10 w-full sts-card border-zinc-200/70 bg-white/90 px-3 text-sm outline-none " +
+        "focus:ring-2 focus:ring-black/10 disabled:opacity-60 " +
         (className ?? "")
       }
     />

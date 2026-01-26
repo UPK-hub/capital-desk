@@ -25,15 +25,15 @@ export default function BusesPage() {
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Buses</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Buses</h1>
       </div>
 
-      <div className="rounded-xl border p-4 space-y-3">
+      <div className="sts-card p-4 space-y-3">
         <Input placeholder="Buscar por código o placa…" value={q} onChange={(e) => setQ(e.target.value)} />
         {loading ? <p className="text-sm text-muted-foreground">Buscando…</p> : null}
       </div>
 
-      <div className="rounded-xl border">
+      <div className="sts-card">
         <div className="grid grid-cols-12 gap-2 border-b p-3 text-xs font-medium">
           <div className="col-span-3">Código</div>
           <div className="col-span-3">Placa</div>

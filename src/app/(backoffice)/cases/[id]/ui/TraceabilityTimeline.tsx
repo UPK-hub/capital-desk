@@ -56,19 +56,19 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
   }, [caseId]);
 
   if (loading) {
-    return <div className="rounded-xl border bg-white p-5 text-sm text-muted-foreground">Cargando trazabilidad.</div>;
+    return <div className="sts-card p-5 text-sm text-muted-foreground">Cargando trazabilidad.</div>;
   }
 
   if (err) {
-    return <div className="rounded-xl border bg-white p-5 text-sm">{err}</div>;
+    return <div className="sts-card p-5 text-sm">{err}</div>;
   }
 
   if (!items.length) {
-    return <div className="rounded-xl border bg-white p-5 text-sm text-muted-foreground">Sin eventos.</div>;
+    return <div className="sts-card p-5 text-sm text-muted-foreground">Sin eventos.</div>;
   }
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+    <div className="sts-card p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Trazabilidad</h2>
         <p className="text-xs text-muted-foreground">{items.length} eventos</p>
@@ -91,7 +91,7 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
           const actor = it.actor?.name ? `${it.actor.name}` : null;
 
           return (
-            <div key={it.id} className="rounded-lg border p-4">
+            <div key={it.id} className="sts-card p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">

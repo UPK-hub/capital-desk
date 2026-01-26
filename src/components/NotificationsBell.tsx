@@ -73,14 +73,14 @@ export default function NotificationsBell() {
     if (unreadCount <= 0) return null;
     const label = unreadCount > 99 ? "99+" : String(unreadCount);
     return (
-      <span className="absolute -top-1 -right-1 rounded-full bg-black text-white text-[10px] px-1.5 py-0.5">
+      <span className="absolute -top-1 -right-1 rounded-full bg-[var(--sts-accent)] text-white text-[10px] px-1.5 py-0.5">
         {label}
       </span>
     );
   }, [unreadCount]);
 
   return (
-    <div className="relative">
+    <div className="relative z-40">
       <button
         type="button"
         onClick={async () => {
@@ -88,7 +88,7 @@ export default function NotificationsBell() {
           setOpen(next);
           if (next) await load();
         }}
-        className="relative rounded-md border px-3 py-2 text-sm"
+        className="relative app-pill w-full justify-between"
         aria-label="Notificaciones"
       >
         Notificaciones
@@ -96,7 +96,7 @@ export default function NotificationsBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 mt-2 w-[420px] max-w-[90vw] rounded-xl border bg-white shadow-sm overflow-hidden z-50">
+        <div className="absolute left-0 mt-2 w-[420px] max-w-[90vw] sts-card overflow-hidden z-50">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>
               <p className="text-sm font-semibold">Notificaciones</p>
@@ -107,7 +107,7 @@ export default function NotificationsBell() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-md border px-2 py-1 text-xs"
+              className="sts-btn-ghost text-xs"
             >
               Cerrar
             </button>
@@ -142,7 +142,7 @@ export default function NotificationsBell() {
                             <button
                               type="button"
                               onClick={() => markRead(n.id)}
-                              className="rounded-md border px-2 py-1 text-xs"
+                              className="sts-btn-ghost text-xs"
                             >
                               Marcar leída
                             </button>
@@ -171,7 +171,7 @@ export default function NotificationsBell() {
           <div className="border-t px-4 py-3 flex justify-end">
             <button
               type="button"
-              className="rounded-md bg-black px-3 py-2 text-sm text-white"
+              className="sts-btn-primary text-sm"
               onClick={async () => {
                 await load();
                 router.refresh();

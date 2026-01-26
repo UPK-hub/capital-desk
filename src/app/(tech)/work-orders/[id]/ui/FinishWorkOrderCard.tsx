@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -14,8 +14,10 @@ export default function FinishWorkOrderCard({ workOrderId, disabled, finishedAt,
   const router = useRouter();
   const [notes, setNotes] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
+  const [fileName, setFileName] = useState("Ningun archivo seleccionado");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputId = useId();
 
   async function submit() {
     setSaving(true);
@@ -38,6 +40,7 @@ export default function FinishWorkOrderCard({ workOrderId, disabled, finishedAt,
 
       setNotes("");
       setPhoto(null);
+      setFileName("Ningun archivo seleccionado");
       router.refresh();
     } catch (e: any) {
       setError(e?.message ?? "Error finalizando OT");
@@ -47,7 +50,7 @@ export default function FinishWorkOrderCard({ workOrderId, disabled, finishedAt,
   }
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm">
+    <section className="sts-card p-5">
       <h2 className="text-base font-semibold">Finalizar OT</h2>
 
       {finishedAt ? (
@@ -59,32 +62,50 @@ export default function FinishWorkOrderCard({ workOrderId, disabled, finishedAt,
       )}
 
       {error ? (
-        <div className="mt-3 rounded-lg border p-3">
+        <div className="mt-3 sts-card p-3">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       ) : null}
 
       <div className="mt-4 grid gap-3">
         <textarea
-          className="min-h-[90px] rounded-md border p-3 text-sm"
+          className="min-h-[90px] w-full rounded-xl border border-zinc-200/70 bg-white/90 p-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
           placeholder="Notas de finalización..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           disabled={disabled || saving}
         />
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-          disabled={disabled || saving}
-        />
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Evidencia</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              htmlFor={inputId}
+              className={`sts-btn-ghost text-sm ${disabled || saving ? "opacity-60 pointer-events-none" : ""}`}
+            >
+              Seleccionar archivo
+            </label>
+            <span className="text-xs text-muted-foreground">{fileName}</span>
+          </div>
+          <input
+            id={inputId}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setPhoto(file);
+              setFileName(file?.name ?? "Ningun archivo seleccionado");
+            }}
+            disabled={disabled || saving}
+          />
+        </div>
 
         <button
           type="button"
           onClick={submit}
           disabled={disabled || saving || !notes.trim() || !photo}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+          className="sts-btn-primary text-sm disabled:opacity-60"
         >
           {saving ? "Guardando..." : "Finalizar"}
         </button>

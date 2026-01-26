@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Role } from "@prisma/client";
@@ -24,27 +23,5 @@ export default async function StsLayout({ children }: { children: React.ReactNod
     redirect("/");
   }
 
-  const isAdmin =
-    session.user.role === Role.ADMIN ||
-    session.user.role === Role.SUPERVISOR ||
-    caps?.includes(CAPABILITIES.STS_ADMIN);
-
-  return (
-    <div className="min-h-screen">
-      <header className="border-b">
-        <div className="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between">
-          <Link href="/" className="font-semibold">
-            Capital Desk
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link className="underline" href="/sts">Dashboard</Link>
-            <Link className="underline" href="/sts/tickets">Tickets</Link>
-            <Link className="underline" href="/sts/reports">Reportes</Link>
-            {isAdmin ? <Link className="underline" href="/sts/admin">Configuracion</Link> : null}
-          </nav>
-        </div>
-      </header>
-      <main>{children}</main>
-    </div>
-  );
+  return <div className="space-y-6">{children}</div>;
 }

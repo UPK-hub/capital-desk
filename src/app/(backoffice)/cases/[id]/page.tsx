@@ -55,7 +55,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-lg border p-4">
+        <div className="sts-card p-4">
           <p className="text-sm">Debes iniciar sesion.</p>
           <Link className="text-sm underline" href="/login">
             Ir a login
@@ -69,7 +69,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.PLANNER) {
     return (
       <div className="mx-auto max-w-5xl p-6">
-        <div className="rounded-lg border p-4">
+        <div className="sts-card p-4">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>
@@ -194,7 +194,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">{c.title}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{c.title}</h1>
           <p className="text-sm text-muted-foreground">
             {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
           </p>
@@ -209,7 +209,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Contexto</h2>
               <Link className="text-sm underline" href={`/buses/${c.bus.id}`}>
@@ -218,26 +218,26 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 text-sm font-medium">
                   {c.bus.code} {c.bus.plate ? `| ${c.bus.plate}` : ""}
                 </p>
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Equipo</p>
                 <p className="mt-1 text-sm font-medium">{equipmentLabel}</p>
               </div>
 
-              <div className="rounded-lg border p-3 md:col-span-2">
+              <div className="sts-card p-3 md:col-span-2">
                 <p className="text-xs text-muted-foreground">Descripcion</p>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{c.description}</p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Trazabilidad</h2>
               <p className="text-xs text-muted-foreground">
@@ -249,7 +249,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               {timeline.map((it, idx) => (
                 <div key={`${it.kind}-${idx}`} className="flex gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-zinc-400" />
-                  <div className="flex-1 rounded-lg border p-4">
+                  <div className="flex-1 sts-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -296,16 +296,16 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
         <div className="space-y-6">
           {isVideoCase ? (
-            <section className="rounded-xl border bg-white p-5 shadow-sm">
+            <section className="sts-card p-5">
               <h2 className="text-base font-semibold">Gestion de video</h2>
 
               <div className="mt-3 space-y-2">
-                <div className="rounded-lg border p-3">
+                <div className="sts-card p-3">
                   <p className="text-xs text-muted-foreground">Estado solicitud</p>
                   <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.status ?? "-"}</p>
                 </div>
 
-                <div className="rounded-lg border p-3">
+                <div className="sts-card p-3">
                   <p className="text-xs text-muted-foreground">Estado descarga</p>
                   <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.downloadStatus ?? "-"}</p>
                 </div>
@@ -313,7 +313,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                 {c.videoDownloadRequest ? (
                   <Link
                     href={`/video-requests/${c.videoDownloadRequest.id}`}
-                    className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
+                    className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
                   >
                     Abrir gestion
                   </Link>
@@ -324,23 +324,23 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </section>
           ) : (
             <>
-              <section className="rounded-xl border bg-white p-5 shadow-sm">
+              <section className="sts-card p-5">
                 <h2 className="text-base font-semibold">Orden de trabajo</h2>
 
                 <div className="mt-3 space-y-2">
-                  <div className="rounded-lg border p-3">
+                  <div className="sts-card p-3">
                     <p className="text-xs text-muted-foreground">OT</p>
                     <p className="mt-1 text-sm font-medium">
                       {c.workOrder?.workOrderNo ? fmtWoNo(c.workOrder.workOrderNo) : "-"}
                     </p>
                   </div>
 
-                  <div className="rounded-lg border p-3">
+                  <div className="sts-card p-3">
                     <p className="text-xs text-muted-foreground">Estado OT</p>
                     <p className="mt-1 text-sm font-medium">{c.workOrder?.status ?? "- (no aplica)"}</p>
                   </div>
 
-                  <div className="rounded-lg border p-3">
+                  <div className="sts-card p-3">
                     <p className="text-xs text-muted-foreground">Tecnico asignado</p>
                     <p className="mt-1 text-sm font-medium">
                       {c.workOrder?.assignedTo?.name ?? (c.workOrder?.assignedToId ? c.workOrder.assignedToId : "-")}
@@ -353,7 +353,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   {hasWo ? (
                     <Link
                       href={`/work-orders/${c.workOrder!.id}`}
-                      className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
+                      className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
                     >
                       Abrir OT
                     </Link>
@@ -366,14 +366,14 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               </section>
 
               {c.stsTicket ? (
-                <section className="rounded-xl border bg-white p-5 shadow-sm">
+                <section className="sts-card p-5">
                   <h2 className="text-base font-semibold">Ticket STS</h2>
                   <div className="mt-3 space-y-2">
-                    <div className="rounded-lg border p-3">
+                    <div className="sts-card p-3">
                       <p className="text-xs text-muted-foreground">Estado</p>
                       <p className="mt-1 text-sm font-medium">{c.stsTicket.status}</p>
                     </div>
-                    <div className="rounded-lg border p-3">
+                    <div className="sts-card p-3">
                       <p className="text-xs text-muted-foreground">Severidad</p>
                       <p className="mt-1 text-sm font-medium">{c.stsTicket.severity}</p>
                     </div>
@@ -388,11 +388,11 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               ) : null}
 
               {c.stsTicket?.events?.length ? (
-                <section className="rounded-xl border bg-white p-5 shadow-sm">
+                <section className="sts-card p-5">
                   <h2 className="text-base font-semibold">Timeline STS</h2>
                   <div className="mt-3 space-y-2">
                     {c.stsTicket.events.map((e) => (
-                      <div key={e.id} className="rounded-lg border p-3">
+                      <div key={e.id} className="sts-card p-3">
                         <p className="text-xs text-muted-foreground">
                           {fmtDate(e.createdAt)} | {e.type} {e.status ? `-> ${e.status}` : ""}
                         </p>
@@ -411,7 +411,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   technicians={technicians}
                 />
               ) : (
-                <section className="rounded-xl border bg-white p-5 shadow-sm">
+                <section className="sts-card p-5">
                   <h2 className="text-base font-semibold">Asignacion</h2>
                   <p className="mt-2 text-sm text-muted-foreground">Solo planner o admin pueden asignar tecnicos.</p>
                 </section>
@@ -419,7 +419,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </>
           )}
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Acciones</h2>
             <div className="mt-3 space-y-2">
               <Link

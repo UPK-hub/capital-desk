@@ -43,7 +43,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="underline text-sm" href="/login">
             Ir a login
@@ -57,7 +57,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-xl border bg-white p-6">
+        <div className="sts-card p-6">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>
@@ -247,7 +247,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-3xl font-semibold tracking-tight">
             Hoja de vida · {equipment.equipmentType.name} {equipment.serial ? `· ${equipment.serial}` : ""}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -257,29 +257,29 @@ export default async function EquipmentLifePage({ params }: PageProps) {
 
         <div className="flex items-center gap-2">
           <span className={statusBadge(equipment.active)}>{equipment.active ? "ACTIVO" : "INACTIVO"}</span>
-          <Link className="rounded-md border px-3 py-2 text-sm" href={`/buses/${equipment.bus.id}`}>
+          <Link className="sts-btn-ghost text-sm" href={`/buses/${equipment.bus.id}`}>
             Volver al bus
           </Link>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Casos asociados</p>
           <p className="mt-1 text-lg font-semibold">{cases.length}</p>
           <p className="text-xs text-muted-foreground">totales</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">OT asociadas</p>
           <p className="mt-1 text-lg font-semibold">{woIds.length}</p>
           <p className="text-xs text-muted-foreground">derivadas</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Eventos timeline</p>
           <p className="mt-1 text-lg font-semibold">{timeline.length}</p>
           <p className="text-xs text-muted-foreground">equipo + casos + OT</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Ubicación</p>
           <p className="mt-1 text-lg font-semibold">{equipment.location ?? "—"}</p>
           <p className="text-xs text-muted-foreground">registro actual</p>
@@ -288,14 +288,14 @@ export default async function EquipmentLifePage({ params }: PageProps) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Casos asociados</h2>
               <p className="text-xs text-muted-foreground">{cases.length} registros</p>
             </div>
 
             <div className="mt-4 overflow-auto">
-              <table className="w-full text-sm">
+              <table className="sts-table">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 text-left">Fecha</th>
@@ -353,7 +353,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Trazabilidad (timeline)</h2>
               <p className="text-xs text-muted-foreground">
@@ -368,7 +368,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
                 timeline.map((it, idx) => (
                   <div key={`${it.kind}-${idx}`} className="flex gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full bg-zinc-400" />
-                    <div className="flex-1 rounded-lg border p-3">
+                    <div className="flex-1 sts-card p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-medium">
@@ -429,22 +429,22 @@ export default async function EquipmentLifePage({ params }: PageProps) {
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Resumen</h2>
             <div className="mt-3 space-y-2 text-sm">
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Equipo</p>
                 <p className="mt-1 font-medium">{equipment.equipmentType.name}</p>
                 <p className="text-xs text-muted-foreground">{equipment.serial ?? "Sin serial"}</p>
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 font-medium">{equipment.bus.code}</p>
                 <p className="text-xs text-muted-foreground">{equipment.bus.plate ?? "Sin placa"}</p>
               </div>
 
-              <div className="rounded-lg border p-3">
+              <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Estado</p>
                 <p className="mt-1 font-medium">{equipment.active ? "ACTIVO" : "INACTIVO"}</p>
               </div>

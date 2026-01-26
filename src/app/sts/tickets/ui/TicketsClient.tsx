@@ -104,8 +104,14 @@ export default function TicketsClient() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
-        <h2 className="text-sm font-semibold">Nuevo ticket</h2>
+      <section className="sts-card p-5 space-y-3 fade-up">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Nuevo ticket</h2>
+            <p className="text-xs text-muted-foreground">Abre un incidente con severidad y canal.</p>
+          </div>
+          <span className="sts-chip">SLA en vivo</span>
+        </div>
 
         {error ? <div className="rounded-md border p-3 text-sm text-red-600">{error}</div> : null}
         {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
@@ -152,7 +158,7 @@ export default function TicketsClient() {
 
         <button
           type="button"
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="sts-btn-primary"
           disabled={saving || !componentId || description.trim().length < 5}
           onClick={createTicket}
         >
@@ -160,10 +166,13 @@ export default function TicketsClient() {
         </button>
       </section>
 
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Tickets</h2>
-          <button className="rounded-md border px-3 py-1.5 text-sm" onClick={load} disabled={loading}>
+      <section className="sts-card p-5 space-y-3 fade-up">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Tickets</h2>
+            <p className="text-xs text-muted-foreground">Filtra por severidad, estado o breach.</p>
+          </div>
+          <button className="sts-btn-ghost" onClick={load} disabled={loading}>
             {loading ? "Cargando..." : "Refrescar"}
           </button>
         </div>
@@ -204,31 +213,33 @@ export default function TicketsClient() {
         ) : tickets.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hay tickets.</p>
         ) : (
-          <div className="overflow-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50">
+          <div className="overflow-auto sts-card">
+            <table className="sts-table">
+              <thead>
                 <tr>
-                  <th className="text-left p-2">Componente</th>
-                  <th className="text-left p-2">Severidad</th>
-                  <th className="text-left p-2">Estado</th>
-                  <th className="text-left p-2">Canal</th>
-                  <th className="text-left p-2">Apertura</th>
-                  <th className="text-left p-2">Breaches</th>
-                  <th className="text-left p-2">Accion</th>
+                  <th>Componente</th>
+                  <th>Severidad</th>
+                  <th>Estado</th>
+                  <th>Canal</th>
+                  <th>Apertura</th>
+                  <th>Breaches</th>
+                  <th>Accion</th>
                 </tr>
               </thead>
               <tbody>
                 {tickets.map((t) => (
-                  <tr key={t.id} className="border-t">
-                    <td className="p-2">{t.component.name}</td>
-                    <td className="p-2">{t.severity}</td>
-                    <td className="p-2">{t.status}</td>
-                    <td className="p-2">{t.channel}</td>
-                    <td className="p-2">{new Date(t.openedAt).toLocaleString("es-CO")}</td>
-                    <td className="p-2">
+                  <tr key={t.id}>
+                    <td>{t.component.name}</td>
+                    <td>{t.severity}</td>
+                    <td>
+                      <span className="sts-chip">{t.status}</span>
+                    </td>
+                    <td>{t.channel}</td>
+                    <td>{new Date(t.openedAt).toLocaleString("es-CO")}</td>
+                    <td>
                       {t.breachResponse ? "Resp" : ""} {t.breachResolution ? "Res" : ""}
                     </td>
-                    <td className="p-2">
+                    <td>
                       <Link className="underline" href={`/sts/tickets/${t.id}`}>
                         Ver
                       </Link>

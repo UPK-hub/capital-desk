@@ -73,10 +73,10 @@ export default function TechnicianSchedulesClient() {
   }
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-4">
+    <section className="sts-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Configuracion de turnos</h2>
-        <button className="rounded-md border px-3 py-1.5 text-sm" disabled={loading} onClick={load}>
+        <button className="sts-btn-ghost text-sm" disabled={loading} onClick={load}>
           {loading ? "Cargando..." : "Refrescar"}
         </button>
       </div>
@@ -89,8 +89,8 @@ export default function TechnicianSchedulesClient() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No hay tecnicos activos.</p>
       ) : (
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-auto sts-card">
+          <table className="sts-table">
             <thead className="bg-zinc-50">
               <tr>
                 <th className="text-left p-2">Tecnico</th>

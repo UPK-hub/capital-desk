@@ -95,7 +95,7 @@ export default function PreventiveReportForm({
   }
 
   return (
-    <div className="rounded-lg border p-4 space-y-4">
+    <div className="sts-card p-4 space-y-4">
       <div>
         <p className="text-sm font-semibold">Preventivo</p>
         <p className="text-xs text-muted-foreground">Se guarda inline y habilita el cierre de OT.</p>
@@ -154,7 +154,7 @@ export default function PreventiveReportForm({
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="sts-btn-primary text-sm disabled:opacity-60"
           >
             {saving ? "Guardando…" : "Guardar"}
           </button>

@@ -14,7 +14,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   if (!session?.user) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-lg border p-4">
+        <div className="sts-card p-4">
           <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="text-sm underline" href="/login">
             Ir a login
@@ -28,7 +28,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
     return (
       <div className="mx-auto max-w-6xl p-6">
-        <div className="rounded-lg border p-4">
+        <div className="sts-card p-4">
           <p className="text-sm">No autorizado.</p>
         </div>
       </div>
@@ -72,12 +72,12 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           <h1 className="text-xl font-semibold">Casos</h1>
           <p className="text-sm text-muted-foreground">Bandeja Backoffice</p>
         </div>
-        <Link className="rounded-md border px-3 py-2" href="/cases/new">
+        <Link className="sts-btn-ghost text-sm" href="/cases/new">
           Crear caso
         </Link>
       </div>
 
-      <div className="rounded-xl border p-4">
+      <div className="sts-card p-4">
         <form className="flex flex-wrap gap-2" method="get">
           <input
             name="q"
@@ -112,37 +112,44 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             <option value="5">5 (Baja)</option>
           </select>
 
-          <button className="rounded-md bg-black px-3 py-2 text-sm text-white">Filtrar</button>
+          <button className="sts-btn-primary text-sm">Filtrar</button>
         </form>
       </div>
 
-      <div className="rounded-xl border">
-        <div className="grid grid-cols-12 border-b px-4 py-2 text-xs text-muted-foreground">
-          <div className="col-span-2">Bus</div>
-          <div className="col-span-3">Título</div>
-          <div className="col-span-2">Tipo</div>
-          <div className="col-span-2">Estado</div>
-          <div className="col-span-1">Prio</div>
-          <div className="col-span-2"></div>
-        </div>
-
-        {cases.map((c) => (
-          <div key={c.id} className="grid grid-cols-12 items-center px-4 py-3 text-sm border-b last:border-b-0">
-            <div className="col-span-2">
-              <div className="font-medium">{c.bus.code}</div>
-              <div className="text-xs text-muted-foreground">{c.bus.plate ?? "-"}</div>
-            </div>
-            <div className="col-span-3">{c.title}</div>
-            <div className="col-span-2">{c.type}</div>
-            <div className="col-span-2">{c.status}</div>
-            <div className="col-span-1">{c.priority}</div>
-            <div className="col-span-2 text-right">
-              <Link className="underline" href={`/cases/${c.id}`}>
-                Abrir
-              </Link>
-            </div>
-          </div>
-        ))}
+      <div className="sts-card overflow-hidden">
+        <table className="sts-table">
+          <thead>
+            <tr>
+              <th>Bus</th>
+              <th>Título</th>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th>Prio</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {cases.map((c) => (
+              <tr key={c.id}>
+                <td>
+                  <div className="font-medium">{c.bus.code}</div>
+                  <div className="text-xs text-muted-foreground">{c.bus.plate ?? "-"}</div>
+                </td>
+                <td>{c.title}</td>
+                <td>{c.type}</td>
+                <td>
+                  <span className="sts-chip">{c.status}</span>
+                </td>
+                <td>{c.priority}</td>
+                <td className="text-right">
+                  <Link className="text-sm underline" href={`/cases/${c.id}`}>
+                    Abrir
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
         {cases.length === 0 ? <div className="p-6 text-sm text-muted-foreground">No hay casos.</div> : null}
       </div>
