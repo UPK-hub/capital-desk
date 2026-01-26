@@ -11,7 +11,8 @@ export default function TechLayout({ children }: { children: React.ReactNode }) 
           </Link>
 
           <nav className="flex items-center gap-4 text-sm">
-            <Link className="underline" href="/work-orders">Órdenes</Link>
+            <Link className="underline" href="/work-orders">Ordenes</Link>
+            <Link className="underline" href="/video-requests">Videos</Link>
             <NotificationsBell />
           </nav>
         </div>

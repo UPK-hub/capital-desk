@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, CaseStatus, NotificationType, Role } from "@prisma/client";
+import { CaseEventType, CaseStatus, NotificationType, Role, StsTicketChannel, StsTicketSeverity } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
@@ -65,8 +65,14 @@ export async function POST(req: NextRequest) {
   const busId = String(body.busId ?? "").trim();
   if (!busId) return NextResponse.json({ error: "Selecciona un bus" }, { status: 400 });
 
-  const busEquipmentId = body.busEquipmentId ? String(body.busEquipmentId) : null;
-  if (cfg.requiresEquipment && !busEquipmentId) {
+  const rawEquipmentIds = Array.isArray(body.busEquipmentIds)
+    ? body.busEquipmentIds
+    : body.busEquipmentId
+      ? [body.busEquipmentId]
+      : [];
+  const busEquipmentIds = rawEquipmentIds.map((id: any) => String(id)).filter(Boolean);
+  const busEquipmentId = busEquipmentIds[0] ?? null;
+  if (cfg.requiresEquipment && !busEquipmentIds.length) {
     return NextResponse.json({ error: "Equipo del bus requerido para este tipo de caso" }, { status: 400 });
   }
 
@@ -76,6 +82,10 @@ export async function POST(req: NextRequest) {
   if (description.length < 5) return NextResponse.json({ error: "Descripción muy corta" }, { status: 400 });
 
   const priority = normalizePriority(body.priority);
+  const stsSeverity = cfg.stsComponentCode ? (body.stsSeverity as StsTicketSeverity) : null;
+  if (cfg.stsComponentCode && (!stsSeverity || !Object.values(StsTicketSeverity).includes(stsSeverity))) {
+    return NextResponse.json({ error: "Severidad STS requerida" }, { status: 400 });
+  }
 
   if (cfg.hasInlineCreateForm) {
     const v = VideoDownloadRequestSchema.safeParse(body.videoDownloadRequest);
@@ -104,6 +114,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    if (busEquipmentIds.length) {
+      await tx.caseEquipment.createMany({
+        data: busEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
+        skipDuplicates: true,
+      });
+    }
+
     await tx.caseEvent.create({
       data: { caseId: c.id, type: CaseEventType.CREATED, message: "Caso creado", meta: { userId } },
     });
@@ -117,7 +134,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      await tx.case.update({ where: { id: c.id }, data: { status: CaseStatus.OT_ASIGNADA } });
+      if (!cfg.stsComponentCode) {
+        await tx.case.update({ where: { id: c.id }, data: { status: CaseStatus.OT_ASIGNADA } });
+      }
 
       await tx.caseEvent.create({
         data: { caseId: c.id, type: CaseEventType.STATUS_CHANGE, message: "OT creada automáticamente", meta: { userId } },
@@ -139,16 +158,62 @@ export async function POST(req: NextRequest) {
           requesterRole: v.requesterRole || null,
           requesterPhone: v.requesterPhone || null,
           requesterEmail: v.requesterEmail || null,
+          requesterEmails: Array.isArray(v.requesterEmails)
+            ? v.requesterEmails.map((x: any) => String(x).trim()).filter(Boolean)
+            : null,
           vehicleId: v.vehicleId || null,
           eventStart: parseDateOrNull(v.eventStartAt),
           eventEnd: parseDateOrNull(v.eventEndAt),
           camerasRequested: v.cameras || null,
           deliveryMethod: v.deliveryMethod || null,
+          descriptionNovedad: v.descriptionNovedad || null,
+          finSolicitud: Array.isArray(v.finSolicitud)
+            ? v.finSolicitud.map((x: any) => String(x).trim()).filter(Boolean)
+            : null,
         },
       });
 
       await tx.caseEvent.create({
         data: { caseId: c.id, type: CaseEventType.COMMENT, message: "Formulario video guardado", meta: { userId } },
+      });
+    }
+
+    if (cfg.stsComponentCode) {
+      const comp = await tx.stsComponent.findFirst({
+        where: { tenantId, code: cfg.stsComponentCode },
+      });
+      if (!comp) throw new Error("Componente STS no configurado");
+
+      const ticket = await tx.stsTicket.create({
+        data: {
+          tenantId,
+          caseId: c.id,
+          componentId: comp.id,
+          severity: stsSeverity as StsTicketSeverity,
+          status: "OPEN",
+          channel: StsTicketChannel.OTHER,
+          description: c.description,
+          openedAt: new Date(),
+        },
+      });
+
+      await tx.stsTicketEvent.create({
+        data: {
+          ticketId: ticket.id,
+          type: "STATUS_CHANGE",
+          status: "OPEN",
+          message: "Ticket creado desde caso",
+          createdById: userId,
+        },
+      });
+
+      await tx.caseEvent.create({
+        data: {
+          caseId: c.id,
+          type: CaseEventType.COMMENT,
+          message: `Ticket STS creado (${cfg.stsComponentCode})`,
+          meta: { userId, stsTicketId: ticket.id },
+        },
       });
     }
 

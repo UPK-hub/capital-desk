@@ -4,7 +4,7 @@ import * as React from "react";
 import { CASE_EVENT_LABELS, fmtCaseNo, fmtWoNo } from "@/lib/traceability/labels";
 
 type TimelineItem = {
-  kind: "CASE" | "BUS";
+  kind: "CASE" | "BUS" | "WO_STEP" | "FORM";
   id: string;
   at: string | Date;
   type: string;
@@ -56,7 +56,7 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
   }, [caseId]);
 
   if (loading) {
-    return <div className="rounded-xl border bg-white p-5 text-sm text-muted-foreground">Cargando trazabilidad…</div>;
+    return <div className="rounded-xl border bg-white p-5 text-sm text-muted-foreground">Cargando trazabilidad.</div>;
   }
 
   if (err) {
@@ -79,15 +79,15 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
           const label =
             it.kind === "CASE"
               ? (CASE_EVENT_LABELS as any)[it.type] ?? it.type
+              : it.kind === "FORM"
+              ? it.type === "PREVENTIVE"
+                ? "Formato preventivo"
+                : "Formato correctivo"
               : it.type === "WO_ASSIGNED"
               ? "OT asignada"
               : it.type;
 
-          const secondary =
-            it.kind === "CASE"
-              ? it.message ?? null
-              : it.message ?? null;
-
+          const secondary = it.message ?? null;
           const actor = it.actor?.name ? `${it.actor.name}` : null;
 
           return (
@@ -96,13 +96,19 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={pill(it.kind === "CASE" ? "bg-white" : "bg-white")}>
-                      {it.kind === "CASE" ? "CASO" : "BUS"}
+                      {it.kind === "CASE"
+                        ? "CASO"
+                        : it.kind === "BUS"
+                        ? "BUS"
+                        : it.kind === "WO_STEP"
+                        ? "OT"
+                        : "FORM"}
                     </span>
                     <p className="text-sm font-semibold">{label}</p>
 
                     <span className="text-xs text-muted-foreground">
                       {fmtCaseNo(it.refs?.caseNo ?? null)}
-                      {it.refs?.workOrderNo ? ` · ${fmtWoNo(it.refs.workOrderNo)}` : ""}
+                      {it.refs?.workOrderNo ? ` | ${fmtWoNo(it.refs.workOrderNo)}` : ""}
                     </span>
                   </div>
 
@@ -111,9 +117,13 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
                   ) : null}
 
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {actor ? <span>Por: <span className="font-medium text-foreground">{actor}</span></span> : null}
+                    {actor ? (
+                      <span>
+                        Por: <span className="font-medium text-foreground">{actor}</span>
+                      </span>
+                    ) : null}
                     {it.refs?.workOrderId ? (
-                      <span className="font-mono opacity-70">ref: {String(it.refs.workOrderId).slice(0, 10)}…</span>
+                      <span className="font-mono opacity-70">ref: {String(it.refs.workOrderId).slice(0, 10)}.</span>
                     ) : null}
                   </div>
                 </div>
@@ -121,7 +131,27 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
                 <p className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(it.at)}</p>
               </div>
 
-              {/* Meta técnico colapsable */}
+              {it.meta?.media?.length ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {it.meta.media.map((m: any, idx: number) => (
+                    <img
+                      key={`${m.filePath}-${idx}`}
+                      src={`/api/uploads/${m.filePath}`}
+                      alt={m.kind ?? "Evidencia"}
+                      className="h-40 w-full rounded-md border object-cover"
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {it.kind === "FORM" && it.meta?.pdfUrl ? (
+                <div className="mt-3">
+                  <a className="text-xs underline" href={it.meta.pdfUrl} target="_blank" rel="noreferrer">
+                    Descargar PDF
+                  </a>
+                </div>
+              ) : null}
+
               {it.meta ? (
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs text-muted-foreground">Ver detalles técnicos</summary>

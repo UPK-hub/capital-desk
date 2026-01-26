@@ -51,6 +51,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
     where: {
       tenantId,
       ...(role === Role.TECHNICIAN ? { assignedToId: userId } : {}),
+      case: { type: { not: "SOLICITUD_DESCARGA_VIDEO" } },
       ...(status ? { status } : {}),
       ...(q
         ? {
@@ -83,15 +84,15 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Órdenes de Trabajo</h1>
-        <p className="text-sm text-muted-foreground">Bandeja Técnico</p>
+        <h1 className="text-2xl font-semibold">Ordenes de Trabajo</h1>
+        <p className="text-sm text-muted-foreground">Bandeja Tecnico</p>
       </div>
 
       <div className="rounded-xl border bg-white p-4">
         <form className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between" method="get">
           <input
             name="q"
-            placeholder="Buscar por bus (código/placa) o caso…"
+            placeholder="Buscar por bus (codigo/placa) o caso."
             defaultValue={searchParams?.q ?? ""}
             className="h-10 w-full md:w-96 rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
           />

@@ -12,6 +12,7 @@ type UserRow = {
   createdAt: string;
   updatedAt: string;
   hasPassword: boolean;
+  capabilities?: string[];
 };
 
 function clsInput() {
@@ -222,7 +223,7 @@ export default function UsersAdminClient() {
   );
 }
 
-function UserRowItem({
+  function UserRowItem({
   u,
   disabled,
   onPatch,
@@ -234,6 +235,7 @@ function UserRowItem({
   onReset: (id: string) => Promise<void>;
 }) {
   const [newPass, setNewPass] = React.useState("");
+  const caps = new Set(u.capabilities ?? []);
 
   return (
     <tr className="border-t align-top">
@@ -268,6 +270,25 @@ function UserRowItem({
       <td className="p-2">{u.hasPassword ? "Configurada" : "Pendiente"}</td>
 
       <td className="p-2 space-y-2">
+        <div className="flex flex-wrap gap-2 text-xs">
+          {["STS_READ", "STS_WRITE", "STS_ADMIN", "PLANNER", "CASE_ASSIGN"].map((cap) => (
+            <label key={cap} className="inline-flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={caps.has(cap)}
+                disabled={disabled}
+                onChange={(e) => {
+                  const next = new Set(caps);
+                  if (e.target.checked) next.add(cap);
+                  else next.delete(cap);
+                  onPatch(u.id, { capabilities: Array.from(next) });
+                }}
+              />
+              <span>{cap}</span>
+            </label>
+          ))}
+        </div>
+
         <div className="flex gap-2">
           <input
             className="h-9 w-44 rounded-md border px-2 text-sm"

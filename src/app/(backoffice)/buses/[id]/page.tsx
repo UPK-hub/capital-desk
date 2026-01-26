@@ -293,8 +293,8 @@ export default async function BusLifePage({ params }: PageProps) {
                   <tr className="border-b">
                     <th className="py-2 text-left">Tipo</th>
                     <th className="py-2 text-left">Serial</th>
-                    <th className="py-2 text-left">Ubicación</th>
                     <th className="py-2 text-left">Estado</th>
+                    <th className="py-2 text-left"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -309,9 +309,13 @@ export default async function BusLifePage({ params }: PageProps) {
                       <tr key={e.id} className="border-b last:border-b-0">
                         <td className="py-2 font-medium">{e.equipmentType.name}</td>
                         <td className="py-2">{e.serial ?? "—"}</td>
-                        <td className="py-2">{e.location ?? "—"}</td>
                         <td className="py-2">
                           <span className={statusBadge(e.active)}>{e.active ? "ACTIVO" : "INACTIVO"}</span>
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <Link className="underline" href={`/equipments/${e.id}`}>
+                            Ver hoja de vida
+                          </Link>
                         </td>
                       </tr>
                     ))
@@ -401,54 +405,53 @@ export default async function BusLifePage({ params }: PageProps) {
                 <p className="text-sm text-muted-foreground">No hay eventos para mostrar.</p>
               ) : (
                 timeline.map((it, idx) => (
-                  <div key={`${it.kind}-${idx}`} className="flex gap-3">
-                    <div className="mt-1 h-2 w-2 rounded-full bg-zinc-400" />
-                    <div className="flex-1 rounded-lg border p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">
-                            <span className="mr-2 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                              {it.kind}
-                            </span>
-                            {it.title}
-                          </p>
+                  <div key={`${it.kind}-${idx}`} className="rounded-lg border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {it.kind}
+                          </span>
+                          <p className="text-sm font-semibold">{it.title}</p>
+                        </div>
 
-                          {it.message ? (
-                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{it.message}</p>
-                          ) : null}
+                        {it.message ? (
+                          <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{it.message}</p>
+                        ) : null}
 
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                           {it.meta?.busEquipmentId ? (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              Equipo: {equipmentNameById.get(it.meta.busEquipmentId) ?? it.meta.busEquipmentId}
-                            </p>
+                            <span>Equipo: {equipmentNameById.get(it.meta.busEquipmentId) ?? it.meta.busEquipmentId}</span>
                           ) : null}
-
                           {it.meta?.caseId ? (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Caso: {caseTitleById.get(it.meta.caseId) ?? it.meta.caseId}
-                            </p>
+                            <span>Caso: {caseTitleById.get(it.meta.caseId) ?? it.meta.caseId}</span>
                           ) : null}
                         </div>
 
-                        <div className="flex flex-col items-end gap-2">
-                          <p className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(it.at)}</p>
-                          {it.href ? (
+                        {it.href ? (
+                          <div className="mt-2">
                             <Link className="text-xs underline" href={it.href}>
                               Abrir
                             </Link>
-                          ) : null}
-                        </div>
+                          </div>
+                        ) : null}
                       </div>
 
-                      {it.meta ? (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-xs text-muted-foreground">Ver meta</summary>
-                          <pre className="mt-2 max-h-64 overflow-auto rounded bg-zinc-50 p-2 text-xs">
-                            {JSON.stringify(it.meta, null, 2)}
-                          </pre>
-                        </details>
-                      ) : null}
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(it.at)}</p>
                     </div>
+
+                    {it.meta?.media?.length ? (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {it.meta.media.map((m: any, idx: number) => (
+                          <img
+                            key={`${m.filePath}-${idx}`}
+                            src={`/api/uploads/${m.filePath}`}
+                            alt={m.kind ?? "Evidencia"}
+                            className="h-40 w-full rounded-md border object-cover"
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ))
               )}

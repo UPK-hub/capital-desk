@@ -31,19 +31,19 @@ function fmtDate(d: Date) {
 }
 
 function fmtCaseNo(n?: number | null) {
-  if (!n) return "CASO-—";
+  if (!n) return "CASO--";
   return `CASO-${String(n).padStart(3, "0")}`;
 }
 
 function fmtWoNo(n?: number | null) {
-  if (!n) return "OT-—";
+  if (!n) return "OT--";
   return `OT-${String(n).padStart(3, "0")}`;
 }
 
 const CASE_EVENT_LABELS: Record<CaseEventType, string> = {
   CREATED: "Caso creado",
-  ASSIGNED: "Asignación",
-  NOTIFIED: "Notificación",
+  ASSIGNED: "Asignacion",
+  NOTIFIED: "Notificacion",
   STATUS_CHANGE: "Cambio de estado",
   COMMENT: "Comentario",
 };
@@ -56,7 +56,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="rounded-lg border p-4">
-          <p className="text-sm">Debes iniciar sesión.</p>
+          <p className="text-sm">Debes iniciar sesion.</p>
           <Link className="text-sm underline" href="/login">
             Ir a login
           </Link>
@@ -66,7 +66,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   }
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.PLANNER) {
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="rounded-lg border p-4">
@@ -99,6 +99,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       },
       events: { orderBy: { createdAt: "asc" }, take: 200 },
       videoDownloadRequest: true,
+      stsTicket: {
+        include: { events: { orderBy: { createdAt: "asc" } } },
+      },
     },
   });
 
@@ -119,7 +122,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     select: { id: true, name: true, email: true },
   });
 
-  // usuarios del tenant (para mostrar "Por: ..." y nombres en asignación)
   const users = await prisma.user.findMany({
     where: { tenantId, active: true },
     select: { id: true, name: true, role: true, email: true },
@@ -127,19 +129,19 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const userById = new Map(users.map((u) => [u.id, u]));
 
   const equipmentLabel = c.busEquipment
-    ? `${c.busEquipment.equipmentType.name}${c.busEquipment.serial ? ` • ${c.busEquipment.serial}` : ""}${
-        c.busEquipment.location ? ` • ${c.busEquipment.location}` : ""
+    ? `${c.busEquipment.equipmentType.name}${c.busEquipment.serial ? ` | ${c.busEquipment.serial}` : ""}${
+        c.busEquipment.location ? ` | ${c.busEquipment.location}` : ""
       }`
     : "No aplica / No seleccionado";
 
   const hasWo = Boolean(c.workOrder?.id);
+  const isVideoCase = c.type === "SOLICITUD_DESCARGA_VIDEO";
 
-  const refs = `${fmtCaseNo(c.caseNo)}${c.workOrder?.workOrderNo ? ` · ${fmtWoNo(c.workOrder.workOrderNo)}` : ""}`;
+  const refs = `${fmtCaseNo(c.caseNo)}${c.workOrder?.workOrderNo ? ` | ${fmtWoNo(c.workOrder.workOrderNo)}` : ""}`;
 
   const timeline = [
     ...c.events.map((e) => {
       const meta = (e.meta ?? {}) as any;
-
       const actorId = String(meta.by ?? meta.userId ?? meta.actorUserId ?? "");
       const actor = actorId ? userById.get(actorId) : null;
 
@@ -147,11 +149,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       const tech = techId ? userById.get(techId) : null;
 
       const label = CASE_EVENT_LABELS[e.type] ?? e.type;
-
-      // Mensaje humano adicional, sin JSON
       const extra =
         e.type === CaseEventType.ASSIGNED && tech
-          ? `Técnico: ${tech.name}${tech.email ? ` (${tech.email})` : ""}`
+          ? `Tecnico: ${tech.name}${tech.email ? ` (${tech.email})` : ""}`
           : null;
 
       return {
@@ -167,7 +167,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     ...lifecycle.map((e) => {
       const label =
         e.eventType === "WO_ASSIGNED"
-          ? "OT asignada a técnico"
+          ? "OT asignada a tecnico"
           : e.eventType === "WO_STARTED"
           ? "OT iniciada"
           : e.eventType === "WO_FINISHED"
@@ -186,13 +186,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     }),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
+  const caps = (session.user as any).capabilities as string[] | undefined;
+  const canAssign =
+    role === Role.ADMIN || role === Role.PLANNER || caps?.includes("CASE_ASSIGN");
+
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">{c.title}</h1>
           <p className="text-sm text-muted-foreground">
-            {fmtCaseNo(c.caseNo)} • Caso <span className="font-mono">{c.id}</span> • Creado {fmtDate(c.createdAt)}
+            {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
           </p>
         </div>
 
@@ -204,7 +208,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Izquierda */}
         <div className="lg:col-span-2 space-y-6">
           <section className="rounded-xl border bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
@@ -218,7 +221,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 text-sm font-medium">
-                  {c.bus.code} {c.bus.plate ? `• ${c.bus.plate}` : ""}
+                  {c.bus.code} {c.bus.plate ? `| ${c.bus.plate}` : ""}
                 </p>
               </div>
 
@@ -228,18 +231,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               </div>
 
               <div className="rounded-lg border p-3 md:col-span-2">
-                <p className="text-xs text-muted-foreground">Descripción</p>
+                <p className="text-xs text-muted-foreground">Descripcion</p>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{c.description}</p>
               </div>
             </div>
           </section>
 
-          {/* ✅ Trazabilidad sin JSON por defecto */}
           <section className="rounded-xl border bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Trazabilidad</h2>
               <p className="text-xs text-muted-foreground">
-                {c.events.length} eventos de caso • {lifecycle.length} eventos de bus
+                {c.events.length} eventos de caso | {lifecycle.length} eventos de bus
               </p>
             </div>
 
@@ -271,10 +273,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       <p className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(it.at)}</p>
                     </div>
 
-                    {/* Solo en modo debug */}
                     {debug && it.meta ? (
                       <details className="mt-3">
-                        <summary className="cursor-pointer text-xs text-muted-foreground">Ver detalles técnicos</summary>
+                        <summary className="cursor-pointer text-xs text-muted-foreground">Ver detalles tecnicos</summary>
                         <pre className="mt-2 max-h-56 overflow-auto rounded bg-zinc-50 p-2 text-xs">
                           {JSON.stringify(it.meta, null, 2)}
                         </pre>
@@ -287,61 +288,136 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
             {!debug ? (
               <p className="mt-4 text-xs text-muted-foreground">
-                Detalles técnicos ocultos. Para ver meta: agrega <span className="font-mono">?debug=1</span> a la URL.
+                Detalles tecnicos ocultos. Para ver meta: agrega <span className="font-mono">?debug=1</span> a la URL.
               </p>
             ) : null}
           </section>
         </div>
 
-        {/* Derecha */}
         <div className="space-y-6">
-          <section className="rounded-xl border bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold">Orden de trabajo</h2>
+          {isVideoCase ? (
+            <section className="rounded-xl border bg-white p-5 shadow-sm">
+              <h2 className="text-base font-semibold">Gestion de video</h2>
 
-            <div className="mt-3 space-y-2">
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">OT</p>
-                <p className="mt-1 text-sm font-medium">
-                  {c.workOrder?.workOrderNo ? fmtWoNo(c.workOrder.workOrderNo) : "—"}
-                </p>
+              <div className="mt-3 space-y-2">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Estado solicitud</p>
+                  <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.status ?? "-"}</p>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Estado descarga</p>
+                  <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.downloadStatus ?? "-"}</p>
+                </div>
+
+                {c.videoDownloadRequest ? (
+                  <Link
+                    href={`/video-requests/${c.videoDownloadRequest.id}`}
+                    className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
+                  >
+                    Abrir gestion
+                  </Link>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Solicitud de video no disponible.</p>
+                )}
               </div>
+            </section>
+          ) : (
+            <>
+              <section className="rounded-xl border bg-white p-5 shadow-sm">
+                <h2 className="text-base font-semibold">Orden de trabajo</h2>
 
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Estado OT</p>
-                <p className="mt-1 text-sm font-medium">{c.workOrder?.status ?? "— (no aplica)"}</p>
-              </div>
+                <div className="mt-3 space-y-2">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">OT</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {c.workOrder?.workOrderNo ? fmtWoNo(c.workOrder.workOrderNo) : "-"}
+                    </p>
+                  </div>
 
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Técnico asignado</p>
-                <p className="mt-1 text-sm font-medium">
-                  {c.workOrder?.assignedTo?.name ?? (c.workOrder?.assignedToId ? c.workOrder.assignedToId : "—")}
-                </p>
-                {c.workOrder?.assignedAt ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Asignada: {fmtDate(c.workOrder.assignedAt)}</p>
-                ) : null}
-              </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">Estado OT</p>
+                    <p className="mt-1 text-sm font-medium">{c.workOrder?.status ?? "- (no aplica)"}</p>
+                  </div>
 
-              {hasWo ? (
-                <Link
-                  href={`/work-orders/${c.workOrder!.id}`}
-                  className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
-                >
-                  Abrir OT
-                </Link>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">Tecnico asignado</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {c.workOrder?.assignedTo?.name ?? (c.workOrder?.assignedToId ? c.workOrder.assignedToId : "-")}
+                    </p>
+                    {c.workOrder?.assignedAt ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Asignada: {fmtDate(c.workOrder.assignedAt)}</p>
+                    ) : null}
+                  </div>
+
+                  {hasWo ? (
+                    <Link
+                      href={`/work-orders/${c.workOrder!.id}`}
+                      className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white"
+                    >
+                      Abrir OT
+                    </Link>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Este tipo de caso no requiere OT (segun registry) o aun no se genero.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              {c.stsTicket ? (
+                <section className="rounded-xl border bg-white p-5 shadow-sm">
+                  <h2 className="text-base font-semibold">Ticket STS</h2>
+                  <div className="mt-3 space-y-2">
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground">Estado</p>
+                      <p className="mt-1 text-sm font-medium">{c.stsTicket.status}</p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground">Severidad</p>
+                      <p className="mt-1 text-sm font-medium">{c.stsTicket.severity}</p>
+                    </div>
+                    <Link
+                      href={`/sts/tickets/${c.stsTicket.id}`}
+                      className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                    >
+                      Ver ticket STS
+                    </Link>
+                  </div>
+                </section>
+              ) : null}
+
+              {c.stsTicket?.events?.length ? (
+                <section className="rounded-xl border bg-white p-5 shadow-sm">
+                  <h2 className="text-base font-semibold">Timeline STS</h2>
+                  <div className="mt-3 space-y-2">
+                    {c.stsTicket.events.map((e) => (
+                      <div key={e.id} className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          {fmtDate(e.createdAt)} | {e.type} {e.status ? `-> ${e.status}` : ""}
+                        </p>
+                        {e.message ? <p className="mt-1 text-sm text-muted-foreground">{e.message}</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {canAssign ? (
+                <AssignTechnicianCard
+                  caseId={c.id}
+                  workOrderId={c.workOrder?.id ?? null}
+                  currentAssignedToId={c.workOrder?.assignedToId ?? null}
+                  technicians={technicians}
+                />
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  Este tipo de caso no requiere OT (según registry) o aún no se generó.
-                </p>
+                <section className="rounded-xl border bg-white p-5 shadow-sm">
+                  <h2 className="text-base font-semibold">Asignacion</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">Solo planner o admin pueden asignar tecnicos.</p>
+                </section>
               )}
-            </div>
-          </section>
-
-          <AssignTechnicianCard
-            caseId={c.id}
-            workOrderId={c.workOrder?.id ?? null}
-            currentAssignedToId={c.workOrder?.assignedToId ?? null}
-            technicians={technicians}
-          />
+            </>
+          )}
 
           <section className="rounded-xl border bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold">Acciones</h2>

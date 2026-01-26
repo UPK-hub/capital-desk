@@ -337,7 +337,14 @@ function parsePlacasCsvIfExists(): Array<{ code: string; plate?: string | null }
   return Array.from(map.values());
 }
 
-async function upsertUser(args: { tenantId: string; name: string; email: string; role: Role; password: string }) {
+async function upsertUser(args: {
+  tenantId: string;
+  name: string;
+  email: string;
+  role: Role;
+  password: string;
+  capabilities?: string[];
+}) {
   const email = args.email.toLowerCase().trim();
 
   const existing = await prisma.user.findUnique({ where: { email }, select: { passwordHash: true } });
@@ -350,6 +357,7 @@ async function upsertUser(args: { tenantId: string; name: string; email: string;
       name: args.name,
       email,
       role: args.role,
+      capabilities: args.capabilities ?? [],
       passwordHash,
       active: true,
     },
@@ -357,6 +365,7 @@ async function upsertUser(args: { tenantId: string; name: string; email: string;
       tenantId: args.tenantId,
       name: args.name,
       role: args.role,
+      capabilities: args.capabilities ?? [],
       active: true,
       // NO tocamos passwordHash para no resetear contraseñas en seed idempotente
     },
@@ -384,6 +393,7 @@ async function main() {
     email: "admin@capitalbus.local",
     role: Role.ADMIN,
     password: "Admin1234*",
+    capabilities: ["STS_ADMIN", "PLANNER", "CASE_ASSIGN"],
   });
   await upsertUser({
     tenantId: tenant.id,
@@ -398,6 +408,27 @@ async function main() {
     email: "tecnico1@capitalbus.local",
     role: Role.TECHNICIAN,
     password: "Tecnico1234*",
+  });
+  await upsertUser({
+    tenantId: tenant.id,
+    name: "Supervisor STS",
+    email: "supervisor@capitalbus.local",
+    role: Role.SUPERVISOR,
+    password: "Supervisor1234*",
+  });
+  await upsertUser({
+    tenantId: tenant.id,
+    name: "Mesa de ayuda",
+    email: "helpdesk@capitalbus.local",
+    role: Role.HELPDESK,
+    password: "Helpdesk1234*",
+  });
+  await upsertUser({
+    tenantId: tenant.id,
+    name: "Auditor",
+    email: "auditor@capitalbus.local",
+    role: Role.AUDITOR,
+    password: "Auditor1234*",
   });
 
   // Equipment types
@@ -453,6 +484,212 @@ async function main() {
       });
       createdEquipments++;
     }
+  }
+
+  // STS components
+  const stsComponents = [
+    { code: "CCTV", name: "CCTV" },
+    { code: "DRIVER_CAM", name: "Camara conductor" },
+    { code: "MOTOR_SENSORS", name: "Sensores motor/conduccion" },
+    { code: "CABIN_SENSORS", name: "Sensores cabina" },
+    { code: "PANIC_BUTTON", name: "Boton de panico" },
+    { code: "FRONT_REAR_CAM", name: "Camaras frontal/trasera" },
+    { code: "CENTRAL_DEVICE", name: "Dispositivo central" },
+  ];
+
+  for (const comp of stsComponents) {
+    await prisma.stsComponent.upsert({
+      where: { tenantId_code: { tenantId: tenant.id, code: comp.code } },
+      update: { name: comp.name, active: true },
+      create: { tenantId: tenant.id, code: comp.code, name: comp.name, active: true },
+    });
+  }
+
+  const stsComponentsDb = await prisma.stsComponent.findMany({ where: { tenantId: tenant.id } });
+
+  // SLA policies by severity (minutes)
+  const slaBySeverity = [
+    { severity: "EMERGENCY", responseMinutes: 5, resolutionMinutes: 240 },
+    { severity: "HIGH", responseMinutes: 5, resolutionMinutes: 360 },
+    { severity: "MEDIUM", responseMinutes: 15, resolutionMinutes: 1440 },
+    { severity: "LOW", responseMinutes: 15, resolutionMinutes: 2880 },
+  ] as const;
+
+  for (const comp of stsComponentsDb) {
+    for (const sla of slaBySeverity) {
+      await prisma.stsSlaPolicy.upsert({
+        where: {
+          tenantId_componentId_severity: {
+            tenantId: tenant.id,
+            componentId: comp.id,
+            severity: sla.severity as any,
+          },
+        },
+        update: {
+          responseMinutes: sla.responseMinutes,
+          resolutionMinutes: sla.resolutionMinutes,
+          pauseStatuses: ["WAITING_VENDOR"],
+        },
+        create: {
+          tenantId: tenant.id,
+          componentId: comp.id,
+          severity: sla.severity as any,
+          responseMinutes: sla.responseMinutes,
+          resolutionMinutes: sla.resolutionMinutes,
+          pauseStatuses: ["WAITING_VENDOR"],
+        },
+      });
+    }
+  }
+
+  // KPI policies (thresholds)
+  const findComp = (code: string) => stsComponentsDb.find((c) => c.code === code);
+  const panic = findComp("PANIC_BUTTON");
+  const frontRear = findComp("FRONT_REAR_CAM");
+  const cctv = findComp("CCTV");
+
+  for (const comp of stsComponentsDb) {
+    await prisma.stsKpiPolicy.upsert({
+      where: {
+        tenantId_componentId_metric_periodicity: {
+          tenantId: tenant.id,
+          componentId: comp.id,
+          metric: "SUPPORT_RESPONSE",
+          periodicity: "MONTHLY",
+        },
+      },
+      update: { threshold: 90 },
+      create: { tenantId: tenant.id, componentId: comp.id, metric: "SUPPORT_RESPONSE", periodicity: "MONTHLY", threshold: 90 },
+    });
+
+    await prisma.stsKpiPolicy.upsert({
+      where: {
+        tenantId_componentId_metric_periodicity: {
+          tenantId: tenant.id,
+          componentId: comp.id,
+          metric: "AVAILABILITY",
+          periodicity: "WEEKLY",
+        },
+      },
+      update: { threshold: comp.id === panic?.id ? 100 : 99 },
+      create: {
+        tenantId: tenant.id,
+        componentId: comp.id,
+        metric: "AVAILABILITY",
+        periodicity: "WEEKLY",
+        threshold: comp.id === panic?.id ? 100 : 99,
+      },
+    });
+
+    await prisma.stsKpiPolicy.upsert({
+      where: {
+        tenantId_componentId_metric_periodicity: {
+          tenantId: tenant.id,
+          componentId: comp.id,
+          metric: "PREVENTIVE_MAINTENANCE",
+          periodicity: "MONTHLY",
+        },
+      },
+      update: { threshold: comp.id === cctv?.id ? 99 : 100 },
+      create: {
+        tenantId: tenant.id,
+        componentId: comp.id,
+        metric: "PREVENTIVE_MAINTENANCE",
+        periodicity: "MONTHLY",
+        threshold: comp.id === cctv?.id ? 99 : 100,
+      },
+    });
+  }
+
+  const dailyMetrics = ["TRANSMISSION", "DATA_CAPTURE", "RECORDING"] as const;
+  const dailyThresholds = {
+    TRANSMISSION: 80,
+    DATA_CAPTURE: 90,
+    RECORDING: 99,
+  } as const;
+
+  for (const comp of stsComponentsDb) {
+    for (const metric of dailyMetrics) {
+      await prisma.stsKpiPolicy.upsert({
+        where: {
+          tenantId_componentId_metric_periodicity: {
+            tenantId: tenant.id,
+            componentId: comp.id,
+            metric,
+            periodicity: "DAILY",
+          },
+        },
+        update: { threshold: dailyThresholds[metric] },
+        create: {
+          tenantId: tenant.id,
+          componentId: comp.id,
+          metric,
+          periodicity: "DAILY",
+          threshold: dailyThresholds[metric],
+        },
+      });
+    }
+  }
+
+  if (frontRear) {
+    await prisma.stsKpiPolicy.upsert({
+      where: {
+        tenantId_componentId_metric_periodicity: {
+          tenantId: tenant.id,
+          componentId: frontRear.id,
+          metric: "IMAGE_QUALITY_RECORDED",
+          periodicity: "MONTHLY",
+        },
+      },
+      update: { threshold: 90 },
+      create: {
+        tenantId: tenant.id,
+        componentId: frontRear.id,
+        metric: "IMAGE_QUALITY_RECORDED",
+        periodicity: "MONTHLY",
+        threshold: 90,
+      },
+    });
+
+    await prisma.stsKpiPolicy.upsert({
+      where: {
+        tenantId_componentId_metric_periodicity: {
+          tenantId: tenant.id,
+          componentId: frontRear.id,
+          metric: "IMAGE_QUALITY_TRANSMITTED",
+          periodicity: "DAILY",
+        },
+      },
+      update: { threshold: 90 },
+      create: {
+        tenantId: tenant.id,
+        componentId: frontRear.id,
+        metric: "IMAGE_QUALITY_TRANSMITTED",
+        periodicity: "DAILY",
+        threshold: 90,
+      },
+    });
+  }
+
+  if (panic) {
+    await prisma.stsKpiPolicy.upsert({
+      where: {
+        tenantId_componentId_metric_periodicity: {
+          tenantId: tenant.id,
+          componentId: panic.id,
+          metric: "PANIC_ALARM_GENERATION",
+          periodicity: "MONTHLY",
+        },
+      },
+      update: { threshold: 100 },
+      create: {
+        tenantId: tenant.id,
+        componentId: panic.id,
+        metric: "PANIC_ALARM_GENERATION",
+        periodicity: "MONTHLY",
+        threshold: 100,
+      },
+    });
   }
 
   console.log("SEED OK", {

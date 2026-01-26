@@ -205,12 +205,14 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     </div>
 
                     {s.media?.length ? (
-                      <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {s.media.map((m) => (
-                          <div key={m.id} className="rounded border p-2">
-                            <p className="text-xs text-muted-foreground">{m.kind}</p>
-                            <p className="mt-1 text-xs font-mono break-all">{m.filePath}</p>
-                          </div>
+                          <img
+                            key={m.id}
+                            src={`/api/uploads/${m.filePath}`}
+                            alt={m.kind}
+                            className="h-40 w-full rounded-md border object-cover"
+                          />
                         ))}
                       </div>
                     ) : null}
@@ -237,7 +239,16 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               {requiresFinishForm ? (
                 <div className="rounded-lg border p-4">
                   <p className="text-sm">
-                    Estado formulario: <span className="font-medium">{missingFinishForm ? "Pendiente" : "Completado"}</span>
+                    Estado formulario:{" "}
+                    <span
+                      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${
+                        missingFinishForm
+                          ? "border-amber-200 bg-amber-50 text-amber-800"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      }`}
+                    >
+                      {missingFinishForm ? "Pendiente" : "Realizado"}
+                    </span>
                   </p>
 
                   {missingFinishForm && completion.reasons?.length ? (
@@ -249,6 +260,18 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   ) : (
                     <p className="mt-2 text-xs text-muted-foreground">Nota: el backend autollenará bus/placa/equipo.</p>
                   )}
+                  {!missingFinishForm ? (
+                    <div className="mt-2">
+                      <a
+                        className="text-xs underline"
+                        href={`/api/work-orders/${wo.id}/report-pdf?kind=${cfg?.formKind ?? ""}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Descargar PDF del formulario
+                      </a>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

@@ -16,6 +16,7 @@ const patchSchema = z
     active: z.boolean().optional(),
     // set directo de password por admin (opcional)
     newPassword: z.string().trim().min(6).optional(),
+    capabilities: z.array(z.string().trim().min(2)).optional(),
   })
   .refine((x) => Object.keys(x).length > 0, { message: "Nada para actualizar" });
 
@@ -45,11 +46,21 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   if (parsed.data.role) data.role = parsed.data.role;
   if (typeof parsed.data.active === "boolean") data.active = parsed.data.active;
   if (parsed.data.newPassword) data.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  if (parsed.data.capabilities) data.capabilities = parsed.data.capabilities;
 
   const updated = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, name: true, email: true, role: true, active: true, updatedAt: true, passwordHash: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      active: true,
+      updatedAt: true,
+      passwordHash: true,
+      capabilities: true,
+    },
   });
 
   return NextResponse.json({

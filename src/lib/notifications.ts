@@ -26,6 +26,11 @@ function shouldEmail(type: NotificationType) {
     NotificationType.WO_FINISHED,
     NotificationType.CASE_CREATED,
     NotificationType.FORM_SAVED,
+    NotificationType.VIDEO_REQUEST_CREATED,
+    NotificationType.VIDEO_REQUEST_IN_PROGRESS,
+    NotificationType.VIDEO_REQUEST_DELIVERED,
+    NotificationType.VIDEO_REQUEST_FAILED,
+    NotificationType.VIDEO_REQUEST_INTERNAL_DELIVERED,
   ].includes(type);
 }
 
@@ -66,9 +71,10 @@ export async function notifyTenantUsers(params: NotifyParams) {
 
     // Envío 1 a 1 (más control); si luego quieres batch, se puede optimizar
     for (const u of recipients) {
-      if (!u.email) continue;
+      const email = u.email?.trim();
+      if (!email) continue;
       try {
-        await sendMail({ to: u.email, subject, html, text });
+        await sendMail({ to: email, subject, html, text });
         emailed++;
       } catch (e) {
         // No abortar todo por un correo fallido

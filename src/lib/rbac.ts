@@ -5,7 +5,9 @@ export function hasAnyRole(userRole: Role, allowed: Role[]) {
 }
 
 export const RBAC = {
-  backofficeRoutes: [Role.ADMIN, Role.BACKOFFICE],
+  backofficeRoutes: [Role.ADMIN, Role.BACKOFFICE, Role.PLANNER],
   techRoutes: [Role.ADMIN, Role.TECHNICIAN],
-  busesRoutes: [Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN] // ajustable
+  busesRoutes: [Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN], // ajustable
+  plannerRoutes: [Role.ADMIN, Role.PLANNER],
+  stsRoutes: [Role.ADMIN, Role.SUPERVISOR, Role.HELPDESK, Role.AUDITOR],
 };

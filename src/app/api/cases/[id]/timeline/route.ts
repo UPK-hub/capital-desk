@@ -34,7 +34,9 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   });
   if (!c) return NextResponse.json({ error: "Caso no encontrado" }, { status: 404 });
 
-  const [events, busEvents, users] = await Promise.all([
+  const workOrderId = c.workOrder?.id ?? null;
+
+  const [events, busEvents, users, woSteps, woReports] = await Promise.all([
     prisma.caseEvent.findMany({
       where: { caseId },
       orderBy: { createdAt: "desc" },
@@ -49,6 +51,27 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
       where: { tenantId },
       select: { id: true, name: true, role: true },
     }),
+    workOrderId
+      ? prisma.workOrderStep.findMany({
+          where: { workOrderId },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          select: {
+            id: true,
+            workOrderId: true,
+            stepType: true,
+            notes: true,
+            createdAt: true,
+            media: { select: { id: true, kind: true, filePath: true, createdAt: true } },
+          },
+        })
+      : Promise.resolve([]),
+    workOrderId
+      ? prisma.workOrder.findFirst({
+          where: { id: workOrderId, tenantId },
+          select: { id: true, finishedAt: true, correctiveReport: true, preventiveReport: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   const userById = new Map(users.map((u) => [u.id, u]));
@@ -95,8 +118,70 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
     meta: null as any,
   }));
 
+  const timelineSteps = woSteps.map((s) => ({
+    kind: "WO_STEP" as const,
+    id: s.id,
+    at: s.createdAt,
+    type: s.stepType,
+    message: s.notes ?? null,
+    actor: null as any,
+    refs: {
+      caseId: c.id,
+      caseNo: c.caseNo,
+      workOrderId: s.workOrderId,
+      workOrderNo: c.workOrder?.workOrderNo ?? null,
+    },
+    meta: {
+      media: s.media?.map((m) => ({ kind: m.kind, filePath: m.filePath })) ?? [],
+    },
+  }));
+
+  const forms: Array<any> = [];
+  if (woReports?.preventiveReport) {
+    forms.push({
+      kind: "FORM" as const,
+      id: `form-preventive-${woReports.id}`,
+      at: woReports.finishedAt ?? woReports.preventiveReport.updatedAt,
+      type: "PREVENTIVE",
+      message: "Formato preventivo diligenciado",
+      actor: null as any,
+      refs: {
+        caseId: c.id,
+        caseNo: c.caseNo,
+        workOrderId: woReports.id,
+        workOrderNo: c.workOrder?.workOrderNo ?? null,
+      },
+      meta: {
+        report: woReports.preventiveReport,
+        pdfUrl: `/api/work-orders/${woReports.id}/report-pdf?kind=PREVENTIVE`,
+      },
+    });
+  }
+  if (woReports?.correctiveReport) {
+    forms.push({
+      kind: "FORM" as const,
+      id: `form-corrective-${woReports.id}`,
+      at: woReports.finishedAt ?? woReports.correctiveReport.updatedAt,
+      type: "CORRECTIVE",
+      message: "Formato correctivo diligenciado",
+      actor: null as any,
+      refs: {
+        caseId: c.id,
+        caseNo: c.caseNo,
+        workOrderId: woReports.id,
+        workOrderNo: c.workOrder?.workOrderNo ?? null,
+      },
+      meta: {
+        report: woReports.correctiveReport,
+        pdfUrl: `/api/work-orders/${woReports.id}/report-pdf?kind=CORRECTIVE`,
+      },
+    });
+  }
+
   // mezcla y ordena
-  const merged = [...timeline, ...timelineBus].sort((a, b) => +new Date(b.at) - +new Date(a.at));
+  const merged = [...timeline, ...timelineBus, ...timelineSteps, ...forms].sort(
+    (a, b) => +new Date(b.at) - +new Date(a.at)
+  );
 
   return NextResponse.json({
     case: {

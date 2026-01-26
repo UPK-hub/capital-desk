@@ -8,6 +8,8 @@ import { Field, Input, Select, Textarea } from "@/components/Field";
 import { DateTimeField } from "@/components/DateTimeField";
 import { BusCombobox } from "@/components/BusCombobox";
 import { BusEquipmentSelect } from "@/components/BusEquipmentSelect";
+import { BusEquipmentMultiSelect } from "@/components/BusEquipmentMultiSelect";
+import { StsTicketSeverity } from "@prisma/client";
 type BusOption = { id: string; code: string; plate: string | null };
 
 type VideoForm = {
@@ -25,6 +27,7 @@ type VideoForm = {
   requesterRole: string;
   requesterPhone: string;
   requesterEmail: string;
+  requesterEmails: string[];
 
   vehicleId: string;
 
@@ -33,6 +36,9 @@ type VideoForm = {
 
   cameras: string;
   deliveryMethod: "WINSCP" | "USB" | "ONEDRIVE";
+
+  descriptionNovedad: string;
+  finSolicitud: string[];
 };
 
 export default function NewCasePage() {
@@ -42,7 +48,7 @@ export default function NewCasePage() {
   const config = CASE_TYPE_REGISTRY[type];
 
   const [bus, setBus] = useState<BusOption | null>(null);
-  const [busEquipmentId, setBusEquipmentId] = useState<string | null>(null);
+  const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
 
   const suggested = useMemo(() => {
     const busCode = bus?.code;
@@ -55,6 +61,7 @@ export default function NewCasePage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"BAJA" | "MEDIA" | "ALTA">("MEDIA");
+  const [stsSeverity, setStsSeverity] = useState<StsTicketSeverity>(StsTicketSeverity.MEDIUM);
 
   const effectiveTitle = title || suggested.title;
   const effectiveDescription = description || suggested.description;
@@ -74,11 +81,14 @@ export default function NewCasePage() {
     requesterRole: "",
     requesterPhone: "",
     requesterEmail: "",
+    requesterEmails: ["", "", ""],
     vehicleId: "",
     eventStartAt: "",
     eventEndAt: "",
     cameras: "",
     deliveryMethod: "WINSCP",
+    descriptionNovedad: "",
+    finSolicitud: [],
   });
 
   async function submit() {
@@ -87,7 +97,9 @@ export default function NewCasePage() {
 
     try {
       if (!bus?.id) throw new Error("Debes seleccionar un bus.");
-      if (config.requiresEquipment && !busEquipmentId) throw new Error("Debes seleccionar un equipo del bus.");
+      if (config.requiresEquipment && !busEquipmentIds.length) {
+        throw new Error("Debes seleccionar al menos un equipo del bus.");
+      }
 
       const res = await fetch("/api/cases", {
         method: "POST",
@@ -95,10 +107,11 @@ export default function NewCasePage() {
         body: JSON.stringify({
           type,
           busId: bus.id,
-          busEquipmentId: busEquipmentId,
+          busEquipmentIds,
           title: effectiveTitle,
           description: effectiveDescription,
           priority,
+          stsSeverity: config.stsComponentCode ? stsSeverity : undefined,
           // inline create form
           videoDownloadRequest: config.hasInlineCreateForm ? video : undefined,
         }),
@@ -164,7 +177,7 @@ export default function NewCasePage() {
               onChange={(e) => {
                 const v = e.target.value as any;
                 setType(v);
-                setBusEquipmentId(null);
+                setBusEquipmentIds([]);
               }}
             >
               {Object.values(CASE_TYPE_REGISTRY).map((c) => (
@@ -183,25 +196,45 @@ export default function NewCasePage() {
             </Select>
           </Field>
 
+          {config.stsComponentCode ? (
+            <Field label="Severidad STS">
+              <Select value={stsSeverity} onChange={(e) => setStsSeverity(e.target.value as any)}>
+                <option value={StsTicketSeverity.EMERGENCY}>Emergencia</option>
+                <option value={StsTicketSeverity.HIGH}>Alto</option>
+                <option value={StsTicketSeverity.MEDIUM}>Medio</option>
+                <option value={StsTicketSeverity.LOW}>Bajo</option>
+              </Select>
+            </Field>
+          ) : null}
+
           <Field label="Bus (código o placa)">
             <BusCombobox
               value={bus}
               onChange={(b) => {
                 setBus(b);
-                setBusEquipmentId(null);
+                setBusEquipmentIds([]);
                 // para video request: autollenar vehicleId con code si quieren
                 if (b?.code) setVideo((x) => ({ ...x, vehicleId: x.vehicleId || b.code }));
               }}
             />
           </Field>
 
-          <Field label="Equipo del bus" hint={config.requiresEquipment ? "Requerido" : "Opcional"}>
-            <BusEquipmentSelect
-              busId={bus?.id ?? null}
-              value={busEquipmentId}
-              onChange={setBusEquipmentId}
-              disabled={!config.requiresEquipment && !bus?.id}
-            />
+          <Field label="Equipo(s) del bus" hint={config.requiresEquipment ? "Requerido" : "Opcional"}>
+            {type === "PREVENTIVO" ? (
+              <BusEquipmentMultiSelect
+                busId={bus?.id ?? null}
+                value={busEquipmentIds}
+                onChange={setBusEquipmentIds}
+                disabled={!bus?.id}
+              />
+            ) : (
+              <BusEquipmentSelect
+                busId={bus?.id ?? null}
+                value={busEquipmentIds[0] ?? null}
+                onChange={(id) => setBusEquipmentIds(id ? [id] : [])}
+                disabled={!bus?.id}
+              />
+            )}
           </Field>
         </div>
 
@@ -274,6 +307,25 @@ export default function NewCasePage() {
             <Field label="Solicitante - Email">
               <Input value={video.requesterEmail} onChange={(e) => setVideo((x) => ({ ...x, requesterEmail: e.target.value }))} />
             </Field>
+            <Field label="Correos para envio (1 a 3)">
+              <div className="space-y-2">
+                {video.requesterEmails.map((email, idx) => (
+                  <Input
+                    key={idx}
+                    value={email}
+                    placeholder={`Correo ${idx + 1}`}
+                    onChange={(e) =>
+                      setVideo((x) => {
+                        const next = [...x.requesterEmails];
+                        next[idx] = e.target.value;
+                        return { ...x, requesterEmails: next };
+                      })
+                    }
+                  />
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">Usa solo los correos necesarios, máximo 3.</p>
+            </Field>
             <Field label="ID Vehículo">
               <Input value={video.vehicleId} onChange={(e) => setVideo((x) => ({ ...x, vehicleId: e.target.value }))} />
             </Field>
@@ -300,6 +352,31 @@ export default function NewCasePage() {
                 <option value="USB">USB</option>
                 <option value="ONEDRIVE">OneDrive</option>
               </Select>
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Descripción novedad">
+              <Textarea
+                rows={3}
+                value={video.descriptionNovedad}
+                onChange={(e) => setVideo((x) => ({ ...x, descriptionNovedad: e.target.value }))}
+              />
+            </Field>
+            <Field label="Fin solicitud (separa con ; si hay varias)">
+              <Textarea
+                rows={3}
+                value={video.finSolicitud.join("; ")}
+                onChange={(e) =>
+                  setVideo((x) => ({
+                    ...x,
+                    finSolicitud: e.target.value
+                      .split(";")
+                      .map((v) => v.trim())
+                      .filter(Boolean),
+                  }))
+                }
+              />
             </Field>
           </div>
         </FormCard>

@@ -15,6 +15,12 @@ type Autofill = {
   biarticuladoNo: string;
   plate: string | null;
   equipmentLabel: string;
+  equipments: Array<{
+    id: string;
+    type: string;
+    serial: string | null;
+    location: string | null;
+  }>;
 };
 
 type DeviceRow = {
@@ -128,6 +134,25 @@ function defaultDevices(): DeviceRow[] {
   }));
 }
 
+function devicesFromEquipment(
+  items: Array<{ id: string; type: string; serial: string | null; location: string | null }>
+): DeviceRow[] {
+  return items.map((it) => ({
+    description: it.type || "Equipo",
+    brand: "",
+    reference: "",
+    location: it.location ?? "",
+    portNvr: false,
+    portSwitch: false,
+    portCollector: false,
+    portData: false,
+    portEnergyCard: false,
+    serial: it.serial ?? "",
+    ip: "",
+    newSerial: "",
+  }));
+}
+
 function defaultActivities(): ActivityRow[] {
   return [
     { area: "CCTV", activity: "Limpieza general", maintenanceType: "Preventivo" },
@@ -176,6 +201,7 @@ export default function PreventiveReportForm(props: Props) {
     biarticuladoNo: "",
     plate: null,
     equipmentLabel: "",
+    equipments: [],
   });
 
   const r = props.initialReport;
@@ -194,7 +220,7 @@ export default function PreventiveReportForm(props: Props) {
       executedAt: isoDate(r?.executedAt),
       rescheduledAt: isoDate(r?.rescheduledAt),
 
-      devicesInstalled: Array.isArray(r?.devicesInstalled) ? ((r!.devicesInstalled as unknown) as DeviceRow[]) : defaultDevices(),
+      devicesInstalled: Array.isArray(r?.devicesInstalled) ? ((r!.devicesInstalled as unknown) as DeviceRow[]) : [],
       activities: Array.isArray(r?.activities) ? ((r!.activities as unknown) as ActivityRow[]) : defaultActivities(),
 
       voltageNvrFromCard: r?.voltageNvrFromCard ?? "",
@@ -238,14 +264,26 @@ export default function PreventiveReportForm(props: Props) {
       const biarticuladoNo = String(data?.autofill?.biarticuladoNo ?? "").trim();
       const plate = (data?.autofill?.plate ?? null) as string | null;
       const equipmentLabel = String(data?.autofill?.equipmentLabel ?? "").trim();
+      const equipments = Array.isArray(data?.autofill?.equipments)
+        ? data.autofill.equipments.map((it: any) => ({
+            id: String(it.id),
+            type: String(it.type ?? ""),
+            serial: it.serial ?? null,
+            location: it.location ?? null,
+          }))
+        : [];
 
-      setAutofill({ biarticuladoNo, plate, equipmentLabel });
+      setAutofill({ biarticuladoNo, plate, equipmentLabel, equipments });
 
       const curr = form.getValues();
       const patch: Partial<FormValues> = {};
 
       if (!curr.biarticuladoNo?.trim()) patch.biarticuladoNo = biarticuladoNo;
       if (!curr.plate?.trim() && plate) patch.plate = plate;
+
+      if (!curr.devicesInstalled?.length) {
+        patch.devicesInstalled = equipments.length ? devicesFromEquipment(equipments) : defaultDevices();
+      }
 
       if (Object.keys(patch).length) form.reset({ ...curr, ...patch });
 
@@ -322,7 +360,7 @@ export default function PreventiveReportForm(props: Props) {
         <div>
           <h3 className="text-base font-semibold">Formato Preventivo (inline)</h3>
           <p className="text-xs text-muted-foreground">
-            Estructura basada en CAP-FO-M-PV-001 (tabla dispositivos, actividades y voltajes).
+            Estructura basada en CAP-FO-M-PV-001 (tabla dispositivos, actividades y voltajes). Campos opcionales.
           </p>
           {autofill.equipmentLabel ? (
             <p className="mt-1 text-[11px] text-muted-foreground">Equipo: {autofill.equipmentLabel}</p>
@@ -344,7 +382,7 @@ export default function PreventiveReportForm(props: Props) {
         {/* DATOS DEL BIARTICULADO */}
         <section className="rounded-lg border p-4">
           <h4 className="text-sm font-semibold">Datos del biarticulado</h4>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Número de ticket</label>
               <input className={inputCls()} {...form.register("ticketNumber")} />
@@ -379,7 +417,7 @@ export default function PreventiveReportForm(props: Props) {
         {/* PROGRAMACIÓN */}
         <section className="rounded-lg border p-4">
           <h4 className="text-sm font-semibold">Programación del mantenimiento</h4>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="text-xs text-muted-foreground">Fecha programada</label>
               <input type="date" className={inputCls()} {...form.register("scheduledAt")} />
@@ -525,7 +563,7 @@ export default function PreventiveReportForm(props: Props) {
             </table>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="text-xs text-muted-foreground">NVR encendida (voltaje desde tarjeta)</label>
               <input className={inputCls()} {...form.register("voltageNvrFromCard")} />
@@ -556,7 +594,7 @@ export default function PreventiveReportForm(props: Props) {
               <label className="text-xs text-muted-foreground">Tarjeta energía (switch bus abierto)</label>
               <input className={inputCls()} {...form.register("voltageCardBusOpen")} />
             </div>
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Estado cable comunicación NVR ↔ Colector</label>
               <input className={inputCls()} placeholder="BUENO / MALO / X" {...form.register("commCableState")} />
             </div>
@@ -567,8 +605,8 @@ export default function PreventiveReportForm(props: Props) {
         <section className="rounded-lg border p-4">
           <h4 className="text-sm font-semibold">Cierre</h4>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <div className="md:col-span-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Observaciones</label>
               <textarea className={textareaCls()} {...form.register("observations")} />
             </div>
@@ -591,7 +629,7 @@ export default function PreventiveReportForm(props: Props) {
               <input className={inputCls()} {...form.register("responsibleCapitalBus")} />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Nota: consecutivos formatos correctivos / tickets asociados (si aplica)</label>
               <textarea className={textareaCls()} {...form.register("correctiveFormatsNote")} />
               <p className="mt-1 text-[11px] text-muted-foreground">

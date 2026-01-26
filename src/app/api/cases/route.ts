@@ -6,11 +6,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, CaseStatus, NotificationType, Role } from "@prisma/client";
+import { CaseEventType, CaseStatus, NotificationType, Role, StsTicketChannel, StsTicketSeverity, VideoRequestEventType } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
+import { sendMail } from "@/lib/mailer";
+import { buildVideoEmail } from "@/lib/video-emails";
 
 function normalizePriority(input: any): number | undefined {
   if (input === null || input === undefined || input === "") return undefined;
@@ -40,8 +42,14 @@ export async function POST(req: NextRequest) {
   const busId = String(body.busId ?? "").trim();
   if (!busId) return NextResponse.json({ error: "Selecciona un bus" }, { status: 400 });
 
-  const busEquipmentId = body.busEquipmentId ? String(body.busEquipmentId) : null;
-  if (cfg.requiresEquipment && !busEquipmentId) {
+  const rawEquipmentIds = Array.isArray(body.busEquipmentIds)
+    ? body.busEquipmentIds
+    : body.busEquipmentId
+      ? [body.busEquipmentId]
+      : [];
+  const busEquipmentIds = rawEquipmentIds.map((id: any) => String(id)).filter(Boolean);
+  const busEquipmentId = busEquipmentIds[0] ?? null;
+  if (cfg.requiresEquipment && !busEquipmentIds.length) {
     return NextResponse.json({ error: "Equipo del bus requerido para este tipo de caso" }, { status: 400 });
   }
 
@@ -51,6 +59,10 @@ export async function POST(req: NextRequest) {
   if (description.length < 5) return NextResponse.json({ error: "Descripción muy corta" }, { status: 400 });
 
   const priority = normalizePriority(body.priority);
+  const stsSeverity = cfg.stsComponentCode ? (body.stsSeverity as StsTicketSeverity) : null;
+  if (cfg.stsComponentCode && (!stsSeverity || !Object.values(StsTicketSeverity).includes(stsSeverity))) {
+    return NextResponse.json({ error: "Severidad STS requerida" }, { status: 400 });
+  }
 
   // 1) Asegurar inline form
   if (cfg.hasInlineCreateForm && !body.videoDownloadRequest) {
@@ -90,6 +102,13 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      if (busEquipmentIds.length) {
+        await tx.caseEquipment.createMany({
+          data: busEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
+          skipDuplicates: true,
+        });
+      }
+
       await tx.caseEvent.create({
         data: { caseId: c.id, type: CaseEventType.CREATED, message: "Caso creado", meta: { userId } },
       });
@@ -99,17 +118,61 @@ export async function POST(req: NextRequest) {
           data: { tenantId, workOrderNo: nums.workOrderNo!, caseId: c.id },
         });
 
-        await tx.case.update({ where: { id: c.id }, data: { status: CaseStatus.OT_ASIGNADA } });
+        if (!cfg.stsComponentCode) {
+          await tx.case.update({ where: { id: c.id }, data: { status: CaseStatus.OT_ASIGNADA } });
+        }
 
         await tx.caseEvent.create({
           data: { caseId: c.id, type: CaseEventType.STATUS_CHANGE, message: "OT creada automáticamente", meta: { userId } },
         });
       }
 
+      let videoRequestId: string | null = null;
+      let stsTicketId: string | null = null;
+
+      if (cfg.stsComponentCode) {
+        const comp = await tx.stsComponent.findFirst({
+          where: { tenantId, code: cfg.stsComponentCode },
+        });
+        if (!comp) throw new Error("Componente STS no configurado");
+
+        const ticket = await tx.stsTicket.create({
+          data: {
+            tenantId,
+            caseId: c.id,
+            componentId: comp.id,
+            severity: stsSeverity as StsTicketSeverity,
+            status: "OPEN",
+            channel: StsTicketChannel.OTHER,
+            description: c.description,
+            openedAt: new Date(),
+          },
+        });
+        stsTicketId = ticket.id;
+
+        await tx.stsTicketEvent.create({
+          data: {
+            ticketId: ticket.id,
+            type: "STATUS_CHANGE",
+            status: "OPEN",
+            message: "Ticket creado desde caso",
+            createdById: userId,
+          },
+        });
+
+        await tx.caseEvent.create({
+          data: {
+            caseId: c.id,
+            type: CaseEventType.COMMENT,
+            message: `Ticket STS creado (${cfg.stsComponentCode})`,
+            meta: { userId, stsTicketId: ticket.id },
+          },
+        });
+      }
       if (cfg.hasInlineCreateForm) {
         const v = parsedVideo!.data as any;
 
-        await tx.videoDownloadRequest.create({
+        const req = await tx.videoDownloadRequest.create({
           data: {
             caseId: c.id,
             origin: v.origin,
@@ -124,6 +187,7 @@ export async function POST(req: NextRequest) {
             requesterRole: v.requesterRole || null,
             requesterPhone: v.requesterPhone || null,
             requesterEmail: v.requesterEmail || null,
+            requesterEmails: v.requesterEmails?.length ? v.requesterEmails : null,
 
             vehicleId: v.vehicleId || null,
 
@@ -132,27 +196,95 @@ export async function POST(req: NextRequest) {
 
             camerasRequested: v.cameras || null,
             deliveryMethod: v.deliveryMethod || null,
+
+            descriptionNovedad: v.descriptionNovedad || null,
+            finSolicitud: v.finSolicitud?.length ? v.finSolicitud : null,
           },
         });
+        videoRequestId = req.id;
 
         await tx.caseEvent.create({
           data: { caseId: c.id, type: CaseEventType.COMMENT, message: "Formulario video guardado", meta: { userId } },
         });
+
+        await tx.videoRequestEvent.create({
+          data: {
+            requestId: req.id,
+            type: VideoRequestEventType.STATUS_CHANGE,
+            message: "Estado inicial EN_ESPERA",
+            meta: { by: userId },
+            actorUserId: userId,
+          },
+        });
       }
 
-      return c;
+      return { case: c, videoRequestId, stsTicketId };
     });
 
     await notifyTenantUsers({
       tenantId,
       roles: [Role.ADMIN, Role.BACKOFFICE],
       type: NotificationType.CASE_CREATED,
-      title: `Nuevo caso: ${created.title}`,
-      body: `Tipo: ${created.type} | Estado: ${created.status}`,
-      meta: { caseId: created.id },
+      title: `Nuevo caso: ${created.case.title}`,
+      body: `Tipo: ${created.case.type} | Estado: ${created.case.status}`,
+      meta: { caseId: created.case.id },
     });
+    if (created.videoRequestId) {
+      const req = await prisma.videoDownloadRequest.findFirst({
+        where: { id: created.videoRequestId },
+        include: { case: { include: { bus: true } } },
+      });
 
-    return NextResponse.json(created);
+      if (req) {
+        const emails = Array.isArray(req.requesterEmails) ? req.requesterEmails : [];
+        const allEmails = Array.from(new Set([...emails, req.requesterEmail].filter(Boolean))) as string[];
+        const bodyLines = [
+          `ID caso: ${req.case.caseNo ?? req.caseId}`,
+          `Bus: ${req.case.bus.code}${req.case.bus.plate ? ` (${req.case.bus.plate})` : ""}`,
+          req.vehicleId ? `Vehiculo: ${req.vehicleId}` : "",
+          req.descriptionNovedad ? `Descripcion: ${req.descriptionNovedad}` : "",
+          req.finSolicitud ? `Fin solicitud: ${(req.finSolicitud as any[]).join(", ")}` : "",
+        ].filter(Boolean) as string[];
+
+        if (allEmails.length && !req.notifPendingSentAt) {
+          const email = buildVideoEmail({
+            title: `Solicitud recibida - ${req.case.caseNo ?? req.caseId}`,
+            bodyLines: [...bodyLines, "Su solicitud fue recibida y esta en espera."],
+          });
+
+          for (const to of allEmails) {
+            await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
+          }
+
+          await prisma.videoDownloadRequest.update({
+            where: { id: req.id },
+            data: { notifPendingSentAt: new Date() },
+          });
+
+          await prisma.videoRequestEvent.create({
+            data: {
+              requestId: req.id,
+              type: VideoRequestEventType.EMAIL_SENT,
+              message: "Correo enviado: EN_ESPERA",
+              meta: { to: allEmails },
+              actorUserId: userId,
+            },
+          });
+        }
+
+        await notifyTenantUsers({
+          tenantId,
+          roles: [Role.ADMIN, Role.BACKOFFICE],
+          type: NotificationType.VIDEO_REQUEST_CREATED,
+          title: `Nuevo caso video - ${req.case.caseNo ?? req.caseId}`,
+          body: `Bus: ${req.case.bus.code}${req.case.bus.plate ? ` (${req.case.bus.plate})` : ""}`,
+          href: `/video-requests/${req.id}`,
+          meta: { requestId: req.id, caseId: req.caseId },
+        });
+      }
+    }
+
+    return NextResponse.json(created.case);
   } catch (e: any) {
     return NextResponse.json(
       { error: "No se pudo crear el caso", detail: e?.message ?? String(e) },

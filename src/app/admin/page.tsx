@@ -15,6 +15,13 @@ export default function AdminPage() {
             Gestionar usuarios
           </Link>
         </div>
+        <div className="rounded-xl border p-5">
+          <h2 className="font-semibold">Horarios tecnicos</h2>
+          <p className="text-sm text-muted-foreground">Configurar turnos y dias de descanso.</p>
+          <Link className="underline text-sm" href="/admin/technician-schedules">
+            Configurar horarios
+          </Link>
+        </div>
       </div>
     </div>
   );

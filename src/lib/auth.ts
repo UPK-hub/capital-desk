@@ -39,6 +39,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           tenantId: user.tenantId,
+          capabilities: user.capabilities ?? [],
         };
       },
     }),
@@ -50,6 +51,7 @@ export const authOptions: NextAuthOptions = {
         token.id = (user as any).id;
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
+        token.capabilities = (user as any).capabilities ?? [];
       }
       return token;
     },
@@ -59,6 +61,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).id = token.id as string;
         (session.user as any).role = token.role as string;
         (session.user as any).tenantId = token.tenantId as string;
+        (session.user as any).capabilities = (token as any).capabilities ?? [];
       }
       return session;
     },

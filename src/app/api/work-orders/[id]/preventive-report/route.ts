@@ -75,7 +75,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     where: { id: params.id, tenantId },
     include: {
       preventiveReport: true,
-      case: { include: { bus: true, busEquipment: { include: { equipmentType: true } } } },
+      case: {
+        include: {
+          bus: true,
+          busEquipment: { include: { equipmentType: true } },
+          caseEquipments: { include: { busEquipment: { include: { equipmentType: true } } } },
+        },
+      },
     },
   });
   if (!wo) return NextResponse.json({ error: "WorkOrder not found" }, { status: 404 });
@@ -87,12 +93,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       }`
     : "";
 
+  const selectedEquipments =
+    wo.case.caseEquipments?.length > 0
+      ? wo.case.caseEquipments.map((it) => it.busEquipment)
+      : wo.case.busEquipment
+        ? [wo.case.busEquipment]
+        : [];
+
   return NextResponse.json({
     report: wo.preventiveReport,
     autofill: {
       biarticuladoNo: wo.case.bus.code,
       plate: wo.case.bus.plate ?? null,
       equipmentLabel,
+      equipments: selectedEquipments.map((eq) => ({
+        id: eq.id,
+        type: eq.equipmentType.name,
+        serial: eq.serial ?? null,
+        location: eq.location ?? null,
+      })),
     },
   });
 }

@@ -11,6 +11,74 @@ enum Role {
   ADMIN
   BACKOFFICE
   TECHNICIAN
+  PLANNER
+  SUPERVISOR
+  HELPDESK
+  AUDITOR
+}
+
+enum TechnicianShiftType {
+  DIURNO_AM
+  DIURNO_PM
+  NOCTURNO
+}
+
+enum TechnicianRestDay {
+  SATURDAY
+  SUNDAY
+}
+
+enum StsTicketSeverity {
+  EMERGENCY
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum StsTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_VENDOR
+  RESOLVED
+  CLOSED
+}
+
+enum StsTicketChannel {
+  PHONE
+  EMAIL
+  CHAT
+  OTHER
+}
+
+enum StsTicketEventType {
+  STATUS_CHANGE
+  COMMENT
+  ASSIGN
+  SYSTEM
+}
+
+enum StsKpiMetric {
+  SUPPORT_RESPONSE
+  AVAILABILITY
+  PREVENTIVE_MAINTENANCE
+  TRANSMISSION
+  DATA_CAPTURE
+  RECORDING
+  IMAGE_QUALITY_RECORDED
+  IMAGE_QUALITY_TRANSMITTED
+  PANIC_ALARM_GENERATION
+}
+
+enum StsKpiPeriodicity {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum CalendarSlotKind {
+  AVAILABLE
+  BLOCKED
+  TIME_OFF
 }
 
 enum CaseType {
@@ -60,6 +128,15 @@ model Tenant {
   workOrders    WorkOrder[]
   users         User[]
   notifications Notification[]
+  technicianSchedules TechnicianSchedule[]
+  technicianWeekCalendars TechnicianWeekCalendar[]
+  stsComponents StsComponent[]
+  stsTickets StsTicket[]
+  stsSlaPolicies StsSlaPolicy[]
+  stsKpiPolicies StsKpiPolicy[]
+  stsKpiMeasurements StsKpiMeasurement[]
+  stsMaintenanceWindows StsMaintenanceWindow[]
+  stsAuditLogs StsAuditLog[]
 
   sequence      TenantSequence?
 }
@@ -87,15 +164,254 @@ model User {
 
   role         Role
   active       Boolean  @default(true)
+  capabilities String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   assignedWorkOrders   WorkOrder[] @relation("WOAssignedTo")
   notifications        Notification[]
   passwordResetTokens  PasswordResetToken[]
+  assignedVideoRequests VideoDownloadRequest[]
+  uploadedVideoAttachments VideoAttachment[]
+  videoRequestEvents VideoRequestEvent[]
+  technicianSchedule TechnicianSchedule?
+  plannerWeekCalendars TechnicianWeekCalendar[] @relation("PlannerCalendar")
+  technicianWeekSlots TechnicianWeekSlot[] @relation("TechnicianSlots")
+  stsTicketsAssigned StsTicket[] @relation("StsTicketsAssigned")
+  stsTicketEvents StsTicketEvent[]
+  stsAuditLogs StsAuditLog[]
 
   @@index([tenantId, role])
   @@index([tenantId, active])
+}
+
+model TechnicianSchedule {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId   String @unique
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shiftType TechnicianShiftType
+  restDay   TechnicianRestDay
+  timezone  String @default("America/Bogota")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model TechnicianWeekCalendar {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  weekStart DateTime
+  createdById String?
+  createdBy   User? @relation("PlannerCalendar", fields: [createdById], references: [id])
+
+  slots     TechnicianWeekSlot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, weekStart])
+  @@index([tenantId, weekStart])
+}
+
+model TechnicianWeekSlot {
+  id           String   @id @default(cuid())
+  calendarId   String
+  calendar     TechnicianWeekCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  technicianId String
+  technician   User @relation("TechnicianSlots", fields: [technicianId], references: [id], onDelete: Cascade)
+
+  startAt DateTime
+  endAt   DateTime
+  kind    CalendarSlotKind
+  note    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([calendarId])
+  @@index([technicianId, startAt])
+}
+
+model StsComponent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  code   String
+  name   String
+  active Boolean @default(true)
+
+  tickets     StsTicket[]
+  slaPolicies StsSlaPolicy[]
+  kpiPolicies StsKpiPolicy[]
+  kpiMeasurements StsKpiMeasurement[]
+  maintenanceWindows StsMaintenanceWindow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active])
+}
+
+model StsTicket {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  caseId String? @unique
+  case   Case? @relation(fields: [caseId], references: [id])
+
+  componentId String
+  component   StsComponent @relation(fields: [componentId], references: [id])
+
+  severity StsTicketSeverity
+  status   StsTicketStatus @default(OPEN)
+  channel  StsTicketChannel
+
+  description String
+  vendorId    String?
+
+  openedAt        DateTime
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+
+  assignedToId String?
+  assignedTo   User? @relation("StsTicketsAssigned", fields: [assignedToId], references: [id])
+
+  breachResponse   Boolean @default(false)
+  breachResolution Boolean @default(false)
+
+  events StsTicketEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, openedAt])
+  @@index([tenantId, status])
+  @@index([tenantId, severity])
+  @@index([componentId, status])
+}
+
+model StsTicketEvent {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   StsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  type      StsTicketEventType
+  status    StsTicketStatus?
+  message   String?
+  meta      Json?
+
+  createdById String?
+  createdBy   User? @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+model StsSlaPolicy {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  componentId String
+  component   StsComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  severity StsTicketSeverity
+  responseMinutes   Int
+  resolutionMinutes Int
+  pauseStatuses Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, componentId, severity])
+  @@index([tenantId, severity])
+}
+
+model StsKpiPolicy {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  componentId String
+  component   StsComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  metric      StsKpiMetric
+  threshold   Decimal @db.Decimal(5, 2)
+  periodicity StsKpiPeriodicity
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, componentId, metric, periodicity])
+}
+
+model StsKpiMeasurement {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  componentId String
+  component   StsComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  metric      StsKpiMetric
+  periodicity StsKpiPeriodicity
+  periodStart DateTime
+  periodEnd   DateTime
+  value       Decimal @db.Decimal(6, 2)
+  source      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, metric, periodicity, periodStart])
+}
+
+model StsMaintenanceWindow {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  componentId String?
+  component   StsComponent? @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  startAt DateTime
+  endAt   DateTime
+  reason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, startAt])
+}
+
+model StsAuditLog {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  actorId String?
+  actor   User? @relation(fields: [actorId], references: [id])
+
+  action     String
+  entityType String
+  entityId   String?
+  meta       Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
 }
 
 model PasswordResetToken {
@@ -148,6 +464,7 @@ model BusEquipment {
   active   Boolean @default(true)
 
   cases     Case[]
+  caseEquipments CaseEquipment[]
   lifecycle BusLifecycleEvent[]
 }
 
@@ -177,13 +494,28 @@ model Case {
 
   workOrder WorkOrder?
   events    CaseEvent[]
+  stsTicket StsTicket?
 
   videoDownloadRequest VideoDownloadRequest?
+  caseEquipments        CaseEquipment[]
 
   @@unique([tenantId, caseNo])
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
   @@index([tenantId, type])
+}
+
+model CaseEquipment {
+  caseId String
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  busEquipmentId String
+  busEquipment   BusEquipment @relation(fields: [busEquipmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([caseId, busEquipmentId])
+  @@index([busEquipmentId])
 }
 
 model CaseEvent {
@@ -215,6 +547,8 @@ model WorkOrder {
   assignedToId  String?
   assignedTo    User? @relation("WOAssignedTo", fields: [assignedToId], references: [id])
   assignedAt    DateTime?
+  scheduledAt   DateTime?
+  scheduledTo   DateTime?
 
   startedAt  DateTime?
   finishedAt DateTime?
@@ -229,6 +563,7 @@ model WorkOrder {
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
   @@index([assignedToId, status])
+  @@index([assignedToId, scheduledAt])
 }
 
 model WorkOrderStep {
@@ -406,11 +741,40 @@ enum VideoDeliveryMethod {
   ONEDRIVE
 }
 
+enum VideoCaseStatus {
+  EN_ESPERA
+  EN_CURSO
+  COMPLETADO
+}
+
+enum VideoDownloadStatus {
+  DESCARGA_REALIZADA
+  DESCARGA_FALLIDA
+  BUS_NO_EN_PATIO
+  PENDIENTE
+}
+
+enum VideoAttachmentKind {
+  VIDEO
+  OTRO
+}
+
+enum VideoRequestEventType {
+  STATUS_CHANGE
+  DOWNLOAD_STATUS_CHANGE
+  EMAIL_SENT
+  FILE_UPLOADED
+  COMMENT
+}
+
 model VideoDownloadRequest {
   id     String @id @default(cuid())
 
   caseId String @unique
   case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  status         VideoCaseStatus    @default(EN_ESPERA)
+  downloadStatus VideoDownloadStatus @default(PENDIENTE)
 
   origin      VideoReqOrigin
   requestType String?
@@ -424,6 +788,7 @@ model VideoDownloadRequest {
   requesterRole  String?
   requesterPhone String?
   requesterEmail String?
+  requesterEmails Json?
 
   vehicleId String?
 
@@ -433,8 +798,77 @@ model VideoDownloadRequest {
   camerasRequested String?
   deliveryMethod   VideoDeliveryMethod?
 
+  descriptionNovedad String?
+  finSolicitud       Json?
+  observationsTechnician String?
+
+  assignedToId String?
+  assignedTo   User? @relation(fields: [assignedToId], references: [id])
+
+  notifPendingSentAt         DateTime?
+  notifInProgressSentAt      DateTime?
+  notifDeliverySentAt        DateTime?
+  notifFailedSentAt          DateTime?
+  notifInternalDeliverySentAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  attachments VideoAttachment[]
+  events      VideoRequestEvent[]
+}
+
+model VideoAttachment {
+  id        String @id @default(cuid())
+  requestId String
+  request   VideoDownloadRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  kind        VideoAttachmentKind
+  filePath    String
+  originalName String?
+  size        Int?
+  mimeType    String?
+  active      Boolean @default(true)
+
+  uploadedById String?
+  uploadedBy   User? @relation(fields: [uploadedById], references: [id])
+
+  tokens    VideoDownloadToken[]
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId, kind])
+}
+
+model VideoRequestEvent {
+  id        String @id @default(cuid())
+  requestId String
+  request   VideoDownloadRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  type    VideoRequestEventType
+  message String?
+  meta    Json?
+
+  actorUserId String?
+  actorUser   User? @relation(fields: [actorUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+model VideoDownloadToken {
+  id           String @id @default(cuid())
+  token        String @unique
+  attachmentId String
+  attachment   VideoAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([attachmentId, expiresAt])
 }
 
 enum NotificationType {
@@ -443,6 +877,11 @@ enum NotificationType {
   WO_STARTED
   WO_FINISHED
   FORM_SAVED
+  VIDEO_REQUEST_CREATED
+  VIDEO_REQUEST_IN_PROGRESS
+  VIDEO_REQUEST_DELIVERED
+  VIDEO_REQUEST_FAILED
+  VIDEO_REQUEST_INTERNAL_DELIVERED
 }
 
 model Notification {

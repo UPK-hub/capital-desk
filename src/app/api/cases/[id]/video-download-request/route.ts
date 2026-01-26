@@ -80,6 +80,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     requesterRole: v.requesterRole || null,
     requesterPhone: v.requesterPhone || null,
     requesterEmail: v.requesterEmail || null,
+    requesterEmails: v.requesterEmails?.length ? v.requesterEmails : null,
 
     vehicleId: v.vehicleId || null,
 
@@ -88,6 +89,9 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
     camerasRequested: v.cameras ?? v.camerasRequested ?? null,
     deliveryMethod: v.deliveryMethod || null,
+
+    descriptionNovedad: v.descriptionNovedad || null,
+    finSolicitud: v.finSolicitud?.length ? v.finSolicitud : null,
   };
 
   const saved = await prisma.videoDownloadRequest.upsert({

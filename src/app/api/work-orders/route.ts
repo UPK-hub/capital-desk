@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const list = await prisma.workOrder.findMany({
     where: {
       tenantId,
+      case: { type: { not: "SOLICITUD_DESCARGA_VIDEO" } },
       ...(status ? { status: status as any } : {}),
       ...(role === Role.ADMIN ? {} : { assignedToId: userId }),
     },

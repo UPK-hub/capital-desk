@@ -13,6 +13,7 @@ export default function BackofficeLayout({ children }: { children: React.ReactNo
           <nav className="flex items-center gap-4 text-sm">
             <Link className="underline" href="/cases">Casos</Link>
             <Link className="underline" href="/buses">Buses</Link>
+            <Link className="underline" href="/video-requests">Videos</Link>
             <NotificationsBell />
           </nav>
         </div>

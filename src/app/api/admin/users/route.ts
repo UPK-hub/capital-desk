@@ -48,12 +48,27 @@ export async function GET(_req: NextRequest) {
       email: true,
       role: true,
       active: true,
+      capabilities: true,
       createdAt: true,
       updatedAt: true,
+      passwordHash: true,
     },
   });
 
-  return NextResponse.json({ ok: true, users });
+  return NextResponse.json({
+    ok: true,
+    users: users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      active: u.active,
+      capabilities: u.capabilities ?? [],
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+      hasPassword: Boolean(u.passwordHash),
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {

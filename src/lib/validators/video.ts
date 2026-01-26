@@ -24,6 +24,18 @@ export const VideoDownloadRequestSchema = z.object({
   requesterRole: z.string().trim().optional().nullable(),
   requesterPhone: z.string().trim().optional().nullable(),
   requesterEmail: z.string().trim().optional().nullable(),
+  requesterEmails: z
+    .union([z.string(), z.array(z.string()), z.null(), z.undefined()])
+    .transform((v) => {
+      if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
+      if (!v) return [];
+      return String(v)
+        .split(";")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    })
+    .refine((list) => list.length <= 3, "Maximo 3 correos")
+    .optional(),
 
   vehicleId: z.string().trim().optional().nullable(),
 
@@ -32,4 +44,17 @@ export const VideoDownloadRequestSchema = z.object({
 
   cameras: z.string().trim().optional().nullable(),
   deliveryMethod: z.nativeEnum(VideoDeliveryMethod).optional().nullable(),
+
+  descriptionNovedad: z.string().trim().optional().nullable(),
+  finSolicitud: z
+    .union([z.string(), z.array(z.string()), z.null(), z.undefined()])
+    .transform((v) => {
+      if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
+      if (!v) return [];
+      return String(v)
+        .split(";")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    })
+    .optional(),
 });

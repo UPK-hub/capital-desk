@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Technician = { id: string; name: string; email: string };
+type Slot = { start: string; end: string; label: string };
 
 type Props = {
   caseId: string;
@@ -22,13 +23,58 @@ export default function AssignTechnicianCard({
 
   const [technicianId, setTechnicianId] = useState<string>(currentAssignedToId ?? "");
   const [saving, setSaving] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [slotErr, setSlotErr] = useState<string | null>(null);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [selectedSlotStart, setSelectedSlotStart] = useState<string>("");
 
   const selected = useMemo(
     () => technicians.find((t) => t.id === technicianId) ?? null,
     [technicianId, technicians]
   );
+
+  const selectedSlot = useMemo(
+    () => slots.find((s) => s.start === selectedSlotStart) ?? null,
+    [slots, selectedSlotStart]
+  );
+
+  useEffect(() => {
+    if (!technicianId) {
+      setSlots([]);
+      setSelectedSlotStart("");
+      return;
+    }
+
+    let active = true;
+    setLoadingSlots(true);
+    setSlotErr(null);
+    setSlots([]);
+    setSelectedSlotStart("");
+
+    (async () => {
+      const res = await fetch(`/api/technicians/${technicianId}/availability?days=14`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!active) return;
+      setLoadingSlots(false);
+
+      if (!res.ok) {
+        setSlotErr(data?.error ?? "No se pudo cargar horarios");
+        return;
+      }
+
+      const list = (data?.slots ?? []) as Slot[];
+      setSlots(list);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [technicianId]);
 
   async function assign() {
     setSaving(true);
@@ -39,10 +85,16 @@ export default function AssignTechnicianCard({
       const id = String(technicianId ?? "").trim();
       if (!id) throw new Error("Selecciona un técnico.");
 
+      if (!selectedSlot) throw new Error("Selecciona un horario disponible.");
+
       const res = await fetch(`/api/cases/${caseId}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ technicianId: id }),
+        body: JSON.stringify({
+          technicianId: id,
+          scheduledAt: selectedSlot.start,
+          scheduledTo: selectedSlot.end,
+        }),
       });
 
       if (!res.ok) {
@@ -101,10 +153,37 @@ export default function AssignTechnicianCard({
             ))}
           </select>
 
+          <div className="rounded-lg border p-3 space-y-2">
+            <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>
+            {!technicianId ? (
+              <p className="text-xs text-muted-foreground">Selecciona un tecnico para ver horarios.</p>
+            ) : loadingSlots ? (
+              <p className="text-xs text-muted-foreground">Cargando horarios...</p>
+            ) : slotErr ? (
+              <p className="text-xs text-red-600">{slotErr}</p>
+            ) : slots.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sin horarios disponibles.</p>
+            ) : (
+              <div className="space-y-2">
+                {slots.map((s) => (
+                  <label key={s.start} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="schedule-slot"
+                      checked={selectedSlotStart === s.start}
+                      onChange={() => setSelectedSlotStart(s.start)}
+                    />
+                    <span>{s.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={assign}
-            disabled={saving || !technicianId}
+            disabled={saving || !technicianId || !selectedSlot}
             className="inline-flex w-full items-center justify-center rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
           >
             {saving ? "Asignando…" : "Asignar a técnico"}

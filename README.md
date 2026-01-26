@@ -20,6 +20,41 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## STS Module (Tickets, SLA, KPIs)
+
+Roles:
+- ADMIN, SUPERVISOR, HELPDESK, AUDITOR
+
+Main routes:
+- `/sts` dashboard
+- `/sts/tickets` listado y creacion
+- `/sts/tickets/[id]` detalle y SLA
+- `/sts/reports` reportes y export CSV/XLSX
+- `/sts/admin` configuracion (solo admin/supervisor)
+
+Run migrations and seed:
+```bash
+npx prisma migrate dev
+npm run db:seed
+```
+
+Run SLA unit test:
+```bash
+npm run test:sla
+```
+
+## Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Then run migrations inside the container:
+```bash
+docker compose exec web npx prisma migrate deploy
+docker compose exec web npm run db:seed
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

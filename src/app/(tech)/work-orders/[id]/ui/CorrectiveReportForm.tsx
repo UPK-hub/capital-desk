@@ -188,6 +188,13 @@ export default function CorrectiveReportForm(props: Props) {
 
       if (!curr.deviceType?.trim() && equipmentTypeName) patch.deviceType = equipmentTypeName;
       if (!curr.serial?.trim() && equipmentSerial) patch.serial = equipmentSerial;
+      if (
+        !curr.location &&
+        equipmentLocation &&
+        Object.values(DeviceLocation).includes(equipmentLocation as DeviceLocation)
+      ) {
+        patch.location = equipmentLocation as DeviceLocation;
+      }
 
       if (Object.keys(patch).length) form.reset({ ...curr, ...patch });
 
@@ -211,17 +218,6 @@ export default function CorrectiveReportForm(props: Props) {
   async function onSubmit(v: FormValues) {
     setSaving(true);
     setMsg(null);
-
-    const pErr = requiredIfOther("procedure", isProcedureOther, v.procedureOther);
-    const fErr = requiredIfOther("failure", isFailureOther, v.failureOther);
-    const lErr = requiredIfOther("location", isLocationOther, v.locationOther);
-
-    const err = pErr ?? fErr ?? lErr;
-    if (err) {
-      setSaving(false);
-      setMsg(err);
-      return;
-    }
 
     const payload = {
       ...v,
@@ -281,7 +277,7 @@ export default function CorrectiveReportForm(props: Props) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold">Formato Correctivo (inline)</h3>
-          <p className="text-xs text-muted-foreground">Estructura basada en CAP-FO-M-CR-002.</p>
+          <p className="text-xs text-muted-foreground">Estructura basada en CAP-FO-M-CR-002. Campos opcionales.</p>
         </div>
         <button
           type="button"
@@ -300,7 +296,7 @@ export default function CorrectiveReportForm(props: Props) {
         <section className="rounded-lg border p-4">
           <h4 className="text-sm font-semibold">1. Datos del dispositivo / equipo</h4>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Número de ticket</label>
               <input className={classInput()} {...form.register("ticketNumber")} />
@@ -344,13 +340,13 @@ export default function CorrectiveReportForm(props: Props) {
               <input className={classInput()} {...form.register("model")} />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">No. Serial</label>
               <input className={classInput()} {...form.register("serial")} />
               <p className="mt-1 text-[11px] text-muted-foreground">Sugerido: {autofill.equipmentSerial ?? "—"}</p>
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Tipo de procedimiento</label>
               <select className={classInput()} {...form.register("procedureType")}>
                 <option value="">— Selecciona —</option>
@@ -368,7 +364,7 @@ export default function CorrectiveReportForm(props: Props) {
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Ubicación del dispositivo en el biarticulado</label>
               <select className={classInput()} {...form.register("location")}>
                 <option value="">— Selecciona —</option>
@@ -406,7 +402,7 @@ export default function CorrectiveReportForm(props: Props) {
           <h4 className="text-sm font-semibold">2. Descripción de la falla</h4>
 
           <div className="mt-3 grid gap-3">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex items-center gap-3">
                 <input type="checkbox" {...form.register("accessoriesSupplied")} />
                 <label className="text-sm">Accesorios suministrados con el equipo</label>
@@ -441,7 +437,7 @@ export default function CorrectiveReportForm(props: Props) {
               />
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Solución</label>
                 <textarea className={classTextArea()} {...form.register("solution")} />
@@ -459,7 +455,7 @@ export default function CorrectiveReportForm(props: Props) {
         <section className="rounded-lg border p-4">
           <h4 className="text-sm font-semibold">3. Datos del dispositivo/equipo (nuevo instalado)</h4>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Fecha instalación</label>
               <input type="date" className={classInput()} {...form.register("installDate")} />
@@ -483,12 +479,12 @@ export default function CorrectiveReportForm(props: Props) {
               <input className={classInput()} {...form.register("newModel")} />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">No. Serial</label>
               <input className={classInput()} {...form.register("newSerial")} />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Costo asociado</label>
               <input className={classInput()} placeholder="Ej: 120000.00" {...form.register("associatedCost")} />
             </div>
@@ -499,7 +495,7 @@ export default function CorrectiveReportForm(props: Props) {
         <section className="rounded-lg border p-4">
           <h4 className="text-sm font-semibold">4. Datos del dispositivo/equipo (retirado)</h4>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Marca</label>
               <input className={classInput()} {...form.register("removedBrand")} />
@@ -508,7 +504,7 @@ export default function CorrectiveReportForm(props: Props) {
               <label className="text-xs text-muted-foreground">Modelo</label>
               <input className={classInput()} {...form.register("removedModel")} />
             </div>
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Serial</label>
               <input className={classInput()} {...form.register("removedSerial")} />
             </div>

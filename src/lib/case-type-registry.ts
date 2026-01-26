@@ -18,6 +18,9 @@ export type CaseTypeConfig = {
   // OT: formulario requerido para poder finalizar
   finishRequiresForm?: boolean;
   formKind?: FormKind;
+
+  // STS mapping (by CaseType)
+  stsComponentCode?: string;
 };
 
 export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
@@ -30,6 +33,7 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
     defaultDescription: (busCode) =>
       `Reporte de novedad${busCode ? ` en el bus ${busCode}` : ""}. Describe el hallazgo y contexto.`,
     finishRequiresForm: false,
+    stsComponentCode: "CENTRAL_DEVICE",
   },
 
   CORRECTIVO: {
@@ -42,6 +46,7 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
       `Falla correctiva${busCode ? ` en el bus ${busCode}` : ""}. Detalla síntomas, condiciones y prioridad.`,
     finishRequiresForm: true,
     formKind: "CORRECTIVE",
+    stsComponentCode: "CCTV",
   },
 
   PREVENTIVO: {
@@ -54,6 +59,7 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
       `Actividad preventiva${busCode ? ` para el bus ${busCode}` : ""}. Indica alcance y periodicidad.`,
     finishRequiresForm: true,
     formKind: "PREVENTIVE",
+    stsComponentCode: "CCTV",
   },
 
   MEJORA_PRODUCTO: {
@@ -65,6 +71,7 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
     defaultDescription: (busCode) =>
       `Solicitud de mejora${busCode ? ` relacionada al bus ${busCode}` : ""}. Describe oportunidad y evidencia.`,
     finishRequiresForm: false,
+    stsComponentCode: "CENTRAL_DEVICE",
   },
 
   SOLICITUD_DESCARGA_VIDEO: {
@@ -77,5 +84,6 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
     defaultDescription: (busCode) =>
       `Solicitud de descarga de video${busCode ? ` para el bus ${busCode}` : ""}. Completa el formulario.`,
     finishRequiresForm: false,
+    stsComponentCode: "CCTV",
   },
 };
