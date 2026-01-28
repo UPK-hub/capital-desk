@@ -5,7 +5,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
-import CaseChat from "@/components/CaseChat";
 
 import StartWorkOrderCard from "./ui/StartWorkOrderCard";
 import FinishWorkOrderCard from "./ui/FinishWorkOrderCard";
@@ -323,7 +322,15 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             </div>
           </section>
 
-          <CaseChat caseId={wo.case.id} currentUserId={userId} currentUserName={session.user?.name ?? "Usuario"} />
+          <section className="sts-card p-5">
+            <h2 className="text-base font-semibold">Chat</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Abre el chat en un apartado dedicado para conversar con backoffice.
+            </p>
+            <Link className="sts-btn-primary mt-3 w-full justify-center text-sm" href={`/work-orders/${wo.id}/chat`}>
+              Abrir chat
+            </Link>
+          </section>
         </div>
       </div>
     </div>

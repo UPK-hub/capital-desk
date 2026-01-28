@@ -5,7 +5,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, Role } from "@prisma/client";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
-import CaseChat from "@/components/CaseChat";
 
 function badgeClass(kind: "status" | "type" | "priority", value: string | number) {
   const base = "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium";
@@ -420,11 +419,15 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </>
           )}
 
-          <CaseChat
-            caseId={c.id}
-            currentUserId={(session.user as any).id as string}
-            currentUserName={session.user?.name ?? "Usuario"}
-          />
+          <section className="sts-card p-5">
+            <h2 className="text-base font-semibold">Chat</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Abre el chat en un apartado dedicado para conversar con el técnico.
+            </p>
+            <Link className="sts-btn-primary mt-3 w-full justify-center text-sm" href={`/cases/${c.id}/chat`}>
+              Abrir chat
+            </Link>
+          </section>
 
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Acciones</h2>
