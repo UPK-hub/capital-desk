@@ -291,9 +291,15 @@ function UserRowItem({
       <td className="p-2">{u.hasPassword ? "Configurada" : "Pendiente"}</td>
 
       <td className="p-2 space-y-2">
-        <div className="flex flex-wrap gap-2 text-xs">
-          {["STS_READ", "STS_WRITE", "STS_ADMIN", "PLANNER", "CASE_ASSIGN"].map((cap) => (
-            <label key={cap} className="inline-flex items-center gap-1">
+        <div className="flex flex-col gap-2 text-xs">
+          {[
+            { cap: "PLANNER", label: "Planner", desc: "Acceso al calendario y disponibilidad." },
+            { cap: "STS_ADMIN", label: "Supervisor STS", desc: "Administra políticas y configuración STS." },
+            { cap: "STS_WRITE", label: "Helpdesk STS", desc: "Gestiona y actualiza tickets STS." },
+            { cap: "STS_READ", label: "Auditor STS", desc: "Solo lectura de STS y reportes." },
+            { cap: "CASE_ASSIGN", label: "Asignar casos", desc: "Puede asignar técnicos/casos." },
+          ].map(({ cap, label, desc }) => (
+            <label key={cap} className="flex items-start gap-2 rounded-md border px-2 py-2">
               <input
                 type="checkbox"
                 checked={caps.has(cap)}
@@ -305,7 +311,10 @@ function UserRowItem({
                   onPatch(u.id, { capabilities: Array.from(next) });
                 }}
               />
-              <span>{cap}</span>
+              <span className="space-y-1">
+                <span className="block font-medium">{label}</span>
+                <span className="block text-[11px] text-muted-foreground">{desc}</span>
+              </span>
             </label>
           ))}
         </div>

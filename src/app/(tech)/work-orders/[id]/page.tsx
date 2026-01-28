@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
+import CaseChat from "@/components/CaseChat";
 
 import StartWorkOrderCard from "./ui/StartWorkOrderCard";
 import FinishWorkOrderCard from "./ui/FinishWorkOrderCard";
@@ -321,6 +322,8 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               </Link>
             </div>
           </section>
+
+          <CaseChat caseId={wo.case.id} currentUserId={userId} currentUserName={session.user?.name ?? "Usuario"} />
         </div>
       </div>
     </div>

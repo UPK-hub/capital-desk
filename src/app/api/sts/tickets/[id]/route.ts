@@ -9,6 +9,7 @@ import { Role, StsTicketStatus } from "@prisma/client";
 import { canStsRead, canStsWrite } from "@/lib/sts/access";
 import { calcSlaResult, slaProgress } from "@/lib/sts/sla";
 import { mapTicketStatusToCaseStatus } from "@/lib/sts/case-status";
+import { recomputeStsKpisForTenant } from "@/lib/sts/kpi-recompute";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -194,6 +195,11 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
     return saved;
   });
+
+  const shouldRecompute = statusChanged && (updates.closedAt || parsed.data.status === "CLOSED");
+  if (shouldRecompute) {
+    await recomputeStsKpisForTenant(tenantId);
+  }
 
   return NextResponse.json({ ok: true, ticket: updated });
 }

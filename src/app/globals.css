@@ -271,6 +271,251 @@
     @apply border-l;
     border-color: hsl(var(--border));
   }
+
+  .report-grid {
+    @apply grid gap-5;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+
+  .report-card {
+    @apply sts-card;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+    animation: report-fade-in 420ms ease both;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .report-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+  }
+
+  .report-card-header {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .report-card-title {
+    @apply text-sm font-semibold tracking-tight;
+  }
+
+  .report-card-action {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  }
+
+  .report-card-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    border-color: hsl(var(--foreground) / 0.2);
+  }
+
+  .report-subtitle {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .report-legend {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .report-pill {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+
+  .report-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  }
+
+  .report-metric {
+    @apply flex flex-col gap-1;
+  }
+
+  .report-metric-value {
+    @apply text-3xl font-semibold;
+    animation: report-pop 320ms ease;
+  }
+
+  .report-metric-label {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .report-chart {
+    @apply mt-4 rounded-2xl border p-3;
+    border-color: hsl(var(--border));
+    background: hsl(var(--background));
+  }
+
+  .report-chart svg path {
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: report-draw 650ms ease forwards;
+  }
+
+  .report-chart svg rect {
+    transform-origin: bottom;
+    transform-box: fill-box;
+    animation: report-rise 420ms ease forwards;
+  }
+
+  .report-chart svg circle {
+    animation: report-pop 280ms ease forwards;
+  }
+
+  .report-donut {
+    stroke-dasharray: var(--donut-circumference);
+    stroke-dashoffset: var(--donut-circumference);
+    animation: report-donut 700ms ease forwards;
+  }
+
+  .report-board {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr;
+    align-items: start;
+    justify-items: stretch;
+    width: 100%;
+  }
+
+  .report-panel {
+    width: 100%;
+    min-width: 280px;
+    display: block;
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .report-panel:has(.report-card:hover) {
+    transform: translateY(-2px);
+  }
+
+  .report-span-6 {
+    grid-column: span 1 / span 1;
+  }
+
+  .report-span-12 {
+    grid-column: span 1 / span 1;
+  }
+
+  @media (min-width: 1024px) {
+    .report-board {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .report-span-6 {
+      grid-column: span 1 / span 1;
+    }
+
+    .report-span-12 {
+      grid-column: span 2 / span 2;
+    }
+  }
+
+  .report-dragging {
+    opacity: 0.7;
+  }
+
+  .report-drag-handle {
+    cursor: grab;
+  }
+
+  .report-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .report-pending {
+    opacity: 0.6;
+    filter: blur(0.4px);
+    transition: opacity 220ms ease, filter 220ms ease;
+  }
+
+  .report-card-action {
+    user-select: none;
+  }
+
+  .report-filter {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, color 200ms ease;
+    white-space: nowrap;
+  }
+
+  .report-filter:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  }
+
+  .report-filter-active {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.2);
+    background: hsl(var(--muted));
+  }
+
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--muted));
+    border-radius: 16px;
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--card) / 0.6),
+      transparent
+    );
+    animation: shimmer 1.2s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .report-card,
+    .report-card:hover,
+    .report-card-action,
+    .report-card-action:hover,
+    .report-pill,
+    .report-pill:hover,
+    .report-chart svg path,
+    .report-chart svg rect,
+    .report-chart svg circle,
+    .report-donut {
+      animation: none;
+      transition: none;
+      transform: none;
+    }
+  }
+
+  .report-table {
+    @apply w-full text-sm border-collapse;
+  }
+
+  .report-table thead th {
+    @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide border-b;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .report-table tbody td {
+    @apply px-4 py-3 align-top border-b;
+    border-color: hsl(var(--border));
+  }
+
+  .report-table tbody tr:hover {
+    background: hsl(var(--muted));
+  }
 }
 
 @layer utilities {
@@ -301,5 +546,56 @@
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes report-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes report-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes report-rise {
+  0% {
+    transform: scaleY(0.2);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes report-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes report-donut {
+  to {
+    stroke-dashoffset: var(--donut-offset);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
