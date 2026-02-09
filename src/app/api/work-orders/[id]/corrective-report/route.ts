@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { saveUpload } from "@/lib/uploads";
 import {
   Role,
   CaseEventType,
@@ -15,7 +16,6 @@ import {
   DeviceLocation,
 } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
-import { Prisma as PrismaNS } from "@prisma/client";
 
 
 
@@ -45,18 +45,12 @@ function parseDateOrNull(v: any): Date | null {
   return null;
 }
 
-function toBoolOrNull(v: any): boolean | null {
-  if (v === null || v === undefined || v === "") return null;
+function toBool(v: any): boolean {
+  if (v === null || v === undefined || v === "") return false;
   if (typeof v === "boolean") return v;
-
   const s = String(v).toLowerCase().trim();
   if (["true", "1", "on", "yes", "si", "sí"].includes(s)) return true;
-  if (["false", "0", "off", "no"].includes(s)) return false;
-  return null;
-}
-
-function toBool(v: any): boolean {
-  return toBoolOrNull(v) ?? false;
+  return false;
 }
 
 // Acepta solo enums válidos. Si viene basura -> null
@@ -78,16 +72,6 @@ function normalizeEnumWithOther<T extends string>(
   return { value: enumValue, other: null };
 }
 
-function toDecimalOrNull(v: any): PrismaNS.Decimal | null {
-  const s = String(v ?? "").trim();
-  if (!s) return null;
-
-  const normalized = s.replace(",", ".");
-  const n = Number(normalized);
-  if (!Number.isFinite(n)) return null;
-
-  return new PrismaNS.Decimal(normalized);
-}
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -121,6 +105,8 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
           type: wo.case.busEquipment.equipmentType.name,
           serial: wo.case.busEquipment.serial,
           location: wo.case.busEquipment.location,
+          brand: wo.case.busEquipment.brand,
+          model: wo.case.busEquipment.model,
         }
       : null,
     report: wo.correctiveReport,
@@ -134,6 +120,38 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
   const role = (session.user as any).role as Role;
+
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    const form = await req.formData();
+    const photo = form.get("photo") as File | null;
+    const photoKind = String(form.get("photoKind") ?? "").trim();
+    if (!photo) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
+    if (!["current", "new"].includes(photoKind)) {
+      return NextResponse.json({ error: "photoKind inválido" }, { status: 400 });
+    }
+
+    const wo = await prisma.workOrder.findFirst({
+      where: { id: ctx.params.id, tenantId },
+      include: { correctiveReport: true },
+    });
+    if (!wo) return NextResponse.json({ error: "OT no encontrada" }, { status: 404 });
+    if (role !== Role.ADMIN && wo.assignedToId !== userId) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const relPath = await saveUpload(photo, `work-orders/${wo.id}/corrective-report`);
+    await prisma.correctiveReport.upsert({
+      where: { workOrderId: wo.id },
+      create: {
+        workOrderId: wo.id,
+        ...(photoKind === "current" ? { photoSerialCurrent: relPath } : { photoSerialNew: relPath }),
+      },
+      update: photoKind === "current" ? { photoSerialCurrent: relPath } : { photoSerialNew: relPath },
+    });
+
+    return NextResponse.json({ ok: true });
+  }
 
   const body = await req.json().catch(() => ({}));
 
@@ -179,8 +197,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const location: DeviceLocation | null = locationOther ? DeviceLocation.OTRO : (locationRaw as any);
 
   // Aliases por si el front manda nombres distintos
-  const diagnosisIn = body.diagnosis ?? body.diagnostic ?? body.diagnostico ?? body["diagnóstico"];
-  const solutionIn = body.solution ?? body.solucion ?? body["solución"];
+  const diagnosisIn = body.diagnosisOther ?? body.diagnosis ?? body.diagnostic ?? body.diagnostico ?? body["diagnóstico"];
+  const solutionIn = body.solutionOther ?? body.solution ?? body.solucion ?? body["solución"];
 
   // IMPORTANTE: NO usar `satisfies` aquí (rompe por Decimal|Null en TS)
   const payload = {
@@ -189,8 +207,6 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
     busCode,
     plate,
-    productionSp: emptyToNull(body.productionSp),
-
     deviceType: emptyToNull(body.deviceType) ?? equipmentTypeName,
     brand: emptyToNull(body.brand),
     model: emptyToNull(body.model),
@@ -203,7 +219,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     locationOther: locationOther ?? null,
 
     dateDismount: parseDateOrNull(body.dateDismount),
-    dateDeliveredMfr: parseDateOrNull(body.dateDeliveredMfr),
+    dateDelivered: parseDateOrNull(body.dateDelivered),
 
     accessoriesSupplied: toBool(body.accessoriesSupplied),
     accessoriesWhich: emptyToNull(body.accessoriesWhich),
@@ -217,17 +233,14 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     solution: emptyToNull(solutionIn),
     manufacturerEta: emptyToNull(body.manufacturerEta),
 
+    timeStart: emptyToNull(body.timeStart),
+    timeEnd: emptyToNull(body.timeEnd),
+
     installDate: parseDateOrNull(body.installDate),
     newBrand: emptyToNull(body.newBrand),
     newModel: emptyToNull(body.newModel),
     newSerial: emptyToNull(body.newSerial),
-    inStock: toBoolOrNull(body.inStock),
 
-    removedBrand: emptyToNull(body.removedBrand),
-    removedModel: emptyToNull(body.removedModel),
-    removedSerial: emptyToNull(body.removedSerial),
-
-    associatedCost: toDecimalOrNull(body.associatedCost),
   };
 
   const saved = await prisma.$transaction(async (tx) => {
@@ -236,6 +249,17 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       create: { workOrderId: wo.id, ...payload },
       update: payload,
     });
+
+    if (payload.procedureType === ProcedureType.CAMBIO_COMPONENTE && wo.case.busEquipmentId) {
+      await tx.busEquipment.update({
+        where: { id: wo.case.busEquipmentId },
+        data: {
+          brand: payload.newBrand ?? undefined,
+          model: payload.newModel ?? undefined,
+          serial: payload.newSerial ?? undefined,
+        },
+      });
+    }
 
     await tx.caseEvent.create({
       data: {

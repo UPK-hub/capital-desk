@@ -18,20 +18,107 @@ function isImageFile(filePath: string) {
   return ext === ".png" || ext === ".jpg" || ext === ".jpeg";
 }
 
-function reportToLines(report: Record<string, any>) {
+function yesNo(v: any) {
+  return v ? "Sí" : "No";
+}
+
+function fmtDate(v: any) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+function renderPreventive(report: Record<string, any>) {
   const lines: string[] = [];
-  for (const [key, value] of Object.entries(report)) {
-    if (value === null || value === undefined) continue;
-    if (Array.isArray(value)) {
-      lines.push(`${key}: [${value.length} items]`);
-      continue;
-    }
-    if (typeof value === "object") {
-      lines.push(`${key}: ${JSON.stringify(value)}`);
-      continue;
-    }
-    lines.push(`${key}: ${String(value)}`);
+  const push = (label: string, value: any) => {
+    if (value === null || value === undefined || value === "") return;
+    lines.push(`${label}: ${value}`);
+  };
+
+  lines.push("== Datos del biarticulado ==");
+  push("Ticket", report.ticketNumber);
+  push("OT", report.workOrderNumber);
+  push("Bus (TM)", report.biarticuladoNo);
+  push("Placa", report.plate);
+  push("Kilometraje", report.mileage);
+  push("Programado", fmtDate(report.scheduledAt));
+  push("Ejecutado", fmtDate(report.executedAt));
+  push("Reprogramado", fmtDate(report.rescheduledAt));
+
+  // Dispositivos instalados eliminado por solicitud
+
+  lines.push("");
+  lines.push("== Actividades ==");
+  const activities = Array.isArray(report.activities) ? report.activities : [];
+  if (!activities.length) {
+    lines.push("Sin registros.");
+  } else {
+    activities.forEach((a: any, idx: number) => {
+      const result = a.result ? ` | Resultado: ${a.result}` : "";
+      const value = a.value ? ` | Valor: ${a.value}` : "";
+      const obs = a.observation ? ` | Observación: ${a.observation}` : "";
+      lines.push(`${idx + 1}. [${a.area ?? ""}] ${a.activity ?? ""}${result}${value}${obs}`);
+    });
   }
+
+  lines.push("");
+  lines.push("== Cierre ==");
+  push("Observaciones", report.observations);
+  push("Hora inicio", report.timeStart);
+  push("Hora fin", report.timeEnd);
+  push("Responsable UPK", report.responsibleUpk);
+  push("Responsable Capital Bus", report.responsibleCapitalBus);
+
+  return lines;
+}
+
+function renderCorrective(report: Record<string, any>) {
+  const lines: string[] = [];
+  const push = (label: string, value: any) => {
+    if (value === null || value === undefined || value === "") return;
+    lines.push(`${label}: ${value}`);
+  };
+
+  lines.push("== Datos del dispositivo/equipo ==");
+  push("Ticket", report.ticketNumber);
+  push("OT", report.workOrderNumber);
+  push("Bus (TM)", report.busCode);
+  push("Placa", report.plate);
+  push("Tipo dispositivo", report.deviceType);
+  push("Marca", report.brand);
+  push("Modelo", report.model);
+  push("Serial", report.serial);
+  push("Tipo procedimiento", report.procedureType);
+  push("Procedimiento (otro)", report.procedureOther);
+  push("Ubicación", report.location);
+  push("Ubicación (otro)", report.locationOther);
+  push("Fecha desmonte", fmtDate(report.dateDismount));
+  push("Fecha entrega", fmtDate(report.dateDelivered));
+
+  lines.push("");
+  lines.push("== Descripción de la falla ==");
+  push("Accesorios suministrados", yesNo(report.accessoriesSupplied));
+  push("Accesorios (cuáles)", report.accessoriesWhich);
+  push("Tipo de falla", report.failureType);
+  push("Tipo de falla (otro)", report.failureOther);
+  push("Estado físico", report.physicalState);
+  push("Diagnóstico", report.diagnosis);
+  push("Solución", report.solution);
+  push("Tiempo solución fabricante", report.manufacturerEta);
+  push("Hora inicio (interno)", report.timeStart);
+  push("Hora cierre (interno)", report.timeEnd);
+
+  lines.push("");
+  lines.push("== Cambio de componente ==");
+  push("Fecha instalación", fmtDate(report.installDate));
+  push("Marca nueva", report.newBrand);
+  push("Modelo nuevo", report.newModel);
+  push("Serial nuevo", report.newSerial);
+  if (!report.installDate && !report.newBrand && !report.newModel && !report.newSerial) {
+    lines.push("No aplica.");
+  }
+
   return lines;
 }
 
@@ -80,6 +167,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 
   const report = kind === "PREVENTIVE" ? wo.preventiveReport : kind === "CORRECTIVE" ? wo.correctiveReport : null;
   if (!report) return new Response("Report not found", { status: 404 });
+  const corrective = kind === "CORRECTIVE" ? wo.correctiveReport : null;
 
   const media: MediaInfo[] = [];
   for (const s of wo.steps ?? []) {
@@ -129,7 +217,8 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   drawLine(`Generado: ${new Date().toISOString()}`);
   y -= lineHeight;
 
-  const lines = reportToLines(report as any);
+  const lines =
+    kind === "PREVENTIVE" ? renderPreventive(report as any) : kind === "CORRECTIVE" ? renderCorrective(report as any) : [];
   for (const l of lines) drawLine(l);
 
   async function addImagePage(title: string, filePath: string) {
@@ -155,6 +244,12 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 
   if (startPhoto?.filePath) await addImagePage("Foto inicio", startPhoto.filePath);
   if (finishPhoto?.filePath) await addImagePage("Foto fin", finishPhoto.filePath);
+  if (corrective?.photoSerialCurrent) {
+    await addImagePage("Foto serial actual", corrective.photoSerialCurrent);
+  }
+  if (corrective?.photoSerialNew) {
+    await addImagePage("Foto serial nuevo", corrective.photoSerialNew);
+  }
 
   const bytes = await pdf.save();
   return new Response(Buffer.from(bytes), {

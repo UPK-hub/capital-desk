@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 
 type Props = {
   workOrderId: string;
@@ -71,7 +72,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
     <div className="space-y-4">
       <div className="sts-card p-3">
         <p className="text-xs text-muted-foreground">Estado actual</p>
-        <p className="mt-1 text-sm font-medium">{currentStatus}</p>
+        <p className="mt-1 text-sm font-medium">{labelFromMap(currentStatus, workOrderStatusLabels)}</p>
       </div>
 
       {msg ? (
@@ -105,7 +106,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
           {loading ? "Procesando..." : "Iniciar"}
         </button>
         {!canStart ? (
-          <p className="text-xs text-muted-foreground">Disponible cuando esté ASIGNADA/CREADA.</p>
+          <p className="text-xs text-muted-foreground">Disponible cuando esté Asignada/Creada.</p>
         ) : null}
       </div>
 
@@ -134,7 +135,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
           {loading ? "Procesando..." : "Finalizar"}
         </button>
         {!canFinish ? (
-          <p className="text-xs text-muted-foreground">Disponible cuando esté EN_CAMPO.</p>
+          <p className="text-xs text-muted-foreground">Disponible cuando esté En campo.</p>
         ) : null}
       </div>
     </div>

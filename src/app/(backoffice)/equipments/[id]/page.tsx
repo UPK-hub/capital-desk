@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { caseStatusLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -71,6 +72,8 @@ export default async function EquipmentLifePage({ params }: PageProps) {
     where: { id: equipmentId, bus: { tenantId } },
     select: {
       id: true,
+      brand: true,
+      model: true,
       serial: true,
       location: true,
       active: true,
@@ -253,10 +256,13 @@ export default async function EquipmentLifePage({ params }: PageProps) {
           <p className="text-sm text-muted-foreground">
             Bus {equipment.bus.code} {equipment.bus.plate ? `· ${equipment.bus.plate}` : ""}
           </p>
+          <p className="text-xs text-muted-foreground">
+            Marca: {equipment.brand ?? "—"} · Modelo: {equipment.model ?? "—"}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={statusBadge(equipment.active)}>{equipment.active ? "ACTIVO" : "INACTIVO"}</span>
+          <span className={statusBadge(equipment.active)}>{equipment.active ? "Activo" : "Inactivo"}</span>
           <Link className="sts-btn-ghost text-sm" href={`/buses/${equipment.bus.id}`}>
             Volver al bus
           </Link>
@@ -323,11 +329,11 @@ export default async function EquipmentLifePage({ params }: PageProps) {
                         </td>
                         <td className="py-2">{c.type}</td>
                         <td className="py-2">
-                          <span className={caseStatusBadge(c.status)}>{c.status}</span>
+                          <span className={caseStatusBadge(c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
                         </td>
                         <td className="py-2">
                           {c.workOrder ? (
-                            <span className={woStatusBadge(c.workOrder.status)}>{c.workOrder.status}</span>
+                            <span className={woStatusBadge(c.workOrder.status)}>{labelFromMap(c.workOrder.status, workOrderStatusLabels)}</span>
                           ) : (
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
@@ -446,7 +452,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
 
               <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Estado</p>
-                <p className="mt-1 font-medium">{equipment.active ? "ACTIVO" : "INACTIVO"}</p>
+                <p className="mt-1 font-medium">{equipment.active ? "Activo" : "Inactivo"}</p>
               </div>
             </div>
           </section>

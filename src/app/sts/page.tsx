@@ -303,7 +303,7 @@ export default async function StsDashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">STS · Panel operativo</h1>
-          <p className="text-sm text-muted-foreground">SLA, severidades y KPIs con la visual de un panel tipo MaintainX.</p>
+          <p className="text-sm text-muted-foreground">SLA, prioridades y KPIs con la visual de un panel tipo MaintainX.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link className="sts-btn-ghost" href="/sts/reports">
@@ -378,7 +378,7 @@ export default async function StsDashboardPage() {
 
         <div className="sts-card p-5 space-y-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Severidad · últimos 7 días</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Prioridad · últimos 7 días</p>
             <h2 className="text-xl font-semibold">Carga por impacto</h2>
           </div>
 
@@ -528,7 +528,7 @@ export default async function StsDashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Actividad reciente</h2>
-            <p className="text-xs text-muted-foreground">Últimos tickets abiertos, con componente y severidad.</p>
+            <p className="text-xs text-muted-foreground">Últimos tickets abiertos, con componente y prioridad.</p>
           </div>
           <Link className="sts-btn-ghost text-xs" href="/sts/tickets">
             Abrir bandeja

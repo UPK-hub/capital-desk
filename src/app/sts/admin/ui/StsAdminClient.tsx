@@ -7,6 +7,7 @@ import {
   StsTicketSeverity,
   StsTicketStatus,
 } from "@prisma/client";
+import { labelFromMap, stsMetricLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 
 type ComponentRow = { id: string; code: string; name: string; active: boolean };
 type SlaRow = {
@@ -194,10 +195,7 @@ export default function StsAdminClient() {
     StsTicketSeverity.LOW,
   ];
 
-  const pauseOptions = [
-    StsTicketStatus.WAITING_VENDOR,
-    StsTicketStatus.IN_PROGRESS,
-  ];
+  const pauseOptions = [StsTicketStatus.WAITING_VENDOR, StsTicketStatus.IN_PROGRESS];
 
   return (
     <div className="space-y-6">
@@ -247,7 +245,7 @@ export default function StsAdminClient() {
             <thead className="bg-zinc-50">
               <tr>
                 <th className="text-left p-2">Componente</th>
-                <th className="text-left p-2">Severidad</th>
+                <th className="text-left p-2">Prioridad</th>
                 <th className="text-left p-2">Respuesta (min)</th>
                 <th className="text-left p-2">Resolucion (min)</th>
                 <th className="text-left p-2">Pausas</th>
@@ -257,7 +255,7 @@ export default function StsAdminClient() {
               {slaPolicies.map((p, idx) => (
                 <tr key={p.id} className="border-t">
                   <td className="p-2">{components.find((c) => c.id === p.componentId)?.name ?? p.componentId}</td>
-                  <td className="p-2">{p.severity}</td>
+                  <td className="p-2">{labelFromMap(p.severity, stsSeverityLabels)}</td>
                   <td className="p-2">
                     <input
                       className={clsInput()}
@@ -300,7 +298,7 @@ export default function StsAdminClient() {
                     >
                       {pauseOptions.map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {labelFromMap(s, stsStatusLabels)}
                         </option>
                       ))}
                     </select>
@@ -342,7 +340,7 @@ export default function StsAdminClient() {
               {kpiPolicies.map((p, idx) => (
                 <tr key={p.id} className="border-t">
                   <td className="p-2">{components.find((c) => c.id === p.componentId)?.name ?? p.componentId}</td>
-                  <td className="p-2">{p.metric}</td>
+                  <td className="p-2">{labelFromMap(p.metric, stsMetricLabels)}</td>
                   <td className="p-2">{p.periodicity}</td>
                   <td className="p-2">
                     <input

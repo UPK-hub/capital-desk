@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { Role } from "@prisma/client";
+import { redirect } from "next/navigation";
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect("/login");
+  if (session.user.role !== Role.ADMIN) redirect("/");
+
   return (
     <div className="mx-auto max-w-4xl p-8 space-y-6">
       <h1 className="text-3xl font-semibold tracking-tight">Administración</h1>

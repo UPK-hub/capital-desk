@@ -186,6 +186,40 @@
     color: hsl(var(--muted-foreground));
   }
 
+  @media (max-width: 1023px) {
+    .app-sidebar {
+      position: sticky;
+      top: 0;
+    }
+
+    .app-sidebar a {
+      font-size: 13px;
+    }
+
+    .app-sidebar-nav {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .app-sidebar-nav > a {
+      flex: 0 0 auto;
+      padding: 8px 10px;
+      gap: 8px;
+    }
+
+    .app-sidebar-nav span + span {
+      white-space: nowrap;
+    }
+
+    .app-sidebar-footer {
+      display: none;
+    }
+  }
+
   .app-pill {
     @apply rounded-full border px-3 py-2 text-sm;
     background: hsl(var(--card));
@@ -245,6 +279,30 @@
     @apply w-full text-sm border-collapse;
   }
 
+  .sts-table-compact {
+    table-layout: auto;
+  }
+
+  .sts-table-compact th,
+  .sts-table-compact td {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .sts-table-compact thead th {
+    @apply px-3 py-2 text-[10px];
+  }
+
+  .sts-table-compact tbody td {
+    @apply px-3 py-2;
+  }
+
+  .sts-table-compact input,
+  .sts-table-compact select,
+  .sts-table-compact textarea {
+    @apply text-xs;
+  }
+
   .sts-table thead th {
     @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide border-b;
     background: hsl(var(--card));
@@ -264,6 +322,19 @@
 
   .sts-table tbody tr:hover {
     @apply bg-zinc-50/70;
+  }
+
+  @media (max-width: 768px) {
+    .sts-table {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .sts-table thead th,
+    .sts-table tbody td {
+      min-width: 140px;
+    }
   }
 
   .sts-table th + th,
@@ -515,6 +586,217 @@
 
   .report-table tbody tr:hover {
     background: hsl(var(--muted));
+  }
+
+  .floating-chat {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 60;
+  }
+
+  .floating-chat__button {
+    @apply flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold;
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+  }
+
+  .floating-chat__badge {
+    @apply inline-flex items-center justify-center rounded-full text-[11px] font-semibold;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: hsl(var(--sts-accent));
+    color: #fff;
+  }
+
+  .floating-chat__badge.small {
+    min-width: 18px;
+    height: 18px;
+  }
+
+  .floating-chat__panel {
+    position: fixed;
+    right: 24px;
+    bottom: 84px;
+    width: 360px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  @media (max-width: 768px) {
+    .floating-chat {
+      right: 16px;
+      bottom: 16px;
+    }
+
+    .floating-chat__button {
+      padding: 10px 14px;
+      font-size: 12px;
+    }
+
+    .floating-chat__panel {
+      left: 12px;
+      right: 12px;
+      width: auto;
+      bottom: 72px;
+      max-height: 75vh;
+    }
+
+    .floating-chat__list {
+      max-height: 160px;
+    }
+
+    .chat-panel__body {
+      height: 360px;
+    }
+  }
+
+  .floating-chat__header {
+    @apply flex items-center justify-between border-b px-4 py-3;
+    border-color: hsl(var(--border));
+  }
+
+  .floating-chat__content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+    padding: 16px;
+  }
+
+  .floating-chat__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .floating-chat__search input {
+    @apply w-full rounded-full border px-4 py-2 text-sm;
+    border-color: hsl(var(--border));
+    background: hsl(var(--card));
+  }
+
+  .floating-chat__list {
+    display: grid;
+    gap: 8px;
+    max-height: 200px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
+  .floating-chat__item {
+    @apply flex items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition;
+    border-color: hsl(var(--border));
+    background: hsl(var(--background));
+  }
+
+  .floating-chat__item:hover {
+    background: hsl(var(--muted));
+  }
+
+  .floating-chat__avatar {
+    @apply flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold;
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .floating-chat__toolbar {
+    @apply flex items-center justify-between gap-3 border-b pb-3;
+    border-color: hsl(var(--border));
+  }
+
+  .chat-panel {
+    @apply flex flex-col border rounded-2xl overflow-hidden;
+    border-color: hsl(var(--border));
+    background: hsl(var(--card));
+  }
+
+  .chat-panel__header {
+    @apply flex items-center justify-between border-b px-4 py-3;
+    border-color: hsl(var(--border));
+  }
+
+  .chat-panel__body {
+    display: flex;
+    flex-direction: column;
+    height: 420px;
+  }
+
+  .chat-panel__messages {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chat-panel__composer {
+    border-top: 1px solid hsl(var(--border));
+    padding: 12px 16px;
+    background: hsl(var(--card));
+  }
+
+  .global-search {
+    position: relative;
+  }
+
+  .global-search__input {
+    @apply flex items-center gap-2 rounded-full border px-4 py-2 text-sm;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+
+  .global-search__input input {
+    background: transparent;
+    outline: none;
+    width: 100%;
+  }
+
+  .global-search__panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    @apply rounded-2xl border p-3 text-sm shadow-lg;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+
+  .global-search__hint {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .global-search__list {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    max-height: 340px;
+    overflow: auto;
+  }
+
+  .global-search__item {
+    @apply flex items-start gap-3 rounded-2xl border px-3 py-2 text-left transition;
+    border-color: hsl(var(--border));
+    background: hsl(var(--background));
+  }
+
+  .global-search__item:hover {
+    background: hsl(var(--muted));
+  }
+
+  .global-search__tag {
+    @apply rounded-full border px-2 py-1 text-[10px] font-semibold uppercase;
+    border-color: hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    min-width: 64px;
+    text-align: center;
   }
 }
 

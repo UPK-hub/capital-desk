@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { labelFromMap, videoCaseStatusLabels, videoDownloadStatusLabels } from "@/lib/labels";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -115,10 +116,10 @@ export default async function VideoRequestsPage() {
                       {it.case.bus.plate ? ` (${it.case.bus.plate})` : ""}
                     </td>
                     <td className="py-2">
-                      <span className={statusBadge(it.status)}>{it.status}</span>
+                      <span className={statusBadge(it.status)}>{labelFromMap(it.status, videoCaseStatusLabels)}</span>
                     </td>
                     <td className="py-2">
-                      <span className={downloadBadge(it.downloadStatus)}>{it.downloadStatus}</span>
+                      <span className={downloadBadge(it.downloadStatus)}>{labelFromMap(it.downloadStatus, videoDownloadStatusLabels)}</span>
                     </td>
                     <td className="py-2">{it.assignedTo?.name ?? "-"}</td>
                     <td className="py-2 text-right whitespace-nowrap">

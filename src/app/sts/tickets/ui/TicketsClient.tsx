@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { StsTicketChannel, StsTicketSeverity, StsTicketStatus } from "@prisma/client";
+import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 
 type ComponentRow = { id: string; name: string; code: string };
 type TicketRow = {
@@ -108,7 +109,7 @@ export default function TicketsClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Nuevo ticket</h2>
-            <p className="text-xs text-muted-foreground">Abre un incidente con severidad y canal.</p>
+            <p className="text-xs text-muted-foreground">Abre un incidente con prioridad y canal.</p>
           </div>
           <span className="sts-chip">SLA en vivo</span>
         </div>
@@ -129,21 +130,21 @@ export default function TicketsClient() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Severidad</label>
+            <label className="text-xs text-muted-foreground">Prioridad</label>
             <select className={clsInput()} value={severity} onChange={(e) => setSeverity(e.target.value as any)}>
-              <option value={StsTicketSeverity.EMERGENCY}>Emergencia</option>
-              <option value={StsTicketSeverity.HIGH}>Alto</option>
-              <option value={StsTicketSeverity.MEDIUM}>Medio</option>
-              <option value={StsTicketSeverity.LOW}>Bajo</option>
+              <option value={StsTicketSeverity.EMERGENCY}>{stsSeverityLabels.EMERGENCY}</option>
+              <option value={StsTicketSeverity.HIGH}>{stsSeverityLabels.HIGH}</option>
+              <option value={StsTicketSeverity.MEDIUM}>{stsSeverityLabels.MEDIUM}</option>
+              <option value={StsTicketSeverity.LOW}>{stsSeverityLabels.LOW}</option>
             </select>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Canal</label>
             <select className={clsInput()} value={channel} onChange={(e) => setChannel(e.target.value as any)}>
-              <option value={StsTicketChannel.PHONE}>Telefono</option>
-              <option value={StsTicketChannel.EMAIL}>Email</option>
-              <option value={StsTicketChannel.CHAT}>Chat</option>
-              <option value={StsTicketChannel.OTHER}>Otro</option>
+              <option value={StsTicketChannel.PHONE}>{stsChannelLabels.PHONE}</option>
+              <option value={StsTicketChannel.EMAIL}>{stsChannelLabels.EMAIL}</option>
+              <option value={StsTicketChannel.CHAT}>{stsChannelLabels.CHAT}</option>
+              <option value={StsTicketChannel.OTHER}>{stsChannelLabels.OTHER}</option>
             </select>
           </div>
           <div className="md:col-span-2">
@@ -170,7 +171,7 @@ export default function TicketsClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Tickets</h2>
-            <p className="text-xs text-muted-foreground">Filtra por severidad, estado o breach.</p>
+            <p className="text-xs text-muted-foreground">Filtra por prioridad, estado o breach.</p>
           </div>
           <button className="sts-btn-ghost" onClick={load} disabled={loading}>
             {loading ? "Cargando..." : "Refrescar"}
@@ -179,19 +180,19 @@ export default function TicketsClient() {
 
         <div className="grid gap-3 md:grid-cols-4">
           <select className={clsInput()} value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
-            <option value="">Severidad</option>
-            <option value={StsTicketSeverity.EMERGENCY}>Emergencia</option>
-            <option value={StsTicketSeverity.HIGH}>Alto</option>
-            <option value={StsTicketSeverity.MEDIUM}>Medio</option>
-            <option value={StsTicketSeverity.LOW}>Bajo</option>
+            <option value="">Prioridad</option>
+            <option value={StsTicketSeverity.EMERGENCY}>{stsSeverityLabels.EMERGENCY}</option>
+            <option value={StsTicketSeverity.HIGH}>{stsSeverityLabels.HIGH}</option>
+            <option value={StsTicketSeverity.MEDIUM}>{stsSeverityLabels.MEDIUM}</option>
+            <option value={StsTicketSeverity.LOW}>{stsSeverityLabels.LOW}</option>
           </select>
           <select className={clsInput()} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">Estado</option>
-            <option value={StsTicketStatus.OPEN}>Open</option>
-            <option value={StsTicketStatus.IN_PROGRESS}>In Progress</option>
-            <option value={StsTicketStatus.WAITING_VENDOR}>Waiting Vendor</option>
-            <option value={StsTicketStatus.RESOLVED}>Resolved</option>
-            <option value={StsTicketStatus.CLOSED}>Closed</option>
+            <option value={StsTicketStatus.OPEN}>{stsStatusLabels.OPEN}</option>
+            <option value={StsTicketStatus.IN_PROGRESS}>{stsStatusLabels.IN_PROGRESS}</option>
+            <option value={StsTicketStatus.WAITING_VENDOR}>{stsStatusLabels.WAITING_VENDOR}</option>
+            <option value={StsTicketStatus.RESOLVED}>{stsStatusLabels.RESOLVED}</option>
+            <option value={StsTicketStatus.CLOSED}>{stsStatusLabels.CLOSED}</option>
           </select>
           <select className={clsInput()} value={filterComponent} onChange={(e) => setFilterComponent(e.target.value)}>
             <option value="">Componente</option>
@@ -218,7 +219,7 @@ export default function TicketsClient() {
               <thead>
                 <tr>
                   <th>Componente</th>
-                  <th>Severidad</th>
+                  <th>Prioridad</th>
                   <th>Estado</th>
                   <th>Canal</th>
                   <th>Apertura</th>
@@ -230,11 +231,11 @@ export default function TicketsClient() {
                 {tickets.map((t) => (
                   <tr key={t.id}>
                     <td>{t.component.name}</td>
-                    <td>{t.severity}</td>
+                    <td>{labelFromMap(t.severity, stsSeverityLabels)}</td>
                     <td>
-                      <span className="sts-chip">{t.status}</span>
+                      <span className="sts-chip">{labelFromMap(t.status, stsStatusLabels)}</span>
                     </td>
-                    <td>{t.channel}</td>
+                    <td>{labelFromMap(t.channel, stsChannelLabels)}</td>
                     <td>{new Date(t.openedAt).toLocaleString("es-CO")}</td>
                     <td>
                       {t.breachResponse ? "Resp" : ""} {t.breachResolution ? "Res" : ""}

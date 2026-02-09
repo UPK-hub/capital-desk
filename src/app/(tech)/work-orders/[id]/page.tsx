@@ -12,6 +12,7 @@ import CorrectiveReportForm from "./ui/CorrectiveReportForm";
 import PreventiveReportForm from "./ui/PreventiveReportForm";
 import { preventiveCompletion, correctiveCompletion } from "@/lib/work-orders/report-completion";
 import { fmtWorkOrderNo, fmtCaseNo } from "@/lib/format-no";
+import { caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", {
@@ -73,6 +74,18 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               equipmentType: { select: { name: true } },
             },
           },
+          caseEquipments: {
+            select: {
+              busEquipment: {
+                select: {
+                  id: true,
+                  serial: true,
+                  location: true,
+                  equipmentType: { select: { name: true } },
+                },
+              },
+            },
+          },
         },
       },
       steps: {
@@ -81,6 +94,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
       },
       correctiveReport: true,
       preventiveReport: true,
+      interventionReceipt: true,
     },
   });
 
@@ -102,11 +116,21 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
 
   const cfg = CASE_TYPE_REGISTRY[wo.case.type];
 
-  const equipmentLabel = wo.case.busEquipment
-    ? `${wo.case.busEquipment.equipmentType.name}${wo.case.busEquipment.serial ? ` • ${wo.case.busEquipment.serial}` : ""}${
-        wo.case.busEquipment.location ? ` • ${wo.case.busEquipment.location}` : ""
-      }`
-    : "No aplica / No seleccionado";
+  const equipments = wo.case.caseEquipments?.length
+    ? wo.case.caseEquipments.map((c) => c.busEquipment)
+    : wo.case.busEquipment
+    ? [wo.case.busEquipment]
+    : [];
+
+  const equipmentLabel =
+    equipments.length > 0
+      ? equipments
+          .map(
+            (eq) =>
+              `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`
+          )
+          .join(" | ")
+      : "No aplica / No seleccionado";
 
   // Reglas finalizar por formulario (según registry)
   const requiresFinishForm = Boolean(cfg?.finishRequiresForm);
@@ -123,8 +147,12 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   const startDone = Boolean(wo.startedAt);
   const finishDone = Boolean(wo.finishedAt);
 
+  const suggestedTicketNumber =
+    wo.interventionReceipt?.ticketNo ??
+    (wo.workOrderNo ? `UPK-${String(wo.workOrderNo).padStart(3, "0")}` : "");
+
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
+    <div className="mx-auto w-full max-w-[1400px] p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
@@ -146,16 +174,16 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Izquierda */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid gap-6">
+        {/* Contenido principal */}
+        <div className="space-y-6">
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Contexto</h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Estado OT</p>
-                <p className="mt-1 text-sm font-medium">{wo.status}</p>
+                <p className="mt-1 text-sm font-medium">{labelFromMap(wo.status, workOrderStatusLabels)}</p>
                 {wo.assignedAt ? (
                   <p className="mt-1 text-xs text-muted-foreground">Asignada: {fmtDate(wo.assignedAt)}</p>
                 ) : null}
@@ -169,7 +197,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
 
               <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Tipo de caso</p>
-                <p className="mt-1 text-sm font-medium">{wo.case.type}</p>
+                <p className="mt-1 text-sm font-medium">{labelFromMap(wo.case.type, caseTypeLabels)}</p>
               </div>
 
               <div className="sts-card p-3">
@@ -231,9 +259,17 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   <p className="text-sm text-muted-foreground">Este tipo de OT no requiere formulario para finalizar.</p>
                 </div>
               ) : cfg?.formKind === "CORRECTIVE" ? (
-                <CorrectiveReportForm workOrderId={wo.id} initialReport={wo.correctiveReport} />
+                <CorrectiveReportForm
+                  workOrderId={wo.id}
+                  initialReport={wo.correctiveReport}
+                  suggestedTicketNumber={suggestedTicketNumber}
+                />
               ) : (
-                <PreventiveReportForm workOrderId={wo.id} initialReport={wo.preventiveReport} />
+                <PreventiveReportForm
+                  workOrderId={wo.id}
+                  initialReport={wo.preventiveReport}
+                  suggestedTicketNumber={suggestedTicketNumber}
+                />
               )}
 
               {requiresFinishForm ? (
@@ -278,7 +314,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
           </section>
         </div>
 
-        {/* Derecha */}
+        {/* Panel lateral */}
         <div className="space-y-6">
           <StartWorkOrderCard
             workOrderId={wo.id}
@@ -290,6 +326,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             workOrderId={wo.id}
             disabled={!startDone || finishDone || missingFinishForm}
             finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
+            caseType={wo.case.type}
+            equipmentOptions={equipments.map((eq) => ({
+              id: eq.id,
+              label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
+            }))}
             blockingReason={
               !startDone
                 ? "Debes iniciar la OT primero."
@@ -319,18 +360,20 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               >
                 Hoja de vida del bus
               </Link>
+
+              {wo.interventionReceipt ? (
+                <a
+                  className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                  href={`/api/work-orders/${wo.id}/receipt-pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Descargar recibo de intervención
+                </a>
+              ) : null}
             </div>
           </section>
 
-          <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Chat</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Abre el chat en un apartado dedicado para conversar con backoffice.
-            </p>
-            <Link className="sts-btn-primary mt-3 w-full justify-center text-sm" href={`/work-orders/${wo.id}/chat`}>
-              Abrir chat
-            </Link>
-          </section>
         </div>
       </div>
     </div>

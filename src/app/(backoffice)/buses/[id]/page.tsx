@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { caseStatusLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -79,6 +80,8 @@ export default async function BusLifePage({ params }: PageProps) {
         orderBy: { id: "asc" },
         select: {
           id: true,
+          brand: true,
+          model: true,
           serial: true,
           location: true,
           active: true,
@@ -243,7 +246,7 @@ export default async function BusLifePage({ params }: PageProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={statusBadge(bus.active)}>{bus.active ? "ACTIVO" : "INACTIVO"}</span>
+          <span className={statusBadge(bus.active)}>{bus.active ? "Activo" : "Inactivo"}</span>
           <Link className="sts-btn-ghost text-sm" href="/buses">
             Volver
           </Link>
@@ -292,6 +295,8 @@ export default async function BusLifePage({ params }: PageProps) {
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 text-left">Tipo</th>
+                    <th className="py-2 text-left">Marca</th>
+                    <th className="py-2 text-left">Modelo</th>
                     <th className="py-2 text-left">Serial</th>
                     <th className="py-2 text-left">Estado</th>
                     <th className="py-2 text-left"></th>
@@ -300,7 +305,7 @@ export default async function BusLifePage({ params }: PageProps) {
                 <tbody>
                   {bus.equipments.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-6 text-muted-foreground">
+                      <td colSpan={6} className="py-6 text-muted-foreground">
                         Sin equipos asociados.
                       </td>
                     </tr>
@@ -308,9 +313,11 @@ export default async function BusLifePage({ params }: PageProps) {
                     bus.equipments.map((e) => (
                       <tr key={e.id} className="border-b last:border-b-0">
                         <td className="py-2 font-medium">{e.equipmentType.name}</td>
+                        <td className="py-2">{e.brand ?? "—"}</td>
+                        <td className="py-2">{e.model ?? "—"}</td>
                         <td className="py-2">{e.serial ?? "—"}</td>
                         <td className="py-2">
-                          <span className={statusBadge(e.active)}>{e.active ? "ACTIVO" : "INACTIVO"}</span>
+                          <span className={statusBadge(e.active)}>{e.active ? "Activo" : "Inactivo"}</span>
                         </td>
                         <td className="py-2 text-right whitespace-nowrap">
                           <Link className="underline" href={`/equipments/${e.id}`}>
@@ -361,11 +368,11 @@ export default async function BusLifePage({ params }: PageProps) {
                         </td>
                         <td className="py-2">{c.type}</td>
                         <td className="py-2">
-                          <span className={caseStatusBadge(c.status)}>{c.status}</span>
+                          <span className={caseStatusBadge(c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
                         </td>
                         <td className="py-2">
                           {c.workOrder ? (
-                            <span className={woStatusBadge(c.workOrder.status)}>{c.workOrder.status}</span>
+                            <span className={woStatusBadge(c.workOrder.status)}>{labelFromMap(c.workOrder.status, workOrderStatusLabels)}</span>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
@@ -490,7 +497,7 @@ export default async function BusLifePage({ params }: PageProps) {
 
               <div className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">Estado</p>
-                <p className="mt-1 font-medium">{bus.active ? "ACTIVO" : "INACTIVO"}</p>
+                <p className="mt-1 font-medium">{bus.active ? "Activo" : "Inactivo"}</p>
               </div>
 
               <div className="sts-card p-3">

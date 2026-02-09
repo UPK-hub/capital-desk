@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role, WorkOrderStatus } from "@prisma/client";
 import { fmtWorkOrderNo, fmtCaseNo } from "@/lib/format-no";
+import { caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
@@ -100,10 +101,10 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
           <div className="flex gap-2">
             <select name="status" defaultValue={searchParams?.status ?? ""} className="h-10 rounded-md border px-3 text-sm">
               <option value="">Estado (todos)</option>
-              <option value="CREADA">CREADA</option>
-              <option value="ASIGNADA">ASIGNADA</option>
-              <option value="EN_CAMPO">EN_CAMPO</option>
-              <option value="FINALIZADA">FINALIZADA</option>
+              <option value="CREADA">{workOrderStatusLabels.CREADA}</option>
+              <option value="ASIGNADA">{workOrderStatusLabels.ASIGNADA}</option>
+              <option value="EN_CAMPO">{workOrderStatusLabels.EN_CAMPO}</option>
+              <option value="FINALIZADA">{workOrderStatusLabels.FINALIZADA}</option>
             </select>
 
             <button className="sts-btn-primary text-sm" type="submit">
@@ -137,8 +138,8 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
               <div className="text-xs text-muted-foreground">{wo.case.title}</div>
             </div>
 
-            <div className="col-span-2">{wo.case.type}</div>
-            <div className="col-span-2">{wo.status}</div>
+            <div className="col-span-2">{labelFromMap(wo.case.type, caseTypeLabels)}</div>
+            <div className="col-span-2">{labelFromMap(wo.status, workOrderStatusLabels)}</div>
 
             <div className="col-span-2 text-right">
               <div className="text-xs text-muted-foreground">{fmtWorkOrderNo(wo.workOrderNo)}</div>

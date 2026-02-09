@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, Role } from "@prisma/client";
+import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
@@ -87,20 +88,20 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           />
           <select name="status" className="rounded-md border px-3 py-2 text-sm" defaultValue={searchParams?.status ?? ""}>
             <option value="">Estado (todos)</option>
-            <option value="NUEVO">NUEVO</option>
-            <option value="OT_ASIGNADA">OT_ASIGNADA</option>
-            <option value="EN_EJECUCION">EN_EJECUCION</option>
-            <option value="RESUELTO">RESUELTO</option>
-            <option value="CERRADO">CERRADO</option>
+            <option value="NUEVO">{caseStatusLabels.NUEVO}</option>
+            <option value="OT_ASIGNADA">{caseStatusLabels.OT_ASIGNADA}</option>
+            <option value="EN_EJECUCION">{caseStatusLabels.EN_EJECUCION}</option>
+            <option value="RESUELTO">{caseStatusLabels.RESUELTO}</option>
+            <option value="CERRADO">{caseStatusLabels.CERRADO}</option>
           </select>
 
           <select name="type" className="rounded-md border px-3 py-2 text-sm" defaultValue={searchParams?.type ?? ""}>
             <option value="">Tipo (todos)</option>
-            <option value="NOVEDAD">NOVEDAD</option>
-            <option value="CORRECTIVO">CORRECTIVO</option>
-            <option value="PREVENTIVO">PREVENTIVO</option>
-            <option value="MEJORA_PRODUCTO">MEJORA_PRODUCTO</option>
-            <option value="SOLICITUD_DESCARGA_VIDEO">SOLICITUD_DESCARGA_VIDEO</option>
+            <option value="NOVEDAD">{caseTypeLabels.NOVEDAD}</option>
+            <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
+            <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
+            <option value="MEJORA_PRODUCTO">{caseTypeLabels.MEJORA_PRODUCTO}</option>
+            <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
           </select>
 
           <select name="priority" className="rounded-md border px-3 py-2 text-sm" defaultValue={searchParams?.priority ?? ""}>
@@ -136,9 +137,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                   <div className="text-xs text-muted-foreground">{c.bus.plate ?? "-"}</div>
                 </td>
                 <td>{c.title}</td>
-                <td>{c.type}</td>
+                <td>{labelFromMap(c.type, caseTypeLabels)}</td>
                 <td>
-                  <span className="sts-chip">{c.status}</span>
+                  <span className="sts-chip">{labelFromMap(c.status, caseStatusLabels)}</span>
                 </td>
                 <td>{c.priority}</td>
                 <td className="text-right">

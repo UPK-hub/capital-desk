@@ -198,7 +198,7 @@ export default function AssignTechnicianCard({
           ) : null}
 
           <p className="text-xs text-muted-foreground">
-            Esto crea la OT si no existe, la marca como ASIGNADA y registra eventos.
+            Esto crea la OT si no existe, la marca como Asignada y registra eventos.
           </p>
         </div>
       </div>

@@ -297,6 +297,7 @@ function UserRowItem({
             { cap: "STS_ADMIN", label: "Supervisor STS", desc: "Administra políticas y configuración STS." },
             { cap: "STS_WRITE", label: "Helpdesk STS", desc: "Gestiona y actualiza tickets STS." },
             { cap: "STS_READ", label: "Auditor STS", desc: "Solo lectura de STS y reportes." },
+            { cap: "TM_READ", label: "TM Reportes", desc: "Acceso al panel Transmilenio." },
             { cap: "CASE_ASSIGN", label: "Asignar casos", desc: "Puede asignar técnicos/casos." },
           ].map(({ cap, label, desc }) => (
             <label key={cap} className="flex items-start gap-2 rounded-md border px-2 py-2">

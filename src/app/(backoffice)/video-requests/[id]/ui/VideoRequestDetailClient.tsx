@@ -3,6 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { VideoAttachmentKind, VideoCaseStatus, VideoDownloadStatus } from "@prisma/client";
+import {
+  labelFromMap,
+  videoAttachmentLabels,
+  videoCaseStatusLabels,
+  videoDownloadStatusLabels,
+} from "@/lib/labels";
 
 type Item = {
   id: string;
@@ -209,9 +215,9 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
               <div>
                 <label className="text-xs text-muted-foreground">Estado caso</label>
                 <select className={inputCls()} value={status} onChange={(e) => setStatus(e.target.value as VideoCaseStatus)}>
-                  <option value={VideoCaseStatus.EN_ESPERA}>EN_ESPERA</option>
-                  <option value={VideoCaseStatus.EN_CURSO}>EN_CURSO</option>
-                  <option value={VideoCaseStatus.COMPLETADO}>COMPLETADO</option>
+                  <option value={VideoCaseStatus.EN_ESPERA}>{videoCaseStatusLabels.EN_ESPERA}</option>
+                  <option value={VideoCaseStatus.EN_CURSO}>{videoCaseStatusLabels.EN_CURSO}</option>
+                  <option value={VideoCaseStatus.COMPLETADO}>{videoCaseStatusLabels.COMPLETADO}</option>
                 </select>
               </div>
               <div>
@@ -221,10 +227,10 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
                   value={downloadStatus}
                   onChange={(e) => setDownloadStatus(e.target.value as VideoDownloadStatus)}
                 >
-                  <option value={VideoDownloadStatus.PENDIENTE}>PENDIENTE</option>
-                  <option value={VideoDownloadStatus.DESCARGA_REALIZADA}>DESCARGA_REALIZADA</option>
-                  <option value={VideoDownloadStatus.DESCARGA_FALLIDA}>DESCARGA_FALLIDA</option>
-                  <option value={VideoDownloadStatus.BUS_NO_EN_PATIO}>BUS_NO_EN_PATIO</option>
+                  <option value={VideoDownloadStatus.PENDIENTE}>{videoDownloadStatusLabels.PENDIENTE}</option>
+                  <option value={VideoDownloadStatus.DESCARGA_REALIZADA}>{videoDownloadStatusLabels.DESCARGA_REALIZADA}</option>
+                  <option value={VideoDownloadStatus.DESCARGA_FALLIDA}>{videoDownloadStatusLabels.DESCARGA_FALLIDA}</option>
+                  <option value={VideoDownloadStatus.BUS_NO_EN_PATIO}>{videoDownloadStatusLabels.BUS_NO_EN_PATIO}</option>
                 </select>
               </div>
               <div>
@@ -266,8 +272,8 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
               <div>
                 <label className="text-xs text-muted-foreground">Tipo</label>
                 <select className={inputCls()} value={fileKind} onChange={(e) => setFileKind(e.target.value as VideoAttachmentKind)}>
-                  <option value={VideoAttachmentKind.VIDEO}>VIDEO</option>
-                  <option value={VideoAttachmentKind.OTRO}>OTRO</option>
+                  <option value={VideoAttachmentKind.VIDEO}>{videoAttachmentLabels.VIDEO}</option>
+                  <option value={VideoAttachmentKind.OTRO}>{videoAttachmentLabels.OTRO}</option>
                 </select>
               </div>
               <div>

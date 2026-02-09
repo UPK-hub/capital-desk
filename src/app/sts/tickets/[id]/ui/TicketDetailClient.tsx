@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { StsTicketStatus } from "@prisma/client";
+import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 
 type UserRow = { id: string; name: string; email: string; role: string };
 type Ticket = {
@@ -133,11 +134,11 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
         <div className="sts-card p-5 space-y-2 fade-up">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{ticket.component.name}</h2>
-            <span className="sts-chip">{ticket.status}</span>
+            <span className="sts-chip">{labelFromMap(ticket.status, stsStatusLabels)}</span>
           </div>
           <p className="text-sm text-muted-foreground">{ticket.description}</p>
           <p className="text-xs text-muted-foreground">
-            {ticket.severity} | {ticket.channel} | Abierto {new Date(ticket.openedAt).toLocaleString("es-CO")}
+            {labelFromMap(ticket.severity, stsSeverityLabels)} | {labelFromMap(ticket.channel, stsChannelLabels)} | Abierto {new Date(ticket.openedAt).toLocaleString("es-CO")}
           </p>
           {ticket.caseId ? (
             <p className="text-xs text-muted-foreground">
@@ -152,7 +153,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
             {ticket.events.map((e) => (
               <div key={e.id} className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">
-                  {new Date(e.createdAt).toLocaleString("es-CO")} | {e.type} {e.status ? `-> ${e.status}` : ""}
+                  {new Date(e.createdAt).toLocaleString("es-CO")} | {e.type} {e.status ? `-> ${labelFromMap(e.status, stsStatusLabels)}` : ""}
                 </p>
                 {e.message ? <p className="text-sm">{e.message}</p> : null}
               </div>
@@ -196,11 +197,11 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
           <div>
             <label className="text-xs text-muted-foreground">Estado</label>
             <select className="h-9 w-full rounded-md border px-2 text-sm" value={status} onChange={(e) => setStatus(e.target.value as any)}>
-              <option value={StsTicketStatus.OPEN}>Open</option>
-              <option value={StsTicketStatus.IN_PROGRESS}>In Progress</option>
-              <option value={StsTicketStatus.WAITING_VENDOR}>Waiting Vendor</option>
-              <option value={StsTicketStatus.RESOLVED}>Resolved</option>
-              <option value={StsTicketStatus.CLOSED}>Closed</option>
+              <option value={StsTicketStatus.OPEN}>{stsStatusLabels.OPEN}</option>
+              <option value={StsTicketStatus.IN_PROGRESS}>{stsStatusLabels.IN_PROGRESS}</option>
+              <option value={StsTicketStatus.WAITING_VENDOR}>{stsStatusLabels.WAITING_VENDOR}</option>
+              <option value={StsTicketStatus.RESOLVED}>{stsStatusLabels.RESOLVED}</option>
+              <option value={StsTicketStatus.CLOSED}>{stsStatusLabels.CLOSED}</option>
             </select>
           </div>
 

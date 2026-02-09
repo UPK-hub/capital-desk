@@ -547,8 +547,8 @@ export default function ReportsDashboard({ data }: { data: ReportsData }) {
             >
               <div className="report-card-header">
                 <div>
-                  <h2 className="report-card-title">Prioridad / Severidad</h2>
-                  <p className="report-subtitle">Distribución de severidades</p>
+                  <h2 className="report-card-title">Prioridad</h2>
+                  <p className="report-subtitle">Distribución de prioridades</p>
                 </div>
                 <div className="report-card-action report-drag-handle">
                   <span>Arrastrar</span>
@@ -642,7 +642,7 @@ export default function ReportsDashboard({ data }: { data: ReportsData }) {
             >
               <div className="report-card-header">
                 <div>
-                  <h2 className="report-card-title">Cumplimiento SLA por componente y severidad</h2>
+                  <h2 className="report-card-title">Cumplimiento SLA por componente y prioridad</h2>
                   <p className="report-subtitle">Últimos {data.rangeDays} días</p>
                 </div>
                 <div className="report-card-action report-drag-handle">
@@ -654,7 +654,7 @@ export default function ReportsDashboard({ data }: { data: ReportsData }) {
                   <thead>
                     <tr>
                       <th>Componente</th>
-                      <th>Severidad</th>
+                      <th>Prioridad</th>
                       <th>Cumpl. respuesta</th>
                       <th>Cumpl. resolución</th>
                     </tr>

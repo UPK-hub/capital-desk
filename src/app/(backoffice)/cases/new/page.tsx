@@ -61,13 +61,19 @@ export default function NewCasePage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"BAJA" | "MEDIA" | "ALTA">("MEDIA");
-  const [stsSeverity, setStsSeverity] = useState<StsTicketSeverity>(StsTicketSeverity.MEDIUM);
+
+  const priorityToSeverity: Record<typeof priority, StsTicketSeverity> = {
+    BAJA: StsTicketSeverity.LOW,
+    MEDIA: StsTicketSeverity.MEDIUM,
+    ALTA: StsTicketSeverity.HIGH,
+  };
 
   const effectiveTitle = title || suggested.title;
   const effectiveDescription = description || suggested.description;
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingEquipments, setLoadingEquipments] = useState(false);
 
   const [video, setVideo] = useState<VideoForm>({
     origin: "TRANSMILENIO_SA",
@@ -91,6 +97,20 @@ export default function NewCasePage() {
     finSolicitud: [],
   });
 
+  async function selectAllEquipments(busId: string) {
+    setLoadingEquipments(true);
+    try {
+      const res = await fetch(`/api/buses/${busId}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = Array.isArray(data?.equipments) ? data.equipments : Array.isArray(data?.busEquipments) ? data.busEquipments : [];
+      const activeIds = items.filter((e: any) => e?.active !== false).map((e: any) => String(e.id));
+      setBusEquipmentIds(activeIds);
+    } finally {
+      setLoadingEquipments(false);
+    }
+  }
+
   async function submit() {
     setSaving(true);
     setError(null);
@@ -111,7 +131,7 @@ export default function NewCasePage() {
           title: effectiveTitle,
           description: effectiveDescription,
           priority,
-          stsSeverity: config.stsComponentCode ? stsSeverity : undefined,
+          stsSeverity: config.stsComponentCode ? priorityToSeverity[priority] : undefined,
           // inline create form
           videoDownloadRequest: config.hasInlineCreateForm ? video : undefined,
         }),
@@ -178,6 +198,9 @@ export default function NewCasePage() {
                 const v = e.target.value as any;
                 setType(v);
                 setBusEquipmentIds([]);
+                if (v === "PREVENTIVO" && bus?.id) {
+                  void selectAllEquipments(bus.id);
+                }
               }}
             >
               {Object.values(CASE_TYPE_REGISTRY).map((c) => (
@@ -196,16 +219,7 @@ export default function NewCasePage() {
             </Select>
           </Field>
 
-          {config.stsComponentCode ? (
-            <Field label="Severidad STS">
-              <Select value={stsSeverity} onChange={(e) => setStsSeverity(e.target.value as any)}>
-                <option value={StsTicketSeverity.EMERGENCY}>Emergencia</option>
-                <option value={StsTicketSeverity.HIGH}>Alto</option>
-                <option value={StsTicketSeverity.MEDIUM}>Medio</option>
-                <option value={StsTicketSeverity.LOW}>Bajo</option>
-              </Select>
-            </Field>
-          ) : null}
+          {/* Prioridad STS unificada con Prioridad */}
 
           <Field label="Bus (código o placa)">
             <BusCombobox
@@ -215,12 +229,26 @@ export default function NewCasePage() {
                 setBusEquipmentIds([]);
                 // para video request: autollenar vehicleId con code si quieren
                 if (b?.code) setVideo((x) => ({ ...x, vehicleId: x.vehicleId || b.code }));
+                if (b?.id && type === "PREVENTIVO") {
+                  void selectAllEquipments(b.id);
+                }
               }}
             />
           </Field>
 
-          <Field label="Equipo(s) del bus" hint={config.requiresEquipment ? "Requerido" : "Opcional"}>
-            {type === "PREVENTIVO" ? (
+          <Field
+            label="Equipo(s) del bus"
+            hint={
+              type === "PREVENTIVO"
+                ? loadingEquipments
+                  ? "Cargando equipos..."
+                  : "Todos seleccionados por defecto (puedes deseleccionar)"
+                : config.requiresEquipment
+                ? "Requerido"
+                : "Opcional"
+            }
+          >
+            {type === "PREVENTIVO" || type === "CORRECTIVO" ? (
               <BusEquipmentMultiSelect
                 busId={bus?.id ?? null}
                 value={busEquipmentIds}

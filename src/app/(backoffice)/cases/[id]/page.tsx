@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, Role } from "@prisma/client";
+import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 
 function badgeClass(kind: "status" | "type" | "priority", value: string | number) {
@@ -95,6 +96,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       workOrder: {
         include: {
           assignedTo: { select: { id: true, name: true, email: true, role: true } },
+          interventionReceipt: true,
         },
       },
       events: { orderBy: { createdAt: "asc" }, take: 200 },
@@ -188,7 +190,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
   const caps = (session.user as any).capabilities as string[] | undefined;
   const canAssign =
-    role === Role.ADMIN || role === Role.PLANNER || caps?.includes("CASE_ASSIGN");
+    role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("CASE_ASSIGN"));
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6">
@@ -201,8 +203,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={badgeClass("type", c.type)}>{c.type}</span>
-          <span className={badgeClass("status", c.status)}>{c.status}</span>
+          <span className={badgeClass("type", c.type)}>{labelFromMap(c.type, caseTypeLabels)}</span>
+          <span className={badgeClass("status", c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
           <span className={badgeClass("priority", c.priority)}>Prioridad {c.priority}</span>
         </div>
       </div>
@@ -351,12 +353,24 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   </div>
 
                   {hasWo ? (
-                    <Link
-                      href={`/work-orders/${c.workOrder!.id}`}
-                      className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
-                    >
-                      Abrir OT
-                    </Link>
+                    <div className="space-y-2">
+                      <Link
+                        href={`/work-orders/${c.workOrder!.id}`}
+                        className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
+                      >
+                        Abrir OT
+                      </Link>
+                      {c.workOrder?.interventionReceipt ? (
+                        <a
+                          className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          href={`/api/work-orders/${c.workOrder!.id}/receipt-pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Descargar recibo de intervención
+                        </a>
+                      ) : null}
+                    </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
                       Este tipo de caso no requiere OT (segun registry) o aun no se genero.
@@ -374,7 +388,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       <p className="mt-1 text-sm font-medium">{c.stsTicket.status}</p>
                     </div>
                     <div className="sts-card p-3">
-                      <p className="text-xs text-muted-foreground">Severidad</p>
+                      <p className="text-xs text-muted-foreground">Prioridad</p>
                       <p className="mt-1 text-sm font-medium">{c.stsTicket.severity}</p>
                     </div>
                     <Link
@@ -418,16 +432,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               )}
             </>
           )}
-
-          <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Chat</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Abre el chat en un apartado dedicado para conversar con el técnico.
-            </p>
-            <Link className="sts-btn-primary mt-3 w-full justify-center text-sm" href={`/cases/${c.id}/chat`}>
-              Abrir chat
-            </Link>
-          </section>
 
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Acciones</h2>

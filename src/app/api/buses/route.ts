@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const buses = await prisma.bus.findMany({
     where: {
       tenantId,
+      NOT: { code: "BUS_ID" },
       ...(q
         ? {
             OR: [

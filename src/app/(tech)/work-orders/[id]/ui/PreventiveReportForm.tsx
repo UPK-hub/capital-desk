@@ -9,41 +9,23 @@ import type { PreventiveReport } from "@prisma/client";
 type Props = {
   workOrderId: string;
   initialReport: PreventiveReport | null;
+  suggestedTicketNumber?: string;
 };
 
 type Autofill = {
   biarticuladoNo: string;
   plate: string | null;
   equipmentLabel: string;
-  equipments: Array<{
-    id: string;
-    type: string;
-    serial: string | null;
-    location: string | null;
-  }>;
-};
-
-type DeviceRow = {
-  description: string;
-  brand: string;
-  reference: string;
-  location: string;
-  portNvr: boolean;
-  portSwitch: boolean;
-  portCollector: boolean;
-  portData: boolean;
-  portEnergyCard: boolean;
-  serial: string;
-  ip: string;
-  newSerial: string;
 };
 
 type ActivityRow = {
-  area: "CCTV" | "NVR" | "COLECTOR" | "ENERGIA";
+  area: "CCTV" | "NVR" | "ENERGIA";
   activity: string;
   maintenanceType: "" | "Preventivo" | "Correctivo";
+  result?: "" | "FUNCIONAL" | "NO_FUNCIONAL";
   value?: string;
-  result?: "" | "BUENO" | "MALO" | "X";
+  valueRequired?: boolean;
+  observation?: string;
 };
 
 type FormValues = {
@@ -51,7 +33,6 @@ type FormValues = {
   workOrderNumber: string;
 
   biarticuladoNo: string;
-  productionSp: string;
   mileage: string;
   plate: string;
 
@@ -59,22 +40,12 @@ type FormValues = {
   executedAt: string;
   rescheduledAt: string;
 
-  devicesInstalled: DeviceRow[];
   activities: ActivityRow[];
-
-  voltageNvrFromCard: string;
-  voltageCollectorFromCard: string;
-  voltageBatteriesMasterOff: string;
-  voltageCardMasterOn: string;
-  voltageCardMasterOff: string;
-  voltageSwitch: string;
-  voltageCardBusOpen: string;
-  commCableState: string;
 
   observations: string;
   timeStart: string;
   timeEnd: string;
-  responsibleSkg: string;
+  responsibleUpk: string;
   responsibleCapitalBus: string;
 
   correctiveFormatsNote: string;
@@ -88,78 +59,21 @@ function isoDate(d?: Date | null) {
 }
 
 function inputCls() {
-  return "h-10 w-full rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "h-9 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
 function textareaCls() {
   return "min-h-[88px] w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
-
-function defaultDevices(): DeviceRow[] {
-  const rows: Array<Pick<DeviceRow, "description" | "brand" | "location">> = [
-    { description: "Cámara Conductor", brand: "Hikvision", location: "BO" },
-    { description: "Cámara Delantera", brand: "Hikvision", location: "BFE" },
-    { description: "Cámaras Vagón 1-1", brand: "Hikvision", location: "BV1-1" },
-    { description: "Cámaras Vagón 1-2", brand: "Hikvision", location: "BV1-2" },
-    { description: "Cámaras Vagón 1-3", brand: "Hikvision", location: "BV1-3" },
-    { description: "Cámaras Vagón 1-4", brand: "Hikvision", location: "BV1-4" },
-    { description: "Cámaras Vagón 2-1", brand: "Hikvision", location: "BV2-1" },
-    { description: "Cámaras Vagón 2-2", brand: "Hikvision", location: "BV2-2" },
-    { description: "Cámaras Vagón 3-1", brand: "Hikvision", location: "BV3-1" },
-    { description: "Cámaras Vagón 3-2", brand: "Hikvision", location: "BV3-2" },
-    { description: "Cámaras Vagón 3-3", brand: "Hikvision", location: "BV3-3" },
-    { description: "Cámaras Vagón 3-4", brand: "Hikvision", location: "BV3-4" },
-    { description: "Cámara Trasera", brand: "Hikvision", location: "BTE" },
-    { description: "Grabador de video (NVR)", brand: "Hikvision", location: "Gabinete equipos" },
-    { description: "Conversor analítica cámara conductor", brand: "Hikvision", location: "Gabinete equipos" },
-    { description: "Switch", brand: "Sevencom", location: "Fuelle Vagón 2-3" },
-    { description: "Colector de Datos", brand: "Nexcom", location: "Gabinete equipos" },
-    { description: "Batería 1", brand: "Enercom", location: "" },
-    { description: "Batería 2", brand: "Enercom", location: "" },
-    { description: "Tarjeta de Energía", brand: "Enercom", location: "Gabinete equipos" },
-  ];
-
-  return rows.map((r) => ({
-    description: r.description,
-    brand: r.brand,
-    reference: "",
-    location: r.location,
-    portNvr: false,
-    portSwitch: false,
-    portCollector: false,
-    portData: false,
-    portEnergyCard: false,
-    serial: "",
-    ip: "",
-    newSerial: "",
-  }));
-}
-
-function devicesFromEquipment(
-  items: Array<{ id: string; type: string; serial: string | null; location: string | null }>
-): DeviceRow[] {
-  return items.map((it) => ({
-    description: it.type || "Equipo",
-    brand: "",
-    reference: "",
-    location: it.location ?? "",
-    portNvr: false,
-    portSwitch: false,
-    portCollector: false,
-    portData: false,
-    portEnergyCard: false,
-    serial: it.serial ?? "",
-    ip: "",
-    newSerial: "",
-  }));
+function smallInputCls() {
+  return "h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-2 focus:ring-black/10";
 }
 
 function defaultActivities(): ActivityRow[] {
   return [
     { area: "CCTV", activity: "Limpieza general", maintenanceType: "Preventivo" },
     { area: "CCTV", activity: "Verificar y limpiar conectores", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Revisar voltaje de fuentes de alimentación cámaras, validar voltajes", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Comprobación desde la NVR (desconectar Colector y prueba de ping)", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Verificar ángulos de cobertura (interventoría y TMSA)", maintenanceType: "Preventivo" },
+    { area: "CCTV", activity: "Comprobación NVR (prueba de ping)", maintenanceType: "Preventivo" },
+    { area: "CCTV", activity: "Verificar ángulos de cobertura", maintenanceType: "Preventivo" },
     { area: "CCTV", activity: "Pruebas de funcionamiento del CCTV", maintenanceType: "Preventivo", result: "" },
 
     { area: "NVR", activity: "Limpieza general", maintenanceType: "Preventivo" },
@@ -168,27 +82,20 @@ function defaultActivities(): ActivityRow[] {
     { area: "NVR", activity: "Revisión transmisión video en tiempo real", maintenanceType: "Preventivo" },
     { area: "NVR", activity: "Revisión enlace remoto vía internet", maintenanceType: "Preventivo" },
     { area: "NVR", activity: "Revisión versiones de software", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Revisión fuente de poder", maintenanceType: "Preventivo" },
     { area: "NVR", activity: "Pruebas de funcionamiento", maintenanceType: "Preventivo", result: "" },
 
-    { area: "COLECTOR", activity: "Limpieza general", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Verificar firmware", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Validación espacio de almacenamiento", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Revisión transmisión videos (pánico/colisión) al Data Center", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Control de versión de software", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Revisión fuente de poder", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Verificar comunicación con CAN Bus", maintenanceType: "Preventivo" },
-    { area: "COLECTOR", activity: "Verificar funcionamiento", maintenanceType: "Preventivo", result: "" },
-
-    { area: "ENERGIA", activity: "NVR Encendida (voltaje hacia NVR desde tarjeta)", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Colector Encendido (voltaje hacia Colector desde tarjeta)", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Voltaje baterías respaldo (master apagado)", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Voltaje tarjeta (master encendido)", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Voltaje tarjeta (master apagado)", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Switch encendido (voltaje hacia Switch)", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Voltaje tarjeta energía con switch bus abierto", maintenanceType: "Preventivo", value: "" },
-    { area: "ENERGIA", activity: "Estado cable comunicación NVR ↔ Colector", maintenanceType: "Preventivo", result: "" },
+    { area: "ENERGIA", activity: "NVR encendida (voltaje hacia NVR desde tarjeta)", maintenanceType: "Preventivo", value: "", valueRequired: true },
+    { area: "ENERGIA", activity: "Voltaje baterías respaldo (master apagado)", maintenanceType: "Preventivo", value: "", valueRequired: true },
+    { area: "ENERGIA", activity: "Switch encendido (voltaje hacia Switch)", maintenanceType: "Preventivo", value: "", valueRequired: true },
+    { area: "ENERGIA", activity: "Voltaje controlador de cargas", maintenanceType: "Preventivo", value: "", valueRequired: true },
   ];
+}
+
+function normalizeActivities(rows: ActivityRow[]): ActivityRow[] {
+  return rows.map((r) => ({
+    ...r,
+    valueRequired: r.valueRequired ?? /voltaje/i.test(r.activity),
+  }));
 }
 
 export default function PreventiveReportForm(props: Props) {
@@ -201,18 +108,16 @@ export default function PreventiveReportForm(props: Props) {
     biarticuladoNo: "",
     plate: null,
     equipmentLabel: "",
-    equipments: [],
   });
 
   const r = props.initialReport;
 
   const form = useForm<FormValues>({
     defaultValues: {
-      ticketNumber: r?.ticketNumber ?? "",
+      ticketNumber: r?.ticketNumber ?? props.suggestedTicketNumber ?? "",
       workOrderNumber: r?.workOrderNumber ?? "",
 
       biarticuladoNo: r?.biarticuladoNo ?? "",
-      productionSp: r?.productionSp ?? "",
       mileage: r?.mileage ?? "",
       plate: r?.plate ?? "",
 
@@ -220,22 +125,14 @@ export default function PreventiveReportForm(props: Props) {
       executedAt: isoDate(r?.executedAt),
       rescheduledAt: isoDate(r?.rescheduledAt),
 
-      devicesInstalled: Array.isArray(r?.devicesInstalled) ? ((r!.devicesInstalled as unknown) as DeviceRow[]) : [],
-      activities: Array.isArray(r?.activities) ? ((r!.activities as unknown) as ActivityRow[]) : defaultActivities(),
-
-      voltageNvrFromCard: r?.voltageNvrFromCard ?? "",
-      voltageCollectorFromCard: r?.voltageCollectorFromCard ?? "",
-      voltageBatteriesMasterOff: r?.voltageBatteriesMasterOff ?? "",
-      voltageCardMasterOn: r?.voltageCardMasterOn ?? "",
-      voltageCardMasterOff: r?.voltageCardMasterOff ?? "",
-      voltageSwitch: r?.voltageSwitch ?? "",
-      voltageCardBusOpen: r?.voltageCardBusOpen ?? "",
-      commCableState: r?.commCableState ?? "",
+      activities: Array.isArray(r?.activities)
+        ? normalizeActivities((r!.activities as unknown) as ActivityRow[])
+        : defaultActivities(),
 
       observations: r?.observations ?? "",
       timeStart: r?.timeStart ?? "",
       timeEnd: r?.timeEnd ?? "",
-      responsibleSkg: r?.responsibleSkg ?? "",
+      responsibleUpk: (r as any)?.responsibleUpk ?? "",
       responsibleCapitalBus: r?.responsibleCapitalBus ?? "",
 
       correctiveFormatsNote: "",
@@ -264,26 +161,13 @@ export default function PreventiveReportForm(props: Props) {
       const biarticuladoNo = String(data?.autofill?.biarticuladoNo ?? "").trim();
       const plate = (data?.autofill?.plate ?? null) as string | null;
       const equipmentLabel = String(data?.autofill?.equipmentLabel ?? "").trim();
-      const equipments = Array.isArray(data?.autofill?.equipments)
-        ? data.autofill.equipments.map((it: any) => ({
-            id: String(it.id),
-            type: String(it.type ?? ""),
-            serial: it.serial ?? null,
-            location: it.location ?? null,
-          }))
-        : [];
-
-      setAutofill({ biarticuladoNo, plate, equipmentLabel, equipments });
+      setAutofill({ biarticuladoNo, plate, equipmentLabel });
 
       const curr = form.getValues();
       const patch: Partial<FormValues> = {};
 
       if (!curr.biarticuladoNo?.trim()) patch.biarticuladoNo = biarticuladoNo;
       if (!curr.plate?.trim() && plate) patch.plate = plate;
-
-      if (!curr.devicesInstalled?.length) {
-        patch.devicesInstalled = equipments.length ? devicesFromEquipment(equipments) : defaultDevices();
-      }
 
       if (Object.keys(patch).length) form.reset({ ...curr, ...patch });
 
@@ -296,7 +180,6 @@ export default function PreventiveReportForm(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.workOrderId]);
 
-  const devicesFA = useFieldArray({ control: form.control, name: "devicesInstalled" });
   const activitiesFA = useFieldArray({ control: form.control, name: "activities" });
 
   async function onSubmit(v: FormValues) {
@@ -309,7 +192,6 @@ export default function PreventiveReportForm(props: Props) {
       workOrderNumber: v.workOrderNumber.trim(),
 
       biarticuladoNo: v.biarticuladoNo.trim(),
-      productionSp: v.productionSp.trim(),
       mileage: v.mileage.trim(),
       plate: v.plate.trim(),
 
@@ -317,22 +199,12 @@ export default function PreventiveReportForm(props: Props) {
       executedAt: v.executedAt || null,
       rescheduledAt: v.rescheduledAt || null,
 
-      devicesInstalled: v.devicesInstalled,
       activities: v.activities,
-
-      voltageNvrFromCard: v.voltageNvrFromCard.trim() || null,
-      voltageCollectorFromCard: v.voltageCollectorFromCard.trim() || null,
-      voltageBatteriesMasterOff: v.voltageBatteriesMasterOff.trim() || null,
-      voltageCardMasterOn: v.voltageCardMasterOn.trim() || null,
-      voltageCardMasterOff: v.voltageCardMasterOff.trim() || null,
-      voltageSwitch: v.voltageSwitch.trim() || null,
-      voltageCardBusOpen: v.voltageCardBusOpen.trim() || null,
-      commCableState: v.commCableState.trim() || null,
 
       observations: v.observations.trim(),
       timeStart: v.timeStart.trim(),
       timeEnd: v.timeEnd.trim(),
-      responsibleSkg: v.responsibleSkg.trim(),
+      responsibleUpk: v.responsibleUpk.trim(),
       responsibleCapitalBus: v.responsibleCapitalBus.trim(),
     };
 
@@ -355,37 +227,39 @@ export default function PreventiveReportForm(props: Props) {
   }
 
   return (
-    <div className="sts-card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold">Formato Preventivo (inline)</h3>
-          <p className="text-xs text-muted-foreground">
-            Estructura basada en CAP-FO-M-PV-001 (tabla dispositivos, actividades y voltajes). Campos opcionales.
-          </p>
-          {autofill.equipmentLabel ? (
-            <p className="mt-1 text-[11px] text-muted-foreground">Equipo: {autofill.equipmentLabel}</p>
-          ) : null}
+    <div className="space-y-6">
+      <div className="sts-card p-4 md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold">Formato Preventivo (inline)</h3>
+            <p className="text-xs text-muted-foreground">
+              Estructura basada en CAP-FO-M-PV-001 (tabla dispositivos y actividades). Campos opcionales.
+            </p>
+            {autofill.equipmentLabel ? (
+              <p className="mt-1 text-[11px] text-muted-foreground">Equipo: {autofill.equipmentLabel}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={saving || loading}
+            className="sts-btn-primary text-sm disabled:opacity-50"
+          >
+            {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={form.handleSubmit(onSubmit)}
-          disabled={saving || loading}
-          className="sts-btn-primary text-sm disabled:opacity-50"
-        >
-          {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
-        </button>
+
+        {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
       </div>
 
-      {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
-
-      <form className="mt-4 space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         {/* DATOS DEL BIARTICULADO */}
-        <section className="sts-card p-4">
+        <section className="sts-card p-4 md:p-5">
           <h4 className="text-sm font-semibold">Datos del biarticulado</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Número de ticket</label>
-              <input className={inputCls()} {...form.register("ticketNumber")} />
+              <input className={inputCls()} readOnly {...form.register("ticketNumber")} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Orden de trabajo No.</label>
@@ -396,10 +270,6 @@ export default function PreventiveReportForm(props: Props) {
               <label className="text-xs text-muted-foreground">No. Biarticulado TM</label>
               <input className={inputCls()} {...form.register("biarticuladoNo")} />
               <p className="mt-1 text-[11px] text-muted-foreground">Sugerido: {autofill.biarticuladoNo || "—"}</p>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Número de producción SP</label>
-              <input className={inputCls()} {...form.register("productionSp")} />
             </div>
 
             <div>
@@ -415,7 +285,7 @@ export default function PreventiveReportForm(props: Props) {
         </section>
 
         {/* PROGRAMACIÓN */}
-        <section className="sts-card p-4">
+        <section className="sts-card p-4 md:p-5">
           <h4 className="text-sm font-semibold">Programación del mantenimiento</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
@@ -433,176 +303,85 @@ export default function PreventiveReportForm(props: Props) {
           </div>
         </section>
 
-        {/* TABLA DISPOSITIVOS */}
-        <section className="sts-card p-4">
-          <h4 className="text-sm font-semibold">Dispositivos del STS instalados en el biarticulado</h4>
-
-          <div className="mt-3 overflow-auto">
-            <table className="min-w-[1100px] sts-table">
-              <thead className="text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="py-2 text-left">Descripción</th>
-                  <th className="py-2 text-left">Marca</th>
-                  <th className="py-2 text-left">Referencia</th>
-                  <th className="py-2 text-left">Ubicación</th>
-                  <th className="py-2 text-center" colSpan={5}>
-                    Puerto de conexión
-                  </th>
-                  <th className="py-2 text-left">Serial</th>
-                  <th className="py-2 text-left">Dirección IP</th>
-                  <th className="py-2 text-left">Serial equipo nuevo</th>
-                </tr>
-                <tr className="border-b text-[11px] text-muted-foreground">
-                  <th></th>
-                  <th></th>
-                  <th></th>
-                  <th></th>
-                  <th className="py-1 text-center">NVR</th>
-                  <th className="py-1 text-center">Switch</th>
-                  <th className="py-1 text-center">Colector</th>
-                  <th className="py-1 text-center">Datos</th>
-                  <th className="py-1 text-center">Tarjeta energía</th>
-                  <th></th>
-                  <th></th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {devicesFA.fields.map((f, idx) => (
-                  <tr key={f.id} className="border-b last:border-b-0 align-top">
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.description`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.brand`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.reference`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.location`)} />
-                    </td>
-
-                    <td className="py-2 text-center">
-                      <input type="checkbox" {...form.register(`devicesInstalled.${idx}.portNvr`)} />
-                    </td>
-                    <td className="py-2 text-center">
-                      <input type="checkbox" {...form.register(`devicesInstalled.${idx}.portSwitch`)} />
-                    </td>
-                    <td className="py-2 text-center">
-                      <input type="checkbox" {...form.register(`devicesInstalled.${idx}.portCollector`)} />
-                    </td>
-                    <td className="py-2 text-center">
-                      <input type="checkbox" {...form.register(`devicesInstalled.${idx}.portData`)} />
-                    </td>
-                    <td className="py-2 text-center">
-                      <input type="checkbox" {...form.register(`devicesInstalled.${idx}.portEnergyCard`)} />
-                    </td>
-
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.serial`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.ip`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`devicesInstalled.${idx}.newSerial`)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        {/* TABLA DISPOSITIVOS (removida por solicitud) */}
 
         {/* ACTIVIDADES + VOLTAJES */}
-        <section className="sts-card p-4">
+        <section className="sts-card p-4 md:p-5">
           <h4 className="text-sm font-semibold">Actividades mantenimiento preventivo</h4>
 
-          <div className="mt-3 overflow-auto">
-            <table className="min-w-[980px] sts-table">
+          <div className="mt-3">
+            <table className="w-full sts-table sts-table-compact">
               <thead className="text-xs text-muted-foreground">
                 <tr className="border-b">
                   <th className="py-2 text-left">Área</th>
                   <th className="py-2 text-left">Actividad</th>
                   <th className="py-2 text-left">Tipo mantenimiento</th>
-                  <th className="py-2 text-left">Valor</th>
                   <th className="py-2 text-left">Resultado</th>
+                  <th className="py-2 text-left">Valor</th>
                 </tr>
               </thead>
               <tbody>
-                {activitiesFA.fields.map((f, idx) => (
-                  <tr key={f.id} className="border-b last:border-b-0 align-top">
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} readOnly {...form.register(`activities.${idx}.area`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`activities.${idx}.activity`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <select className={inputCls()} {...form.register(`activities.${idx}.maintenanceType`)}>
-                        <option value="">—</option>
-                        <option value="Preventivo">Preventivo</option>
-                        <option value="Correctivo">Correctivo</option>
-                      </select>
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input className={inputCls()} {...form.register(`activities.${idx}.value`)} />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <select className={inputCls()} {...form.register(`activities.${idx}.result`)}>
-                        <option value="">—</option>
-                        <option value="BUENO">BUENO</option>
-                        <option value="MALO">MALO</option>
-                        <option value="X">X</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
+                {activitiesFA.fields.map((f, idx) => {
+                  const result = form.watch(`activities.${idx}.result`);
+                  const valueRequired = Boolean((f as any).valueRequired);
+
+                  return (
+                    <React.Fragment key={f.id}>
+                      <tr className="border-b align-top">
+                        <td className="py-2 pr-2">
+                          <input className={inputCls()} readOnly {...form.register(`activities.${idx}.area`)} />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input className={inputCls()} {...form.register(`activities.${idx}.activity`)} />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <select className={inputCls()} {...form.register(`activities.${idx}.maintenanceType`)}>
+                            <option value="">—</option>
+                            <option value="Preventivo">Preventivo</option>
+                            <option value="Correctivo">Correctivo</option>
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <select className={inputCls()} {...form.register(`activities.${idx}.result`)}>
+                            <option value="">—</option>
+                            <option value="FUNCIONAL">Funcional</option>
+                            <option value="NO_FUNCIONAL">No funcional</option>
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            className={inputCls()}
+                            placeholder={valueRequired ? "Ingresa voltaje" : "—"}
+                            disabled={!valueRequired}
+                            {...form.register(`activities.${idx}.value`)}
+                          />
+                        </td>
+                      </tr>
+
+                      {result === "NO_FUNCIONAL" ? (
+                        <tr className="border-b last:border-b-0">
+                          <td className="py-2 pr-2 text-xs text-muted-foreground">Observación</td>
+                          <td className="py-2 pr-2" colSpan={4}>
+                            <input
+                              className={smallInputCls()}
+                              placeholder="Describe la novedad"
+                              {...form.register(`activities.${idx}.observation`)}
+                            />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className="text-xs text-muted-foreground">NVR encendida (voltaje desde tarjeta)</label>
-              <input className={inputCls()} {...form.register("voltageNvrFromCard")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Colector encendido (voltaje desde tarjeta)</label>
-              <input className={inputCls()} {...form.register("voltageCollectorFromCard")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Baterías respaldo (master apagado)</label>
-              <input className={inputCls()} {...form.register("voltageBatteriesMasterOff")} />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">Tarjeta (master encendido)</label>
-              <input className={inputCls()} {...form.register("voltageCardMasterOn")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Tarjeta (master apagado)</label>
-              <input className={inputCls()} {...form.register("voltageCardMasterOff")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Switch encendido (voltaje hacia switch)</label>
-              <input className={inputCls()} {...form.register("voltageSwitch")} />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">Tarjeta energía (switch bus abierto)</label>
-              <input className={inputCls()} {...form.register("voltageCardBusOpen")} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Estado cable comunicación NVR ↔ Colector</label>
-              <input className={inputCls()} placeholder="BUENO / MALO / X" {...form.register("commCableState")} />
-            </div>
-          </div>
+          {/* Se elimina bloque de voltajes debajo de actividades */}
         </section>
 
         {/* OBSERVACIONES + TIEMPO + RESPONSABLES */}
-        <section className="sts-card p-4">
+        <section className="sts-card p-4 md:p-5">
           <h4 className="text-sm font-semibold">Cierre</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -621,8 +400,8 @@ export default function PreventiveReportForm(props: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Responsable SKG</label>
-              <input className={inputCls()} {...form.register("responsibleSkg")} />
+              <label className="text-xs text-muted-foreground">Responsable UPK</label>
+              <input className={inputCls()} {...form.register("responsibleUpk")} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Responsable Capital Bus</label>

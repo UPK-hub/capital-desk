@@ -19,10 +19,12 @@ export default function CaseChat({
   caseId,
   currentUserId,
   currentUserName,
+  showHeader = true,
 }: {
   caseId: string;
   currentUserId?: string;
   currentUserName?: string;
+  showHeader?: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
@@ -224,38 +226,43 @@ export default function CaseChat({
 
   return (
     <section className="sts-card p-0 overflow-hidden">
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold"
-            style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}
-          >
-            {messages.length ? messages[messages.length - 1]?.sender?.name?.charAt(0) ?? "C" : "C"}
-          </div>
-          <div>
-            <h2 className="text-base font-semibold">Chat</h2>
-            <p className="text-xs text-muted-foreground">Backoffice · Técnico</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 ? (
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
-              onClick={() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })}
+      {showHeader ? (
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold"
+              style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}
             >
-              {unreadCount} nuevo(s)
-            </button>
-          ) : null}
-          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            En línea
-          </span>
+              {messages.length ? messages[messages.length - 1]?.sender?.name?.charAt(0) ?? "C" : "C"}
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Chat</h2>
+              <p className="text-xs text-muted-foreground">Backoffice · Técnico</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
+                onClick={() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })}
+              >
+                {unreadCount} nuevo(s)
+              </button>
+            ) : null}
+            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              En línea
+            </span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex h-[460px] flex-col">
-        <div ref={listRef} className="flex-1 space-y-3 overflow-auto px-4 py-4">
+        <div
+          ref={listRef}
+          className={`flex-1 space-y-3 overflow-auto px-4 ${showHeader ? "py-4" : "py-3"}`}
+        >
           {loading ? <p className="text-xs text-muted-foreground">Cargando chat…</p> : null}
           {error ? <p className="text-xs text-red-500">{error}</p> : null}
           {!loading && messages.length === 0 ? (

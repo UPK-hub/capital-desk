@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import NotificationsBell from "@/components/NotificationsBell";
 import AvatarMenu from "@/components/AvatarMenu";
+import FloatingMessenger from "@/components/FloatingMessenger";
+import GlobalSearchBar from "@/components/GlobalSearchBar";
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; roles?: Role[]; capabilities?: string[] };
 
@@ -49,6 +51,12 @@ const icons = {
       <circle cx="12" cy="12" r="8" />
     </svg>
   ),
+  tm: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 3h18v6H3z" />
+      <path d="M6 21V9m6 12V9m6 12V9" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
@@ -84,14 +92,18 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     { label: "Planner", href: "/planner", icon: icons.planner, capabilities: ["PLANNER"] },
     { label: "OTs", href: "/work-orders", icon: icons.work, roles: [Role.TECHNICIAN] },
     { label: "STS", href: "/sts", icon: icons.sts, capabilities: ["STS_READ", "STS_ADMIN", "STS_WRITE"] },
+    { label: "TM", href: "/tm", icon: icons.tm, capabilities: ["TM_READ"] },
     { label: "Admin", href: "/admin", icon: icons.settings, roles: [Role.ADMIN] },
     { label: "Perfil", href: "/profile", icon: icons.user },
   ];
 
   const filteredNav = navItems.filter((item) => {
     if (!session?.user) return false;
+    if (role === Role.ADMIN) return true;
     const allowRole = item.roles ? (role ? item.roles.includes(role) : false) : true;
-    const allowCap = item.capabilities ? item.capabilities.some((c) => capabilities.includes(c)) : true;
+    const allowCap = item.capabilities
+      ? role === Role.BACKOFFICE && item.capabilities.some((c) => capabilities.includes(c))
+      : true;
     return allowRole && allowCap;
   });
 
@@ -137,9 +149,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {!session?.user ? (
         <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>
       ) : (
-        <div className="flex min-h-screen">
-          <aside className="w-[240px] border-r app-sidebar relative z-40 overflow-visible">
-            <div className="flex h-full flex-col px-6 py-6">
+        <div className="flex min-h-screen flex-col lg:flex-row">
+          <aside className="w-full border-b lg:w-[240px] lg:border-b-0 lg:border-r app-sidebar relative z-40 overflow-visible">
+            <div className="flex h-full flex-col px-4 py-5 lg:px-6 lg:py-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-lg font-semibold">
                   @
@@ -150,7 +162,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="mt-8 space-y-2">
+              <div className="mt-6 space-y-2 lg:mt-8 app-sidebar-nav">
                 {filteredNav.map((item) => (
                   <Link
                     key={item.href}
@@ -168,7 +180,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="mt-auto space-y-2 pt-6 text-sm text-white/60">
+              <div className="mt-auto space-y-2 pt-6 text-sm text-white/60 app-sidebar-footer">
                 <Link className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-white/10 hover:text-white" href="/profile">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10">
                     {icons.user}
@@ -194,19 +206,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1 relative z-10">
             <header className="app-topbar relative z-30 overflow-visible">
-              <div className="mx-auto flex max-w-6xl items-center justify-end gap-4 px-6 py-4">
-                <div className="app-search w-full max-w-md">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M20 20l-3.5-3.5" />
-                  </svg>
-                  <span>Buscar...</span>
+              <div className="mx-auto flex max-w-6xl items-center justify-end gap-3 px-4 py-4 md:gap-4 md:px-6">
+                <div className="w-full max-w-md">
+                  <GlobalSearchBar />
                 </div>
                 <AvatarMenu name={session.user.name ?? "Usuario"} />
               </div>
             </header>
 
-            <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
+            <main className="mx-auto max-w-6xl px-4 py-5 md:px-6 md:py-6">{children}</main>
+
+            <FloatingMessenger
+              currentUserId={(session.user as any).id as string}
+              currentUserName={session.user.name ?? "Usuario"}
+            />
           </div>
         </div>
       )}

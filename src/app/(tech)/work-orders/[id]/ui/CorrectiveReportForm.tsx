@@ -8,6 +8,7 @@ import { ProcedureType, FailureType, DeviceLocation, CorrectiveReport } from "@p
 type Props = {
   workOrderId: string;
   initialReport: CorrectiveReport | null;
+  suggestedTicketNumber?: string;
 };
 
 type Autofill = {
@@ -16,6 +17,8 @@ type Autofill = {
   equipmentTypeName: string | null;
   equipmentSerial: string | null;
   equipmentLocation: string | null;
+  equipmentBrand: string | null;
+  equipmentModel: string | null;
 };
 
 type FormValues = {
@@ -23,7 +26,6 @@ type FormValues = {
   workOrderNumber: string;
 
   busCode: string;
-  productionSp: string;
   plate: string;
 
   deviceType: string;
@@ -38,30 +40,31 @@ type FormValues = {
   locationOther: string;
 
   dateDismount: string;
-  dateDeliveredMfr: string;
+  dateDelivered: string;
 
   accessoriesSupplied: boolean;
   accessoriesWhich: string;
 
   physicalState: string;
-  diagnosis: string;
+  diagnosisPreset: string;
+  diagnosisOther: string;
   failureType: FailureType | "";
   failureOther: string;
 
-  solution: string;
+  solutionPreset: string;
+  solutionOther: string;
   manufacturerEta: string;
+
+  timeStart: string;
+  timeEnd: string;
 
   installDate: string;
   newBrand: string;
   newModel: string;
   newSerial: string;
-  inStock: "" | "true" | "false";
 
-  removedBrand: string;
-  removedModel: string;
-  removedSerial: string;
-
-  associatedCost: string;
+  photoSerialCurrent?: FileList;
+  photoSerialNew?: FileList;
 };
 
 function isoDate(d?: Date | null) {
@@ -78,6 +81,33 @@ function classTextArea() {
   return "min-h-[88px] w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
 
+function normalizeEquipmentLocation(input: string | null | undefined): DeviceLocation | null {
+  if (!input) return null;
+  const s = String(input).trim().toUpperCase();
+  if (Object.values(DeviceLocation).includes(s as DeviceLocation)) return s as DeviceLocation;
+  if (s.startsWith("BV1")) return DeviceLocation.VAGON_1;
+  if (s.startsWith("BV2")) return DeviceLocation.VAGON_2;
+  if (s.startsWith("BV3")) return DeviceLocation.VAGON_3;
+  if (s === "BO") return DeviceLocation.BO;
+  if (s === "BFE") return DeviceLocation.BFE;
+  if (s === "BTE") return DeviceLocation.BTE;
+  return null;
+}
+
+function locationLabel(location: DeviceLocation | null) {
+  if (!location) return "—";
+  if (location === DeviceLocation.VAGON_1) return "Vagón 1";
+  if (location === DeviceLocation.VAGON_2) return "Vagón 2";
+  if (location === DeviceLocation.VAGON_3) return "Vagón 3";
+  if (location === DeviceLocation.GABINETE_EQUIPOS) return "Gabinete equipos";
+  if (location === DeviceLocation.FUELLE_V2_3) return "Fuelle V2-3";
+  if (location === DeviceLocation.BO) return "BO";
+  if (location === DeviceLocation.BFE) return "BFE";
+  if (location === DeviceLocation.BTE) return "BTE";
+  if (location === DeviceLocation.OTRO) return "Otro";
+  return location;
+}
+
 function requiredIfOther(kind: "procedure" | "failure" | "location", isOther: boolean, otherValue: string) {
   if (!isOther) return null;
   if (otherValue.trim().length >= 2) return null;
@@ -85,6 +115,23 @@ function requiredIfOther(kind: "procedure" | "failure" | "location", isOther: bo
   if (kind === "failure") return "Debes especificar el tipo de falla (OTRO).";
   return "Debes especificar la ubicación (OTRO).";
 }
+
+const DIAGNOSIS_OPTIONS = [
+  "Cámara con líneas",
+  "Conector flojo",
+  "No enciende",
+  "Sin transmisión",
+  "Imagen borrosa",
+  "OTRO",
+] as const;
+
+const SOLUTION_OPTIONS = [
+  "Ajuste de conexión",
+  "Reemplazo de componente",
+  "Reconfiguración",
+  "Limpieza",
+  "OTRO",
+] as const;
 
 export default function CorrectiveReportForm(props: Props) {
   const router = useRouter();
@@ -98,17 +145,26 @@ export default function CorrectiveReportForm(props: Props) {
     equipmentTypeName: null,
     equipmentSerial: null,
     equipmentLocation: null,
+    equipmentBrand: null,
+    equipmentModel: null,
   });
 
   const r = props.initialReport;
+  const initialDiagnosisPreset =
+    r?.diagnosis && DIAGNOSIS_OPTIONS.includes(r.diagnosis as any) ? r.diagnosis : r?.diagnosis ? "OTRO" : "";
+  const initialDiagnosisOther =
+    r?.diagnosis && !DIAGNOSIS_OPTIONS.includes(r.diagnosis as any) ? r.diagnosis : "";
+  const initialSolutionPreset =
+    r?.solution && SOLUTION_OPTIONS.includes(r.solution as any) ? r.solution : r?.solution ? "OTRO" : "";
+  const initialSolutionOther =
+    r?.solution && !SOLUTION_OPTIONS.includes(r.solution as any) ? r.solution : "";
 
   const form = useForm<FormValues>({
     defaultValues: {
-      ticketNumber: r?.ticketNumber ?? "",
+      ticketNumber: r?.ticketNumber ?? props.suggestedTicketNumber ?? "",
       workOrderNumber: r?.workOrderNumber ?? "",
 
       busCode: r?.busCode ?? "",
-      productionSp: r?.productionSp ?? "",
       plate: r?.plate ?? "",
 
       deviceType: r?.deviceType ?? "",
@@ -123,30 +179,27 @@ export default function CorrectiveReportForm(props: Props) {
       locationOther: r?.locationOther ?? "",
 
       dateDismount: isoDate(r?.dateDismount),
-      dateDeliveredMfr: isoDate(r?.dateDeliveredMfr),
+      dateDelivered: isoDate((r as any)?.dateDelivered),
 
       accessoriesSupplied: r?.accessoriesSupplied ?? false,
       accessoriesWhich: r?.accessoriesWhich ?? "",
 
       physicalState: r?.physicalState ?? "",
-      diagnosis: r?.diagnosis ?? "",
+      diagnosisPreset: initialDiagnosisPreset,
+      diagnosisOther: initialDiagnosisOther,
       failureType: (r?.failureType as any) ?? "",
       failureOther: r?.failureOther ?? "",
 
-      solution: r?.solution ?? "",
+      solutionPreset: initialSolutionPreset,
+      solutionOther: initialSolutionOther,
       manufacturerEta: r?.manufacturerEta ?? "",
+      timeStart: (r as any)?.timeStart ?? "",
+      timeEnd: (r as any)?.timeEnd ?? "",
 
       installDate: isoDate(r?.installDate),
       newBrand: r?.newBrand ?? "",
       newModel: r?.newModel ?? "",
       newSerial: r?.newSerial ?? "",
-      inStock: r?.inStock === null || r?.inStock === undefined ? "" : r.inStock ? "true" : "false",
-
-      removedBrand: r?.removedBrand ?? "",
-      removedModel: r?.removedModel ?? "",
-      removedSerial: r?.removedSerial ?? "",
-
-      associatedCost: r?.associatedCost ? String(r.associatedCost) : "",
     },
     mode: "onSubmit",
   });
@@ -176,8 +229,18 @@ export default function CorrectiveReportForm(props: Props) {
       const equipmentTypeName = (data?.equipment?.type ?? null) as string | null;
       const equipmentSerial = (data?.equipment?.serial ?? null) as string | null;
       const equipmentLocation = (data?.equipment?.location ?? null) as string | null;
+      const equipmentBrand = (data?.equipment?.brand ?? null) as string | null;
+      const equipmentModel = (data?.equipment?.model ?? null) as string | null;
 
-      setAutofill({ busCode, plate, equipmentTypeName, equipmentSerial, equipmentLocation });
+      setAutofill({
+        busCode,
+        plate,
+        equipmentTypeName,
+        equipmentSerial,
+        equipmentLocation,
+        equipmentBrand,
+        equipmentModel,
+      });
 
       // Solo autocompleta si el usuario no tiene valores
       const curr = form.getValues();
@@ -187,13 +250,15 @@ export default function CorrectiveReportForm(props: Props) {
       if (!curr.plate?.trim() && plate) patch.plate = plate;
 
       if (!curr.deviceType?.trim() && equipmentTypeName) patch.deviceType = equipmentTypeName;
+      if (!curr.brand?.trim() && equipmentBrand) patch.brand = equipmentBrand;
+      if (!curr.model?.trim() && equipmentModel) patch.model = equipmentModel;
       if (!curr.serial?.trim() && equipmentSerial) patch.serial = equipmentSerial;
-      if (
-        !curr.location &&
-        equipmentLocation &&
-        Object.values(DeviceLocation).includes(equipmentLocation as DeviceLocation)
-      ) {
-        patch.location = equipmentLocation as DeviceLocation;
+      if (!curr.location) {
+        const inferred =
+          normalizeEquipmentLocation(equipmentLocation) ??
+          normalizeEquipmentLocation(equipmentTypeName) ??
+          normalizeEquipmentLocation(equipmentSerial);
+        if (inferred) patch.location = inferred;
       }
 
       if (Object.keys(patch).length) form.reset({ ...curr, ...patch });
@@ -211,13 +276,35 @@ export default function CorrectiveReportForm(props: Props) {
   const failureType = form.watch("failureType");
   const location = form.watch("location");
 
+  const isCambioComponente =
+    procedureType === ProcedureType.CAMBIO_COMPONENTE || procedureType === "CAMBIO_COMPONENTE";
   const isProcedureOther = procedureType === ProcedureType.OTRO;
   const isFailureOther = failureType === FailureType.OTRO;
   const isLocationOther = location === DeviceLocation.OTRO;
+  const displayLocation =
+    normalizeEquipmentLocation(autofill.equipmentLocation) ??
+    normalizeEquipmentLocation(autofill.equipmentTypeName) ??
+    normalizeEquipmentLocation(autofill.equipmentSerial) ??
+    (location ? location : null);
+
+  React.useEffect(() => {
+    if (isCambioComponente) return;
+    form.setValue("installDate", "");
+    form.setValue("newBrand", "");
+    form.setValue("newModel", "");
+    form.setValue("newSerial", "");
+    form.setValue("photoSerialCurrent", undefined as any);
+    form.setValue("photoSerialNew", undefined as any);
+  }, [isCambioComponente, form]);
 
   async function onSubmit(v: FormValues) {
     setSaving(true);
     setMsg(null);
+
+    const diagnosis =
+      v.diagnosisPreset === "OTRO" ? v.diagnosisOther.trim() : v.diagnosisPreset.trim();
+    const solution =
+      v.solutionPreset === "OTRO" ? v.solutionOther.trim() : v.solutionPreset.trim();
 
     const payload = {
       ...v,
@@ -229,12 +316,9 @@ export default function CorrectiveReportForm(props: Props) {
       failureOther: isFailureOther ? v.failureOther.trim() : "",
       locationOther: isLocationOther ? v.locationOther.trim() : "",
 
-      inStock: v.inStock === "" ? null : v.inStock === "true",
-
       ticketNumber: v.ticketNumber.trim(),
       workOrderNumber: v.workOrderNumber.trim(),
       busCode: v.busCode.trim(),
-      productionSp: v.productionSp.trim(),
       plate: v.plate.trim(),
       deviceType: v.deviceType.trim(),
       brand: v.brand.trim(),
@@ -242,16 +326,14 @@ export default function CorrectiveReportForm(props: Props) {
       serial: v.serial.trim(),
       accessoriesWhich: v.accessoriesWhich.trim(),
       physicalState: v.physicalState.trim(),
-      diagnosis: v.diagnosis.trim(),
-      solution: v.solution.trim(),
+      diagnosis,
+      solution,
       manufacturerEta: v.manufacturerEta.trim(),
+      timeStart: v.timeStart.trim(),
+      timeEnd: v.timeEnd.trim(),
       newBrand: v.newBrand.trim(),
       newModel: v.newModel.trim(),
       newSerial: v.newSerial.trim(),
-      removedBrand: v.removedBrand.trim(),
-      removedModel: v.removedModel.trim(),
-      removedSerial: v.removedSerial.trim(),
-      associatedCost: v.associatedCost.trim(),
     };
 
     const res = await fetch(`/api/work-orders/${props.workOrderId}/corrective-report`, {
@@ -268,38 +350,56 @@ export default function CorrectiveReportForm(props: Props) {
       return;
     }
 
+    const currentFile = v.photoSerialCurrent?.[0];
+    const newFile = v.photoSerialNew?.[0];
+    if (currentFile || newFile) {
+      const upload = async (kind: "current" | "new", file: File) => {
+        const formData = new FormData();
+        formData.append("photoKind", kind);
+        formData.append("photo", file);
+        await fetch(`/api/work-orders/${props.workOrderId}/corrective-report`, {
+          method: "PUT",
+          body: formData,
+        });
+      };
+      if (currentFile) await upload("current", currentFile);
+      if (newFile) await upload("new", newFile);
+    }
+
     setMsg("Guardado correctamente");
     router.refresh();
   }
 
   return (
-    <div className="sts-card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold">Formato Correctivo (inline)</h3>
-          <p className="text-xs text-muted-foreground">Estructura basada en CAP-FO-M-CR-002. Campos opcionales.</p>
+    <div className="space-y-6">
+      <div className="sts-card p-4 md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold">Formato Correctivo (inline)</h3>
+            <p className="text-xs text-muted-foreground">Estructura basada en CAP-FO-M-CR-002. Campos opcionales.</p>
+          </div>
+          <button
+            type="button"
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={saving || loading}
+            className="sts-btn-primary text-sm disabled:opacity-50"
+          >
+            {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={form.handleSubmit(onSubmit)}
-          disabled={saving || loading}
-          className="sts-btn-primary text-sm disabled:opacity-50"
-        >
-          {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
-        </button>
+
+        {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
       </div>
 
-      {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
-
-      <form className="mt-4 space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         {/* 1. DATOS DEL DISPOSITIVO / EQUIPO */}
-        <section className="sts-card p-4">
+        <section className="sts-card p-4 md:p-5">
           <h4 className="text-sm font-semibold">1. Datos del dispositivo / equipo</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Número de ticket</label>
-              <input className={classInput()} {...form.register("ticketNumber")} />
+              <input className={classInput()} readOnly {...form.register("ticketNumber")} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Orden de trabajo No.</label>
@@ -310,11 +410,6 @@ export default function CorrectiveReportForm(props: Props) {
               <label className="text-xs text-muted-foreground">No. Biarticulado TM</label>
               <input className={classInput()} {...form.register("busCode")} />
               <p className="mt-1 text-[11px] text-muted-foreground">Sugerido: {autofill.busCode || "—"}</p>
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">No. Producción SP</label>
-              <input className={classInput()} {...form.register("productionSp")} />
             </div>
 
             <div>
@@ -334,10 +429,16 @@ export default function CorrectiveReportForm(props: Props) {
             <div>
               <label className="text-xs text-muted-foreground">Marca</label>
               <input className={classInput()} {...form.register("brand")} />
+              {autofill.equipmentBrand ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">Sugerido: {autofill.equipmentBrand}</p>
+              ) : null}
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Modelo</label>
               <input className={classInput()} {...form.register("model")} />
+              {autofill.equipmentModel ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">Sugerido: {autofill.equipmentModel}</p>
+              ) : null}
             </div>
 
             <div className="sm:col-span-2">
@@ -353,7 +454,6 @@ export default function CorrectiveReportForm(props: Props) {
                 <option value={ProcedureType.AJUSTE_FISICO}>Ajuste físico</option>
                 <option value={ProcedureType.CAMBIO_COMPONENTE}>Cambio componente</option>
                 <option value={ProcedureType.RECONFIGURACION}>Reconfiguración</option>
-                <option value={ProcedureType.REVISION}>Revisión</option>
                 <option value={ProcedureType.OTRO}>Otro</option>
               </select>
 
@@ -366,24 +466,30 @@ export default function CorrectiveReportForm(props: Props) {
 
             <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Ubicación del dispositivo en el biarticulado</label>
-              <select className={classInput()} {...form.register("location")}>
-                <option value="">— Selecciona —</option>
-                <option value={DeviceLocation.VAGON_1}>Vagón 1</option>
-                <option value={DeviceLocation.VAGON_2}>Vagón 2</option>
-                <option value={DeviceLocation.VAGON_3}>Vagón 3</option>
-                <option value={DeviceLocation.BO}>BO</option>
-                <option value={DeviceLocation.BFE}>BFE</option>
-                <option value={DeviceLocation.BTE}>BTE</option>
-                <option value={DeviceLocation.GABINETE_EQUIPOS}>Gabinete equipos</option>
-                <option value={DeviceLocation.FUELLE_V2_3}>Fuelle V2-3</option>
-                <option value={DeviceLocation.OTRO}>Otro</option>
-              </select>
+              {displayLocation ? (
+                <input className={classInput()} readOnly value={locationLabel(displayLocation as DeviceLocation)} />
+              ) : (
+                <>
+                  <select className={classInput()} {...form.register("location")}>
+                    <option value="">— Selecciona —</option>
+                    <option value={DeviceLocation.VAGON_1}>Vagón 1</option>
+                    <option value={DeviceLocation.VAGON_2}>Vagón 2</option>
+                    <option value={DeviceLocation.VAGON_3}>Vagón 3</option>
+                    <option value={DeviceLocation.BO}>BO</option>
+                    <option value={DeviceLocation.BFE}>BFE</option>
+                    <option value={DeviceLocation.BTE}>BTE</option>
+                    <option value={DeviceLocation.GABINETE_EQUIPOS}>Gabinete equipos</option>
+                    <option value={DeviceLocation.FUELLE_V2_3}>Fuelle V2-3</option>
+                    <option value={DeviceLocation.OTRO}>Otro</option>
+                  </select>
 
-              <input
-                className={`${classInput()} mt-2`}
-                placeholder={isLocationOther ? "Especifica cuál (requerido)" : "(Opcional) Si es OTRO, escribe aquí"}
-                {...form.register("locationOther")}
-              />
+                  <input
+                    className={`${classInput()} mt-2`}
+                    placeholder={isLocationOther ? "Especifica cuál (requerido)" : "(Opcional) Si es OTRO, escribe aquí"}
+                    {...form.register("locationOther")}
+                  />
+                </>
+              )}
             </div>
 
             <div>
@@ -391,34 +497,26 @@ export default function CorrectiveReportForm(props: Props) {
               <input type="date" className={classInput()} {...form.register("dateDismount")} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Fecha entrega fabricante</label>
-              <input type="date" className={classInput()} {...form.register("dateDeliveredMfr")} />
+              <label className="text-xs text-muted-foreground">Fecha entrega</label>
+              <input type="date" className={classInput()} {...form.register("dateDelivered")} />
             </div>
           </div>
         </section>
 
         {/* 2. DESCRIPCIÓN DE LA FALLA (AQUÍ ESTABA TU BLOQUEO) */}
-        <section className="sts-card p-4">
+        <section className="sts-card p-4 md:p-5">
           <h4 className="text-sm font-semibold">2. Descripción de la falla</h4>
 
           <div className="mt-3 grid gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-3">
-                <input type="checkbox" {...form.register("accessoriesSupplied")} />
-                <label className="text-sm">Accesorios suministrados con el equipo</label>
+            {isCambioComponente ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" {...form.register("accessoriesSupplied")} />
+                  <label className="text-sm">Accesorios suministrados con el equipo</label>
+                </div>
+                <input className={classInput()} placeholder="¿Cuáles?" {...form.register("accessoriesWhich")} />
               </div>
-              <input className={classInput()} placeholder="¿Cuáles?" {...form.register("accessoriesWhich")} />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">Estado físico del equipo</label>
-              <textarea className={classTextArea()} {...form.register("physicalState")} />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">Diagnóstico</label>
-              <textarea className={classTextArea()} {...form.register("diagnosis")} />
-            </div>
+            ) : null}
 
             <div>
               <label className="text-xs text-muted-foreground">Tipo de falla</label>
@@ -439,77 +537,106 @@ export default function CorrectiveReportForm(props: Props) {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="text-xs text-muted-foreground">Solución</label>
-                <textarea className={classTextArea()} {...form.register("solution")} />
+                <label className="text-xs text-muted-foreground">Estado físico del equipo</label>
+                <textarea className={classTextArea()} {...form.register("physicalState")} />
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground">Tiempo solución dado por el fabricante</label>
-                <textarea className={classTextArea()} {...form.register("manufacturerEta")} />
+                <label className="text-xs text-muted-foreground">Diagnóstico</label>
+                <select className={classInput()} {...form.register("diagnosisPreset")}>
+                  <option value="">— Selecciona —</option>
+                  {DIAGNOSIS_OPTIONS.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+                {form.watch("diagnosisPreset") === "OTRO" ? (
+                  <input
+                    className={`${classInput()} mt-2`}
+                    placeholder="Especifica el diagnóstico"
+                    {...form.register("diagnosisOther")}
+                  />
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Solución</label>
+                <select className={classInput()} {...form.register("solutionPreset")}>
+                  <option value="">— Selecciona —</option>
+                  {SOLUTION_OPTIONS.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+                {form.watch("solutionPreset") === "OTRO" ? (
+                  <input
+                    className={`${classInput()} mt-2`}
+                    placeholder="Especifica la solución"
+                    {...form.register("solutionOther")}
+                  />
+                ) : null}
+              </div>
+
+              {isCambioComponente ? (
+                <div>
+                  <label className="text-xs text-muted-foreground">Tiempo solución dado por el fabricante</label>
+                  <textarea className={classTextArea()} {...form.register("manufacturerEta")} />
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Hora inicio (interno)</label>
+                <input className={classInput()} placeholder="HH:mm" {...form.register("timeStart")} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Hora cierre (interno)</label>
+                <input className={classInput()} placeholder="HH:mm" {...form.register("timeEnd")} />
               </div>
             </div>
           </div>
         </section>
 
-        {/* 3. DATOS NUEVO INSTALADO */}
-        <section className="sts-card p-4">
-          <h4 className="text-sm font-semibold">3. Datos del dispositivo/equipo (nuevo instalado)</h4>
+        {/* 3. CAMBIO DE COMPONENTE */}
+        {isCambioComponente ? (
+          <section className="sts-card p-4 md:p-5">
+            <h4 className="text-sm font-semibold">3. Cambio de componente</h4>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-xs text-muted-foreground">Fecha instalación</label>
-              <input type="date" className={classInput()} {...form.register("installDate")} />
-            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Foto serial actual</label>
+                <input type="file" accept="image/*" className={classInput()} {...form.register("photoSerialCurrent")} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Foto serial nuevo</label>
+                <input type="file" accept="image/*" className={classInput()} {...form.register("photoSerialNew")} />
+              </div>
 
-            <div>
-              <label className="text-xs text-muted-foreground">Equipo en stock</label>
-              <select className={classInput()} {...form.register("inStock")}>
-                <option value="">—</option>
-                <option value="true">Sí</option>
-                <option value="false">No</option>
-              </select>
-            </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Fecha instalación</label>
+                <input type="date" className={classInput()} {...form.register("installDate")} />
+              </div>
 
-            <div>
-              <label className="text-xs text-muted-foreground">Marca</label>
-              <input className={classInput()} {...form.register("newBrand")} />
+              <div>
+                <label className="text-xs text-muted-foreground">Marca nueva</label>
+                <input className={classInput()} {...form.register("newBrand")} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Modelo nuevo</label>
+                <input className={classInput()} {...form.register("newModel")} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Serial nuevo (texto)</label>
+                <input className={classInput()} {...form.register("newSerial")} />
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Modelo</label>
-              <input className={classInput()} {...form.register("newModel")} />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">No. Serial</label>
-              <input className={classInput()} {...form.register("newSerial")} />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Costo asociado</label>
-              <input className={classInput()} placeholder="Ej: 120000.00" {...form.register("associatedCost")} />
-            </div>
-          </div>
-        </section>
-
-        {/* 4. DATOS RETIRADO */}
-        <section className="sts-card p-4">
-          <h4 className="text-sm font-semibold">4. Datos del dispositivo/equipo (retirado)</h4>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-xs text-muted-foreground">Marca</label>
-              <input className={classInput()} {...form.register("removedBrand")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Modelo</label>
-              <input className={classInput()} {...form.register("removedModel")} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Serial</label>
-              <input className={classInput()} {...form.register("removedSerial")} />
-            </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <button type="submit" className="hidden" />
       </form>

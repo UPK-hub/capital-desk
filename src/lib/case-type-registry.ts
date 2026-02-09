@@ -21,6 +21,9 @@ export type CaseTypeConfig = {
 
   // STS mapping (by CaseType)
   stsComponentCode?: string;
+
+  // SLA TransMilenio: minutos estándar para calcular inicio hacia atrás
+  tmDurationMinutes?: number;
 };
 
 export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
@@ -47,6 +50,7 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
     finishRequiresForm: true,
     formKind: "CORRECTIVE",
     stsComponentCode: "CCTV",
+    tmDurationMinutes: 60,
   },
 
   PREVENTIVO: {
@@ -60,6 +64,7 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
     finishRequiresForm: true,
     formKind: "PREVENTIVE",
     stsComponentCode: "CCTV",
+    tmDurationMinutes: 60,
   },
 
   MEJORA_PRODUCTO: {

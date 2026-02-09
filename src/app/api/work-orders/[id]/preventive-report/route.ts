@@ -18,7 +18,6 @@ const schema = z.object({
   workOrderNumber: z.string().trim().optional().nullable(),
 
   biarticuladoNo: z.string().trim().optional().nullable(),
-  productionSp: z.string().trim().optional().nullable(),
   mileage: z.string().trim().optional().nullable(),
   plate: z.string().trim().optional().nullable(),
 
@@ -26,22 +25,13 @@ const schema = z.object({
   executedAt: z.string().optional().nullable(),
   rescheduledAt: z.string().optional().nullable(),
 
-  devicesInstalled: z.any().optional().nullable(),
+  // devicesInstalled eliminado
   activities: z.any().optional().nullable(),
-
-  voltageNvrFromCard: z.string().trim().optional().nullable(),
-  voltageCollectorFromCard: z.string().trim().optional().nullable(),
-  voltageBatteriesMasterOff: z.string().trim().optional().nullable(),
-  voltageCardMasterOn: z.string().trim().optional().nullable(),
-  voltageCardMasterOff: z.string().trim().optional().nullable(),
-  voltageSwitch: z.string().trim().optional().nullable(),
-  voltageCardBusOpen: z.string().trim().optional().nullable(),
-  commCableState: z.string().trim().optional().nullable(),
 
   observations: z.string().trim().optional().nullable(),
   timeStart: z.string().trim().optional().nullable(),
   timeEnd: z.string().trim().optional().nullable(),
-  responsibleSkg: z.string().trim().optional().nullable(),
+  responsibleUpk: z.string().trim().optional().nullable(),
   responsibleCapitalBus: z.string().trim().optional().nullable(),
 });
 
@@ -158,7 +148,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     workOrderNumber: emptyToNull(v.workOrderNumber),
 
     biarticuladoNo,
-    productionSp: emptyToNull(v.productionSp),
     mileage: emptyToNull(v.mileage),
     plate,
 
@@ -166,22 +155,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     executedAt: toDate(v.executedAt),
     rescheduledAt: toDate(v.rescheduledAt),
 
-    devicesInstalled: v.devicesInstalled ?? null,
+    // devicesInstalled eliminado
     activities: v.activities ?? null,
-
-    voltageNvrFromCard: emptyToNull(v.voltageNvrFromCard),
-    voltageCollectorFromCard: emptyToNull(v.voltageCollectorFromCard),
-    voltageBatteriesMasterOff: emptyToNull(v.voltageBatteriesMasterOff),
-    voltageCardMasterOn: emptyToNull(v.voltageCardMasterOn),
-    voltageCardMasterOff: emptyToNull(v.voltageCardMasterOff),
-    voltageSwitch: emptyToNull(v.voltageSwitch),
-    voltageCardBusOpen: emptyToNull(v.voltageCardBusOpen),
-    commCableState: emptyToNull(v.commCableState),
 
     observations: emptyToNull(v.observations),
     timeStart: emptyToNull(v.timeStart),
     timeEnd: emptyToNull(v.timeEnd),
-    responsibleSkg: emptyToNull(v.responsibleSkg),
+    responsibleUpk: emptyToNull((v as any).responsibleUpk),
     responsibleCapitalBus: emptyToNull(v.responsibleCapitalBus),
   };
 

@@ -10,7 +10,6 @@ const FormSchema = z.object({
   workOrderNumber: z.string().trim().optional().nullable(),
 
   biarticuladoNo: z.string().trim().optional().nullable(),
-  productionSp: z.string().trim().optional().nullable(),
   mileage: z.string().trim().optional().nullable(),
   plate: z.string().trim().optional().nullable(),
 
@@ -18,14 +17,13 @@ const FormSchema = z.object({
   executedAt: z.string().datetime().optional().nullable(),
   rescheduledAt: z.string().datetime().optional().nullable(),
 
-  devicesInstalled: z.any().optional().nullable(),
+  // devicesInstalled eliminado
   activities: z.any().optional().nullable(),
 
-  commCableState: z.string().trim().optional().nullable(),
   observations: z.string().trim().optional().nullable(),
   timeStart: z.string().trim().optional().nullable(),
   timeEnd: z.string().trim().optional().nullable(),
-  responsibleSkg: z.string().trim().optional().nullable(),
+  responsibleUpk: z.string().trim().optional().nullable(),
   responsibleCapitalBus: z.string().trim().optional().nullable(),
 });
 
@@ -52,19 +50,17 @@ export default function PreventiveReportForm({
       ticketNumber: initialReport?.ticketNumber ?? "",
       workOrderNumber: initialReport?.workOrderNumber ?? "",
       biarticuladoNo: initialReport?.biarticuladoNo ?? "",
-      productionSp: initialReport?.productionSp ?? "",
       mileage: initialReport?.mileage ?? "",
       plate: initialReport?.plate ?? "",
       scheduledAt: initialReport?.scheduledAt ? toLocal(initialReport.scheduledAt) : null,
       executedAt: initialReport?.executedAt ? toLocal(initialReport.executedAt) : null,
       rescheduledAt: initialReport?.rescheduledAt ? toLocal(initialReport.rescheduledAt) : null,
-      devicesInstalled: initialReport?.devicesInstalled ?? [],
+      // devicesInstalled eliminado
       activities: initialReport?.activities ?? [],
-      commCableState: initialReport?.commCableState ?? "",
       observations: initialReport?.observations ?? "",
       timeStart: initialReport?.timeStart ?? "",
       timeEnd: initialReport?.timeEnd ?? "",
-      responsibleSkg: initialReport?.responsibleSkg ?? "",
+      responsibleUpk: initialReport?.responsibleUpk ?? "",
       responsibleCapitalBus: initialReport?.responsibleCapitalBus ?? "",
     },
     mode: "onBlur",
@@ -95,17 +91,17 @@ export default function PreventiveReportForm({
   }
 
   return (
-    <div className="sts-card p-4 space-y-4">
-      <div>
+    <div className="space-y-4">
+      <div className="sts-card p-4 md:p-5">
         <p className="text-sm font-semibold">Preventivo</p>
         <p className="text-xs text-muted-foreground">Se guarda inline y habilita el cierre de OT.</p>
       </div>
 
-      <form className="space-y-3" onSubmit={form.handleSubmit(save)}>
+      <form className="sts-card p-4 md:p-5 space-y-3" onSubmit={form.handleSubmit(save)}>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className="text-xs text-muted-foreground">Ticket *</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("ticketNumber")} />
+            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" readOnly {...form.register("ticketNumber")} />
             <p className="text-xs text-red-600">{form.formState.errors.ticketNumber?.message}</p>
           </div>
 
@@ -139,10 +135,6 @@ export default function PreventiveReportForm({
             <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("timeEnd")} placeholder="HH:mm" />
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">Estado cable NVR-Colector</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("commCableState")} placeholder="BUENO/MALO" />
-          </div>
 
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Observaciones</label>

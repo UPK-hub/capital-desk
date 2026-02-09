@@ -34,6 +34,7 @@ export default async function CorrectiveReportPage({ params }: PageProps) {
     include: {
       case: { include: { bus: true } },
       correctiveReport: true,
+      interventionReceipt: true,
     },
   });
 
@@ -55,7 +56,14 @@ export default async function CorrectiveReportPage({ params }: PageProps) {
       </div>
 
       <section className="sts-card p-5">
-        <CorrectiveReportForm workOrderId={wo.id} initial={wo.correctiveReport} />
+        <CorrectiveReportForm
+          workOrderId={wo.id}
+          initialReport={wo.correctiveReport}
+          suggestedTicketNumber={
+            wo.interventionReceipt?.ticketNo ??
+            (wo.workOrderNo ? `UPK-${String(wo.workOrderNo).padStart(3, "0")}` : "")
+          }
+        />
       </section>
     </div>
   );

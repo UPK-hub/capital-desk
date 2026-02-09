@@ -23,6 +23,8 @@ const EQUIPMENT_TYPES = [
   "NVR",
   "Modulo 4G/5G",
   "Discos Duros",
+  "Baterias",
+  "Controlador de carga",
 ] as const;
 
 const BUSES_RAW = `
@@ -466,6 +468,20 @@ async function main() {
     });
   }
 
+  function defaultBrandForType(name: string): string | null {
+    if (
+      name.startsWith("BV") ||
+      name === "BFE" ||
+      name === "BTE" ||
+      name === "BO" ||
+      name === "NVR" ||
+      name === "Discos Duros"
+    ) {
+      return "Hikvision";
+    }
+    return null;
+  }
+
   // Ensure baseline equipments per bus (crear faltantes sin duplicar)
   const allBuses = await prisma.bus.findMany({ where: { tenantId: tenant.id }, select: { id: true } });
 
@@ -479,8 +495,9 @@ async function main() {
 
     for (const t of types) {
       if (existingSet.has(t.id)) continue;
+      const brand = defaultBrandForType(t.name);
       await prisma.busEquipment.create({
-        data: { busId: bus.id, equipmentTypeId: t.id, active: true },
+        data: { busId: bus.id, equipmentTypeId: t.id, active: true, ...(brand ? { brand } : {}) },
       });
       createdEquipments++;
     }

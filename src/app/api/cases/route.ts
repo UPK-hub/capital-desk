@@ -10,7 +10,7 @@ import { CaseEventType, CaseStatus, NotificationType, Role, StsTicketChannel, St
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
-import { nextNumbers } from "@/lib/tenant-sequence";
+import { ensureTenantSequence } from "@/lib/tenant-sequence";
 import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
 
@@ -82,144 +82,135 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const created = await prisma.$transaction(async (tx) => {
-      const nums = await nextNumbers(tx as any, tenantId, {
-        case: true,
-        workOrder: cfg.requiresWorkOrder,
-      });
+    const splitByEquipment =
+      (cfg.type === "CORRECTIVO" || cfg.type === "PREVENTIVO") && busEquipmentIds.length > 1;
+    const targets = splitByEquipment ? busEquipmentIds : [busEquipmentId];
 
-      const c = await tx.case.create({
+    // Reservar consecutivos en transacción corta para evitar locks largos en el flujo principal
+    const reserved = await prisma.$transaction(
+      async (tx) => {
+      await ensureTenantSequence(tx as any, tenantId);
+      await tx.$queryRaw`SELECT "tenantId" FROM "TenantSequence" WHERE "tenantId" = ${tenantId} FOR UPDATE`;
+
+      let seq = await tx.tenantSequence.findUnique({
+        where: { tenantId },
+        select: { nextCaseNo: true, nextWorkOrderNo: true },
+      });
+      if (!seq) throw new Error("TenantSequence missing after upsert");
+
+      const maxCase = await tx.case.aggregate({ where: { tenantId }, _max: { caseNo: true } });
+      const maxCaseNo = maxCase._max.caseNo ?? 0;
+      if (seq.nextCaseNo <= maxCaseNo) {
+        await tx.tenantSequence.update({
+          where: { tenantId },
+          data: { nextCaseNo: maxCaseNo + 1 },
+        });
+        seq = { ...seq, nextCaseNo: maxCaseNo + 1 };
+      }
+
+      if (cfg.requiresWorkOrder) {
+        const maxWo = await tx.workOrder.aggregate({ where: { tenantId }, _max: { workOrderNo: true } });
+        const maxWoNo = maxWo._max.workOrderNo ?? 0;
+        if (seq.nextWorkOrderNo <= maxWoNo) {
+          await tx.tenantSequence.update({
+            where: { tenantId },
+            data: { nextWorkOrderNo: maxWoNo + 1 },
+          });
+          seq = { ...seq, nextWorkOrderNo: maxWoNo + 1 };
+        }
+      }
+
+      const caseNos = Array.from({ length: targets.length }, (_, i) => seq!.nextCaseNo + i);
+      const workOrderNos = cfg.requiresWorkOrder
+        ? Array.from({ length: targets.length }, (_, i) => seq!.nextWorkOrderNo + i)
+        : [];
+
+      await tx.tenantSequence.update({
+        where: { tenantId },
         data: {
-          tenantId,
-          caseNo: nums.caseNo!,
-          type: cfg.type,
-          status: CaseStatus.NUEVO,
-          priority: priority ?? 3,
-          title,
-          description,
-          busId,
-          busEquipmentId,
+          nextCaseNo: { increment: targets.length },
+          ...(cfg.requiresWorkOrder ? { nextWorkOrderNo: { increment: targets.length } } : {}),
         },
       });
 
-      if (busEquipmentIds.length) {
-        await tx.caseEquipment.createMany({
-          data: busEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
-          skipDuplicates: true,
+      return { caseNos, workOrderNos };
+      },
+      { maxWait: 10000, timeout: 20000 }
+    );
+
+    const created = await prisma.$transaction(
+      async (tx) => {
+      const createdCases: any[] = [];
+      const createdStsCases: Array<{ caseId: string; description: string }> = [];
+
+      for (let i = 0; i < targets.length; i += 1) {
+        const eqId = targets[i];
+        const nums = {
+          caseNo: reserved.caseNos[i],
+          workOrderNo: cfg.requiresWorkOrder ? reserved.workOrderNos[i] : undefined,
+        };
+
+        const c = await tx.case.create({
+          data: {
+            tenantId,
+            caseNo: nums.caseNo!,
+            type: cfg.type,
+            status: CaseStatus.NUEVO,
+            priority: priority ?? 3,
+            title,
+            description,
+            busId,
+            busEquipmentId: eqId ?? null,
+          },
         });
-      }
 
-      await tx.caseEvent.create({
-        data: { caseId: c.id, type: CaseEventType.CREATED, message: "Caso creado", meta: { userId } },
-      });
-
-      if (cfg.requiresWorkOrder) {
-        await tx.workOrder.create({
-          data: { tenantId, workOrderNo: nums.workOrderNo!, caseId: c.id },
-        });
-
-        if (!cfg.stsComponentCode) {
-          await tx.case.update({ where: { id: c.id }, data: { status: CaseStatus.OT_ASIGNADA } });
+        if (splitByEquipment) {
+          if (eqId) {
+            await tx.caseEquipment.create({
+              data: { caseId: c.id, busEquipmentId: eqId },
+            });
+          }
+        } else if (busEquipmentIds.length) {
+          await tx.caseEquipment.createMany({
+            data: busEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
+            skipDuplicates: true,
+          });
         }
 
         await tx.caseEvent.create({
-          data: { caseId: c.id, type: CaseEventType.STATUS_CHANGE, message: "OT creada automáticamente", meta: { userId } },
+          data: { caseId: c.id, type: CaseEventType.CREATED, message: "Caso creado", meta: { userId } },
         });
+
+        if (cfg.requiresWorkOrder) {
+          await tx.workOrder.create({
+            data: { tenantId, workOrderNo: nums.workOrderNo!, caseId: c.id },
+          });
+
+          if (!cfg.stsComponentCode) {
+            await tx.case.update({ where: { id: c.id }, data: { status: CaseStatus.OT_ASIGNADA } });
+          }
+
+          await tx.caseEvent.create({
+            data: {
+              caseId: c.id,
+              type: CaseEventType.STATUS_CHANGE,
+              message: "OT creada automáticamente",
+              meta: { userId },
+            },
+          });
+        }
+
+        if (cfg.stsComponentCode) {
+          createdStsCases.push({ caseId: c.id, description: c.description });
+        }
+
+        createdCases.push(c);
       }
 
-      let videoRequestId: string | null = null;
-      let stsTicketId: string | null = null;
-
-      if (cfg.stsComponentCode) {
-        const comp = await tx.stsComponent.findFirst({
-          where: { tenantId, code: cfg.stsComponentCode },
-        });
-        if (!comp) throw new Error("Componente STS no configurado");
-
-        const ticket = await tx.stsTicket.create({
-          data: {
-            tenantId,
-            caseId: c.id,
-            componentId: comp.id,
-            severity: stsSeverity as StsTicketSeverity,
-            status: "OPEN",
-            channel: StsTicketChannel.OTHER,
-            description: c.description,
-            openedAt: new Date(),
-          },
-        });
-        stsTicketId = ticket.id;
-
-        await tx.stsTicketEvent.create({
-          data: {
-            ticketId: ticket.id,
-            type: "STATUS_CHANGE",
-            status: "OPEN",
-            message: "Ticket creado desde caso",
-            createdById: userId,
-          },
-        });
-
-        await tx.caseEvent.create({
-          data: {
-            caseId: c.id,
-            type: CaseEventType.COMMENT,
-            message: `Ticket STS creado (${cfg.stsComponentCode})`,
-            meta: { userId, stsTicketId: ticket.id },
-          },
-        });
-      }
-      if (cfg.hasInlineCreateForm) {
-        const v = parsedVideo!.data as any;
-
-        const req = await tx.videoDownloadRequest.create({
-          data: {
-            caseId: c.id,
-            origin: v.origin,
-            requestType: v.requestType || null,
-
-            tmsaRadicado: v.radicadoTMSA || null,
-            tmsaFiledAt: v.radicadoTMSADate ?? null,
-            concessionaireFiledAt: v.radicadoConcesionarioDate ?? null,
-
-            requesterName: v.requesterName || null,
-            requesterId: v.requesterDocument || null,
-            requesterRole: v.requesterRole || null,
-            requesterPhone: v.requesterPhone || null,
-            requesterEmail: v.requesterEmail || null,
-            requesterEmails: v.requesterEmails?.length ? v.requesterEmails : null,
-
-            vehicleId: v.vehicleId || null,
-
-            eventStart: v.eventStartAt ?? null,
-            eventEnd: v.eventEndAt ?? null,
-
-            camerasRequested: v.cameras || null,
-            deliveryMethod: v.deliveryMethod || null,
-
-            descriptionNovedad: v.descriptionNovedad || null,
-            finSolicitud: v.finSolicitud?.length ? v.finSolicitud : null,
-          },
-        });
-        videoRequestId = req.id;
-
-        await tx.caseEvent.create({
-          data: { caseId: c.id, type: CaseEventType.COMMENT, message: "Formulario video guardado", meta: { userId } },
-        });
-
-        await tx.videoRequestEvent.create({
-          data: {
-            requestId: req.id,
-            type: VideoRequestEventType.STATUS_CHANGE,
-            message: "Estado inicial EN_ESPERA",
-            meta: { by: userId },
-            actorUserId: userId,
-          },
-        });
-      }
-
-      return { case: c, videoRequestId, stsTicketId };
-    });
+      return { case: createdCases[0], createdCount: createdCases.length, createdStsCases };
+      },
+      { maxWait: 10000, timeout: 20000 }
+    );
 
     await notifyTenantUsers({
       tenantId,
@@ -229,9 +220,60 @@ export async function POST(req: NextRequest) {
       body: `Tipo: ${created.case.type} | Estado: ${created.case.status}`,
       meta: { caseId: created.case.id },
     });
-    if (created.videoRequestId) {
+    let createdVideoRequestId: string | null = null;
+    if (cfg.hasInlineCreateForm) {
+      const v = parsedVideo!.data as any;
+      const targetCase = created.case;
+
+      const req = await prisma.videoDownloadRequest.create({
+        data: {
+          caseId: targetCase.id,
+          origin: v.origin,
+          requestType: v.requestType || null,
+
+          tmsaRadicado: v.radicadoTMSA || null,
+          tmsaFiledAt: v.radicadoTMSADate ?? null,
+          concessionaireFiledAt: v.radicadoConcesionarioDate ?? null,
+
+          requesterName: v.requesterName || null,
+          requesterId: v.requesterDocument || null,
+          requesterRole: v.requesterRole || null,
+          requesterPhone: v.requesterPhone || null,
+          requesterEmail: v.requesterEmail || null,
+          requesterEmails: v.requesterEmails?.length ? v.requesterEmails : null,
+
+          vehicleId: v.vehicleId || null,
+
+          eventStart: v.eventStartAt ?? null,
+          eventEnd: v.eventEndAt ?? null,
+
+          camerasRequested: v.cameras || null,
+          deliveryMethod: v.deliveryMethod || null,
+
+          descriptionNovedad: v.descriptionNovedad || null,
+          finSolicitud: v.finSolicitud?.length ? v.finSolicitud : null,
+        },
+      });
+      createdVideoRequestId = req.id;
+
+      await prisma.caseEvent.create({
+        data: { caseId: targetCase.id, type: CaseEventType.COMMENT, message: "Formulario video guardado", meta: { userId } },
+      });
+
+      await prisma.videoRequestEvent.create({
+        data: {
+          requestId: req.id,
+          type: VideoRequestEventType.STATUS_CHANGE,
+          message: "Estado inicial EN_ESPERA",
+          meta: { by: userId },
+          actorUserId: userId,
+        },
+      });
+    }
+
+    if (createdVideoRequestId) {
       const req = await prisma.videoDownloadRequest.findFirst({
-        where: { id: created.videoRequestId },
+        where: { id: createdVideoRequestId },
         include: { case: { include: { bus: true } } },
       });
 
@@ -280,6 +322,53 @@ export async function POST(req: NextRequest) {
           body: `Bus: ${req.case.bus.code}${req.case.bus.plate ? ` (${req.case.bus.plate})` : ""}`,
           href: `/video-requests/${req.id}`,
           meta: { requestId: req.id, caseId: req.caseId },
+        });
+      }
+    }
+
+    // Crear tickets STS fuera de la transacción para evitar cierre del tx
+    if (cfg.stsComponentCode && created.createdStsCases?.length) {
+      const comp = await prisma.stsComponent.findFirst({
+        where: { tenantId, code: cfg.stsComponentCode },
+      });
+      if (!comp) {
+        return NextResponse.json(
+          { error: "Componente STS no configurado" },
+          { status: 400 }
+        );
+      }
+
+      for (const item of created.createdStsCases) {
+        const ticket = await prisma.stsTicket.create({
+          data: {
+            tenantId,
+            caseId: item.caseId,
+            componentId: comp.id,
+            severity: stsSeverity as StsTicketSeverity,
+            status: "OPEN",
+            channel: StsTicketChannel.OTHER,
+            description: item.description,
+            openedAt: new Date(),
+          },
+        });
+
+        await prisma.stsTicketEvent.create({
+          data: {
+            ticketId: ticket.id,
+            type: "STATUS_CHANGE",
+            status: "OPEN",
+            message: "Ticket creado desde caso",
+            createdById: userId,
+          },
+        });
+
+        await prisma.caseEvent.create({
+          data: {
+            caseId: item.caseId,
+            type: CaseEventType.COMMENT,
+            message: `Ticket STS creado (${cfg.stsComponentCode})`,
+            meta: { userId, stsTicketId: ticket.id },
+          },
         });
       }
     }
