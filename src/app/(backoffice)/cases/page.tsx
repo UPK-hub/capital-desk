@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, Role } from "@prisma/client";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
+import { Select } from "@/components/Field";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
@@ -86,32 +87,32 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             className="w-72 rounded-md border px-3 py-2 text-sm"
             defaultValue={searchParams?.q ?? ""}
           />
-          <select name="status" className="rounded-md border px-3 py-2 text-sm" defaultValue={searchParams?.status ?? ""}>
+          <Select name="status" className="h-10 min-w-44" defaultValue={searchParams?.status ?? ""}>
             <option value="">Estado (todos)</option>
             <option value="NUEVO">{caseStatusLabels.NUEVO}</option>
             <option value="OT_ASIGNADA">{caseStatusLabels.OT_ASIGNADA}</option>
             <option value="EN_EJECUCION">{caseStatusLabels.EN_EJECUCION}</option>
             <option value="RESUELTO">{caseStatusLabels.RESUELTO}</option>
             <option value="CERRADO">{caseStatusLabels.CERRADO}</option>
-          </select>
+          </Select>
 
-          <select name="type" className="rounded-md border px-3 py-2 text-sm" defaultValue={searchParams?.type ?? ""}>
+          <Select name="type" className="h-10 min-w-44" defaultValue={searchParams?.type ?? ""}>
             <option value="">Tipo (todos)</option>
             <option value="NOVEDAD">{caseTypeLabels.NOVEDAD}</option>
             <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
             <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
             <option value="MEJORA_PRODUCTO">{caseTypeLabels.MEJORA_PRODUCTO}</option>
             <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
-          </select>
+          </Select>
 
-          <select name="priority" className="rounded-md border px-3 py-2 text-sm" defaultValue={searchParams?.priority ?? ""}>
+          <Select name="priority" className="h-10 min-w-36" defaultValue={searchParams?.priority ?? ""}>
             <option value="">Prioridad</option>
             <option value="1">1 (Alta)</option>
             <option value="2">2</option>
             <option value="3">3 (Normal)</option>
             <option value="4">4</option>
             <option value="5">5 (Baja)</option>
-          </select>
+          </Select>
 
           <button className="sts-btn-primary text-sm">Filtrar</button>
         </form>

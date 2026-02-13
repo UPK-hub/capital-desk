@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Select } from "@/components/Field";
 
 type Technician = { id: string; name: string; email: string };
 type Slot = { start: string; end: string; label: string };
@@ -139,19 +140,19 @@ export default function AssignTechnicianCard({
 
         <div className="space-y-2">
           <label className="text-xs text-muted-foreground">Seleccionar técnico</label>
-          <select
+          <Select
             value={technicianId}
             onChange={(e) => setTechnicianId(e.target.value)}
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className="app-field-control h-10 w-full rounded-xl border px-3 text-sm"
             disabled={saving}
           >
             <option value="">— Selecciona —</option>
             {technicians.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name} {t.email ? `(${t.email})` : ""}
+                {t.name}
               </option>
             ))}
-          </select>
+          </Select>
 
           <div className="sts-card p-3 space-y-2">
             <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>

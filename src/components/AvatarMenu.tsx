@@ -25,26 +25,23 @@ export default function AvatarMenu({ name }: { name: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 app-pill"
+        className="flex items-center gap-2 app-pill px-3 py-1.5"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
           {initial}
         </span>
         <span className="hidden text-sm font-medium md:block">{name}</span>
-        <svg viewBox="0 0 24 24" className="h-4 w-4 text-zinc-500" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg viewBox="0 0 24 24" className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
 
       {open ? (
-        <div className="absolute right-0 mt-2 w-48 sts-card p-2 text-sm shadow-lg z-50">
-          <Link href="/profile" className="app-menu-item">
-            Perfil
-          </Link>
+        <div className="absolute right-0 mt-2 w-52 sts-card p-2 text-sm shadow-xl z-50">
           <Link href="/admin" className="app-menu-item">
             Administración
           </Link>
-          <div className="my-1 border-t" />
+          <div className="my-1 border-t border-border/70" />
           <Link href="/api/auth/signout?callbackUrl=/login" className="app-menu-item">
             Salir
           </Link>

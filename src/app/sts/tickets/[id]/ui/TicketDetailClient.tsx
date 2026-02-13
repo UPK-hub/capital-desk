@@ -3,6 +3,7 @@
 import * as React from "react";
 import { StsTicketStatus } from "@prisma/client";
 import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
+import { Select } from "@/components/Field";
 
 type UserRow = { id: string; name: string; email: string; role: string };
 type Ticket = {
@@ -181,10 +182,10 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
               Progreso resolucion: {Math.round((sla?.resolutionProgress ?? 0) * 100)}%
             </p>
           ) : null}
-          {sla?.responseProgress !== null && sla.responseProgress >= 0.8 ? (
+          {sla?.responseProgress !== null && (sla?.responseProgress ?? 0) >= 0.8 ? (
             <p className="text-xs text-amber-600">Alerta: respuesta cerca de vencer.</p>
           ) : null}
-          {sla?.resolutionProgress !== null && sla.resolutionProgress >= 0.8 ? (
+          {sla?.resolutionProgress !== null && (sla?.resolutionProgress ?? 0) >= 0.8 ? (
             <p className="text-xs text-amber-600">Alerta: resolucion cerca de vencer.</p>
           ) : null}
         </div>
@@ -196,19 +197,19 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
 
           <div>
             <label className="text-xs text-muted-foreground">Estado</label>
-            <select className="h-9 w-full rounded-md border px-2 text-sm" value={status} onChange={(e) => setStatus(e.target.value as any)}>
+            <Select className="h-9 w-full" value={status} onChange={(e) => setStatus(e.target.value as any)}>
               <option value={StsTicketStatus.OPEN}>{stsStatusLabels.OPEN}</option>
               <option value={StsTicketStatus.IN_PROGRESS}>{stsStatusLabels.IN_PROGRESS}</option>
               <option value={StsTicketStatus.WAITING_VENDOR}>{stsStatusLabels.WAITING_VENDOR}</option>
               <option value={StsTicketStatus.RESOLVED}>{stsStatusLabels.RESOLVED}</option>
               <option value={StsTicketStatus.CLOSED}>{stsStatusLabels.CLOSED}</option>
-            </select>
+            </Select>
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Asignar a</label>
-            <select
-              className="h-9 w-full rounded-md border px-2 text-sm"
+            <Select
+              className="h-9 w-full"
               value={assignedToId}
               onChange={(e) => setAssignedToId(e.target.value)}
             >
@@ -218,7 +219,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
                   {u.name} ({u.role})
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <button

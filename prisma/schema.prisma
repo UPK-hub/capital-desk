@@ -24,6 +24,12 @@ enum TechnicianShiftType {
 }
 
 enum TechnicianRestDay {
+  NONE
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
   SATURDAY
   SUNDAY
 }
@@ -92,6 +98,7 @@ enum CaseType {
   NOVEDAD
   CORRECTIVO
   PREVENTIVO
+  RENOVACION_TECNOLOGICA
   MEJORA_PRODUCTO
   SOLICITUD_DESCARGA_VIDEO
 }
@@ -108,6 +115,7 @@ enum WorkOrderStatus {
   CREADA
   ASIGNADA
   EN_CAMPO
+  EN_VALIDACION
   FINALIZADA
 }
 
@@ -135,6 +143,7 @@ model Tenant {
   workOrders    WorkOrder[]
   users         User[]
   notifications Notification[]
+  technicianShiftLogs TechnicianShiftLog[]
   technicianSchedules TechnicianSchedule[]
   technicianWeekCalendars TechnicianWeekCalendar[]
   stsComponents StsComponent[]
@@ -188,6 +197,7 @@ model User {
   assignedVideoRequests VideoDownloadRequest[]
   uploadedVideoAttachments VideoAttachment[]
   videoRequestEvents VideoRequestEvent[]
+  technicianShiftLogs TechnicianShiftLog[]
   technicianSchedule TechnicianSchedule?
   plannerWeekCalendars TechnicianWeekCalendar[] @relation("PlannerCalendar")
   technicianWeekSlots TechnicianWeekSlot[] @relation("TechnicianSlots")
@@ -203,6 +213,23 @@ model User {
   @@index([tenantId, active])
 }
 
+model TechnicianShiftLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  startedAt DateTime
+  endedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, startedAt])
+  @@index([userId, startedAt])
+}
+
 model TechnicianSchedule {
   id       String @id @default(cuid())
   tenantId String
@@ -212,7 +239,7 @@ model TechnicianSchedule {
   user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   shiftType TechnicianShiftType
-  restDay   TechnicianRestDay
+  restDay   TechnicianRestDay @default(NONE)
   timezone  String @default("America/Bogota")
 
   createdAt DateTime @default(now())
@@ -511,6 +538,8 @@ model Bus {
 
   code   String
   plate  String?
+  linkSmartHelios String?
+  ipSimcard       String?
   active Boolean @default(true)
 
   createdAt  DateTime @default(now())
@@ -538,6 +567,8 @@ model BusEquipment {
   brand    String?
   model    String?
   serial   String?
+  deviceCode String?
+  ipAddress String?
   location String?
   active   Boolean @default(true)
 
@@ -708,6 +739,7 @@ model WorkOrder {
 
   correctiveReport CorrectiveReport?
   preventiveReport PreventiveReport?
+  renewalTechReport RenewalTechReport?
   interventionReceipt InterventionReceipt?
 
   @@unique([tenantId, workOrderNo])
@@ -893,6 +925,36 @@ model PreventiveReport {
   timeEnd               String?
   responsibleUpk        String?
   responsibleCapitalBus String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RenewalTechReport {
+  id String @id @default(cuid())
+
+  workOrderId String    @unique
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  ticketNumber    String?
+  workOrderNumber String?
+
+  busCode          String?
+  plate            String?
+  linkSmartHelios  String?
+  ipSimcard        String?
+
+  removedChecklist Json?
+  newInstallation  Json?
+  finalChecklist   Json?
+
+  timeStart String?
+  timeEnd   String?
+  observations String?
+
+  photosOld       Json?
+  photosNew       Json?
+  photosChecklist Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

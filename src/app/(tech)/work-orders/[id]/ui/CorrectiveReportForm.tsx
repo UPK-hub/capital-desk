@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { ProcedureType, FailureType, DeviceLocation, CorrectiveReport } from "@prisma/client";
+import { Select } from "@/components/Field";
 
 type Props = {
   workOrderId: string;
@@ -75,10 +76,10 @@ function isoDate(d?: Date | null) {
 }
 
 function classInput() {
-  return "h-10 w-full rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
 function classTextArea() {
-  return "min-h-[88px] w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
 
 function normalizeEquipmentLocation(input: string | null | undefined): DeviceLocation | null {
@@ -449,13 +450,13 @@ export default function CorrectiveReportForm(props: Props) {
 
             <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Tipo de procedimiento</label>
-              <select className={classInput()} {...form.register("procedureType")}>
+              <Select className={classInput()} {...form.register("procedureType")}>
                 <option value="">— Selecciona —</option>
                 <option value={ProcedureType.AJUSTE_FISICO}>Ajuste físico</option>
                 <option value={ProcedureType.CAMBIO_COMPONENTE}>Cambio componente</option>
                 <option value={ProcedureType.RECONFIGURACION}>Reconfiguración</option>
                 <option value={ProcedureType.OTRO}>Otro</option>
-              </select>
+              </Select>
 
               <input
                 className={`${classInput()} mt-2`}
@@ -470,7 +471,7 @@ export default function CorrectiveReportForm(props: Props) {
                 <input className={classInput()} readOnly value={locationLabel(displayLocation as DeviceLocation)} />
               ) : (
                 <>
-                  <select className={classInput()} {...form.register("location")}>
+                  <Select className={classInput()} {...form.register("location")}>
                     <option value="">— Selecciona —</option>
                     <option value={DeviceLocation.VAGON_1}>Vagón 1</option>
                     <option value={DeviceLocation.VAGON_2}>Vagón 2</option>
@@ -481,7 +482,7 @@ export default function CorrectiveReportForm(props: Props) {
                     <option value={DeviceLocation.GABINETE_EQUIPOS}>Gabinete equipos</option>
                     <option value={DeviceLocation.FUELLE_V2_3}>Fuelle V2-3</option>
                     <option value={DeviceLocation.OTRO}>Otro</option>
-                  </select>
+                  </Select>
 
                   <input
                     className={`${classInput()} mt-2`}
@@ -520,13 +521,13 @@ export default function CorrectiveReportForm(props: Props) {
 
             <div>
               <label className="text-xs text-muted-foreground">Tipo de falla</label>
-              <select className={classInput()} {...form.register("failureType")}>
+              <Select className={classInput()} {...form.register("failureType")}>
                 <option value="">— Selecciona —</option>
                 <option value={FailureType.HARDWARE_FISICA}>Hardware / Física</option>
                 <option value={FailureType.SOFTWARE}>Software</option>
                 <option value={FailureType.CONECTIVIDAD}>Conectividad</option>
                 <option value={FailureType.OTRO}>Otro</option>
-              </select>
+              </Select>
 
               <input
                 className={`${classInput()} mt-2`}
@@ -543,14 +544,14 @@ export default function CorrectiveReportForm(props: Props) {
 
               <div>
                 <label className="text-xs text-muted-foreground">Diagnóstico</label>
-                <select className={classInput()} {...form.register("diagnosisPreset")}>
+                <Select className={classInput()} {...form.register("diagnosisPreset")}>
                   <option value="">— Selecciona —</option>
                   {DIAGNOSIS_OPTIONS.map((o) => (
                     <option key={o} value={o}>
                       {o}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {form.watch("diagnosisPreset") === "OTRO" ? (
                   <input
                     className={`${classInput()} mt-2`}
@@ -564,14 +565,14 @@ export default function CorrectiveReportForm(props: Props) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Solución</label>
-                <select className={classInput()} {...form.register("solutionPreset")}>
+                <Select className={classInput()} {...form.register("solutionPreset")}>
                   <option value="">— Selecciona —</option>
                   {SOLUTION_OPTIONS.map((o) => (
                     <option key={o} value={o}>
                       {o}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {form.watch("solutionPreset") === "OTRO" ? (
                   <input
                     className={`${classInput()} mt-2`}
@@ -592,11 +593,11 @@ export default function CorrectiveReportForm(props: Props) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Hora inicio (interno)</label>
-                <input className={classInput()} placeholder="HH:mm" {...form.register("timeStart")} />
+                <input type="time" className={classInput()} {...form.register("timeStart")} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Hora cierre (interno)</label>
-                <input className={classInput()} placeholder="HH:mm" {...form.register("timeEnd")} />
+                <input type="time" className={classInput()} {...form.register("timeEnd")} />
               </div>
             </div>
           </div>

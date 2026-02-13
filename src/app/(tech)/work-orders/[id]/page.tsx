@@ -10,7 +10,8 @@ import StartWorkOrderCard from "./ui/StartWorkOrderCard";
 import FinishWorkOrderCard from "./ui/FinishWorkOrderCard";
 import CorrectiveReportForm from "./ui/CorrectiveReportForm";
 import PreventiveReportForm from "./ui/PreventiveReportForm";
-import { preventiveCompletion, correctiveCompletion } from "@/lib/work-orders/report-completion";
+import RenewalTechReportForm from "./ui/RenewalTechReportForm";
+import { preventiveCompletion, correctiveCompletion, renewalCompletion } from "@/lib/work-orders/report-completion";
 import { fmtWorkOrderNo, fmtCaseNo } from "@/lib/format-no";
 import { caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 
@@ -94,6 +95,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
       },
       correctiveReport: true,
       preventiveReport: true,
+      renewalTechReport: true,
       interventionReceipt: true,
     },
   });
@@ -140,12 +142,19 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
       ? correctiveCompletion(wo.correctiveReport)
       : cfg?.formKind === "PREVENTIVE"
       ? preventiveCompletion(wo.preventiveReport)
+      : cfg?.formKind === "RENEWAL"
+      ? renewalCompletion((wo as any).renewalTechReport)
       : { ok: true, reasons: [] as string[] };
 
   const missingFinishForm = requiresFinishForm && !completion.ok;
+  const isPendingValidation = wo.status === ("EN_VALIDACION" as any);
+  const canDownloadReportPdf = !missingFinishForm && !isPendingValidation;
 
   const startDone = Boolean(wo.startedAt);
   const finishDone = Boolean(wo.finishedAt);
+  const canDownloadRenewalActa =
+    cfg?.formKind === "RENEWAL" && finishDone && !isPendingValidation;
+  const onlyStartFlow = !startDone && !finishDone;
 
   const suggestedTicketNumber =
     wo.interventionReceipt?.ticketNo ??
@@ -250,68 +259,99 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             </div>
           </section>
 
-          <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Formularios</h2>
+          {!onlyStartFlow ? (
+            <section className="sts-card p-5">
+              <h2 className="text-base font-semibold">Formularios</h2>
 
-            <div className="mt-3 space-y-4">
-              {!requiresFinishForm ? (
-                <div className="sts-card p-4">
-                  <p className="text-sm text-muted-foreground">Este tipo de OT no requiere formulario para finalizar.</p>
-                </div>
-              ) : cfg?.formKind === "CORRECTIVE" ? (
-                <CorrectiveReportForm
-                  workOrderId={wo.id}
-                  initialReport={wo.correctiveReport}
-                  suggestedTicketNumber={suggestedTicketNumber}
-                />
-              ) : (
-                <PreventiveReportForm
-                  workOrderId={wo.id}
-                  initialReport={wo.preventiveReport}
-                  suggestedTicketNumber={suggestedTicketNumber}
-                />
-              )}
+              <div className="mt-3 space-y-4">
+                {!requiresFinishForm ? (
+                  <div className="sts-card p-4">
+                    <p className="text-sm text-muted-foreground">Este tipo de OT no requiere formulario para finalizar.</p>
+                  </div>
+                ) : cfg?.formKind === "CORRECTIVE" ? (
+                  <CorrectiveReportForm
+                    workOrderId={wo.id}
+                    initialReport={wo.correctiveReport}
+                    suggestedTicketNumber={suggestedTicketNumber}
+                  />
+                ) : cfg?.formKind === "RENEWAL" ? (
+                  <RenewalTechReportForm
+                    workOrderId={wo.id}
+                    initialReport={(wo as any).renewalTechReport}
+                    suggestedTicketNumber={suggestedTicketNumber}
+                  />
+                ) : (
+                  <PreventiveReportForm
+                    workOrderId={wo.id}
+                    initialReport={wo.preventiveReport}
+                    suggestedTicketNumber={suggestedTicketNumber}
+                  />
+                )}
 
-              {requiresFinishForm ? (
-                <div className="sts-card p-4">
-                  <p className="text-sm">
-                    Estado formulario:{" "}
-                    <span
-                      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${
-                        missingFinishForm
-                          ? "border-amber-200 bg-amber-50 text-amber-800"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      }`}
-                    >
-                      {missingFinishForm ? "Pendiente" : "Realizado"}
-                    </span>
-                  </p>
-
-                  {missingFinishForm && completion.reasons?.length ? (
-                    <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
-                      {completion.reasons.map((r, i) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">Nota: el backend autollenará bus/placa/equipo.</p>
-                  )}
-                  {!missingFinishForm ? (
-                    <div className="mt-2">
-                      <a
-                        className="text-xs underline"
-                        href={`/api/work-orders/${wo.id}/report-pdf?kind=${cfg?.formKind ?? ""}`}
-                        target="_blank"
-                        rel="noreferrer"
+                {requiresFinishForm ? (
+                  <div className="sts-card p-4">
+                    <p className="text-sm">
+                      Estado formulario:{" "}
+                      <span
+                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${
+                          missingFinishForm
+                            ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        }`}
                       >
-                        Descargar PDF del formulario
-                      </a>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </section>
+                        {missingFinishForm ? "Pendiente" : "Realizado"}
+                      </span>
+                    </p>
+
+                    {missingFinishForm && completion.reasons?.length ? (
+                      <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+                        {completion.reasons.map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-muted-foreground">Nota: el backend autollenará bus/placa/equipo.</p>
+                    )}
+                    {canDownloadReportPdf ? (
+                      <div className="mt-2 space-y-2">
+                        <a
+                          className="text-xs underline"
+                          href={`/api/work-orders/${wo.id}/report-pdf?kind=${cfg?.formKind ?? ""}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Descargar PDF del formulario
+                        </a>
+                        {canDownloadRenewalActa ? (
+                          <div>
+                            <a
+                              className="text-xs underline"
+                              href={`/api/work-orders/${wo.id}/renewal-acta`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Descargar acta de cambios (plantilla)
+                            </a>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : isPendingValidation ? (
+                      <p className="mt-2 text-xs text-amber-700">
+                        PDF bloqueado: pendiente validación de acta por coordinador.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          ) : (
+            <section className="sts-card p-5">
+              <h2 className="text-base font-semibold">Flujo de ejecución</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                1) Inicia la OT. 2) Completa y guarda el formulario. 3) Finaliza la OT.
+              </p>
+            </section>
+          )}
         </div>
 
         {/* Panel lateral */}
@@ -322,25 +362,27 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
           />
 
-          <FinishWorkOrderCard
-            workOrderId={wo.id}
-            disabled={!startDone || finishDone || missingFinishForm}
-            finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
-            caseType={wo.case.type}
-            equipmentOptions={equipments.map((eq) => ({
-              id: eq.id,
-              label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
-            }))}
-            blockingReason={
-              !startDone
-                ? "Debes iniciar la OT primero."
-                : finishDone
-                ? "La OT ya está finalizada."
-                : missingFinishForm
-                ? "Debes completar el formulario requerido antes de finalizar."
-                : null
-            }
-          />
+          {!onlyStartFlow ? (
+            <FinishWorkOrderCard
+              workOrderId={wo.id}
+              disabled={!startDone || finishDone || missingFinishForm}
+              finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
+              caseType={wo.case.type}
+              equipmentOptions={equipments.map((eq) => ({
+                id: eq.id,
+                label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
+              }))}
+              blockingReason={
+                !startDone
+                  ? "Debes iniciar la OT primero."
+                  : finishDone
+                  ? "La OT ya está finalizada."
+                  : missingFinishForm
+                  ? "Debes completar el formulario requerido antes de finalizar."
+                  : null
+              }
+            />
+          ) : null}
 
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Estado</h2>
@@ -368,7 +410,17 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Descargar recibo de intervención
+                  Descargar RECIBO SLA
+                </a>
+              ) : null}
+              {canDownloadRenewalActa ? (
+                <a
+                  className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                  href={`/api/work-orders/${wo.id}/renewal-acta`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Descargar acta de cambios
                 </a>
               ) : null}
             </div>

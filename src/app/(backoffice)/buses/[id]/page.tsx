@@ -33,6 +33,7 @@ function woStatusBadge(v: string) {
   if (v === "CREADA") return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
   if (v === "ASIGNADA") return badge("bg-amber-50 text-amber-800 border-amber-200");
   if (v === "EN_CAMPO") return badge("bg-purple-50 text-purple-800 border-purple-200");
+  if (v === "EN_VALIDACION") return badge("bg-orange-50 text-orange-800 border-orange-200");
   if (v === "FINALIZADA") return badge("bg-green-50 text-green-700 border-green-200");
   return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
 }
@@ -74,12 +75,16 @@ export default async function BusLifePage({ params }: PageProps) {
       id: true,
       code: true,
       plate: true,
+      linkSmartHelios: true,
+      ipSimcard: true,
       active: true,
       createdAt: true,
       equipments: {
         orderBy: { id: "asc" },
         select: {
           id: true,
+          deviceCode: true,
+          ipAddress: true,
           brand: true,
           model: true,
           serial: true,
@@ -298,6 +303,7 @@ export default async function BusLifePage({ params }: PageProps) {
                     <th className="py-2 text-left">Marca</th>
                     <th className="py-2 text-left">Modelo</th>
                     <th className="py-2 text-left">Serial</th>
+                    <th className="py-2 text-left">IP equipo</th>
                     <th className="py-2 text-left">Estado</th>
                     <th className="py-2 text-left"></th>
                   </tr>
@@ -305,7 +311,7 @@ export default async function BusLifePage({ params }: PageProps) {
                 <tbody>
                   {bus.equipments.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-6 text-muted-foreground">
+                      <td colSpan={7} className="py-6 text-muted-foreground">
                         Sin equipos asociados.
                       </td>
                     </tr>
@@ -316,6 +322,7 @@ export default async function BusLifePage({ params }: PageProps) {
                         <td className="py-2">{e.brand ?? "—"}</td>
                         <td className="py-2">{e.model ?? "—"}</td>
                         <td className="py-2">{e.serial ?? "—"}</td>
+                        <td className="py-2 text-xs text-muted-foreground">{e.ipAddress ?? "—"}</td>
                         <td className="py-2">
                           <span className={statusBadge(e.active)}>{e.active ? "Activo" : "Inactivo"}</span>
                         </td>
@@ -493,6 +500,8 @@ export default async function BusLifePage({ params }: PageProps) {
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 font-medium">{bus.code}</p>
                 <p className="text-xs text-muted-foreground">{bus.plate ?? "Sin placa"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">SmartHelios: {bus.linkSmartHelios ?? "—"}</p>
+                <p className="text-xs text-muted-foreground">IP SIM: {bus.ipSimcard ?? "—"}</p>
               </div>
 
               <div className="sts-card p-3">

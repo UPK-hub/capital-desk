@@ -31,8 +31,15 @@ export function dayOfWeekBogota(parts: DateParts) {
 }
 
 function isRestDay(parts: DateParts, restDay: TechnicianRestDay) {
+  if (restDay === TechnicianRestDay.NONE) return false;
   const dow = dayOfWeekBogota(parts);
-  return (restDay === TechnicianRestDay.SATURDAY && dow === 6) || (restDay === TechnicianRestDay.SUNDAY && dow === 0);
+  if (restDay === TechnicianRestDay.MONDAY) return dow === 1;
+  if (restDay === TechnicianRestDay.TUESDAY) return dow === 2;
+  if (restDay === TechnicianRestDay.WEDNESDAY) return dow === 3;
+  if (restDay === TechnicianRestDay.THURSDAY) return dow === 4;
+  if (restDay === TechnicianRestDay.FRIDAY) return dow === 5;
+  if (restDay === TechnicianRestDay.SATURDAY) return dow === 6;
+  return restDay === TechnicianRestDay.SUNDAY && dow === 0;
 }
 
 function shiftWindow(shiftType: TechnicianShiftType) {
@@ -43,6 +50,13 @@ function shiftWindow(shiftType: TechnicianShiftType) {
     return { startHour: 14, startMin: 0, endHour: 18, endMin: 0, crossesMidnight: false };
   }
   return { startHour: 21, startMin: 0, endHour: 5, endMin: 0, crossesMidnight: true };
+}
+
+export function shiftDurationMinutes(shiftType: TechnicianShiftType) {
+  const window = shiftWindow(shiftType);
+  const start = window.startHour * 60 + window.startMin;
+  const end = window.endHour * 60 + window.endMin;
+  return window.crossesMidnight ? 24 * 60 - start + end : Math.max(0, end - start);
 }
 
 export type ShiftSlot = { startUtc: Date; endUtc: Date };

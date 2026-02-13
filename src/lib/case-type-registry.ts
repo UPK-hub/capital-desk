@@ -1,6 +1,6 @@
 import { CaseType } from "@prisma/client";
 
-export type FormKind = "CORRECTIVE" | "PREVENTIVE";
+export type FormKind = "CORRECTIVE" | "PREVENTIVE" | "RENEWAL";
 
 export type CaseTypeConfig = {
   type: CaseType;
@@ -65,6 +65,20 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
     formKind: "PREVENTIVE",
     stsComponentCode: "CCTV",
     tmDurationMinutes: 60,
+  },
+
+  RENOVACION_TECNOLOGICA: {
+    type: "RENOVACION_TECNOLOGICA",
+    label: "Renovación tecnológica",
+    requiresWorkOrder: true,
+    requiresEquipment: false,
+    defaultTitle: (busCode) => `Renovación tecnológica ${busCode ? `- ${busCode}` : ""}`.trim(),
+    defaultDescription: (busCode) =>
+      `Renovación tecnológica del sistema STS${busCode ? ` para el bus ${busCode}` : ""}. Incluye desmonte, instalación y checklist final.`,
+    finishRequiresForm: true,
+    formKind: "RENEWAL",
+    stsComponentCode: "CENTRAL_DEVICE",
+    tmDurationMinutes: 120,
   },
 
   MEJORA_PRODUCTO: {

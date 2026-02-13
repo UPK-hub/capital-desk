@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -39,15 +39,55 @@ export default function NotificationsBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const unreadRef = useRef(0);
+  const firstLoadRef = useRef(true);
+  const canPlaySoundRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const pollRef = useRef<number | null>(null);
 
-  async function load() {
+  function playNotificationSound() {
+    if (typeof window === "undefined" || !canPlaySoundRef.current) return;
+    try {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      if (!audioContextRef.current) audioContextRef.current = new Ctx();
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => null);
+      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.09, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+    } catch {
+      // no-op
+    }
+  }
+
+  async function load(opts?: { silent?: boolean }) {
     setLoading(true);
     try {
       const res = await fetch("/api/notifications?take=25", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       setItems(Array.isArray(data.items) ? data.items : []);
-      setUnreadCount(Number(data.unreadCount ?? 0));
+      const nextUnread = Number(data.unreadCount ?? 0);
+      const prevUnread = unreadRef.current;
+      setUnreadCount(nextUnread);
+      unreadRef.current = nextUnread;
+
+      if (!opts?.silent && !firstLoadRef.current && nextUnread > prevUnread) {
+        playNotificationSound();
+      }
+      if (firstLoadRef.current) firstLoadRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -67,14 +107,48 @@ export default function NotificationsBell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  useEffect(() => {
+    function unlockAudio() {
+      canPlaySoundRef.current = true;
+      const ctx = audioContextRef.current;
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => null);
+      }
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    }
+
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    window.addEventListener("keydown", unlockAudio, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
+
+  useEffect(() => {
+    async function tick() {
+      await load({ silent: false });
+    }
+
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    pollRef.current = window.setInterval(tick, 15000);
+
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const hasItems = items.length > 0;
 
   const badge = useMemo(() => {
     if (unreadCount <= 0) return null;
-    const label = unreadCount > 99 ? "99+" : String(unreadCount);
     return (
-      <span className="absolute -top-1 -right-1 rounded-full bg-[var(--sts-accent)] text-white text-[10px] px-1.5 py-0.5">
-        {label}
+      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[hsl(var(--card))]">
+        <span className="sr-only">{unreadCount} notificaciones sin leer</span>
       </span>
     );
   }, [unreadCount]);
@@ -84,19 +158,33 @@ export default function NotificationsBell() {
       <button
         type="button"
         onClick={async () => {
+          canPlaySoundRef.current = true;
           const next = !open;
           setOpen(next);
           if (next) await load();
         }}
-        className="relative app-pill w-full justify-between"
+        className="relative app-pill inline-flex h-10 w-10 items-center justify-center p-0"
         aria-label="Notificaciones"
+        title="Notificaciones"
       >
-        Notificaciones
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5 text-foreground/90"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M15 17H5l1.4-1.4A2 2 0 0 0 7 14.2V11a5 5 0 1 1 10 0v3.2a2 2 0 0 0 .6 1.4L19 17h-4" />
+          <path d="M10 17a2 2 0 0 0 4 0" />
+        </svg>
         {badge}
       </button>
 
       {open ? (
-        <div className="absolute left-0 mt-2 w-[420px] max-w-[90vw] sts-card overflow-hidden z-50">
+        <div className="absolute right-0 mt-2 w-[420px] max-w-[90vw] sts-card overflow-hidden z-50">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>
               <p className="text-sm font-semibold">Notificaciones</p>

@@ -33,6 +33,7 @@ function woStatusBadge(v: string) {
   if (v === "CREADA") return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
   if (v === "ASIGNADA") return badge("bg-amber-50 text-amber-800 border-amber-200");
   if (v === "EN_CAMPO") return badge("bg-purple-50 text-purple-800 border-purple-200");
+  if (v === "EN_VALIDACION") return badge("bg-orange-50 text-orange-800 border-orange-200");
   if (v === "FINALIZADA") return badge("bg-green-50 text-green-700 border-green-200");
   return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
 }
@@ -72,6 +73,8 @@ export default async function EquipmentLifePage({ params }: PageProps) {
     where: { id: equipmentId, bus: { tenantId } },
     select: {
       id: true,
+      deviceCode: true,
+      ipAddress: true,
       brand: true,
       model: true,
       serial: true,
@@ -442,6 +445,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
                 <p className="text-xs text-muted-foreground">Equipo</p>
                 <p className="mt-1 font-medium">{equipment.equipmentType.name}</p>
                 <p className="text-xs text-muted-foreground">{equipment.serial ?? "Sin serial"}</p>
+                <p className="text-xs text-muted-foreground">IP: {equipment.ipAddress ?? "—"}</p>
               </div>
 
               <div className="sts-card p-3">

@@ -4,8 +4,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, Role } from "@prisma/client";
-import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
+import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
+import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 
 function badgeClass(kind: "status" | "type" | "priority", value: string | number) {
   const base = "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium";
@@ -339,7 +340,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
                   <div className="sts-card p-3">
                     <p className="text-xs text-muted-foreground">Estado OT</p>
-                    <p className="mt-1 text-sm font-medium">{c.workOrder?.status ?? "- (no aplica)"}</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {c.workOrder?.status ? labelFromMap(c.workOrder.status, workOrderStatusLabels) : "- (no aplica)"}
+                    </p>
                   </div>
 
                   <div className="sts-card p-3">
@@ -368,6 +371,16 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                           rel="noreferrer"
                         >
                           Descargar recibo de intervención
+                        </a>
+                      ) : null}
+                      {c.type === "RENOVACION_TECNOLOGICA" && c.workOrder?.status === "FINALIZADA" ? (
+                        <a
+                          className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          href={`/api/work-orders/${c.workOrder!.id}/renewal-acta`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Descargar acta de cambios
                         </a>
                       ) : null}
                     </div>
@@ -430,6 +443,10 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   <p className="mt-2 text-sm text-muted-foreground">Solo planner o admin pueden asignar tecnicos.</p>
                 </section>
               )}
+
+              {c.workOrder?.id && c.workOrder.status === ("EN_VALIDACION" as any) && (role === Role.ADMIN || role === Role.BACKOFFICE || role === Role.SUPERVISOR) ? (
+                <ValidateWorkOrderCard workOrderId={c.workOrder.id} />
+              ) : null}
             </>
           )}
 

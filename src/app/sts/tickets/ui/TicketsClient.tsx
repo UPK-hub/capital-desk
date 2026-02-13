@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { StsTicketChannel, StsTicketSeverity, StsTicketStatus } from "@prisma/client";
 import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
+import { Select } from "@/components/Field";
 
 type ComponentRow = { id: string; name: string; code: string };
 type TicketRow = {
@@ -120,32 +121,32 @@ export default function TicketsClient() {
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className="text-xs text-muted-foreground">Componente</label>
-            <select className={clsInput()} value={componentId} onChange={(e) => setComponentId(e.target.value)}>
+            <Select className={clsInput()} value={componentId} onChange={(e) => setComponentId(e.target.value)}>
               <option value="">Selecciona</option>
               {components.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Prioridad</label>
-            <select className={clsInput()} value={severity} onChange={(e) => setSeverity(e.target.value as any)}>
+            <Select className={clsInput()} value={severity} onChange={(e) => setSeverity(e.target.value as any)}>
               <option value={StsTicketSeverity.EMERGENCY}>{stsSeverityLabels.EMERGENCY}</option>
               <option value={StsTicketSeverity.HIGH}>{stsSeverityLabels.HIGH}</option>
               <option value={StsTicketSeverity.MEDIUM}>{stsSeverityLabels.MEDIUM}</option>
               <option value={StsTicketSeverity.LOW}>{stsSeverityLabels.LOW}</option>
-            </select>
+            </Select>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Canal</label>
-            <select className={clsInput()} value={channel} onChange={(e) => setChannel(e.target.value as any)}>
+            <Select className={clsInput()} value={channel} onChange={(e) => setChannel(e.target.value as any)}>
               <option value={StsTicketChannel.PHONE}>{stsChannelLabels.PHONE}</option>
               <option value={StsTicketChannel.EMAIL}>{stsChannelLabels.EMAIL}</option>
               <option value={StsTicketChannel.CHAT}>{stsChannelLabels.CHAT}</option>
               <option value={StsTicketChannel.OTHER}>{stsChannelLabels.OTHER}</option>
-            </select>
+            </Select>
           </div>
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Descripcion</label>
@@ -179,34 +180,34 @@ export default function TicketsClient() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-4">
-          <select className={clsInput()} value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
+          <Select className={clsInput()} value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
             <option value="">Prioridad</option>
             <option value={StsTicketSeverity.EMERGENCY}>{stsSeverityLabels.EMERGENCY}</option>
             <option value={StsTicketSeverity.HIGH}>{stsSeverityLabels.HIGH}</option>
             <option value={StsTicketSeverity.MEDIUM}>{stsSeverityLabels.MEDIUM}</option>
             <option value={StsTicketSeverity.LOW}>{stsSeverityLabels.LOW}</option>
-          </select>
-          <select className={clsInput()} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          </Select>
+          <Select className={clsInput()} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">Estado</option>
             <option value={StsTicketStatus.OPEN}>{stsStatusLabels.OPEN}</option>
             <option value={StsTicketStatus.IN_PROGRESS}>{stsStatusLabels.IN_PROGRESS}</option>
             <option value={StsTicketStatus.WAITING_VENDOR}>{stsStatusLabels.WAITING_VENDOR}</option>
             <option value={StsTicketStatus.RESOLVED}>{stsStatusLabels.RESOLVED}</option>
             <option value={StsTicketStatus.CLOSED}>{stsStatusLabels.CLOSED}</option>
-          </select>
-          <select className={clsInput()} value={filterComponent} onChange={(e) => setFilterComponent(e.target.value)}>
+          </Select>
+          <Select className={clsInput()} value={filterComponent} onChange={(e) => setFilterComponent(e.target.value)}>
             <option value="">Componente</option>
             {components.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
-          </select>
-          <select className={clsInput()} value={filterBreach} onChange={(e) => setFilterBreach(e.target.value)}>
+          </Select>
+          <Select className={clsInput()} value={filterBreach} onChange={(e) => setFilterBreach(e.target.value)}>
             <option value="">Breaches</option>
             <option value="response">Respuesta</option>
             <option value="resolution">Resolucion</option>
-          </select>
+          </Select>
         </div>
 
         {loading ? (

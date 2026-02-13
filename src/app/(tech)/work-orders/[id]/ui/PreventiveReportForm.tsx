@@ -5,6 +5,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { PreventiveReport } from "@prisma/client";
+import { Select } from "@/components/Field";
 
 type Props = {
   workOrderId: string;
@@ -59,13 +60,13 @@ function isoDate(d?: Date | null) {
 }
 
 function inputCls() {
-  return "h-9 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-9 w-full min-w-0 rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
 function textareaCls() {
-  return "min-h-[88px] w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
 }
 function smallInputCls() {
-  return "h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-8 w-full rounded-xl border px-2 text-xs outline-none focus:ring-2 focus:ring-black/10";
 }
 
 function defaultActivities(): ActivityRow[] {
@@ -94,9 +95,16 @@ function defaultActivities(): ActivityRow[] {
 function normalizeActivities(rows: ActivityRow[]): ActivityRow[] {
   return rows.map((r) => ({
     ...r,
+    result: r.result === "NO_FUNCIONAL" ? "NO_FUNCIONAL" : "FUNCIONAL",
     valueRequired: r.valueRequired ?? /voltaje/i.test(r.activity),
   }));
 }
+
+const AREA_RENDER_ORDER: Record<ActivityRow["area"], number> = {
+  NVR: 0,
+  CCTV: 1,
+  ENERGIA: 2,
+};
 
 export default function PreventiveReportForm(props: Props) {
   const router = useRouter();
@@ -127,7 +135,7 @@ export default function PreventiveReportForm(props: Props) {
 
       activities: Array.isArray(r?.activities)
         ? normalizeActivities((r!.activities as unknown) as ActivityRow[])
-        : defaultActivities(),
+        : normalizeActivities(defaultActivities()),
 
       observations: r?.observations ?? "",
       timeStart: r?.timeStart ?? "",
@@ -181,6 +189,19 @@ export default function PreventiveReportForm(props: Props) {
   }, [props.workOrderId]);
 
   const activitiesFA = useFieldArray({ control: form.control, name: "activities" });
+  const watchedActivities = form.watch("activities");
+  const orderedActivityIndexes = React.useMemo(() => {
+    return activitiesFA.fields
+      .map((_, idx) => idx)
+      .sort((a, b) => {
+        const areaA = watchedActivities?.[a]?.area ?? (activitiesFA.fields[a] as any)?.area ?? "CCTV";
+        const areaB = watchedActivities?.[b]?.area ?? (activitiesFA.fields[b] as any)?.area ?? "CCTV";
+        const rankA = AREA_RENDER_ORDER[areaA as ActivityRow["area"]] ?? 99;
+        const rankB = AREA_RENDER_ORDER[areaB as ActivityRow["area"]] ?? 99;
+        if (rankA !== rankB) return rankA - rankB;
+        return a - b;
+      });
+  }, [activitiesFA.fields, watchedActivities]);
 
   async function onSubmit(v: FormValues) {
     setSaving(true);
@@ -321,7 +342,8 @@ export default function PreventiveReportForm(props: Props) {
                 </tr>
               </thead>
               <tbody>
-                {activitiesFA.fields.map((f, idx) => {
+                {orderedActivityIndexes.map((idx) => {
+                  const f = activitiesFA.fields[idx];
                   const result = form.watch(`activities.${idx}.result`);
                   const valueRequired = Boolean((f as any).valueRequired);
 
@@ -335,18 +357,18 @@ export default function PreventiveReportForm(props: Props) {
                           <input className={inputCls()} {...form.register(`activities.${idx}.activity`)} />
                         </td>
                         <td className="py-2 pr-2">
-                          <select className={inputCls()} {...form.register(`activities.${idx}.maintenanceType`)}>
+                          <Select className={inputCls()} {...form.register(`activities.${idx}.maintenanceType`)}>
                             <option value="">—</option>
                             <option value="Preventivo">Preventivo</option>
                             <option value="Correctivo">Correctivo</option>
-                          </select>
+                          </Select>
                         </td>
                         <td className="py-2 pr-2">
-                          <select className={inputCls()} {...form.register(`activities.${idx}.result`)}>
+                          <Select className={inputCls()} {...form.register(`activities.${idx}.result`)}>
                             <option value="">—</option>
                             <option value="FUNCIONAL">Funcional</option>
                             <option value="NO_FUNCIONAL">No funcional</option>
-                          </select>
+                          </Select>
                         </td>
                         <td className="py-2 pr-2">
                           <input
@@ -392,11 +414,11 @@ export default function PreventiveReportForm(props: Props) {
 
             <div>
               <label className="text-xs text-muted-foreground">Hora inicio</label>
-              <input className={inputCls()} placeholder="HH:MM" {...form.register("timeStart")} />
+              <input type="time" className={inputCls()} {...form.register("timeStart")} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Hora fin</label>
-              <input className={inputCls()} placeholder="HH:MM" {...form.register("timeEnd")} />
+              <input type="time" className={inputCls()} {...form.register("timeEnd")} />
             </div>
 
             <div>

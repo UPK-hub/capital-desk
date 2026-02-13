@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Role } from "@prisma/client";
+import { Select } from "@/components/Field";
 
 type UserRow = {
   id: string;
@@ -16,7 +17,13 @@ type UserRow = {
 };
 
 function clsInput() {
-  return "h-10 w-full rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+}
+
+function roleLabel(role: Role) {
+  if (role === Role.ADMIN) return "Administrador";
+  if (role === Role.BACKOFFICE) return "Backoffice";
+  return "Técnico";
 }
 
 export default function UsersAdminClient() {
@@ -145,13 +152,13 @@ export default function UsersAdminClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full">
       {/* Crear */}
       <section className="sts-card p-5 space-y-4">
-        <h2 className="text-sm font-semibold">Crear usuario</h2>
+        <h2 className="text-base font-semibold">Crear usuario</h2>
 
-        {error ? <div className="rounded-md border p-3 text-sm">{error}</div> : null}
-        {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
+        {error ? <div className="rounded-xl border p-3 text-sm">{error}</div> : null}
+        {msg ? <div className="rounded-xl border p-3 text-sm">{msg}</div> : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           <div>
@@ -166,11 +173,11 @@ export default function UsersAdminClient() {
 
           <div>
             <label className="text-xs text-muted-foreground">Rol</label>
-            <select className={clsInput()} value={role} onChange={(e) => setRole(e.target.value as Role)}>
-              <option value={Role.ADMIN}>ADMIN</option>
-              <option value={Role.BACKOFFICE}>BACKOFFICE</option>
-              <option value={Role.TECHNICIAN}>TECHNICIAN</option>
-            </select>
+            <Select className={clsInput()} value={role} onChange={(e) => setRole(e.target.value as Role)}>
+              <option value={Role.ADMIN}>Administrador</option>
+              <option value={Role.BACKOFFICE}>Backoffice</option>
+              <option value={Role.TECHNICIAN}>Técnico</option>
+            </Select>
           </div>
 
           <div>
@@ -197,43 +204,29 @@ export default function UsersAdminClient() {
       {/* Listado */}
       <section className="sts-card p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Usuarios</h2>
+          <h2 className="text-base font-semibold">Usuarios</h2>
           <button className="sts-btn-ghost text-sm" disabled={loading} onClick={load}>
             {loading ? "Cargando..." : "Refrescar"}
           </button>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 max-w-full">
           {loading ? (
             <p className="text-sm text-muted-foreground">Cargando…</p>
           ) : users.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay usuarios en este tenant.</p>
           ) : (
-            <div className="overflow-auto sts-card">
-              <table className="sts-table">
-                <thead className="bg-zinc-50">
-                  <tr>
-                    <th className="text-left p-2">Nombre</th>
-                    <th className="text-left p-2">Email</th>
-                    <th className="text-left p-2">Rol</th>
-                    <th className="text-left p-2">Activo</th>
-                    <th className="text-left p-2">Password</th>
-                    <th className="text-left p-2">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <UserRowItem
-                      key={u.id}
-                      u={u}
-                      disabled={busy}
-                      onPatch={patchUser}
-                      onReset={createResetToken}
-                      onDelete={deleteUser}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {users.map((u) => (
+                <UserCardItem
+                  key={u.id}
+                  u={u}
+                  disabled={busy}
+                  onPatch={patchUser}
+                  onReset={createResetToken}
+                  onDelete={deleteUser}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -242,7 +235,7 @@ export default function UsersAdminClient() {
   );
 }
 
-function UserRowItem({
+function UserCardItem({
   u,
   disabled,
   onPatch,
@@ -259,48 +252,74 @@ function UserRowItem({
   const caps = new Set(u.capabilities ?? []);
 
   return (
-    <tr className="border-t align-top">
-      <td className="p-2">{u.name}</td>
-      <td className="p-2">{u.email}</td>
+    <article className="sts-card p-5 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold leading-5">{u.name}</p>
+          <p className="text-xs text-muted-foreground break-all">{u.email}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="sts-chip">{roleLabel(u.role)}</span>
+          <span
+            className={`rounded-full border px-2.5 py-1 text-xs ${
+              u.active
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                : "border-zinc-300 bg-zinc-50 text-zinc-600"
+            }`}
+          >
+            {u.active ? "Activo" : "Inactivo"}
+          </span>
+        </div>
+      </div>
 
-      <td className="p-2">
-        <select
-          className="h-9 rounded-md border px-2 text-sm"
-          value={u.role}
-          disabled={disabled}
-          onChange={(e) => onPatch(u.id, { role: e.target.value })}
-        >
-          <option value={Role.ADMIN}>ADMIN</option>
-          <option value={Role.BACKOFFICE}>BACKOFFICE</option>
-          <option value={Role.TECHNICIAN}>TECHNICIAN</option>
-        </select>
-      </td>
-
-      <td className="p-2">
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={u.active}
+      <div className="grid gap-3 md:grid-cols-3">
+        <div>
+          <label className="text-xs text-muted-foreground">Rol</label>
+          <Select
+            className="app-field-control h-9 w-full rounded-xl border px-2 text-sm"
+            value={u.role}
             disabled={disabled}
-            onChange={(e) => onPatch(u.id, { active: e.target.checked })}
-          />
-          <span>{u.active ? "Sí" : "No"}</span>
-        </label>
-      </td>
+            onChange={(e) => onPatch(u.id, { role: e.target.value })}
+          >
+            <option value={Role.ADMIN}>Administrador</option>
+            <option value={Role.BACKOFFICE}>Backoffice</option>
+            <option value={Role.TECHNICIAN}>Técnico</option>
+          </Select>
+        </div>
 
-      <td className="p-2">{u.hasPassword ? "Configurada" : "Pendiente"}</td>
+        <div>
+          <label className="text-xs text-muted-foreground">Estado password</label>
+          <div className="app-field-control h-9 rounded-xl border px-3 text-sm flex items-center">
+            {u.hasPassword ? "Configurada" : "Pendiente"}
+          </div>
+        </div>
 
-      <td className="p-2 space-y-2">
-        <div className="flex flex-col gap-2 text-xs">
+        <div>
+          <label className="text-xs text-muted-foreground">Habilitado</label>
+          <label className="app-field-control h-9 rounded-xl border px-3 text-sm inline-flex items-center gap-2 w-full">
+            <input
+              type="checkbox"
+              checked={u.active}
+              disabled={disabled}
+              onChange={(e) => onPatch(u.id, { active: e.target.checked })}
+            />
+            <span>{u.active ? "Sí" : "No"}</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">Acciones habilitadas</p>
+        <div className="grid gap-2 text-xs sm:grid-cols-2">
           {[
-            { cap: "PLANNER", label: "Planner", desc: "Acceso al calendario y disponibilidad." },
-            { cap: "STS_ADMIN", label: "Supervisor STS", desc: "Administra políticas y configuración STS." },
-            { cap: "STS_WRITE", label: "Helpdesk STS", desc: "Gestiona y actualiza tickets STS." },
-            { cap: "STS_READ", label: "Auditor STS", desc: "Solo lectura de STS y reportes." },
-            { cap: "TM_READ", label: "TM Reportes", desc: "Acceso al panel Transmilenio." },
-            { cap: "CASE_ASSIGN", label: "Asignar casos", desc: "Puede asignar técnicos/casos." },
-          ].map(({ cap, label, desc }) => (
-            <label key={cap} className="flex items-start gap-2 rounded-md border px-2 py-2">
+            { cap: "PLANNER", label: "Planner" },
+            { cap: "STS_ADMIN", label: "Supervisor STS" },
+            { cap: "STS_WRITE", label: "Helpdesk STS" },
+            { cap: "STS_READ", label: "Auditor STS" },
+            { cap: "TM_READ", label: "TM Reportes" },
+            { cap: "CASE_ASSIGN", label: "Asignar casos" },
+          ].map(({ cap, label }) => (
+            <label key={cap} className="app-field-control flex items-center gap-2 rounded-xl border px-2.5 py-2.5">
               <input
                 type="checkbox"
                 checked={caps.has(cap)}
@@ -312,38 +331,35 @@ function UserRowItem({
                   onPatch(u.id, { capabilities: Array.from(next) });
                 }}
               />
-              <span className="space-y-1">
-                <span className="block font-medium">{label}</span>
-                <span className="block text-[11px] text-muted-foreground">{desc}</span>
-              </span>
+              <span className="block font-medium">{label}</span>
             </label>
           ))}
         </div>
+      </div>
 
-        <div className="flex gap-2">
-          <input
-            className="h-9 w-44 rounded-md border px-2 text-sm"
-            placeholder="Nueva clave"
-            value={newPass}
-            onChange={(e) => setNewPass(e.target.value)}
-          />
-          <button
-            className="rounded-md border px-2 py-1 text-sm"
-            disabled={disabled || newPass.trim().length < 6}
-            onClick={async () => {
-              await onPatch(u.id, { newPassword: newPass.trim() });
-              setNewPass("");
-            }}
-          >
-            Cambiar
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          className="app-field-control h-9 w-52 rounded-xl border px-2 text-sm"
+          placeholder="Nueva clave"
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+        />
+        <button
+          className="sts-btn-ghost text-sm h-9 px-3"
+          disabled={disabled || newPass.trim().length < 6}
+          onClick={async () => {
+            await onPatch(u.id, { newPassword: newPass.trim() });
+            setNewPass("");
+          }}
+        >
+          Cambiar clave
+        </button>
 
-        <button className="sts-btn-ghost text-sm" disabled={disabled} onClick={() => onReset(u.id)}>
+        <button className="sts-btn-ghost text-sm h-9 px-3" disabled={disabled} onClick={() => onReset(u.id)}>
           Generar reset token
         </button>
         <button
-          className="sts-btn-ghost text-sm text-red-600"
+          className="sts-btn-ghost text-sm h-9 px-3 text-red-600"
           disabled={disabled}
           onClick={() => {
             if (confirm(`¿Eliminar usuario ${u.email}?`)) onDelete(u.id);
@@ -351,7 +367,7 @@ function UserRowItem({
         >
           Eliminar
         </button>
-      </td>
-    </tr>
+      </div>
+    </article>
   );
 }

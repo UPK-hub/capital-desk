@@ -13,6 +13,7 @@ import {
   CaseType,
   MediaKind,
   NotificationType,
+  Prisma,
   Role,
   WorkOrderStatus,
 } from "@prisma/client";
@@ -49,10 +50,16 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         include: {
           bus: true,
           caseEquipments: true,
+          events: {
+            where: { type: CaseEventType.CREATED },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
         },
       },
       correctiveReport: true,
       preventiveReport: true,
+      renewalTechReport: true,
       interventionReceipt: true,
     },
   });
@@ -71,6 +78,12 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     }
     if (cfg.formKind === "PREVENTIVE" && !wo.preventiveReport) {
       return NextResponse.json({ error: "Debes completar el Formato Preventivo antes de finalizar." }, { status: 400 });
+    }
+    if (cfg.formKind === "RENEWAL" && !(wo as any).renewalTechReport) {
+      return NextResponse.json(
+        { error: "Debes completar el Formato Renovación Tecnológica antes de finalizar." },
+        { status: 400 }
+      );
     }
   }
 
@@ -105,8 +118,42 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const tmMinutes = cfg?.tmDurationMinutes ?? 60;
   const tmEndedAt = new Date();
   const tmStartedAt = new Date(tmEndedAt.getTime() - tmMinutes * 60 * 1000);
+  const pendingValidationStatus = "EN_VALIDACION" as any;
+  const needsCoordinatorValidation =
+    wo.case.type === CaseType.CORRECTIVO || wo.case.type === CaseType.PREVENTIVO;
+  const createdMeta = (wo.case.events?.[0]?.meta ?? null) as Record<string, any> | null;
+  const splitGroupKey = typeof createdMeta?.splitGroupKey === "string" ? createdMeta.splitGroupKey : null;
 
   await prisma.$transaction(async (tx) => {
+    let siblingCaseIds: string[] = [];
+    if (splitGroupKey) {
+      const siblingCreatedEvents = await tx.caseEvent.findMany({
+        where: {
+          type: CaseEventType.CREATED,
+          meta: { path: ["splitGroupKey"], equals: splitGroupKey },
+        },
+        select: { caseId: true },
+      });
+      siblingCaseIds = siblingCreatedEvents.map((e) => e.caseId);
+    } else if (wo.case.busEquipmentId && (wo.case.type === CaseType.CORRECTIVO || wo.case.type === CaseType.PREVENTIVO)) {
+      // Compatibilidad con casos viejos sin splitGroupKey: usa huella conservadora del lote.
+      const from = new Date(wo.case.createdAt.getTime() - 60 * 1000);
+      const to = new Date(wo.case.createdAt.getTime() + 60 * 1000);
+      const fallbackCases = await tx.case.findMany({
+        where: {
+          tenantId,
+          busId: wo.case.busId,
+          type: wo.case.type,
+          title: wo.case.title,
+          description: wo.case.description,
+          createdAt: { gte: from, lte: to },
+        },
+        select: { id: true },
+      });
+      siblingCaseIds = fallbackCases.map((c) => c.id);
+    }
+    if (!siblingCaseIds.length) siblingCaseIds = [wo.caseId];
+
     const step = await tx.workOrderStep.create({
       data: { workOrderId: wo.id, stepType: "FIN", notes },
     });
@@ -117,21 +164,43 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
     await tx.workOrder.update({
       where: { id: wo.id },
-      data: { status: WorkOrderStatus.FINALIZADA, finishedAt: tmEndedAt },
-    });
-
-    await tx.case.update({
-      where: { id: wo.caseId },
-      data: { status: CaseStatus.RESUELTO },
-    });
-
-    await tx.caseEvent.create({
       data: {
-        caseId: wo.caseId,
-        type: CaseEventType.STATUS_CHANGE,
-        message: "OT finalizada",
-        meta: { workOrderId: wo.id, by: userId },
+        status: needsCoordinatorValidation ? pendingValidationStatus : WorkOrderStatus.FINALIZADA,
+        finishedAt: tmEndedAt,
       },
+    });
+
+    if (!needsCoordinatorValidation) {
+      await tx.case.updateMany({
+        where: {
+          id: { in: siblingCaseIds },
+          status: { notIn: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
+        },
+        data: { status: CaseStatus.RESUELTO },
+      });
+    }
+
+    await tx.workOrder.updateMany({
+      where: {
+        tenantId,
+        caseId: { in: siblingCaseIds },
+        status: needsCoordinatorValidation ? { not: pendingValidationStatus } : { not: WorkOrderStatus.FINALIZADA },
+      },
+      data: {
+        status: needsCoordinatorValidation ? pendingValidationStatus : WorkOrderStatus.FINALIZADA,
+        finishedAt: tmEndedAt,
+      },
+    });
+
+    await tx.caseEvent.createMany({
+      data: siblingCaseIds.map((caseId) => ({
+        caseId,
+        type: CaseEventType.STATUS_CHANGE,
+        message: needsCoordinatorValidation
+          ? "OT cerrada, pendiente validación de acta por coordinador"
+          : "OT finalizada",
+        meta: { workOrderId: wo.id, by: userId, closedByCascade: caseId !== wo.caseId },
+      })),
     });
 
     const equipmentIds = wo.case.caseEquipments?.length
@@ -185,9 +254,70 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       });
     }
 
-    if (!wo.interventionReceipt) {
+    if (wo.case.type === CaseType.RENOVACION_TECNOLOGICA) {
+      const exists = await tx.caseEvent.findFirst({
+        where: {
+          type: CaseEventType.CREATED,
+          meta: { path: ["sourceRenewalCaseId"], equals: wo.caseId },
+        },
+        select: { caseId: true },
+      });
+
+      if (!exists) {
+        const nums = await nextNumbers(tx as any, tenantId, { case: true, workOrder: true });
+        const scheduledAt = new Date(tmEndedAt.getTime() + 21 * 24 * 60 * 60 * 1000);
+        const prevCase = await tx.case.create({
+          data: {
+            tenantId,
+            caseNo: nums.caseNo!,
+            type: CaseType.PREVENTIVO,
+            status: CaseStatus.NUEVO,
+            priority: 3,
+            title: `Preventivo automático post renovación - ${wo.case.bus.code}`,
+            description: `Preventivo generado automáticamente 21 días después de la renovación tecnológica (${wo.case.id}).`,
+            busId: wo.case.busId,
+          },
+        });
+
+        const busEquipments = await tx.busEquipment.findMany({
+          where: { busId: wo.case.busId, active: true },
+          select: { id: true },
+        });
+
+        if (busEquipments.length) {
+          await tx.caseEquipment.createMany({
+            data: busEquipments.map((e) => ({ caseId: prevCase.id, busEquipmentId: e.id })),
+            skipDuplicates: true,
+          });
+        }
+
+        await tx.caseEvent.create({
+          data: {
+            caseId: prevCase.id,
+            type: CaseEventType.CREATED,
+            message: "Caso creado automáticamente desde cierre de renovación tecnológica",
+            meta: { sourceRenewalCaseId: wo.caseId, sourceWorkOrderId: wo.id },
+          },
+        });
+
+        await tx.workOrder.create({
+          data: {
+            tenantId,
+            workOrderNo: nums.workOrderNo!,
+            caseId: prevCase.id,
+            scheduledAt,
+          },
+        });
+      }
+    }
+
+    if (!needsCoordinatorValidation && !wo.interventionReceipt) {
       const reportTicket =
-        wo.case.type === CaseType.PREVENTIVO ? wo.preventiveReport?.ticketNumber : wo.correctiveReport?.ticketNumber;
+        wo.case.type === CaseType.PREVENTIVO
+          ? wo.preventiveReport?.ticketNumber
+          : wo.case.type === CaseType.RENOVACION_TECNOLOGICA
+          ? (wo as any).renewalTechReport?.ticketNumber
+          : wo.correctiveReport?.ticketNumber;
       const normalizedReportTicket = String(reportTicket ?? "").trim();
       let ticketNo: string;
       if (normalizedReportTicket.length > 0) {
@@ -209,22 +339,44 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         ticketNo = `UPK-${String(nums.ticketNo ?? 0).padStart(3, "0")}`;
       }
       const internalStart =
-        wo.case.type === CaseType.PREVENTIVO ? wo.preventiveReport?.timeStart : wo.correctiveReport?.timeStart;
+        wo.case.type === CaseType.PREVENTIVO
+          ? wo.preventiveReport?.timeStart
+          : wo.case.type === CaseType.RENOVACION_TECNOLOGICA
+          ? (wo as any).renewalTechReport?.timeStart
+          : wo.correctiveReport?.timeStart;
       const internalEnd =
-        wo.case.type === CaseType.PREVENTIVO ? wo.preventiveReport?.timeEnd : wo.correctiveReport?.timeEnd;
+        wo.case.type === CaseType.PREVENTIVO
+          ? wo.preventiveReport?.timeEnd
+          : wo.case.type === CaseType.RENOVACION_TECNOLOGICA
+          ? (wo as any).renewalTechReport?.timeEnd
+          : wo.correctiveReport?.timeEnd;
 
-      await tx.interventionReceipt.create({
-        data: {
-          tenantId,
-          workOrderId: wo.id,
-          caseId: wo.caseId,
-          ticketNo,
-          tmStartedAt,
-          tmEndedAt,
-          internalStart: internalStart ?? null,
-          internalEnd: internalEnd ?? null,
-        },
-      });
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+          await tx.interventionReceipt.create({
+            data: {
+              tenantId,
+              workOrderId: wo.id,
+              caseId: wo.caseId,
+              ticketNo,
+              tmStartedAt,
+              tmEndedAt,
+              internalStart: internalStart ?? null,
+              internalEnd: internalEnd ?? null,
+            },
+          });
+          break;
+        } catch (e) {
+          const known = e as Prisma.PrismaClientKnownRequestError;
+          const isTicketCollision =
+            known?.code === "P2002" &&
+            Array.isArray((known.meta as any)?.target) &&
+            ((known.meta as any).target as string[]).includes("ticketNo");
+          if (!isTicketCollision || attempt >= 9) throw e;
+          const nums = await nextNumbers(tx as any, tenantId, { ticket: true });
+          ticketNo = `UPK-${String(nums.ticketNo ?? 0).padStart(3, "0")}`;
+        }
+      }
     }
 
     if (wo.case.type === CaseType.PREVENTIVO && createCorrective && correctiveEquipmentIds.length) {
@@ -259,10 +411,22 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     tenantId,
     roles: [Role.ADMIN, Role.BACKOFFICE],
     type: NotificationType.WO_FINISHED,
-    title: "OT finalizada",
+    title: needsCoordinatorValidation ? "OT en validación de acta" : "OT finalizada",
     body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
     meta: { workOrderId: wo.id, caseId: wo.caseId },
   });
+
+  if (wo.case.type === CaseType.RENOVACION_TECNOLOGICA) {
+    const scheduledAt = new Date(tmEndedAt.getTime() + 21 * 24 * 60 * 60 * 1000);
+    await notifyTenantUsers({
+      tenantId,
+      roles: [Role.ADMIN, Role.BACKOFFICE],
+      type: NotificationType.CASE_CREATED,
+      title: "Preventivo automático generado",
+      body: `Bus ${wo.case.bus.code} · Programación sugerida: ${scheduledAt.toISOString().slice(0, 10)}`,
+      meta: { sourceWorkOrderId: wo.id, sourceCaseId: wo.caseId, autoPreventiveAt: scheduledAt.toISOString() },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

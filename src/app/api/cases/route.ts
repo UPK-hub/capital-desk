@@ -82,9 +82,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const splitByEquipment =
-      (cfg.type === "CORRECTIVO" || cfg.type === "PREVENTIVO") && busEquipmentIds.length > 1;
+    const splitByEquipment = cfg.type === "CORRECTIVO" && busEquipmentIds.length > 1;
     const targets = splitByEquipment ? busEquipmentIds : [busEquipmentId];
+    const splitGroupKey = splitByEquipment
+      ? `split-${tenantId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      : null;
 
     // Reservar consecutivos en transacción corta para evitar locks largos en el flujo principal
     const reserved = await prisma.$transaction(
@@ -160,7 +162,8 @@ export async function POST(req: NextRequest) {
             title,
             description,
             busId,
-            busEquipmentId: eqId ?? null,
+            // Preventivo debe ser un caso de bus (equipos vinculados por caseEquipment).
+            busEquipmentId: cfg.type === "PREVENTIVO" ? null : eqId ?? null,
           },
         });
 
@@ -178,7 +181,12 @@ export async function POST(req: NextRequest) {
         }
 
         await tx.caseEvent.create({
-          data: { caseId: c.id, type: CaseEventType.CREATED, message: "Caso creado", meta: { userId } },
+          data: {
+            caseId: c.id,
+            type: CaseEventType.CREATED,
+            message: "Caso creado",
+            meta: splitGroupKey ? { userId, splitGroupKey } : { userId },
+          },
         });
 
         if (cfg.requiresWorkOrder) {

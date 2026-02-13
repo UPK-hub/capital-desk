@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { Role, WorkOrderStatus } from "@prisma/client";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -122,6 +122,60 @@ function renderCorrective(report: Record<string, any>) {
   return lines;
 }
 
+function renderRenewal(report: Record<string, any>) {
+  const lines: string[] = [];
+  const push = (label: string, value: any) => {
+    if (value === null || value === undefined || value === "") return;
+    lines.push(`${label}: ${value}`);
+  };
+
+  lines.push("== Datos base ==");
+  push("Ticket", report.ticketNumber);
+  push("OT", report.workOrderNumber);
+  push("Bus", report.busCode);
+  push("Placa", report.plate);
+  push("Fecha de verificación", report.newInstallation?.verificationDate);
+  push("Link SmartHelios", report.linkSmartHelios);
+  push("IP SIMCARD", report.ipSimcard);
+
+  lines.push("");
+  lines.push("== Paso 1: Desmonte ==");
+  const removed = report.removedChecklist && typeof report.removedChecklist === "object" ? report.removedChecklist : {};
+  const removedEntries = Object.entries(removed).filter(([, v]) => Boolean(v));
+  if (!removedEntries.length) lines.push("Sin checklist de desmonte.");
+  for (const [k] of removedEntries) lines.push(`- ${k}`);
+
+  lines.push("");
+  lines.push("== Paso 2: Instalacion nueva por equipo ==");
+  const updates = Array.isArray(report.newInstallation?.equipmentUpdates)
+    ? report.newInstallation.equipmentUpdates
+    : [];
+  if (!updates.length) {
+    lines.push("Sin registros de instalación.");
+  } else {
+    updates.forEach((u: any, idx: number) => {
+      lines.push(
+        `${idx + 1}. ${u.type ?? ""} | Serial antiguo: ${u.oldSerial ?? "-"} | Serial nuevo: ${u.newSerial ?? u.serial ?? "-"} | IP: ${u.ipAddress ?? "-"} | Marca: ${u.brand ?? "-"} | Modelo: ${u.model ?? "-"}`
+      );
+    });
+  }
+
+  lines.push("");
+  lines.push("== Checklist final ==");
+  const finalChecklist = report.finalChecklist && typeof report.finalChecklist === "object" ? report.finalChecklist : {};
+  const finalEntries = Object.entries(finalChecklist).filter(([, v]) => Boolean(v));
+  if (!finalEntries.length) lines.push("Sin checklist final.");
+  for (const [k] of finalEntries) lines.push(`- ${k}`);
+
+  lines.push("");
+  lines.push("== Cierre ==");
+  push("Hora inicio (interno)", report.timeStart);
+  push("Hora cierre (interno)", report.timeEnd);
+  push("Observaciones", report.observations);
+
+  return lines;
+}
+
 async function readImageBytes(filePath: string) {
   if (!isImageFile(filePath)) return null;
   const abs = resolveUploadPath(filePath);
@@ -135,7 +189,8 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const tenantId = (session.user as any).tenantId as string;
   const role = (session.user as any).role as Role;
 
-  if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
+  const allowedRoles = new Set<string>(["ADMIN", "BACKOFFICE", "TECHNICIAN"]);
+  if (!allowedRoles.has(String(role))) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -151,23 +206,37 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
       },
       preventiveReport: true,
       correctiveReport: true,
+      renewalTechReport: true,
       steps: { include: { media: true } },
     },
   });
   if (!wo) return new Response("WorkOrder not found", { status: 404 });
+  if (wo.status !== WorkOrderStatus.FINALIZADA) {
+    return new Response("OT pendiente validación de acta por coordinador", { status: 409 });
+  }
 
   const kind =
-    requestedKind === "PREVENTIVE" || requestedKind === "CORRECTIVE"
+    requestedKind === "PREVENTIVE" || requestedKind === "CORRECTIVE" || requestedKind === "RENEWAL"
       ? requestedKind
       : wo.preventiveReport
       ? "PREVENTIVE"
       : wo.correctiveReport
       ? "CORRECTIVE"
+      : wo.renewalTechReport
+      ? "RENEWAL"
       : "";
 
-  const report = kind === "PREVENTIVE" ? wo.preventiveReport : kind === "CORRECTIVE" ? wo.correctiveReport : null;
+  const report =
+    kind === "PREVENTIVE"
+      ? wo.preventiveReport
+      : kind === "CORRECTIVE"
+      ? wo.correctiveReport
+      : kind === "RENEWAL"
+      ? wo.renewalTechReport
+      : null;
   if (!report) return new Response("Report not found", { status: 404 });
   const corrective = kind === "CORRECTIVE" ? wo.correctiveReport : null;
+  const renewal = kind === "RENEWAL" ? (wo.renewalTechReport as any) : null;
 
   const media: MediaInfo[] = [];
   for (const s of wo.steps ?? []) {
@@ -206,7 +275,12 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     }
   }
 
-  drawLine(`Capital Desk - Formato ${kind === "PREVENTIVE" ? "Preventivo" : "Correctivo"}`, true);
+  drawLine(
+    `Capital Desk - Formato ${
+      kind === "PREVENTIVE" ? "Preventivo" : kind === "CORRECTIVE" ? "Correctivo" : "Renovación tecnológica"
+    }`,
+    true
+  );
   drawLine(`Caso: ${wo.case.title}`);
   drawLine(`OT: ${wo.workOrderNo ?? ""} | Bus: ${wo.case.bus.code} ${wo.case.bus.plate ?? ""}`.trim());
   if (wo.case.busEquipment) {
@@ -218,7 +292,11 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   y -= lineHeight;
 
   const lines =
-    kind === "PREVENTIVE" ? renderPreventive(report as any) : kind === "CORRECTIVE" ? renderCorrective(report as any) : [];
+    kind === "PREVENTIVE"
+      ? renderPreventive(report as any)
+      : kind === "CORRECTIVE"
+      ? renderCorrective(report as any)
+      : renderRenewal(report as any);
   for (const l of lines) drawLine(l);
 
   async function addImagePage(title: string, filePath: string) {
@@ -250,6 +328,22 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   if (corrective?.photoSerialNew) {
     await addImagePage("Foto serial nuevo", corrective.photoSerialNew);
   }
+  const renewalOldPhotos = Array.isArray(renewal?.photosOld) ? renewal.photosOld : [];
+  const renewalNewPhotos = Array.isArray(renewal?.photosNew) ? renewal.photosNew : [];
+  const renewalChecklistPhotos = Array.isArray(renewal?.photosChecklist) ? renewal.photosChecklist : [];
+  const renewalUpdates = Array.isArray(renewal?.newInstallation?.equipmentUpdates)
+    ? renewal.newInstallation.equipmentUpdates
+    : [];
+  for (const row of renewalUpdates) {
+    const typeLabel = String(row?.type ?? "Equipo");
+    const rowOldPhotos = Array.isArray(row?.photoSerialOld) ? row.photoSerialOld : [];
+    const rowNewPhotos = Array.isArray(row?.photoSerialNew) ? row.photoSerialNew : [];
+    for (const p of rowOldPhotos) await addImagePage(`Foto serial antiguo · ${typeLabel}`, String(p));
+    for (const p of rowNewPhotos) await addImagePage(`Foto serial nuevo · ${typeLabel}`, String(p));
+  }
+  for (const p of renewalOldPhotos) await addImagePage("Evidencia desmonte", String(p));
+  for (const p of renewalNewPhotos) await addImagePage("Evidencia instalación nueva", String(p));
+  for (const p of renewalChecklistPhotos) await addImagePage("Evidencia checklist final", String(p));
 
   const bytes = await pdf.save();
   return new Response(Buffer.from(bytes), {

@@ -9,6 +9,7 @@ import {
   videoCaseStatusLabels,
   videoDownloadStatusLabels,
 } from "@/lib/labels";
+import { Select } from "@/components/Field";
 
 type Item = {
   id: string;
@@ -214,15 +215,15 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Estado caso</label>
-                <select className={inputCls()} value={status} onChange={(e) => setStatus(e.target.value as VideoCaseStatus)}>
+                <Select className={inputCls()} value={status} onChange={(e) => setStatus(e.target.value as VideoCaseStatus)}>
                   <option value={VideoCaseStatus.EN_ESPERA}>{videoCaseStatusLabels.EN_ESPERA}</option>
                   <option value={VideoCaseStatus.EN_CURSO}>{videoCaseStatusLabels.EN_CURSO}</option>
                   <option value={VideoCaseStatus.COMPLETADO}>{videoCaseStatusLabels.COMPLETADO}</option>
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Estado descarga</label>
-                <select
+                <Select
                   className={inputCls()}
                   value={downloadStatus}
                   onChange={(e) => setDownloadStatus(e.target.value as VideoDownloadStatus)}
@@ -231,18 +232,18 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
                   <option value={VideoDownloadStatus.DESCARGA_REALIZADA}>{videoDownloadStatusLabels.DESCARGA_REALIZADA}</option>
                   <option value={VideoDownloadStatus.DESCARGA_FALLIDA}>{videoDownloadStatusLabels.DESCARGA_FALLIDA}</option>
                   <option value={VideoDownloadStatus.BUS_NO_EN_PATIO}>{videoDownloadStatusLabels.BUS_NO_EN_PATIO}</option>
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Tecnico asignado</label>
-                <select className={inputCls()} value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
+                <Select className={inputCls()} value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
                   <option value="">Sin asignar</option>
                   {techs.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-muted-foreground">Observaciones tecnico</label>
@@ -271,10 +272,10 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Tipo</label>
-                <select className={inputCls()} value={fileKind} onChange={(e) => setFileKind(e.target.value as VideoAttachmentKind)}>
+                <Select className={inputCls()} value={fileKind} onChange={(e) => setFileKind(e.target.value as VideoAttachmentKind)}>
                   <option value={VideoAttachmentKind.VIDEO}>{videoAttachmentLabels.VIDEO}</option>
                   <option value={VideoAttachmentKind.OTRO}>{videoAttachmentLabels.OTRO}</option>
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Archivo</label>

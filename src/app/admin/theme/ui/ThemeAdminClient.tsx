@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Select } from "@/components/Field";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -297,16 +298,19 @@ function ColorField({
 }) {
   const hex = hslStringToHex(value);
   return (
-    <div className="flex items-center justify-between gap-3 sts-card p-3">
-      <div>
+    <div className="theme-color-field">
+      <div className="space-y-0.5">
         <p className="text-sm font-medium">{label}</p>
+        <p className="text-[11px] text-muted-foreground">{hex.toUpperCase()}</p>
       </div>
-      <input
-        type="color"
-        className="h-10 w-10 cursor-pointer rounded-md border border-zinc-200 bg-white"
-        value={hex}
-        onChange={(e) => onChange(hexToHsl(e.target.value))}
-      />
+      <label className="theme-color-field__picker" style={{ background: hex }}>
+        <input
+          type="color"
+          className="sr-only"
+          value={hex}
+          onChange={(e) => onChange(hexToHsl(e.target.value))}
+        />
+      </label>
     </div>
   );
 }
@@ -510,11 +514,22 @@ export default function ThemeAdminClient() {
   };
 
   const palette = activeTab === "dark" ? darkPalette : lightPalette;
+  const tabBtn = (active: boolean) =>
+    `theme-segment ${active ? "theme-segment--active" : ""}`;
 
   return (
-    <section className="sts-card p-5 space-y-5">
-      {error ? <div className="sts-card p-3 text-sm text-red-600">{error}</div> : null}
-      {msg ? <div className="sts-card p-3 text-sm">{msg}</div> : null}
+    <section className="sts-card p-5 space-y-5 theme-studio">
+      <header className="theme-studio__header">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Tema visual</h2>
+          <p className="text-sm text-muted-foreground">
+            Configura apariencia global, contraste y branding para toda la plataforma.
+          </p>
+        </div>
+      </header>
+
+      {error ? <div className="theme-studio__alert theme-studio__alert--error">{error}</div> : null}
+      {msg ? <div className="theme-studio__alert">{msg}</div> : null}
 
       <div className="space-y-3">
         <p className="text-sm font-semibold">Temas precargados</p>
@@ -524,7 +539,7 @@ export default function ThemeAdminClient() {
               type="button"
               key={preset.id}
               onClick={() => applyPreset(preset)}
-              className="sts-card p-4 text-left hover:shadow-md transition"
+              className="theme-preset"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -546,42 +561,42 @@ export default function ThemeAdminClient() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
+      <div className="theme-segment-row">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            className={`sts-btn-ghost text-sm ${activeTab === "light" ? "border-zinc-400 text-zinc-900" : ""}`}
+            className={tabBtn(activeTab === "light")}
             onClick={() => setActiveTab("light")}
           >
             Light
           </button>
           <button
             type="button"
-            className={`sts-btn-ghost text-sm ${activeTab === "dark" ? "border-zinc-400 text-zinc-900" : ""}`}
+            className={tabBtn(activeTab === "dark")}
             onClick={() => setActiveTab("dark")}
           >
             Dark
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">Modo aplicado:</span>
           <button
             type="button"
-            className={`sts-btn-ghost text-xs ${state.mode === "light" ? "border-zinc-400 text-zinc-900" : ""}`}
+            className={tabBtn(state.mode === "light")}
             onClick={() => update("mode", "light")}
           >
             Light
           </button>
           <button
             type="button"
-            className={`sts-btn-ghost text-xs ${state.mode === "dark" ? "border-zinc-400 text-zinc-900" : ""}`}
+            className={tabBtn(state.mode === "dark")}
             onClick={() => update("mode", "dark")}
           >
             Dark
           </button>
           <button
             type="button"
-            className={`sts-btn-ghost text-xs ${state.mode === "system" ? "border-zinc-400 text-zinc-900" : ""}`}
+            className={tabBtn(state.mode === "system")}
             onClick={() => update("mode", "system")}
           >
             Sistema
@@ -675,7 +690,7 @@ export default function ThemeAdminClient() {
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Fuente base</label>
-                <select
+                <Select
                   className="h-9 w-full rounded-md border px-2 text-sm"
                   value={state.fontSans}
                   onChange={(e) => update("fontSans", e.target.value)}
@@ -685,11 +700,11 @@ export default function ThemeAdminClient() {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Fuente display</label>
-                <select
+                <Select
                   className="h-9 w-full rounded-md border px-2 text-sm"
                   value={state.fontDisplay}
                   onChange={(e) => update("fontDisplay", e.target.value)}
@@ -699,7 +714,7 @@ export default function ThemeAdminClient() {
                       {opt.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
           </div>

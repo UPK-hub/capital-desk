@@ -20,6 +20,7 @@ export async function GET(_: Request, ctx: { params: { id: string } }) {
       steps: { include: { media: true }, orderBy: { createdAt: "asc" } },
       correctiveReport: true,
       preventiveReport: true,
+      renewalTechReport: true,
     },
   });
 

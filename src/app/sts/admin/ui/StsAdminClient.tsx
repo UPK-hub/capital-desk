@@ -8,6 +8,7 @@ import {
   StsTicketStatus,
 } from "@prisma/client";
 import { labelFromMap, stsMetricLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
+import { Select } from "@/components/Field";
 
 type ComponentRow = { id: string; code: string; name: string; active: boolean };
 type SlaRow = {
@@ -285,23 +286,37 @@ export default function StsAdminClient() {
                     />
                   </td>
                   <td className="p-2">
-                    <select
-                      multiple
-                      className="min-h-20 w-full rounded-md border px-2 py-1 text-xs"
-                      value={p.pauseStatuses ?? [StsTicketStatus.WAITING_VENDOR]}
-                      onChange={(e) => {
-                        const selected = Array.from(e.target.selectedOptions).map((o) => o.value as StsTicketStatus);
-                        setSlaPolicies((prev) =>
-                          prev.map((r, i) => (i === idx ? { ...r, pauseStatuses: selected } : r))
+                    <div className="sts-card p-2 space-y-1">
+                      {pauseOptions.map((s) => {
+                        const selected = (p.pauseStatuses?.length ? p.pauseStatuses : [StsTicketStatus.WAITING_VENDOR]).includes(s);
+                        return (
+                          <label key={s} className="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-muted">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => {
+                                setSlaPolicies((prev) =>
+                                  prev.map((r, i) => {
+                                    if (i !== idx) return r;
+                                    const current = r.pauseStatuses?.length
+                                      ? [...r.pauseStatuses]
+                                      : [StsTicketStatus.WAITING_VENDOR];
+                                    const next = current.includes(s)
+                                      ? current.filter((x) => x !== s)
+                                      : [...current, s];
+                                    return {
+                                      ...r,
+                                      pauseStatuses: next.length ? next : [StsTicketStatus.WAITING_VENDOR],
+                                    };
+                                  })
+                                );
+                              }}
+                            />
+                            <span>{labelFromMap(s, stsStatusLabels)}</span>
+                          </label>
                         );
-                      }}
-                    >
-                      {pauseOptions.map((s) => (
-                        <option key={s} value={s}>
-                          {labelFromMap(s, stsStatusLabels)}
-                        </option>
-                      ))}
-                    </select>
+                      })}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -378,14 +393,14 @@ export default function StsAdminClient() {
       <section className="sts-card p-5 space-y-3 fade-up">
         <h2 className="text-sm font-semibold">Ventanas de mantenimiento</h2>
         <div className="grid gap-3 md:grid-cols-4">
-          <select className={clsInput()} value={mwComponentId} onChange={(e) => setMwComponentId(e.target.value)}>
+          <Select className={clsInput()} value={mwComponentId} onChange={(e) => setMwComponentId(e.target.value)}>
             <option value="">Todos los componentes</option>
             {components.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
           <input className={clsInput()} type="datetime-local" value={mwStart} onChange={(e) => setMwStart(e.target.value)} />
           <input className={clsInput()} type="datetime-local" value={mwEnd} onChange={(e) => setMwEnd(e.target.value)} />
           <input className={clsInput()} placeholder="Motivo" value={mwReason} onChange={(e) => setMwReason(e.target.value)} />

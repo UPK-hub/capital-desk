@@ -17,6 +17,7 @@ export const caseTypeLabels: Record<string, string> = {
   NOVEDAD: "Novedad",
   CORRECTIVO: "Correctivo",
   PREVENTIVO: "Preventivo",
+  RENOVACION_TECNOLOGICA: "Renovación tecnológica",
   MEJORA_PRODUCTO: "Mejora de producto",
   SOLICITUD_DESCARGA_VIDEO: "Solicitud descarga video",
 };
@@ -25,6 +26,7 @@ export const workOrderStatusLabels: Record<string, string> = {
   CREADA: "Creada",
   ASIGNADA: "Asignada",
   EN_CAMPO: "En campo",
+  EN_VALIDACION: "En validacion",
   FINALIZADA: "Finalizada",
 };
 

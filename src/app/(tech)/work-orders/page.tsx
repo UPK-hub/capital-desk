@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { Role, WorkOrderStatus } from "@prisma/client";
 import { fmtWorkOrderNo, fmtCaseNo } from "@/lib/format-no";
 import { caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import ShiftClockCard from "@/components/ShiftClockCard";
+import { Select } from "@/components/Field";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
@@ -89,6 +91,8 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
         <p className="text-sm text-muted-foreground">Bandeja Tecnico</p>
       </div>
 
+      <ShiftClockCard />
+
       <div className="sts-card p-4">
         <form className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between" method="get">
           <input
@@ -99,13 +103,14 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
           />
 
           <div className="flex gap-2">
-            <select name="status" defaultValue={searchParams?.status ?? ""} className="h-10 rounded-md border px-3 text-sm">
+            <Select name="status" defaultValue={searchParams?.status ?? ""} className="h-10 min-w-52">
               <option value="">Estado (todos)</option>
               <option value="CREADA">{workOrderStatusLabels.CREADA}</option>
               <option value="ASIGNADA">{workOrderStatusLabels.ASIGNADA}</option>
               <option value="EN_CAMPO">{workOrderStatusLabels.EN_CAMPO}</option>
+              <option value="EN_VALIDACION">{workOrderStatusLabels.EN_VALIDACION}</option>
               <option value="FINALIZADA">{workOrderStatusLabels.FINALIZADA}</option>
-            </select>
+            </Select>
 
             <button className="sts-btn-primary text-sm" type="submit">
               Filtrar

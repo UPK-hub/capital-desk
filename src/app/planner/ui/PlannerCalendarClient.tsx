@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CalendarSlotKind } from "@prisma/client";
+import { Select } from "@/components/Field";
 
 type Technician = { id: string; name: string; email: string };
 type Slot = { start: string; end: string };
@@ -211,8 +212,8 @@ export default function PlannerCalendarClient() {
 
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground">Tecnico</label>
-          <select
-            className="h-9 rounded-md border px-2 text-sm"
+          <Select
+            className="h-9 min-w-72"
             value={selectedTechId}
             onChange={(e) => load(weekStart, e.target.value)}
             disabled={loading}
@@ -222,13 +223,13 @@ export default function PlannerCalendarClient() {
                 {t.name} {t.email ? `(${t.email})` : ""}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground">Modo</label>
-          <select
-            className="h-9 rounded-md border px-2 text-sm"
+          <Select
+            className="h-9 min-w-44"
             value={mode}
             onChange={(e) => setMode(e.target.value as any)}
             disabled={loading}
@@ -237,7 +238,7 @@ export default function PlannerCalendarClient() {
             <option value={CalendarSlotKind.BLOCKED}>Bloqueado</option>
             <option value={CalendarSlotKind.TIME_OFF}>Descanso</option>
             <option value="CLEAR">Limpiar</option>
-          </select>
+          </Select>
         </div>
 
         <button

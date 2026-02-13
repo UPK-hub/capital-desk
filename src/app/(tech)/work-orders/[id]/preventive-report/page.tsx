@@ -101,44 +101,44 @@ export default function PreventiveReportForm({
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className="text-xs text-muted-foreground">Ticket *</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" readOnly {...form.register("ticketNumber")} />
+            <input className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" readOnly {...form.register("ticketNumber")} />
             <p className="text-xs text-red-600">{form.formState.errors.ticketNumber?.message}</p>
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">OT No.</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("workOrderNumber")} />
+            <input className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("workOrderNumber")} />
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Bus (código)</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("biarticuladoNo")} />
+            <input className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("biarticuladoNo")} />
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Placa</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("plate")} />
+            <input className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("plate")} />
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Fecha ejecutada</label>
-            <input type="datetime-local" className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("executedAt")} />
+            <input type="datetime-local" className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("executedAt")} />
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Hora inicio</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("timeStart")} placeholder="HH:mm" />
+            <input type="time" className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("timeStart")} />
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Hora fin</label>
-            <input className="mt-1 w-full rounded-md border px-3 py-2 text-sm" {...form.register("timeEnd")} placeholder="HH:mm" />
+            <input type="time" className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("timeEnd")} />
           </div>
 
 
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Observaciones</label>
-            <textarea className="mt-1 w-full rounded-md border px-3 py-2 text-sm" rows={4} {...form.register("observations")} />
+            <textarea className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" rows={4} {...form.register("observations")} />
           </div>
         </div>
 

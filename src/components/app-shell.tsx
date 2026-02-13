@@ -7,6 +7,7 @@ import NotificationsBell from "@/components/NotificationsBell";
 import AvatarMenu from "@/components/AvatarMenu";
 import FloatingMessenger from "@/components/FloatingMessenger";
 import GlobalSearchBar from "@/components/GlobalSearchBar";
+import RouteTransition from "@/components/RouteTransition";
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; roles?: Role[]; capabilities?: string[] };
 
@@ -57,6 +58,12 @@ const icons = {
       <path d="M6 21V9m6 12V9m6 12V9" />
     </svg>
   ),
+  clock: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
@@ -83,6 +90,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   const role = session?.user?.role as Role | undefined;
   const capabilities = ((session?.user as any)?.capabilities as string[]) ?? [];
+  const userName = ((session?.user as any)?.name as string | undefined) ?? "Usuario";
 
   const navItems: NavItem[] = [
     { label: "Resumen", href: "/", icon: icons.grid },
@@ -91,6 +99,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     { label: "Videos", href: "/video-requests", icon: icons.video, roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR] },
     { label: "Planner", href: "/planner", icon: icons.planner, capabilities: ["PLANNER"] },
     { label: "OTs", href: "/work-orders", icon: icons.work, roles: [Role.TECHNICIAN] },
+    { label: "Turnos", href: "/technicians/shifts", icon: icons.clock, roles: [Role.ADMIN, Role.BACKOFFICE] },
     { label: "STS", href: "/sts", icon: icons.sts, capabilities: ["STS_READ", "STS_ADMIN", "STS_WRITE"] },
     { label: "TM", href: "/tm", icon: icons.tm, capabilities: ["TM_READ"] },
     { label: "Admin", href: "/admin", icon: icons.settings, roles: [Role.ADMIN] },
@@ -141,7 +150,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`min-h-screen sts-shell ${theme ? "theme-shell" : ""} ${isDark ? "dark" : ""} ${
+      className={`min-h-screen sts-shell app-layout ${theme ? "theme-shell" : ""} ${isDark ? "dark" : ""} ${
         isSystem ? "theme-system" : ""
       }`}
       style={themeStyle}
@@ -149,16 +158,16 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {!session?.user ? (
         <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>
       ) : (
-        <div className="flex min-h-screen flex-col lg:flex-row">
-          <aside className="w-full border-b lg:w-[240px] lg:border-b-0 lg:border-r app-sidebar relative z-40 overflow-visible">
+        <div className="flex min-h-screen flex-col lg:flex-row app-layout__body">
+          <aside className="w-full border-b lg:w-[262px] lg:border-b-0 lg:border-r lg:min-h-screen app-sidebar relative z-40 overflow-visible">
             <div className="flex h-full flex-col px-4 py-5 lg:px-6 lg:py-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-lg font-semibold">
+              <div className="flex items-center gap-3 app-sidebar-brand">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl app-sidebar-brand__badge text-lg font-semibold">
                   @
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-white/60">Capital Desk</p>
-                  <p className="text-sm font-semibold">{session.user.name}</p>
+                  <p className="app-sidebar-brand__meta text-xs uppercase tracking-wide">Capital Desk</p>
+                  <p className="text-sm font-semibold">{userName}</p>
                 </div>
               </div>
 
@@ -167,31 +176,22 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="flex items-center gap-3 rounded-2xl px-3 py-2 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
+                    className="app-nav-link"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10">
+                    <span className="app-nav-link__icon">
                       {item.icon}
                     </span>
                     <span>{item.label}</span>
                   </Link>
                 ))}
-                <div className="pt-4">
-                  <NotificationsBell />
-                </div>
               </div>
 
-              <div className="mt-auto space-y-2 pt-6 text-sm text-white/60 app-sidebar-footer">
-                <Link className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-white/10 hover:text-white" href="/profile">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10">
-                    {icons.user}
-                  </span>
-                  Perfil
-                </Link>
+              <div className="mt-auto space-y-2 pt-6 text-sm app-sidebar-footer">
                 <Link
-                  className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-white/10 hover:text-white"
+                  className="app-nav-link"
                   href="/api/auth/signout?callbackUrl=/login"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10">
+                  <span className="app-nav-link__icon">
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M10 17l5-5-5-5" />
                       <path d="M15 12H3" />
@@ -210,15 +210,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="w-full max-w-md">
                   <GlobalSearchBar />
                 </div>
-                <AvatarMenu name={session.user.name ?? "Usuario"} />
+                <div className="shrink-0">
+                  <NotificationsBell />
+                </div>
+                <AvatarMenu name={userName} />
               </div>
             </header>
 
-            <main className="mx-auto max-w-6xl px-4 py-5 md:px-6 md:py-6">{children}</main>
+            <main className="mx-auto max-w-6xl px-4 py-5 md:px-6 md:py-6 app-main">
+              <RouteTransition>{children}</RouteTransition>
+            </main>
 
             <FloatingMessenger
               currentUserId={(session.user as any).id as string}
-              currentUserName={session.user.name ?? "Usuario"}
+              currentUserName={userName}
             />
           </div>
         </div>

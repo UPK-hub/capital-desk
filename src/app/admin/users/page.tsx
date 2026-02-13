@@ -12,7 +12,7 @@ export default async function AdminUsersPage() {
   if (role !== Role.ADMIN) redirect("/");
 
   return (
-    <div className="mx-auto max-w-5xl p-6 space-y-6">
+    <div className="mx-auto max-w-6xl p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Usuarios</h1>
         <p className="text-sm text-muted-foreground">Crear usuarios, asignar roles y restablecer contraseña.</p>
