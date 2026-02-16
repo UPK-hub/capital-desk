@@ -333,9 +333,6 @@ function PreventiveReportFormInner(props: Props) {
     if (!files?.length) return 0;
     let count = 0;
     for (const file of Array.from(files)) {
-      if (file.size > 15 * 1024 * 1024) {
-        throw new Error(`La foto "${file.name}" supera 15 MB.`);
-      }
       const fd = new FormData();
       fd.set("activityKey", activityKey);
       fd.set("photo", file);
@@ -568,12 +565,13 @@ function PreventiveReportFormInner(props: Props) {
                               <input
                                 type="file"
                                 accept="image/*"
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const files = e.currentTarget.files;
                                   setPhotoFilesByKey((prev) => ({
                                     ...prev,
-                                    [rowKey]: e.currentTarget.files,
-                                  }))
-                                }
+                                    [rowKey]: files,
+                                  }));
+                                }}
                                 className="block w-full text-xs"
                               />
                               {existingPhotos.length ? (
@@ -664,12 +662,13 @@ function PreventiveReportFormInner(props: Props) {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const files = e.currentTarget.files;
                           setPhotoFilesByKey((prev) => ({
                             ...prev,
-                            [rowKey]: e.currentTarget.files,
-                          }))
-                        }
+                            [rowKey]: files,
+                          }));
+                        }}
                         className="mt-1 block w-full text-xs"
                       />
                       <p className="mt-1 text-[11px] text-muted-foreground">
