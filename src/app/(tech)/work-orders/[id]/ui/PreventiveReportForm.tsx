@@ -184,6 +184,52 @@ const AREA_RENDER_ORDER: Record<ActivityRow["area"], number> = {
 };
 
 export default function PreventiveReportForm(props: Props) {
+  return (
+    <PreventiveReportErrorBoundary>
+      <PreventiveReportFormInner {...props} />
+    </PreventiveReportErrorBoundary>
+  );
+}
+
+class PreventiveReportErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; message: string | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: null };
+  }
+
+  static getDerivedStateFromError(error: unknown) {
+    const msg = error instanceof Error ? error.message : "Error inesperado en el formulario preventivo.";
+    return { hasError: true, message: msg };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("PreventiveReportForm crashed", error);
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="sts-card p-5">
+        <h3 className="text-base font-semibold">Ocurrió un error en el formulario preventivo</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {this.state.message ?? "No se pudo renderizar el formulario."}
+        </p>
+        <button
+          type="button"
+          className="mt-4 sts-btn-primary text-sm"
+          onClick={() => window.location.reload()}
+        >
+          Recargar página
+        </button>
+      </div>
+    );
+  }
+}
+
+function PreventiveReportFormInner(props: Props) {
   const router = useRouter();
   const [saving, setSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
@@ -287,6 +333,9 @@ export default function PreventiveReportForm(props: Props) {
     if (!files?.length) return 0;
     let count = 0;
     for (const file of Array.from(files)) {
+      if (file.size > 15 * 1024 * 1024) {
+        throw new Error(`La foto "${file.name}" supera 15 MB.`);
+      }
       const fd = new FormData();
       fd.set("activityKey", activityKey);
       fd.set("photo", file);
@@ -294,9 +343,15 @@ export default function PreventiveReportForm(props: Props) {
         method: "PUT",
         body: fd,
       });
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "No se pudo subir evidencia");
+      }
+      const nextActivities = Array.isArray(data?.report?.activities)
+        ? normalizeActivities(data.report.activities as ActivityRow[])
+        : null;
+      if (nextActivities) {
+        form.setValue("activities", nextActivities, { shouldDirty: true });
       }
       count += 1;
     }
@@ -346,8 +401,13 @@ export default function PreventiveReportForm(props: Props) {
         uploadedCount += await uploadActivityPhotos(row.key, files);
       }
 
+      setPhotoFilesByKey({});
       setMsg(uploadedCount > 0 ? `Guardado correctamente (${uploadedCount} foto(s) cargada(s)).` : "Guardado correctamente");
-      router.refresh();
+      try {
+        router.refresh();
+      } catch (err) {
+        console.error("No se pudo refrescar la vista de OT", err);
+      }
     } catch (e: any) {
       setMsg(e?.message ?? "No se pudo guardar");
     } finally {
