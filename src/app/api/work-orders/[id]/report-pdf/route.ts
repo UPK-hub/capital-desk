@@ -29,7 +29,17 @@ function fmtDate(v: any) {
   return d.toISOString().slice(0, 10);
 }
 
-function renderPreventive(report: Record<string, any>) {
+function fmtInternalTime(v?: Date | null) {
+  if (!v) return "";
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
+  }).format(v);
+}
+
+function renderPreventive(report: Record<string, any>, internalStart: string, internalEnd: string) {
   const lines: string[] = [];
   const push = (label: string, value: any) => {
     if (value === null || value === undefined || value === "") return;
@@ -65,15 +75,15 @@ function renderPreventive(report: Record<string, any>) {
   lines.push("");
   lines.push("== Cierre ==");
   push("Observaciones", report.observations);
-  push("Hora inicio", report.timeStart);
-  push("Hora fin", report.timeEnd);
+  push("Inicio OT", internalStart);
+  push("Cierre OT", internalEnd);
   push("Responsable UPK", report.responsibleUpk);
   push("Responsable Capital Bus", report.responsibleCapitalBus);
 
   return lines;
 }
 
-function renderCorrective(report: Record<string, any>) {
+function renderCorrective(report: Record<string, any>, internalStart: string, internalEnd: string) {
   const lines: string[] = [];
   const push = (label: string, value: any) => {
     if (value === null || value === undefined || value === "") return;
@@ -106,8 +116,8 @@ function renderCorrective(report: Record<string, any>) {
   push("Diagnóstico", report.diagnosis);
   push("Solución", report.solution);
   push("Tiempo solución fabricante", report.manufacturerEta);
-  push("Hora inicio (interno)", report.timeStart);
-  push("Hora cierre (interno)", report.timeEnd);
+  push("Inicio OT (interno)", internalStart);
+  push("Cierre OT (interno)", internalEnd);
 
   lines.push("");
   lines.push("== Cambio de componente ==");
@@ -122,7 +132,12 @@ function renderCorrective(report: Record<string, any>) {
   return lines;
 }
 
-function renderRenewal(report: Record<string, any>) {
+function renderRenewal(
+  report: Record<string, any>,
+  internalStart: string,
+  internalEnd: string,
+  mode: "RENOVACION_TECNOLOGICA" | "MEJORA_PRODUCTO" = "RENOVACION_TECNOLOGICA"
+) {
   const lines: string[] = [];
   const push = (label: string, value: any) => {
     if (value === null || value === undefined || value === "") return;
@@ -135,15 +150,19 @@ function renderRenewal(report: Record<string, any>) {
   push("Bus", report.busCode);
   push("Placa", report.plate);
   push("Fecha de verificación", report.newInstallation?.verificationDate);
-  push("Link SmartHelios", report.linkSmartHelios);
-  push("IP SIMCARD", report.ipSimcard);
+  if (mode === "RENOVACION_TECNOLOGICA") {
+    push("Link SmartHelios", report.linkSmartHelios);
+    push("IP SIMCARD", report.ipSimcard);
+  }
 
-  lines.push("");
-  lines.push("== Paso 1: Desmonte ==");
-  const removed = report.removedChecklist && typeof report.removedChecklist === "object" ? report.removedChecklist : {};
-  const removedEntries = Object.entries(removed).filter(([, v]) => Boolean(v));
-  if (!removedEntries.length) lines.push("Sin checklist de desmonte.");
-  for (const [k] of removedEntries) lines.push(`- ${k}`);
+  if (mode === "RENOVACION_TECNOLOGICA") {
+    lines.push("");
+    lines.push("== Paso 1: Desmonte ==");
+    const removed = report.removedChecklist && typeof report.removedChecklist === "object" ? report.removedChecklist : {};
+    const removedEntries = Object.entries(removed).filter(([, v]) => Boolean(v));
+    if (!removedEntries.length) lines.push("Sin checklist de desmonte.");
+    for (const [k] of removedEntries) lines.push(`- ${k}`);
+  }
 
   lines.push("");
   lines.push("== Paso 2: Instalacion nueva por equipo ==");
@@ -160,17 +179,19 @@ function renderRenewal(report: Record<string, any>) {
     });
   }
 
-  lines.push("");
-  lines.push("== Checklist final ==");
-  const finalChecklist = report.finalChecklist && typeof report.finalChecklist === "object" ? report.finalChecklist : {};
-  const finalEntries = Object.entries(finalChecklist).filter(([, v]) => Boolean(v));
-  if (!finalEntries.length) lines.push("Sin checklist final.");
-  for (const [k] of finalEntries) lines.push(`- ${k}`);
+  if (mode === "RENOVACION_TECNOLOGICA") {
+    lines.push("");
+    lines.push("== Checklist final ==");
+    const finalChecklist = report.finalChecklist && typeof report.finalChecklist === "object" ? report.finalChecklist : {};
+    const finalEntries = Object.entries(finalChecklist).filter(([, v]) => Boolean(v));
+    if (!finalEntries.length) lines.push("Sin checklist final.");
+    for (const [k] of finalEntries) lines.push(`- ${k}`);
+  }
 
   lines.push("");
   lines.push("== Cierre ==");
-  push("Hora inicio (interno)", report.timeStart);
-  push("Hora cierre (interno)", report.timeEnd);
+  push("Inicio OT (interno)", internalStart);
+  push("Cierre OT (interno)", internalEnd);
   push("Observaciones", report.observations);
 
   return lines;
@@ -277,7 +298,13 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 
   drawLine(
     `Capital Desk - Formato ${
-      kind === "PREVENTIVE" ? "Preventivo" : kind === "CORRECTIVE" ? "Correctivo" : "Renovación tecnológica"
+      kind === "PREVENTIVE"
+        ? "Preventivo"
+        : kind === "CORRECTIVE"
+        ? "Correctivo"
+        : wo.case.type === "MEJORA_PRODUCTO"
+        ? "Mejora de producto"
+        : "Renovación tecnológica"
     }`,
     true
   );
@@ -291,12 +318,15 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   drawLine(`Generado: ${new Date().toISOString()}`);
   y -= lineHeight;
 
+  const internalStart = fmtInternalTime(wo.startedAt);
+  const internalEnd = fmtInternalTime(wo.finishedAt);
+
   const lines =
     kind === "PREVENTIVE"
-      ? renderPreventive(report as any)
+      ? renderPreventive(report as any, internalStart, internalEnd)
       : kind === "CORRECTIVE"
-      ? renderCorrective(report as any)
-      : renderRenewal(report as any);
+      ? renderCorrective(report as any, internalStart, internalEnd)
+      : renderRenewal(report as any, internalStart, internalEnd, wo.case.type as any);
   for (const l of lines) drawLine(l);
 
   async function addImagePage(title: string, filePath: string) {

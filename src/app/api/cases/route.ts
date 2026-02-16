@@ -48,8 +48,20 @@ export async function POST(req: NextRequest) {
       ? [body.busEquipmentId]
       : [];
   const busEquipmentIds = rawEquipmentIds.map((id: any) => String(id)).filter(Boolean);
-  const busEquipmentId = busEquipmentIds[0] ?? null;
-  if (cfg.requiresEquipment && !busEquipmentIds.length) {
+  const renewalEquipmentIds =
+    cfg.type === "RENOVACION_TECNOLOGICA"
+      ? (
+          await prisma.busEquipment.findMany({
+            where: { busId, active: true },
+            select: { id: true },
+          })
+        ).map((e) => e.id)
+      : [];
+  const effectiveEquipmentIds =
+    cfg.type === "RENOVACION_TECNOLOGICA" ? renewalEquipmentIds : busEquipmentIds;
+  const busEquipmentId =
+    cfg.type === "RENOVACION_TECNOLOGICA" ? null : effectiveEquipmentIds[0] ?? null;
+  if (cfg.requiresEquipment && !effectiveEquipmentIds.length) {
     return NextResponse.json({ error: "Equipo del bus requerido para este tipo de caso" }, { status: 400 });
   }
 
@@ -82,8 +94,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const splitByEquipment = cfg.type === "CORRECTIVO" && busEquipmentIds.length > 1;
-    const targets = splitByEquipment ? busEquipmentIds : [busEquipmentId];
+    const splitByEquipment = cfg.type === "CORRECTIVO" && effectiveEquipmentIds.length > 1;
+    const targets = splitByEquipment ? effectiveEquipmentIds : [busEquipmentId];
     const splitGroupKey = splitByEquipment
       ? `split-${tenantId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       : null;
@@ -173,9 +185,9 @@ export async function POST(req: NextRequest) {
               data: { caseId: c.id, busEquipmentId: eqId },
             });
           }
-        } else if (busEquipmentIds.length) {
+        } else if (effectiveEquipmentIds.length) {
           await tx.caseEquipment.createMany({
-            data: busEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
+            data: effectiveEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
             skipDuplicates: true,
           });
         }

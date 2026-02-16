@@ -16,6 +16,7 @@ import {
   DeviceLocation,
 } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { findInventoryModelBySerial } from "@/lib/inventory-catalog";
 
 
 
@@ -51,6 +52,16 @@ function toBool(v: any): boolean {
   const s = String(v).toLowerCase().trim();
   if (["true", "1", "on", "yes", "si", "sí"].includes(s)) return true;
   return false;
+}
+
+function formatInternalTime(d?: Date | null): string | null {
+  if (!d) return null;
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
+  }).format(d);
 }
 
 // Acepta solo enums válidos. Si viene basura -> null
@@ -200,6 +211,11 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const diagnosisIn = body.diagnosisOther ?? body.diagnosis ?? body.diagnostic ?? body.diagnostico ?? body["diagnóstico"];
   const solutionIn = body.solutionOther ?? body.solution ?? body.solucion ?? body["solución"];
 
+  const serialBase = emptyToNull(body.serial) ?? eqSerial;
+  const serialNuevo = emptyToNull(body.newSerial);
+  const inventoryModelBase = await findInventoryModelBySerial(tenantId, serialBase);
+  const inventoryModelNew = await findInventoryModelBySerial(tenantId, serialNuevo);
+
   // IMPORTANTE: NO usar `satisfies` aquí (rompe por Decimal|Null en TS)
   const payload = {
     ticketNumber: emptyToNull(body.ticketNumber),
@@ -209,8 +225,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     plate,
     deviceType: emptyToNull(body.deviceType) ?? equipmentTypeName,
     brand: emptyToNull(body.brand),
-    model: emptyToNull(body.model),
-    serial: emptyToNull(body.serial) ?? eqSerial,
+    model: emptyToNull(body.model) ?? inventoryModelBase,
+    serial: serialBase,
 
     procedureType,
     procedureOther,
@@ -233,13 +249,13 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     solution: emptyToNull(solutionIn),
     manufacturerEta: emptyToNull(body.manufacturerEta),
 
-    timeStart: emptyToNull(body.timeStart),
-    timeEnd: emptyToNull(body.timeEnd),
+    timeStart: formatInternalTime(wo.startedAt),
+    timeEnd: formatInternalTime(wo.finishedAt),
 
     installDate: parseDateOrNull(body.installDate),
     newBrand: emptyToNull(body.newBrand),
-    newModel: emptyToNull(body.newModel),
-    newSerial: emptyToNull(body.newSerial),
+    newModel: emptyToNull(body.newModel) ?? inventoryModelNew,
+    newSerial: serialNuevo,
 
   };
 

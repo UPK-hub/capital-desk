@@ -199,151 +199,157 @@ export default function PlannerCalendarClient() {
   const days = Array.from({ length: 7 }, (_, i) => i);
 
   return (
-    <section className="sts-card p-5 space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <button className="sts-btn-ghost text-sm" onClick={() => goWeek(-1)} disabled={loading}>
-            Semana anterior
-          </button>
-          <button className="sts-btn-ghost text-sm" onClick={() => goWeek(1)} disabled={loading}>
-            Semana siguiente
-          </button>
-        </div>
+    <section className="sts-card overflow-hidden">
+      <div className="sticky top-0 z-10 border-b border-border/50 bg-muted/45 p-4 backdrop-blur-sm md:p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button className="sts-btn-ghost text-sm" onClick={() => goWeek(-1)} disabled={loading}>
+              Semana anterior
+            </button>
+            <button className="sts-btn-ghost text-sm" onClick={() => goWeek(1)} disabled={loading}>
+              Semana siguiente
+            </button>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">Tecnico</label>
-          <Select
-            className="h-9 min-w-72"
-            value={selectedTechId}
-            onChange={(e) => load(weekStart, e.target.value)}
-            disabled={loading}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">Tecnico</label>
+            <Select
+              className="h-9 min-w-72"
+              value={selectedTechId}
+              onChange={(e) => load(weekStart, e.target.value)}
+              disabled={loading}
+            >
+              {technicians.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} {t.email ? `(${t.email})` : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">Modo</label>
+            <Select
+              className="h-9 min-w-44"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as any)}
+              disabled={loading}
+            >
+              <option value={CalendarSlotKind.AVAILABLE}>Disponible</option>
+              <option value={CalendarSlotKind.BLOCKED}>Bloqueado</option>
+              <option value={CalendarSlotKind.TIME_OFF}>Descanso</option>
+              <option value="CLEAR">Limpiar</option>
+            </Select>
+          </div>
+
+          <button
+            className="sts-btn-primary text-sm disabled:opacity-50"
+            onClick={save}
+            disabled={saving || loading || !dirty}
           >
-            {technicians.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} {t.email ? `(${t.email})` : ""}
-              </option>
-            ))}
-          </Select>
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
         </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">Modo</label>
-          <Select
-            className="h-9 min-w-44"
-            value={mode}
-            onChange={(e) => setMode(e.target.value as any)}
-            disabled={loading}
-          >
-            <option value={CalendarSlotKind.AVAILABLE}>Disponible</option>
-            <option value={CalendarSlotKind.BLOCKED}>Bloqueado</option>
-            <option value={CalendarSlotKind.TIME_OFF}>Descanso</option>
-            <option value="CLEAR">Limpiar</option>
-          </Select>
-        </div>
-
-        <button
-          className="sts-btn-primary text-sm disabled:opacity-50"
-          onClick={save}
-          disabled={saving || loading || !dirty}
-        >
-          {saving ? "Guardando..." : "Guardar cambios"}
-        </button>
       </div>
 
-      {error ? <div className="rounded-md border p-3 text-sm text-red-600">{error}</div> : null}
-      {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
+      <div className="space-y-4 p-4 md:p-5">
+        {error ? <div className="rounded-md border p-3 text-sm text-red-600">{error}</div> : null}
+        {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
 
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Cargando calendario...</p>
-      ) : technicians.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No hay tecnicos activos.</p>
-      ) : (
-        <div className="overflow-auto border rounded-lg">
-          <div className="min-w-[900px]">
-            <div className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] text-xs font-semibold bg-zinc-50 border-b">
-              <div className="p-2">Hora</div>
-              {days.map((d) => (
-                <div key={d} className="p-2 text-center">
-                  {formatDayLabel(weekStart, d)}
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Cargando calendario...</p>
+        ) : technicians.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay tecnicos activos.</p>
+        ) : (
+          <div className="overflow-auto rounded-lg border border-border/55 bg-card">
+            <div className="min-w-[900px]">
+              <div className="sticky top-0 z-10 grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] border-b border-border/50 bg-muted/55 text-xs font-semibold backdrop-blur-sm">
+                <div className="p-2">Hora</div>
+                {days.map((d) => (
+                  <div key={d} className="p-2 text-center">
+                    {formatDayLabel(weekStart, d)}
+                  </div>
+                ))}
+              </div>
+
+              {hours.map((hour) => (
+                <div
+                  key={hour}
+                  className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] border-b border-border/45 last:border-b-0"
+                >
+                  <div className="p-2 text-xs text-muted-foreground">{formatHour(hour)}</div>
+                  {days.map((day) => {
+                    const start = slotStartIso(weekStart, day, hour);
+                    const override = overrides[start];
+                    const baseAvailable = baseSet.has(start);
+                    const cellStartMs = new Date(start).getTime();
+                    const cellEndMs = cellStartMs + 60 * 60 * 1000;
+                    const reservation = reservations.find((r) => {
+                      const rStart = new Date(r.start).getTime();
+                      const rEnd = new Date(r.end).getTime();
+                      return rStart < cellEndMs && rEnd > cellStartMs;
+                    });
+
+                    const status = reservation
+                      ? "RESERVED"
+                      : override?.kind ?? (baseAvailable ? "BASE" : "EMPTY");
+
+                    const cls =
+                      status === "RESERVED"
+                        ? "bg-blue-300/70"
+                        : status === CalendarSlotKind.AVAILABLE
+                        ? "bg-emerald-300/70"
+                        : status === CalendarSlotKind.BLOCKED
+                        ? "bg-red-300/70"
+                        : status === CalendarSlotKind.TIME_OFF
+                        ? "bg-amber-300/70"
+                        : status === "BASE"
+                        ? "bg-emerald-100"
+                        : "bg-zinc-50";
+
+                    const label = reservation
+                      ? `${reservation.workOrderNo ? `OT-${reservation.workOrderNo}` : "OT"}${
+                          reservation.caseTitle ? ` | ${reservation.caseTitle}` : ""
+                        }`
+                      : "";
+
+                    return (
+                      <button
+                        key={start}
+                        type="button"
+                        className={`h-10 border-l border-border/35 px-1 text-left text-[10px] leading-tight transition-opacity hover:opacity-90 ${cls}`}
+                        onClick={() => handleCellClick(day, hour)}
+                        title={label || start}
+                      >
+                        {reservation ? <span className="line-clamp-2">{label}</span> : null}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>
-
-            {hours.map((hour) => (
-              <div
-                key={hour}
-                className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] border-b last:border-b-0"
-              >
-                <div className="p-2 text-xs text-muted-foreground">{formatHour(hour)}</div>
-                {days.map((day) => {
-                  const start = slotStartIso(weekStart, day, hour);
-                  const override = overrides[start];
-                  const baseAvailable = baseSet.has(start);
-                  const cellStartMs = new Date(start).getTime();
-                  const cellEndMs = cellStartMs + 60 * 60 * 1000;
-                  const reservation = reservations.find((r) => {
-                    const rStart = new Date(r.start).getTime();
-                    const rEnd = new Date(r.end).getTime();
-                    return rStart < cellEndMs && rEnd > cellStartMs;
-                  });
-
-                  const status = reservation
-                    ? "RESERVED"
-                    : override?.kind ?? (baseAvailable ? "BASE" : "EMPTY");
-
-                  const cls =
-                    status === "RESERVED"
-                      ? "bg-blue-300/70"
-                      : status === CalendarSlotKind.AVAILABLE
-                      ? "bg-emerald-300/70"
-                      : status === CalendarSlotKind.BLOCKED
-                      ? "bg-red-300/70"
-                      : status === CalendarSlotKind.TIME_OFF
-                      ? "bg-amber-300/70"
-                      : status === "BASE"
-                      ? "bg-emerald-100"
-                      : "bg-zinc-50";
-
-                  const label = reservation
-                    ? `${reservation.workOrderNo ? `OT-${reservation.workOrderNo}` : "OT"}${
-                        reservation.caseTitle ? ` | ${reservation.caseTitle}` : ""
-                      }`
-                    : "";
-
-                  return (
-                    <button
-                      key={start}
-                      type="button"
-                      className={`h-10 border-l text-[10px] leading-tight px-1 text-left ${cls}`}
-                      onClick={() => handleCellClick(day, hour)}
-                      title={label || start}
-                    >
-                      {reservation ? <span className="line-clamp-2">{label}</span> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-emerald-100 border" /> Base disponible
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-blue-300/70 border" /> OT asignada
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-emerald-300/70 border" /> Disponible (override)
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-red-300/70 border" /> Bloqueado
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-amber-300/70 border" /> Descanso
-        </span>
+      <div className="sticky bottom-0 border-t border-border/50 bg-background/95 p-3 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm border bg-emerald-100" /> Base disponible
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm border bg-blue-300/70" /> OT asignada
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm border bg-emerald-300/70" /> Disponible (override)
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm border bg-red-300/70" /> Bloqueado
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm border bg-amber-300/70" /> Descanso
+          </span>
+        </div>
       </div>
     </section>
   );

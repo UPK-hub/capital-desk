@@ -11,17 +11,46 @@ type Props = {
   caseId: string;
   workOrderId: string | null;
   currentAssignedToId: string | null;
+  caseType: string;
+  currentScheduledAt: string | null;
   technicians: Technician[];
 };
+
+function toBogotaDateKey(value: string | Date | null | undefined) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+function fmtBogotaDate(value: string | Date | null | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "full",
+    timeZone: "America/Bogota",
+  }).format(d);
+}
 
 export default function AssignTechnicianCard({
   caseId,
   workOrderId,
   currentAssignedToId,
+  caseType,
+  currentScheduledAt,
   technicians,
 }: Props) {
   const router = useRouter();
 
+  const isPreventive = caseType === "PREVENTIVO";
   const [technicianId, setTechnicianId] = useState<string>(currentAssignedToId ?? "");
   const [saving, setSaving] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -30,16 +59,33 @@ export default function AssignTechnicianCard({
   const [slotErr, setSlotErr] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlotStart, setSelectedSlotStart] = useState<string>("");
+  const [allowReprogram, setAllowReprogram] = useState(false);
+  const [reprogramReason, setReprogramReason] = useState("");
+
+  const programmedDateKey = useMemo(() => toBogotaDateKey(currentScheduledAt), [currentScheduledAt]);
+  const programmedDateLabel = useMemo(() => fmtBogotaDate(currentScheduledAt), [currentScheduledAt]);
 
   const selected = useMemo(
     () => technicians.find((t) => t.id === technicianId) ?? null,
     [technicianId, technicians]
   );
 
+  const visibleSlots = useMemo(() => {
+    if (!isPreventive || allowReprogram || !programmedDateKey) return slots;
+    return slots.filter((s) => toBogotaDateKey(s.start) === programmedDateKey);
+  }, [allowReprogram, isPreventive, programmedDateKey, slots]);
+
   const selectedSlot = useMemo(
-    () => slots.find((s) => s.start === selectedSlotStart) ?? null,
-    [slots, selectedSlotStart]
+    () => visibleSlots.find((s) => s.start === selectedSlotStart) ?? null,
+    [visibleSlots, selectedSlotStart]
   );
+
+  useEffect(() => {
+    if (!selectedSlotStart) return;
+    if (!visibleSlots.some((s) => s.start === selectedSlotStart)) {
+      setSelectedSlotStart("");
+    }
+  }, [selectedSlotStart, visibleSlots]);
 
   useEffect(() => {
     if (!technicianId) {
@@ -55,7 +101,8 @@ export default function AssignTechnicianCard({
     setSelectedSlotStart("");
 
     (async () => {
-      const res = await fetch(`/api/technicians/${technicianId}/availability?days=14`, {
+      const days = isPreventive ? 30 : 14;
+      const res = await fetch(`/api/technicians/${technicianId}/availability?days=${days}`, {
         method: "GET",
         cache: "no-store",
       });
@@ -75,7 +122,7 @@ export default function AssignTechnicianCard({
     return () => {
       active = false;
     };
-  }, [technicianId]);
+  }, [isPreventive, technicianId]);
 
   async function assign() {
     setSaving(true);
@@ -95,20 +142,19 @@ export default function AssignTechnicianCard({
           technicianId: id,
           scheduledAt: selectedSlot.start,
           scheduledTo: selectedSlot.end,
+          reprogram: isPreventive ? allowReprogram : false,
+          reprogramReason: isPreventive && allowReprogram ? reprogramReason.trim() : null,
         }),
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `${res.status} ${res.statusText}`);
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error ?? `${res.status} ${res.statusText}`);
       }
 
       const json = await res.json().catch(() => ({}));
-      setMsg(
-        selected
-          ? `Asignado a ${selected.name}.`
-          : `Asignación realizada.`
-      );
+      const reprogrammed = Boolean(json?.reprogrammed);
+      setMsg(selected ? `Asignado a ${selected.name}.${reprogrammed ? " Fecha reprogramada." : ""}` : "Asignación realizada.");
 
       // refrescar data server component
       router.refresh();
@@ -138,6 +184,38 @@ export default function AssignTechnicianCard({
           </p>
         </div>
 
+        {isPreventive ? (
+          <div className="sts-card p-3 space-y-2">
+            <p className="text-xs text-muted-foreground">Fecha programada</p>
+            <p className="text-sm font-medium">{programmedDateLabel}</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={allowReprogram}
+                onChange={(e) => setAllowReprogram(e.target.checked)}
+                disabled={saving}
+              />
+              Reprogramar antes de asignar
+            </label>
+            {allowReprogram ? (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Motivo (opcional)</label>
+                <textarea
+                  value={reprogramReason}
+                  onChange={(e) => setReprogramReason(e.target.value)}
+                  rows={2}
+                  className="app-field-control w-full rounded-xl border px-3 py-2 text-sm"
+                  placeholder="Ej: cambio operativo, disponibilidad de técnico, ventana de patio."
+                />
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Para cambiar la fecha, activa reprogramación.
+              </p>
+            )}
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <label className="text-xs text-muted-foreground">Seleccionar técnico</label>
           <Select
@@ -162,11 +240,17 @@ export default function AssignTechnicianCard({
               <p className="text-xs text-muted-foreground">Cargando horarios...</p>
             ) : slotErr ? (
               <p className="text-xs text-red-600">{slotErr}</p>
-            ) : slots.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sin horarios disponibles.</p>
+            ) : visibleSlots.length === 0 ? (
+              isPreventive && programmedDateKey && !allowReprogram ? (
+                <p className="text-xs text-amber-700">
+                  No hay horarios en la fecha programada. Activa <span className="font-medium">Reprogramar</span> para asignar otra fecha.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Sin horarios disponibles.</p>
+              )
             ) : (
               <div className="space-y-2">
-                {slots.map((s) => (
+                {visibleSlots.map((s) => (
                   <label key={s.start} className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
@@ -199,7 +283,7 @@ export default function AssignTechnicianCard({
           ) : null}
 
           <p className="text-xs text-muted-foreground">
-            Esto crea la OT si no existe, la marca como Asignada y registra eventos.
+            Esto crea la OT si no existe, la marca como Asignada y registra eventos/notificaciones.
           </p>
         </div>
       </div>

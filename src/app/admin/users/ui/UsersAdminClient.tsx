@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Role } from "@prisma/client";
 import { Select } from "@/components/Field";
+import { StatusPill } from "@/components/ui/status-pill";
 
 type UserRow = {
   id: string;
@@ -17,7 +18,7 @@ type UserRow = {
 };
 
 function clsInput() {
-  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm focus-visible:outline-none";
 }
 
 function roleLabel(role: Role) {
@@ -252,7 +253,7 @@ function UserCardItem({
   const caps = new Set(u.capabilities ?? []);
 
   return (
-    <article className="sts-card p-5 space-y-4">
+    <article className="sts-card sts-card--interactive p-5 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold leading-5">{u.name}</p>
@@ -260,15 +261,11 @@ function UserCardItem({
         </div>
         <div className="flex items-center gap-2">
           <span className="sts-chip">{roleLabel(u.role)}</span>
-          <span
-            className={`rounded-full border px-2.5 py-1 text-xs ${
-              u.active
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-zinc-300 bg-zinc-50 text-zinc-600"
-            }`}
-          >
-            {u.active ? "Activo" : "Inactivo"}
-          </span>
+          {u.active ? (
+            <StatusPill status="activo" label="Activo" />
+          ) : (
+            <StatusPill status="cancelado" label="Inactivo" />
+          )}
         </div>
       </div>
 
@@ -296,7 +293,7 @@ function UserCardItem({
 
         <div>
           <label className="text-xs text-muted-foreground">Habilitado</label>
-          <label className="app-field-control h-9 rounded-xl border px-3 text-sm inline-flex items-center gap-2 w-full">
+          <label className="inline-flex h-9 w-full items-center gap-2 rounded-xl border border-border/60 bg-card px-3 text-sm shadow-[var(--shadow-xs)]">
             <input
               type="checkbox"
               checked={u.active}
@@ -319,7 +316,10 @@ function UserCardItem({
             { cap: "TM_READ", label: "TM Reportes" },
             { cap: "CASE_ASSIGN", label: "Asignar casos" },
           ].map(({ cap, label }) => (
-            <label key={cap} className="app-field-control flex items-center gap-2 rounded-xl border px-2.5 py-2.5">
+            <label
+              key={cap}
+              className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-card px-2.5 py-2.5 shadow-[var(--shadow-xs)]"
+            >
               <input
                 type="checkbox"
                 checked={caps.has(cap)}

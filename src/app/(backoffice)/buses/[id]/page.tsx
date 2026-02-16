@@ -5,37 +5,34 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { caseStatusLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "@/components/ui/data-table";
+import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
+import { TypeBadge } from "@/components/ui/TypeBadge";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
 }
 
-function badge(base: string) {
-  return `inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${base}`;
+function mapCaseStatus(status: string): StatusPillStatus {
+  if (status === "NUEVO") return "nuevo";
+  if (status === "OT_ASIGNADA" || status === "EN_EJECUCION") return "en_ejecucion";
+  if (status === "RESUELTO" || status === "CERRADO") return "completado";
+  return "nuevo";
 }
 
-function statusBadge(active: boolean) {
-  return active
-    ? badge("bg-emerald-50 text-emerald-700 border-emerald-200")
-    : badge("bg-zinc-50 text-zinc-700 border-zinc-200");
-}
-
-function caseStatusBadge(v: string) {
-  if (v === "NUEVO") return badge("bg-blue-50 text-blue-700 border-blue-200");
-  if (v === "OT_ASIGNADA") return badge("bg-amber-50 text-amber-800 border-amber-200");
-  if (v === "EN_EJECUCION") return badge("bg-purple-50 text-purple-800 border-purple-200");
-  if (v === "RESUELTO") return badge("bg-green-50 text-green-700 border-green-200");
-  if (v === "CERRADO") return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
-  return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
-}
-
-function woStatusBadge(v: string) {
-  if (v === "CREADA") return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
-  if (v === "ASIGNADA") return badge("bg-amber-50 text-amber-800 border-amber-200");
-  if (v === "EN_CAMPO") return badge("bg-purple-50 text-purple-800 border-purple-200");
-  if (v === "EN_VALIDACION") return badge("bg-orange-50 text-orange-800 border-orange-200");
-  if (v === "FINALIZADA") return badge("bg-green-50 text-green-700 border-green-200");
-  return badge("bg-zinc-50 text-zinc-700 border-zinc-200");
+function mapWorkOrderStatus(status: string): StatusPillStatus {
+  if (status === "FINALIZADA") return "completado";
+  if (status === "CREADA") return "nuevo";
+  if (status === "ASIGNADA" || status === "EN_CAMPO" || status === "EN_VALIDACION") return "en_ejecucion";
+  return "nuevo";
 }
 
 type PageProps = { params: { id: string } };
@@ -251,7 +248,10 @@ export default async function BusLifePage({ params }: PageProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={statusBadge(bus.active)}>{bus.active ? "Activo" : "Inactivo"}</span>
+          <StatusPill
+            status={bus.active ? "activo" : "cancelado"}
+            label={bus.active ? "Activo" : "Inactivo"}
+          />
           <Link className="sts-btn-ghost text-sm" href="/buses">
             Volver
           </Link>
@@ -295,47 +295,53 @@ export default async function BusLifePage({ params }: PageProps) {
               <p className="text-xs text-muted-foreground">{bus.equipments.length} registros</p>
             </div>
 
-            <div className="mt-4 overflow-auto">
-              <table className="sts-table">
-                <thead className="text-xs text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="py-2 text-left">Tipo</th>
-                    <th className="py-2 text-left">Marca</th>
-                    <th className="py-2 text-left">Modelo</th>
-                    <th className="py-2 text-left">Serial</th>
-                    <th className="py-2 text-left">IP equipo</th>
-                    <th className="py-2 text-left">Estado</th>
-                    <th className="py-2 text-left"></th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="mt-4">
+              <DataTable>
+                <DataTableHeader>
+                  <DataTableRow>
+                    <DataTableHead>Tipo</DataTableHead>
+                    <DataTableHead>Marca</DataTableHead>
+                    <DataTableHead>Modelo</DataTableHead>
+                    <DataTableHead>Serial</DataTableHead>
+                    <DataTableHead>IP equipo</DataTableHead>
+                    <DataTableHead>Estado</DataTableHead>
+                    <DataTableHead className="text-right">Acción</DataTableHead>
+                  </DataTableRow>
+                </DataTableHeader>
+                <DataTableBody>
                   {bus.equipments.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-6 text-muted-foreground">
+                    <DataTableRow>
+                      <DataTableCell colSpan={7} className="text-sm text-muted-foreground">
                         Sin equipos asociados.
-                      </td>
-                    </tr>
+                      </DataTableCell>
+                    </DataTableRow>
                   ) : (
                     bus.equipments.map((e) => (
-                      <tr key={e.id} className="border-b last:border-b-0">
-                        <td className="py-2 font-medium">{e.equipmentType.name}</td>
-                        <td className="py-2">{e.brand ?? "—"}</td>
-                        <td className="py-2">{e.model ?? "—"}</td>
-                        <td className="py-2">{e.serial ?? "—"}</td>
-                        <td className="py-2 text-xs text-muted-foreground">{e.ipAddress ?? "—"}</td>
-                        <td className="py-2">
-                          <span className={statusBadge(e.active)}>{e.active ? "Activo" : "Inactivo"}</span>
-                        </td>
-                        <td className="py-2 text-right whitespace-nowrap">
-                          <Link className="underline" href={`/equipments/${e.id}`}>
+                      <DataTableRow key={e.id}>
+                        <DataTableCell>
+                          <span className="font-medium">{e.equipmentType.name}</span>
+                        </DataTableCell>
+                        <DataTableCell>{e.brand ?? "—"}</DataTableCell>
+                        <DataTableCell>{e.model ?? "—"}</DataTableCell>
+                        <DataTableCell>{e.serial ?? "—"}</DataTableCell>
+                        <DataTableCell className="text-xs text-muted-foreground">{e.ipAddress ?? "—"}</DataTableCell>
+                        <DataTableCell>
+                          <StatusPill
+                            status={e.active ? "activo" : "cancelado"}
+                            label={e.active ? "Activo" : "Inactivo"}
+                            size="sm"
+                          />
+                        </DataTableCell>
+                        <DataTableCell className="text-right whitespace-nowrap">
+                          <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/equipments/${e.id}`}>
                             Ver hoja de vida
                           </Link>
-                        </td>
-                      </tr>
+                        </DataTableCell>
+                      </DataTableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </DataTableBody>
+              </DataTable>
             </div>
           </section>
 
@@ -346,62 +352,73 @@ export default async function BusLifePage({ params }: PageProps) {
               <p className="text-xs text-muted-foreground">últimos {bus.cases.length}</p>
             </div>
 
-            <div className="mt-4 overflow-auto">
-              <table className="sts-table">
-                <thead className="text-xs text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="py-2 text-left">Fecha</th>
-                    <th className="py-2 text-left">Título</th>
-                    <th className="py-2 text-left">Tipo</th>
-                    <th className="py-2 text-left">Estado</th>
-                    <th className="py-2 text-left">OT</th>
-                    <th className="py-2 text-left"></th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="mt-4">
+              <DataTable>
+                <DataTableHeader>
+                  <DataTableRow>
+                    <DataTableHead>Fecha</DataTableHead>
+                    <DataTableHead>Título</DataTableHead>
+                    <DataTableHead>Tipo</DataTableHead>
+                    <DataTableHead>Estado</DataTableHead>
+                    <DataTableHead>OT</DataTableHead>
+                    <DataTableHead className="text-right">Acción</DataTableHead>
+                  </DataTableRow>
+                </DataTableHeader>
+                <DataTableBody>
                   {bus.cases.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-muted-foreground">
+                    <DataTableRow>
+                      <DataTableCell colSpan={6} className="text-sm text-muted-foreground">
                         No hay casos para este bus.
-                      </td>
-                    </tr>
+                      </DataTableCell>
+                    </DataTableRow>
                   ) : (
                     bus.cases.map((c) => (
-                      <tr key={c.id} className="border-b last:border-b-0">
-                        <td className="py-2 whitespace-nowrap">{fmtDate(c.createdAt)}</td>
-                        <td className="py-2">
-                          <div className="font-medium">{c.title}</div>
-                          <div className="text-xs text-muted-foreground">Prio {c.priority}</div>
-                        </td>
-                        <td className="py-2">{c.type}</td>
-                        <td className="py-2">
-                          <span className={caseStatusBadge(c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
-                        </td>
-                        <td className="py-2">
+                      <DataTableRow key={c.id}>
+                        <DataTableCell className="whitespace-nowrap">{fmtDate(c.createdAt)}</DataTableCell>
+                        <DataTableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium">{c.title}</span>
+                            <PriorityBadge priority={c.priority} size="sm" />
+                          </div>
+                        </DataTableCell>
+                        <DataTableCell>
+                          <TypeBadge type={c.type} />
+                        </DataTableCell>
+                        <DataTableCell>
+                          <StatusPill
+                            status={mapCaseStatus(c.status)}
+                            label={labelFromMap(c.status, caseStatusLabels)}
+                            size="sm"
+                            pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
+                          />
+                        </DataTableCell>
+                        <DataTableCell>
                           {c.workOrder ? (
-                            <span className={woStatusBadge(c.workOrder.status)}>{labelFromMap(c.workOrder.status, workOrderStatusLabels)}</span>
+                            <StatusPill
+                              status={mapWorkOrderStatus(c.workOrder.status)}
+                              label={labelFromMap(c.workOrder.status, workOrderStatusLabels)}
+                              size="sm"
+                              pulse={c.workOrder.status === "EN_CAMPO" || c.workOrder.status === "EN_VALIDACION"}
+                            />
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
-                        </td>
-                        <td className="py-2 text-right whitespace-nowrap">
-                          <Link className="underline" href={`/cases/${c.id}`}>
+                        </DataTableCell>
+                        <DataTableCell className="text-right whitespace-nowrap">
+                          <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/cases/${c.id}`}>
                             Abrir caso
                           </Link>
                           {c.workOrder?.id ? (
-                            <>
-                              <span className="mx-2 text-muted-foreground">•</span>
-                              <Link className="underline" href={`/work-orders/${c.workOrder.id}`}>
-                                Abrir OT
-                              </Link>
-                            </>
+                            <Link className="ml-2 sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/work-orders/${c.workOrder.id}`}>
+                              Abrir OT
+                            </Link>
                           ) : null}
-                        </td>
-                      </tr>
+                        </DataTableCell>
+                      </DataTableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </DataTableBody>
+              </DataTable>
             </div>
           </section>
 

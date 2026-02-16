@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/Field";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "@/components/ui/data-table";
 
 type BusRow = { id: string; code: string; plate: string | null };
 
@@ -33,27 +41,34 @@ export default function BusesPage() {
         {loading ? <p className="text-sm text-muted-foreground">Buscando…</p> : null}
       </div>
 
-      <div className="sts-card">
-        <div className="grid grid-cols-12 gap-2 border-b p-3 text-xs font-medium">
-          <div className="col-span-3">Código</div>
-          <div className="col-span-3">Placa</div>
-          <div className="col-span-6">Acción</div>
-        </div>
+      <DataTable>
+        <DataTableHeader>
+          <DataTableRow>
+            <DataTableHead>Código</DataTableHead>
+            <DataTableHead>Placa</DataTableHead>
+            <DataTableHead className="text-right">Acción</DataTableHead>
+          </DataTableRow>
+        </DataTableHeader>
+        <DataTableBody>
+          {items.map((b) => (
+            <DataTableRow key={b.id}>
+              <DataTableCell>
+                <div className="font-medium">{b.code}</div>
+              </DataTableCell>
+              <DataTableCell>
+                <span className="text-muted-foreground">{b.plate ?? "—"}</span>
+              </DataTableCell>
+              <DataTableCell className="text-right">
+                <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/buses/${b.id}`}>
+                  Ver hoja de vida
+                </Link>
+              </DataTableCell>
+            </DataTableRow>
+          ))}
+        </DataTableBody>
+      </DataTable>
 
-        {items.map((b) => (
-          <div key={b.id} className="grid grid-cols-12 gap-2 p-3 text-sm border-b last:border-b-0">
-            <div className="col-span-3 font-medium">{b.code}</div>
-            <div className="col-span-3 text-muted-foreground">{b.plate ?? "—"}</div>
-            <div className="col-span-6">
-              <Link className="underline" href={`/buses/${b.id}`}>
-                Ver hoja de vida
-              </Link>
-            </div>
-          </div>
-        ))}
-
-        {items.length === 0 ? <div className="p-4 text-sm text-muted-foreground">Sin resultados.</div> : null}
-      </div>
+      {items.length === 0 ? <div className="sts-card p-4 text-sm text-muted-foreground">Sin resultados.</div> : null}
     </div>
   );
 }

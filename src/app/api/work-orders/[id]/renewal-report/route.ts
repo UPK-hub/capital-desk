@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/uploads";
 import { CaseEventType, NotificationType, Role } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { findInventoryModelBySerial } from "@/lib/inventory-catalog";
 import { z } from "zod";
 
 const schema = z.object({
@@ -22,8 +23,6 @@ const schema = z.object({
   newInstallation: z.any().optional().nullable(),
   finalChecklist: z.any().optional().nullable(),
 
-  timeStart: z.string().trim().optional().nullable(),
-  timeEnd: z.string().trim().optional().nullable(),
   observations: z.string().trim().optional().nullable(),
 });
 
@@ -35,7 +34,21 @@ function emptyToNull(v?: string | null) {
   return s ? s : null;
 }
 
+function formatInternalTime(d?: Date | null): string | null {
+  if (!d) return null;
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
+  }).format(d);
+}
+
 type PhotoBucket = "old" | "new" | "checklist";
+
+function isRenewalLikeCase(type: string) {
+  return type === "RENOVACION_TECNOLOGICA" || type === "MEJORA_PRODUCTO";
+}
 
 function normalizeStringArray(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
@@ -64,22 +77,39 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
     },
   });
   if (!wo) return NextResponse.json({ error: "WorkOrder not found" }, { status: 404 });
-  if (wo.case.type !== "RENOVACION_TECNOLOGICA") {
-    return NextResponse.json({ error: "No es RENOVACION_TECNOLOGICA" }, { status: 400 });
+  if (!isRenewalLikeCase(wo.case.type)) {
+    return NextResponse.json({ error: "No aplica para este tipo de caso" }, { status: 400 });
   }
 
-  const busEquipments = await prisma.busEquipment.findMany({
-    where: { busId: wo.case.busId, active: true },
-    orderBy: [{ equipmentType: { name: "asc" } }, { id: "asc" }],
-    select: {
-      id: true,
-      ipAddress: true,
-      brand: true,
-      model: true,
-      serial: true,
-      equipmentType: { select: { name: true } },
-    },
-  });
+  const busEquipments =
+    wo.case.type === "RENOVACION_TECNOLOGICA"
+      ? await prisma.busEquipment.findMany({
+          where: { busId: wo.case.busId, active: true },
+          orderBy: [{ equipmentType: { name: "asc" } }, { id: "asc" }],
+          select: {
+            id: true,
+            ipAddress: true,
+            brand: true,
+            model: true,
+            serial: true,
+            equipmentType: { select: { name: true } },
+          },
+        })
+      : (() => {
+          const selected = wo.case.caseEquipments?.length
+            ? wo.case.caseEquipments.map((c) => c.busEquipment)
+            : wo.case.busEquipment
+            ? [wo.case.busEquipment]
+            : [];
+          return selected.map((eq) => ({
+            id: eq.id,
+            ipAddress: eq.ipAddress ?? null,
+            brand: eq.brand ?? null,
+            model: eq.model ?? null,
+            serial: eq.serial ?? null,
+            equipmentType: { name: eq.equipmentType?.name ?? "" },
+          }));
+        })();
 
   const selected = wo.case.caseEquipments?.length
     ? wo.case.caseEquipments.map((c) => c.busEquipment)
@@ -94,6 +124,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
       plate: wo.case.bus.plate ?? null,
       linkSmartHelios: wo.case.bus.linkSmartHelios ?? null,
       ipSimcard: wo.case.bus.ipSimcard ?? null,
+      caseType: wo.case.type,
       selectedEquipments: selected.map((eq) => ({
         id: eq.id,
         type: eq.equipmentType.name,
@@ -121,8 +152,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     },
   });
   if (!wo) return NextResponse.json({ error: "WorkOrder not found" }, { status: 404 });
-  if (wo.case.type !== "RENOVACION_TECNOLOGICA") {
-    return NextResponse.json({ error: "No es RENOVACION_TECNOLOGICA" }, { status: 400 });
+  if (!isRenewalLikeCase(wo.case.type)) {
+    return NextResponse.json({ error: "No aplica para este tipo de caso" }, { status: 400 });
   }
 
   const contentType = req.headers.get("content-type") ?? "";
@@ -207,7 +238,29 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
   const v = parsed.data;
 
-  const normalized = {
+  const updatesFromBody = Array.isArray((v.newInstallation as any)?.equipmentUpdates)
+    ? ((v.newInstallation as any).equipmentUpdates as any[])
+    : [];
+
+  const enrichedEquipmentUpdates: any[] = [];
+  for (const row of updatesFromBody) {
+    const serial = emptyToNull(row?.newSerial ?? row?.serial);
+    const model = emptyToNull(row?.model) ?? (await findInventoryModelBySerial(tenantId, serial));
+    enrichedEquipmentUpdates.push({
+      ...row,
+      model: model ?? row?.model ?? "",
+    });
+  }
+
+  const normalizedInstallation: any =
+    v.newInstallation && typeof v.newInstallation === "object"
+      ? {
+          ...(v.newInstallation as Record<string, any>),
+          equipmentUpdates: enrichedEquipmentUpdates,
+        }
+      : null;
+
+  const normalized: any = {
     ticketNumber: emptyToNull(v.ticketNumber),
     workOrderNumber: emptyToNull(v.workOrderNumber),
     busCode: emptyToNull(v.busCode) ?? wo.case.bus.code,
@@ -216,10 +269,10 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     ipSimcard: emptyToNull(v.ipSimcard),
 
     removedChecklist: v.removedChecklist ?? null,
-    newInstallation: v.newInstallation ?? null,
+    newInstallation: normalizedInstallation,
     finalChecklist: v.finalChecklist ?? null,
-    timeStart: emptyToNull(v.timeStart),
-    timeEnd: emptyToNull(v.timeEnd),
+    timeStart: formatInternalTime(wo.startedAt),
+    timeEnd: formatInternalTime(wo.finishedAt),
     observations: emptyToNull(v.observations),
   };
 
@@ -238,20 +291,20 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       },
     });
 
-    const updates = Array.isArray((v.newInstallation as any)?.equipmentUpdates)
-      ? ((v.newInstallation as any).equipmentUpdates as any[])
-      : [];
+    const updates = enrichedEquipmentUpdates;
 
     for (const row of updates) {
       const busEquipmentId = String(row?.busEquipmentId ?? "").trim();
       if (!busEquipmentId) continue;
+      const serial = emptyToNull(row?.newSerial ?? row?.serial);
+      const model = emptyToNull(row?.model) ?? (await findInventoryModelBySerial(tenantId, serial));
       await tx.busEquipment.updateMany({
         where: { id: busEquipmentId, bus: { tenantId, id: wo.case.busId } },
         data: {
           ipAddress: emptyToNull(row?.ipAddress) ?? undefined,
           brand: emptyToNull(row?.brand) ?? undefined,
-          model: emptyToNull(row?.model) ?? undefined,
-          serial: emptyToNull(row?.newSerial ?? row?.serial) ?? undefined,
+          model: model ?? undefined,
+          serial: serial ?? undefined,
         },
       });
     }

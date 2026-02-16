@@ -21,8 +21,6 @@ const FormSchema = z.object({
   activities: z.any().optional().nullable(),
 
   observations: z.string().trim().optional().nullable(),
-  timeStart: z.string().trim().optional().nullable(),
-  timeEnd: z.string().trim().optional().nullable(),
   responsibleUpk: z.string().trim().optional().nullable(),
   responsibleCapitalBus: z.string().trim().optional().nullable(),
 });
@@ -58,8 +56,6 @@ export default function PreventiveReportForm({
       // devicesInstalled eliminado
       activities: initialReport?.activities ?? [],
       observations: initialReport?.observations ?? "",
-      timeStart: initialReport?.timeStart ?? "",
-      timeEnd: initialReport?.timeEnd ?? "",
       responsibleUpk: initialReport?.responsibleUpk ?? "",
       responsibleCapitalBus: initialReport?.responsibleCapitalBus ?? "",
     },
@@ -124,17 +120,6 @@ export default function PreventiveReportForm({
             <label className="text-xs text-muted-foreground">Fecha ejecutada</label>
             <input type="datetime-local" className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("executedAt")} />
           </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground">Hora inicio</label>
-            <input type="time" className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("timeStart")} />
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground">Hora fin</label>
-            <input type="time" className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm" {...form.register("timeEnd")} />
-          </div>
-
 
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Observaciones</label>

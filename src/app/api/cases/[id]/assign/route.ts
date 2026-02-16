@@ -27,6 +27,27 @@ function short(s: string | null | undefined, max = 260) {
   return x.length > max ? `${x.slice(0, max)}…` : x;
 }
 
+function toBogotaDayKey(value: Date | null | undefined) {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+function fmtBogotaDateTime(value: Date | null | undefined) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(value);
+}
+
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -44,6 +65,12 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const body = await req.json().catch(() => ({}));
   const technicianId = String(body.technicianId ?? "").trim();
   if (!technicianId) return NextResponse.json({ error: "technicianId requerido" }, { status: 400 });
+  const wantsReprogram =
+    body.reprogram === true ||
+    body.reprogram === "true" ||
+    body.reprogram === 1 ||
+    body.reprogram === "1";
+  const reprogramReason = short(String(body.reprogramReason ?? ""), 280) || null;
   const scheduledAtRaw = String(body.scheduledAt ?? "").trim();
   const scheduledToRaw = String(body.scheduledTo ?? "").trim();
   if (!scheduledAtRaw || !scheduledToRaw) {
@@ -82,7 +109,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Este caso no requiere OT" }, { status: 400 });
   }
 
-  const wo = await prisma.$transaction(async (tx) => {
+  const assignment = await prisma.$transaction(async (tx) => {
     const workOrder =
       c.workOrder ??
       (await (async () => {
@@ -96,6 +123,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           },
         });
       })());
+    const previousScheduledAt = workOrder.scheduledAt;
+    const previousDayKey = toBogotaDayKey(previousScheduledAt);
+    const targetDayKey = toBogotaDayKey(scheduledAt);
+    const isPreventive = c.type === "PREVENTIVO";
+    const reprogrammed = isPreventive && Boolean(previousDayKey) && previousDayKey !== targetDayKey;
+
+    if (reprogrammed && !wantsReprogram) {
+      throw new Error("Esta OT preventiva ya tiene fecha programada. Activa 'Reprogramar' para cambiarla.");
+    }
 
     const weekParts = getBogotaWeekStartParts(toBogotaParts(scheduledAt));
     const weekStartUtc = bogotaDateTimeToUtc(weekParts, 0, 0);
@@ -186,6 +222,47 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       },
     });
 
+    if (reprogrammed) {
+      const existingReport = await tx.preventiveReport.findUnique({
+        where: { workOrderId: updated.id },
+        select: { scheduledAt: true },
+      });
+      const baseProgrammedAt = existingReport?.scheduledAt ?? previousScheduledAt ?? scheduledAt;
+
+      if (existingReport) {
+        await tx.preventiveReport.update({
+          where: { workOrderId: updated.id },
+          data: {
+            scheduledAt: baseProgrammedAt,
+            rescheduledAt: scheduledAt,
+          },
+        });
+      } else {
+        await tx.preventiveReport.create({
+          data: {
+            workOrderId: updated.id,
+            scheduledAt: baseProgrammedAt,
+            rescheduledAt: scheduledAt,
+          },
+        });
+      }
+
+      await tx.caseEvent.create({
+        data: {
+          caseId: c.id,
+          type: CaseEventType.COMMENT,
+          message: `Fecha programada reprogramada: ${fmtBogotaDateTime(previousScheduledAt)} → ${fmtBogotaDateTime(scheduledAt)}`,
+          meta: {
+            workOrderId: updated.id,
+            by: actorUserId,
+            previousScheduledAt: previousScheduledAt?.toISOString() ?? null,
+            newScheduledAt: scheduledAt.toISOString(),
+            reason: reprogramReason,
+          },
+        },
+      });
+    }
+
     await tx.busLifecycleEvent.create({
       data: {
         busId: c.busId,
@@ -198,8 +275,13 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       },
     });
 
-    return updated;
+    return {
+      workOrder: updated,
+      reprogrammed,
+      previousScheduledAt,
+    };
   });
+  const wo = assignment.workOrder;
 
   // ========= NOTIFICACIÓN INTERNA + EMAIL (vía notifyTenantUsers) =========
 
@@ -219,6 +301,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     `Bus: ${busLabel}`,
     `Prioridad: ${c.priority}`,
     `OT: ${workOrderNo}`,
+    `Horario: ${fmtBogotaDateTime(scheduledAt)} - ${fmtBogotaDateTime(scheduledTo)}`,
   ];
 
   const desc = short(c.description, 300);
@@ -250,5 +333,51 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     sendEmail: true,
   });
 
-  return NextResponse.json({ ok: true, workOrderId: wo.id });
+  if (assignment.reprogrammed) {
+    const reproTitle = `Preventivo reprogramado: ${caseNo}`;
+    const reproLines = [
+      `Caso: ${caseNo}`,
+      `OT: ${workOrderNo}`,
+      `Bus: ${busLabel}`,
+      `Fecha anterior: ${fmtBogotaDateTime(assignment.previousScheduledAt)}`,
+      `Nueva fecha: ${fmtBogotaDateTime(scheduledAt)}`,
+      `Técnico: ${tech.name ?? tech.id}`,
+    ];
+    if (reprogramReason) reproLines.push(`Motivo: ${reprogramReason}`);
+    const reproBody = reproLines.join("\n");
+    const reprogramMeta = {
+      caseId: c.id,
+      workOrderId: wo.id,
+      technicianId: tech.id,
+      by: actorUserId,
+      previousScheduledAt: assignment.previousScheduledAt?.toISOString() ?? null,
+      newScheduledAt: scheduledAt.toISOString(),
+      newScheduledTo: scheduledTo.toISOString(),
+      reason: reprogramReason,
+    };
+
+    await notifyTenantUsers({
+      tenantId,
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.PLANNER],
+      type: NotificationType.CASE_ASSIGNED,
+      title: reproTitle,
+      body: reproBody,
+      href: `/cases/${c.id}`,
+      meta: reprogramMeta,
+      sendEmail: false,
+    });
+
+    await notifyTenantUsers({
+      tenantId,
+      userIds: [tech.id],
+      type: NotificationType.CASE_ASSIGNED,
+      title: reproTitle,
+      body: reproBody,
+      href: `/work-orders/${wo.id}`,
+      meta: reprogramMeta,
+      sendEmail: false,
+    });
+  }
+
+  return NextResponse.json({ ok: true, workOrderId: wo.id, reprogrammed: assignment.reprogrammed });
 }

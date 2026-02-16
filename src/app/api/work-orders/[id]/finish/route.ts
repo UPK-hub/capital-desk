@@ -20,6 +20,16 @@ import {
 import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
 
+function formatInternalTime(d?: Date | null) {
+  if (!d) return null;
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
+  }).format(d);
+}
+
 
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
@@ -255,60 +265,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     }
 
     if (wo.case.type === CaseType.RENOVACION_TECNOLOGICA) {
-      const exists = await tx.caseEvent.findFirst({
-        where: {
-          type: CaseEventType.CREATED,
-          meta: { path: ["sourceRenewalCaseId"], equals: wo.caseId },
+      const autoPreventiveAt = new Date(tmEndedAt.getTime() + 21 * 24 * 60 * 60 * 1000);
+      await tx.caseEvent.create({
+        data: {
+          caseId: wo.caseId,
+          type: CaseEventType.COMMENT,
+          message: "Preventivo automático programado para día 21 post renovación.",
+          meta: { sourceWorkOrderId: wo.id, autoPreventiveAt: autoPreventiveAt.toISOString() },
         },
-        select: { caseId: true },
       });
-
-      if (!exists) {
-        const nums = await nextNumbers(tx as any, tenantId, { case: true, workOrder: true });
-        const scheduledAt = new Date(tmEndedAt.getTime() + 21 * 24 * 60 * 60 * 1000);
-        const prevCase = await tx.case.create({
-          data: {
-            tenantId,
-            caseNo: nums.caseNo!,
-            type: CaseType.PREVENTIVO,
-            status: CaseStatus.NUEVO,
-            priority: 3,
-            title: `Preventivo automático post renovación - ${wo.case.bus.code}`,
-            description: `Preventivo generado automáticamente 21 días después de la renovación tecnológica (${wo.case.id}).`,
-            busId: wo.case.busId,
-          },
-        });
-
-        const busEquipments = await tx.busEquipment.findMany({
-          where: { busId: wo.case.busId, active: true },
-          select: { id: true },
-        });
-
-        if (busEquipments.length) {
-          await tx.caseEquipment.createMany({
-            data: busEquipments.map((e) => ({ caseId: prevCase.id, busEquipmentId: e.id })),
-            skipDuplicates: true,
-          });
-        }
-
-        await tx.caseEvent.create({
-          data: {
-            caseId: prevCase.id,
-            type: CaseEventType.CREATED,
-            message: "Caso creado automáticamente desde cierre de renovación tecnológica",
-            meta: { sourceRenewalCaseId: wo.caseId, sourceWorkOrderId: wo.id },
-          },
-        });
-
-        await tx.workOrder.create({
-          data: {
-            tenantId,
-            workOrderNo: nums.workOrderNo!,
-            caseId: prevCase.id,
-            scheduledAt,
-          },
-        });
-      }
     }
 
     if (!needsCoordinatorValidation && !wo.interventionReceipt) {
@@ -338,18 +303,8 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         const nums = await nextNumbers(tx as any, tenantId, { ticket: true });
         ticketNo = `UPK-${String(nums.ticketNo ?? 0).padStart(3, "0")}`;
       }
-      const internalStart =
-        wo.case.type === CaseType.PREVENTIVO
-          ? wo.preventiveReport?.timeStart
-          : wo.case.type === CaseType.RENOVACION_TECNOLOGICA
-          ? (wo as any).renewalTechReport?.timeStart
-          : wo.correctiveReport?.timeStart;
-      const internalEnd =
-        wo.case.type === CaseType.PREVENTIVO
-          ? wo.preventiveReport?.timeEnd
-          : wo.case.type === CaseType.RENOVACION_TECNOLOGICA
-          ? (wo as any).renewalTechReport?.timeEnd
-          : wo.correctiveReport?.timeEnd;
+      const internalStart = formatInternalTime(wo.startedAt);
+      const internalEnd = formatInternalTime(tmEndedAt);
 
       for (let attempt = 0; attempt < 10; attempt += 1) {
         try {
@@ -415,18 +370,6 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
     meta: { workOrderId: wo.id, caseId: wo.caseId },
   });
-
-  if (wo.case.type === CaseType.RENOVACION_TECNOLOGICA) {
-    const scheduledAt = new Date(tmEndedAt.getTime() + 21 * 24 * 60 * 60 * 1000);
-    await notifyTenantUsers({
-      tenantId,
-      roles: [Role.ADMIN, Role.BACKOFFICE],
-      type: NotificationType.CASE_CREATED,
-      title: "Preventivo automático generado",
-      body: `Bus ${wo.case.bus.code} · Programación sugerida: ${scheduledAt.toISOString().slice(0, 10)}`,
-      meta: { sourceWorkOrderId: wo.id, sourceCaseId: wo.caseId, autoPreventiveAt: scheduledAt.toISOString() },
-    });
-  }
 
   return NextResponse.json({ ok: true });
 }

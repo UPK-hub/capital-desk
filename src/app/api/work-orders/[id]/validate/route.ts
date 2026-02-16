@@ -16,6 +16,16 @@ import {
 } from "@prisma/client";
 import { nextNumbers } from "@/lib/tenant-sequence";
 
+function formatInternalTime(d?: Date | null) {
+  if (!d) return null;
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
+  }).format(d);
+}
+
 export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -151,10 +161,8 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
         ticketNo = `UPK-${String(nums.ticketNo ?? 0).padStart(3, "0")}`;
       }
 
-      const internalStart =
-        item.case.type === CaseType.PREVENTIVO ? item.preventiveReport?.timeStart : item.correctiveReport?.timeStart;
-      const internalEnd =
-        item.case.type === CaseType.PREVENTIVO ? item.preventiveReport?.timeEnd : item.correctiveReport?.timeEnd;
+      const internalStart = formatInternalTime(item.startedAt);
+      const internalEnd = formatInternalTime(item.finishedAt ?? tmEndedAt);
 
       for (let attempt = 0; attempt < 10; attempt += 1) {
         try {

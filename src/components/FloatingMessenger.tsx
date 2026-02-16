@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import DirectChat from "@/components/DirectChat";
 
 type Contact = { id: string; name: string; email?: string; role: string };
@@ -106,122 +107,157 @@ export default function FloatingMessenger({
     setActiveThreadId(null);
   }
 
+  const panelAnim = {
+    initial: { opacity: 0, y: 16, scale: 0.96 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: 14, scale: 0.97 },
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
+  };
+
   return (
     <div className="floating-chat">
-      <button
+      <motion.button
         className="floating-chat__button"
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-label="Chat"
+        whileHover={{ y: -2, scale: 1.02 }}
+        whileTap={{ y: 0, scale: 0.98 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
       >
-        <span>Chat</span>
+        <span>{open ? "Cerrar" : "Chat"}</span>
         {totalUnread > 0 ? <span className="floating-chat__badge">{totalUnread}</span> : null}
-      </button>
+      </motion.button>
 
-      {open ? (
-        <div className="floating-chat__panel sts-card">
-          <div className="floating-chat__header">
-            <div>
-              <p className="text-sm font-semibold">Mensajería</p>
-              <p className="text-xs text-muted-foreground">Selecciona un técnico y conversa.</p>
-            </div>
-            <button className="sts-btn-ghost text-xs" type="button" onClick={() => setOpen(false)}>
-              Cerrar
-            </button>
-          </div>
-
-          {error ? <p className="px-4 text-xs text-red-500">{error}</p> : null}
-          {loading ? <p className="px-4 text-xs text-muted-foreground">Cargando…</p> : null}
-
-          {activeThreadId ? (
-            <div className="floating-chat__content">
-              <div className="floating-chat__toolbar">
-                <button className="sts-btn-ghost text-xs" type="button" onClick={closeThread}>
-                  ← Volver
-                </button>
-                <div className="text-right">
-                  <p className="text-xs font-semibold">{activePeer?.name ?? "Chat"}</p>
-                  <p className="text-[11px] text-muted-foreground">{activePeer?.role ?? "Técnico"}</p>
-                </div>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            className="floating-chat__panel sts-card"
+            initial={panelAnim.initial}
+            animate={panelAnim.animate}
+            exit={panelAnim.exit}
+            transition={panelAnim.transition}
+          >
+            <div className="floating-chat__header">
+              <div>
+                <p className="text-sm font-semibold">Mensajería</p>
+                <p className="text-xs text-muted-foreground">Selecciona un técnico y conversa.</p>
               </div>
-              <DirectChat
-                threadId={activeThreadId}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                title={activePeer?.name ?? "Chat"}
-                subtitle="Directo"
-                showHeader={false}
-                onNewMessage={loadThreads}
-              />
+              <button className="sts-btn-ghost text-xs" type="button" onClick={() => setOpen(false)}>
+                Cerrar
+              </button>
             </div>
-          ) : (
-            <div className="floating-chat__content">
-              <div className="floating-chat__section">
-                <div className="floating-chat__search">
-                  <input
-                    type="text"
-                    placeholder="Buscar técnico..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+
+            {error ? <p className="px-4 text-xs text-red-500">{error}</p> : null}
+            {loading ? <p className="px-4 text-xs text-muted-foreground">Cargando…</p> : null}
+
+            <AnimatePresence mode="wait" initial={false}>
+              {activeThreadId ? (
+                <motion.div
+                  key={`thread-${activeThreadId}`}
+                  className="floating-chat__content"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <div className="floating-chat__toolbar">
+                    <button className="sts-btn-ghost text-xs" type="button" onClick={closeThread}>
+                      ← Volver
+                    </button>
+                    <div className="text-right">
+                      <p className="text-xs font-semibold">{activePeer?.name ?? "Chat"}</p>
+                      <p className="text-[11px] text-muted-foreground">{activePeer?.role ?? "Técnico"}</p>
+                    </div>
+                  </div>
+                  <DirectChat
+                    threadId={activeThreadId}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    title={activePeer?.name ?? "Chat"}
+                    subtitle="Directo"
+                    showHeader={false}
+                    onNewMessage={loadThreads}
                   />
-                </div>
-                <div className="floating-chat__list">
-                  {filteredContacts.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No hay técnicos disponibles.</p>
-                  ) : (
-                    filteredContacts.map((c) => (
-                      <button
-                        key={c.id}
-                        className="floating-chat__item"
-                        type="button"
-                        onClick={() => startChat(c.id)}
-                      >
-                        <div className="floating-chat__avatar">{c.name.charAt(0)}</div>
-                        <div className="text-left">
-                          <p className="text-sm font-medium">{c.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{c.email ?? c.role}</p>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="threads-list"
+                  className="floating-chat__content"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <div className="floating-chat__section">
+                    <div className="floating-chat__search">
+                      <input
+                        type="text"
+                        placeholder="Buscar técnico..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                      />
+                    </div>
+                    <div className="floating-chat__list">
+                      {filteredContacts.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No hay técnicos disponibles.</p>
+                      ) : (
+                        filteredContacts.map((c) => (
+                          <button
+                            key={c.id}
+                            className="floating-chat__item"
+                            type="button"
+                            onClick={() => startChat(c.id)}
+                          >
+                            <div className="floating-chat__avatar">{c.name.charAt(0)}</div>
+                            <div className="text-left">
+                              <p className="text-sm font-medium">{c.name}</p>
+                              <p className="text-[11px] text-muted-foreground">{c.email ?? c.role}</p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
 
-              <div className="floating-chat__section">
-                <p className="text-xs font-semibold">Conversaciones recientes</p>
-                <div className="floating-chat__list">
-                  {threads.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Sin conversaciones aún.</p>
-                  ) : (
-                    threads.map((thread) => {
-                      const other = thread.participants.find((p) => p.id !== currentUserId);
-                      return (
-                        <button
-                          key={thread.id}
-                          className="floating-chat__item"
-                          type="button"
-                          onClick={() => openThread(thread.id)}
-                        >
-                          <div className="floating-chat__avatar">{other?.name?.charAt(0) ?? "?"}</div>
-                          <div className="flex-1 text-left">
-                            <p className="text-sm font-medium">{other?.name ?? "Chat"}</p>
-                            <p className="text-[11px] text-muted-foreground line-clamp-1">
-                              {thread.lastMessage?.message ?? "Sin mensajes"}
-                            </p>
-                          </div>
-                          {thread.unreadCount > 0 ? (
-                            <span className="floating-chat__badge small">{thread.unreadCount}</span>
-                          ) : null}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : null}
+                  <div className="floating-chat__section">
+                    <p className="text-xs font-semibold">Conversaciones recientes</p>
+                    <div className="floating-chat__list">
+                      {threads.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Sin conversaciones aún.</p>
+                      ) : (
+                        threads.map((thread) => {
+                          const other = thread.participants.find((p) => p.id !== currentUserId);
+                          return (
+                            <button
+                              key={thread.id}
+                              className="floating-chat__item"
+                              type="button"
+                              onClick={() => openThread(thread.id)}
+                            >
+                              <div className="floating-chat__avatar">{other?.name?.charAt(0) ?? "?"}</div>
+                              <div className="flex-1 text-left">
+                                <p className="text-sm font-medium">{other?.name ?? "Chat"}</p>
+                                <p className="text-[11px] text-muted-foreground line-clamp-1">
+                                  {thread.lastMessage?.message ?? "Sin mensajes"}
+                                </p>
+                              </div>
+                              {thread.unreadCount > 0 ? (
+                                <span className="floating-chat__badge small">{thread.unreadCount}</span>
+                              ) : null}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
     </div>
   );
 }

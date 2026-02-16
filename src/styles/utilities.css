@@ -1,0 +1,45 @@
+/* ========================================
+   Utilities Layer
+   Microinteracciones y helpers visuales
+======================================== */
+
+.route-transition-shell {
+  will-change: opacity, transform;
+}
+
+.fade-up {
+  animation: fade-up var(--motion-base) var(--ease-standard) both;
+}
+
+.surface-muted {
+  background: hsl(var(--muted) / 0.5);
+}
+
+.subtle-divider {
+  border-color: var(--border-subtle);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up {
+    animation: none;
+  }
+}

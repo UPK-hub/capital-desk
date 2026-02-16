@@ -4,7 +4,17 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BusCombobox } from "@/components/BusCombobox";
-import { StsKpiMetric, StsTicketSeverity } from "@prisma/client";
+import { StsKpiMetric } from "@prisma/client";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "@/components/ui/data-table";
+import { StatusPill } from "@/components/ui/status-pill";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 
 type MetricRow = {
   metric: StsKpiMetric;
@@ -68,6 +78,15 @@ const metricLabels: Record<StsKpiMetric, string> = {
   IMAGE_QUALITY_TRANSMITTED: "Calidad imagen transmitida",
   PANIC_ALARM_GENERATION: "Alarmas pánico",
 };
+
+function severityToPriority(severity: string) {
+  const s = String(severity ?? "").toUpperCase();
+  if (s.includes("EMERGENCY") || s.includes("EMERGENCIA")) return 1;
+  if (s.includes("HIGH") || s.includes("ALTA")) return 2;
+  if (s.includes("MEDIUM") || s.includes("MEDIA")) return 3;
+  if (s.includes("LOW") || s.includes("BAJA")) return 5;
+  return 4;
+}
 
 export default function TmDashboard({
   range,
@@ -166,22 +185,22 @@ export default function TmDashboard({
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="sts-card p-4">
+        <div className="sts-card sts-card--interactive p-4">
           <p className="text-xs text-muted-foreground">Tickets totales</p>
           <p className="mt-2 text-2xl font-semibold">{totals.totalTickets}</p>
           <p className="text-xs text-muted-foreground">Abiertos: {totals.openTickets} · Cerrados: {totals.closedTickets}</p>
         </div>
-        <div className="sts-card p-4">
+        <div className="sts-card sts-card--interactive p-4">
           <p className="text-xs text-muted-foreground">SLA Respuesta</p>
           <p className="mt-2 text-2xl font-semibold">{totals.responseCompliance}%</p>
           <p className="text-xs text-muted-foreground">Breaches: {totals.responseBreaches}</p>
         </div>
-        <div className="sts-card p-4">
+        <div className="sts-card sts-card--interactive p-4">
           <p className="text-xs text-muted-foreground">SLA Resolución</p>
           <p className="mt-2 text-2xl font-semibold">{totals.resolutionCompliance}%</p>
           <p className="text-xs text-muted-foreground">Breaches: {totals.resolutionBreaches}</p>
         </div>
-        <div className="sts-card p-4">
+        <div className="sts-card sts-card--interactive p-4">
           <p className="text-xs text-muted-foreground">Tiempos promedio</p>
           <p className="mt-2 text-sm">Respuesta: {totals.avgResponseMinutes} min</p>
           <p className="text-sm">Resolución: {totals.avgResolutionMinutes} min</p>
@@ -192,7 +211,10 @@ export default function TmDashboard({
         <h2 className="text-base font-semibold">Distribución por prioridad</h2>
         <div className="grid gap-3 md:grid-cols-4">
           {severityLabels.map((label, idx) => (
-            <div key={label} className="sts-card p-3">
+            <div key={label} className="sts-card sts-card--interactive p-3">
+              <div className="mb-2">
+                <PriorityBadge priority={severityToPriority(label)} />
+              </div>
               <p className="text-xs text-muted-foreground">{label}</p>
               <p className="text-xl font-semibold">{severityCounts[idx]}</p>
             </div>
@@ -209,7 +231,7 @@ export default function TmDashboard({
         ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           {metricSummary.map((m) => (
-            <div key={m.metric} className="sts-card p-4">
+            <div key={m.metric} className="sts-card sts-card--interactive p-4">
               <p className="text-xs text-muted-foreground">{metricLabels[m.metric]}</p>
               <p className="mt-2 text-xl font-semibold">{m.average}%</p>
               <p className="text-xs text-muted-foreground">Cumplimiento: {m.compliance}%</p>
@@ -220,66 +242,72 @@ export default function TmDashboard({
 
       <section className="sts-card p-5 space-y-4">
         <h2 className="text-base font-semibold">SLA por componente y prioridad</h2>
-        <div className="overflow-auto">
-          <table className="sts-table">
-            <thead>
-              <tr>
-                <th>Componente</th>
-                <th>Prioridad</th>
-                <th>Total</th>
-                <th>Respuesta %</th>
-                <th>Resolución %</th>
-                <th>Breaches resp</th>
-                <th>Breaches res</th>
-              </tr>
-            </thead>
-            <tbody>
-              {componentSeverityRows.map((row, idx) => (
-                <tr key={`${row.component}-${row.severity}-${idx}`}>
-                  <td>{row.component}</td>
-                  <td>{row.severity}</td>
-                  <td>{row.total}</td>
-                  <td>{row.response}%</td>
-                  <td>{row.resolution}%</td>
-                  <td>{row.responseBreaches}</td>
-                  <td>{row.resolutionBreaches}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHeader>
+            <DataTableRow>
+              <DataTableHead>Componente</DataTableHead>
+              <DataTableHead>Prioridad</DataTableHead>
+              <DataTableHead>Total</DataTableHead>
+              <DataTableHead>Respuesta %</DataTableHead>
+              <DataTableHead>Resolución %</DataTableHead>
+              <DataTableHead>Breaches resp</DataTableHead>
+              <DataTableHead>Breaches res</DataTableHead>
+            </DataTableRow>
+          </DataTableHeader>
+          <DataTableBody>
+            {componentSeverityRows.map((row, idx) => (
+              <DataTableRow key={`${row.component}-${row.severity}-${idx}`}>
+                <DataTableCell>{row.component}</DataTableCell>
+                <DataTableCell>
+                  <PriorityBadge priority={severityToPriority(row.severity)} />
+                </DataTableCell>
+                <DataTableCell>{row.total}</DataTableCell>
+                <DataTableCell>{row.response}%</DataTableCell>
+                <DataTableCell>{row.resolution}%</DataTableCell>
+                <DataTableCell>{row.responseBreaches}</DataTableCell>
+                <DataTableCell>{row.resolutionBreaches}</DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       </section>
 
       <section className="sts-card p-5 space-y-4">
         <h2 className="text-base font-semibold">Detalle KPIs (por componente)</h2>
-        <div className="overflow-auto">
-          <table className="sts-table">
-            <thead>
-              <tr>
-                <th>Componente</th>
-                <th>Métrica</th>
-                <th>Periodicidad</th>
-                <th>Periodo</th>
-                <th>Valor</th>
-                <th>Umbral</th>
-                <th>Cumple</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kpiRows.map((row, idx) => (
-                <tr key={`${row.component}-${row.metric}-${idx}`}>
-                  <td>{row.component}</td>
-                  <td>{metricLabels[row.metric]}</td>
-                  <td>{row.periodicity}</td>
-                  <td>{row.periodStart}</td>
-                  <td>{row.value}</td>
-                  <td>{row.threshold ?? "—"}</td>
-                  <td>{row.ok === null ? "—" : row.ok ? "Sí" : "No"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHeader>
+            <DataTableRow>
+              <DataTableHead>Componente</DataTableHead>
+              <DataTableHead>Métrica</DataTableHead>
+              <DataTableHead>Periodicidad</DataTableHead>
+              <DataTableHead>Periodo</DataTableHead>
+              <DataTableHead>Valor</DataTableHead>
+              <DataTableHead>Umbral</DataTableHead>
+              <DataTableHead>Cumple</DataTableHead>
+            </DataTableRow>
+          </DataTableHeader>
+          <DataTableBody>
+            {kpiRows.map((row, idx) => (
+              <DataTableRow key={`${row.component}-${row.metric}-${idx}`}>
+                <DataTableCell>{row.component}</DataTableCell>
+                <DataTableCell>{metricLabels[row.metric]}</DataTableCell>
+                <DataTableCell>{row.periodicity}</DataTableCell>
+                <DataTableCell>{row.periodStart}</DataTableCell>
+                <DataTableCell>{row.value}</DataTableCell>
+                <DataTableCell>{row.threshold ?? "—"}</DataTableCell>
+                <DataTableCell>
+                  {row.ok === null ? (
+                    "—"
+                  ) : row.ok ? (
+                    <StatusPill status="activo" label="Sí" />
+                  ) : (
+                    <StatusPill status="cancelado" label="No" />
+                  )}
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       </section>
     </div>
   );

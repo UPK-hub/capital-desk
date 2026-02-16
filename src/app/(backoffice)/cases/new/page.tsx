@@ -46,6 +46,9 @@ export default function NewCasePage() {
 
   const [type, setType] = useState<keyof typeof CASE_TYPE_REGISTRY>("CORRECTIVO");
   const config = CASE_TYPE_REGISTRY[type];
+  const isRenewalTecnologica = type === "RENOVACION_TECNOLOGICA";
+  const usesMultiEquipment =
+    type === "PREVENTIVO" || type === "CORRECTIVO" || type === "MEJORA_PRODUCTO";
 
   const [bus, setBus] = useState<BusOption | null>(null);
   const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
@@ -127,7 +130,7 @@ export default function NewCasePage() {
         body: JSON.stringify({
           type,
           busId: bus.id,
-          busEquipmentIds,
+          busEquipmentIds: isRenewalTecnologica ? [] : busEquipmentIds,
           title: effectiveTitle,
           description: effectiveDescription,
           priority,
@@ -236,34 +239,45 @@ export default function NewCasePage() {
             />
           </Field>
 
-          <Field
-            label="Equipo(s) del bus"
-            hint={
-              type === "PREVENTIVO"
-                ? loadingEquipments
-                  ? "Cargando equipos..."
-                  : "Todos seleccionados por defecto (puedes deseleccionar)"
-                : config.requiresEquipment
-                ? "Requerido"
-                : "Opcional"
-            }
-          >
-            {type === "PREVENTIVO" || type === "CORRECTIVO" ? (
-              <BusEquipmentMultiSelect
-                busId={bus?.id ?? null}
-                value={busEquipmentIds}
-                onChange={setBusEquipmentIds}
-                disabled={!bus?.id}
-              />
-            ) : (
-              <BusEquipmentSelect
-                busId={bus?.id ?? null}
-                value={busEquipmentIds[0] ?? null}
-                onChange={(id) => setBusEquipmentIds(id ? [id] : [])}
-                disabled={!bus?.id}
-              />
-            )}
-          </Field>
+          {isRenewalTecnologica ? (
+            <Field
+              label="Equipo(s) del bus"
+              hint="En renovación tecnológica se vinculan automáticamente todos los equipos activos del bus."
+            >
+              <div className="app-field-control flex h-10 items-center rounded-xl px-3 text-sm text-muted-foreground">
+                Automático por bus seleccionado
+              </div>
+            </Field>
+          ) : (
+            <Field
+              label="Equipo(s) del bus"
+              hint={
+                type === "PREVENTIVO"
+                  ? loadingEquipments
+                    ? "Cargando equipos..."
+                    : "Todos seleccionados por defecto (puedes deseleccionar)"
+                  : config.requiresEquipment
+                  ? "Requerido"
+                  : "Opcional"
+              }
+            >
+              {usesMultiEquipment ? (
+                <BusEquipmentMultiSelect
+                  busId={bus?.id ?? null}
+                  value={busEquipmentIds}
+                  onChange={setBusEquipmentIds}
+                  disabled={!bus?.id}
+                />
+              ) : (
+                <BusEquipmentSelect
+                  busId={bus?.id ?? null}
+                  value={busEquipmentIds[0] ?? null}
+                  onChange={(id) => setBusEquipmentIds(id ? [id] : [])}
+                  disabled={!bus?.id}
+                />
+              )}
+            </Field>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">

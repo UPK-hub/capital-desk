@@ -19,13 +19,17 @@ type Autofill = {
   equipmentLabel: string;
 };
 
+type ActivityArea = "CAMARAS" | "NVR" | "BATERIA";
 type ActivityRow = {
-  area: "CCTV" | "NVR" | "ENERGIA";
+  key: string;
+  area: ActivityArea;
   activity: string;
   maintenanceType: "" | "Preventivo" | "Correctivo";
   result?: "" | "FUNCIONAL" | "NO_FUNCIONAL";
   value?: string;
   valueRequired?: boolean;
+  photoRequired?: boolean;
+  photoPaths?: string[];
   observation?: string;
 };
 
@@ -44,8 +48,6 @@ type FormValues = {
   activities: ActivityRow[];
 
   observations: string;
-  timeStart: string;
-  timeEnd: string;
   responsibleUpk: string;
   responsibleCapitalBus: string;
 
@@ -59,51 +61,126 @@ function isoDate(d?: Date | null) {
   return x.toISOString().slice(0, 10);
 }
 
+function normalizePhotoPaths(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((x) => String(x ?? "").trim()).filter(Boolean);
+}
+
+function hasText(value: unknown) {
+  return String(value ?? "").trim().length > 0;
+}
+
 function inputCls() {
-  return "app-field-control h-9 w-full min-w-0 rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-9 w-full min-w-0 rounded-xl border px-3 text-sm focus-visible:outline-none";
 }
 function textareaCls() {
-  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm focus-visible:outline-none";
 }
 function smallInputCls() {
-  return "app-field-control h-8 w-full rounded-xl border px-2 text-xs outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-8 w-full rounded-xl border px-2 text-xs focus-visible:outline-none";
 }
 
 function defaultActivities(): ActivityRow[] {
   return [
-    { area: "CCTV", activity: "Limpieza general", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Verificar y limpiar conectores", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Comprobación NVR (prueba de ping)", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Verificar ángulos de cobertura", maintenanceType: "Preventivo" },
-    { area: "CCTV", activity: "Pruebas de funcionamiento del CCTV", maintenanceType: "Preventivo", result: "" },
+    { key: "nvr_ping", area: "NVR", activity: "Comprobación NVR (prueba de ping)", maintenanceType: "Preventivo" },
+    { key: "nvr_config", area: "NVR", activity: "Verificar óptima configuración", maintenanceType: "Preventivo" },
+    { key: "nvr_stream", area: "NVR", activity: "Revisión transmisión de video en tiempo real", maintenanceType: "Preventivo" },
+    { key: "nvr_link", area: "NVR", activity: "Revisión enlace remoto vía internet", maintenanceType: "Preventivo" },
+    { key: "nvr_funcionamiento", area: "NVR", activity: "Pruebas de funcionamiento NVR", maintenanceType: "Preventivo", result: "" },
+    { key: "nvr_foto_vms", area: "NVR", activity: "Foto VMS", maintenanceType: "Preventivo", photoRequired: true },
+    { key: "nvr_foto_habitaculo", area: "NVR", activity: "Foto habitáculo", maintenanceType: "Preventivo", photoRequired: true },
+    {
+      key: "nvr_data_canbus",
+      area: "NVR",
+      activity: "Generación de data (recepción de datos CANBUS)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
 
-    { area: "NVR", activity: "Limpieza general", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Revisión del equipo NVR y parámetros de grabación", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Verificar óptima configuración (ahorrar espacio DD)", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Revisión transmisión video en tiempo real", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Revisión enlace remoto vía internet", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Revisión versiones de software", maintenanceType: "Preventivo" },
-    { area: "NVR", activity: "Pruebas de funcionamiento", maintenanceType: "Preventivo", result: "" },
+    { key: "cctv_limpieza_general", area: "CAMARAS", activity: "Limpieza general", maintenanceType: "Preventivo" },
+    { key: "cctv_conectores", area: "CAMARAS", activity: "Verificar y limpiar conectores", maintenanceType: "Preventivo" },
+    { key: "cctv_ping", area: "CAMARAS", activity: "Comprobación NVR (prueba de ping)", maintenanceType: "Preventivo" },
+    { key: "cctv_angulos", area: "CAMARAS", activity: "Verificar ángulos de cobertura", maintenanceType: "Preventivo" },
+    { key: "cctv_funcionamiento", area: "CAMARAS", activity: "Pruebas de funcionamiento del CCTV", maintenanceType: "Preventivo", result: "" },
 
-    { area: "ENERGIA", activity: "NVR encendida (voltaje hacia NVR desde tarjeta)", maintenanceType: "Preventivo", value: "", valueRequired: true },
-    { area: "ENERGIA", activity: "Voltaje baterías respaldo (master apagado)", maintenanceType: "Preventivo", value: "", valueRequired: true },
-    { area: "ENERGIA", activity: "Switch encendido (voltaje hacia Switch)", maintenanceType: "Preventivo", value: "", valueRequired: true },
-    { area: "ENERGIA", activity: "Voltaje controlador de cargas", maintenanceType: "Preventivo", value: "", valueRequired: true },
+    {
+      key: "bateria_voltaje",
+      area: "BATERIA",
+      activity: "Voltaje baterías",
+      maintenanceType: "Preventivo",
+      value: "",
+      valueRequired: true,
+      photoRequired: true,
+    },
   ];
 }
 
+function inferKey(row: Partial<ActivityRow>, idx: number) {
+  const key = String(row?.key ?? "").trim();
+  if (key) return key;
+  const label = String(row?.activity ?? "").trim().toLowerCase();
+  if (label.includes("foto vms")) return "nvr_foto_vms";
+  if (label.includes("habitaculo")) return "nvr_foto_habitaculo";
+  if (label.includes("canbus") || label.includes("data")) return "nvr_data_canbus";
+  if (label.includes("voltaje bater")) return "bateria_voltaje";
+  return `actividad_${idx + 1}`;
+}
+
 function normalizeActivities(rows: ActivityRow[]): ActivityRow[] {
-  return rows.map((r) => ({
-    ...r,
-    result: r.result === "NO_FUNCIONAL" ? "NO_FUNCIONAL" : "FUNCIONAL",
-    valueRequired: r.valueRequired ?? /voltaje/i.test(r.activity),
-  }));
+  const defaults = defaultActivities();
+  const incoming = Array.isArray(rows) ? rows : [];
+  const byKey = new Map<string, ActivityRow>();
+
+  incoming.forEach((raw, idx) => {
+    const key = inferKey(raw, idx);
+    byKey.set(key, {
+      ...raw,
+      key,
+      photoPaths: normalizePhotoPaths((raw as any)?.photoPaths),
+    });
+  });
+
+  const mergedDefaults = defaults.map((d, idx) => {
+    const fromSaved = byKey.get(d.key);
+    return {
+      ...d,
+      ...fromSaved,
+      key: d.key,
+      area: d.area,
+      activity: fromSaved?.activity ?? d.activity,
+      maintenanceType: fromSaved?.maintenanceType ?? d.maintenanceType,
+      result: fromSaved?.result === "NO_FUNCIONAL" ? "NO_FUNCIONAL" : "FUNCIONAL",
+      value: fromSaved?.value ?? d.value ?? "",
+      valueRequired: d.valueRequired ?? fromSaved?.valueRequired ?? /voltaje/i.test(d.activity),
+      photoRequired: d.photoRequired ?? fromSaved?.photoRequired ?? false,
+      photoPaths: normalizePhotoPaths((fromSaved as any)?.photoPaths),
+      observation: fromSaved?.observation ?? "",
+    } as ActivityRow;
+  });
+
+  const defaultKeys = new Set(defaults.map((d) => d.key));
+  const extras = incoming
+    .map((raw, idx) => {
+      const key = inferKey(raw, idx);
+      if (defaultKeys.has(key)) return null;
+      return {
+        ...raw,
+        key,
+        result: raw?.result === "NO_FUNCIONAL" ? "NO_FUNCIONAL" : "FUNCIONAL",
+        valueRequired: raw?.valueRequired ?? /voltaje/i.test(raw?.activity ?? ""),
+        photoRequired: raw?.photoRequired ?? false,
+        photoPaths: normalizePhotoPaths((raw as any)?.photoPaths),
+      } as ActivityRow;
+    })
+    .filter(Boolean) as ActivityRow[];
+
+  return [...mergedDefaults, ...extras];
 }
 
 const AREA_RENDER_ORDER: Record<ActivityRow["area"], number> = {
   NVR: 0,
-  CCTV: 1,
-  ENERGIA: 2,
+  CAMARAS: 1,
+  BATERIA: 2,
 };
 
 export default function PreventiveReportForm(props: Props) {
@@ -117,6 +194,7 @@ export default function PreventiveReportForm(props: Props) {
     plate: null,
     equipmentLabel: "",
   });
+  const [photoFilesByKey, setPhotoFilesByKey] = React.useState<Record<string, FileList | null>>({});
 
   const r = props.initialReport;
 
@@ -138,8 +216,6 @@ export default function PreventiveReportForm(props: Props) {
         : normalizeActivities(defaultActivities()),
 
       observations: r?.observations ?? "",
-      timeStart: r?.timeStart ?? "",
-      timeEnd: r?.timeEnd ?? "",
       responsibleUpk: (r as any)?.responsibleUpk ?? "",
       responsibleCapitalBus: r?.responsibleCapitalBus ?? "",
 
@@ -169,6 +245,8 @@ export default function PreventiveReportForm(props: Props) {
       const biarticuladoNo = String(data?.autofill?.biarticuladoNo ?? "").trim();
       const plate = (data?.autofill?.plate ?? null) as string | null;
       const equipmentLabel = String(data?.autofill?.equipmentLabel ?? "").trim();
+      const scheduledAtAutofill = data?.autofill?.scheduledAt ? isoDate(new Date(data.autofill.scheduledAt)) : "";
+      const rescheduledAtAutofill = data?.autofill?.rescheduledAt ? isoDate(new Date(data.autofill.rescheduledAt)) : "";
       setAutofill({ biarticuladoNo, plate, equipmentLabel });
 
       const curr = form.getValues();
@@ -176,6 +254,8 @@ export default function PreventiveReportForm(props: Props) {
 
       if (!curr.biarticuladoNo?.trim()) patch.biarticuladoNo = biarticuladoNo;
       if (!curr.plate?.trim() && plate) patch.plate = plate;
+      if (!curr.scheduledAt?.trim() && scheduledAtAutofill) patch.scheduledAt = scheduledAtAutofill;
+      if (!curr.rescheduledAt?.trim() && rescheduledAtAutofill) patch.rescheduledAt = rescheduledAtAutofill;
 
       if (Object.keys(patch).length) form.reset({ ...curr, ...patch });
 
@@ -194,8 +274,8 @@ export default function PreventiveReportForm(props: Props) {
     return activitiesFA.fields
       .map((_, idx) => idx)
       .sort((a, b) => {
-        const areaA = watchedActivities?.[a]?.area ?? (activitiesFA.fields[a] as any)?.area ?? "CCTV";
-        const areaB = watchedActivities?.[b]?.area ?? (activitiesFA.fields[b] as any)?.area ?? "CCTV";
+        const areaA = watchedActivities?.[a]?.area ?? (activitiesFA.fields[a] as any)?.area ?? "CAMARAS";
+        const areaB = watchedActivities?.[b]?.area ?? (activitiesFA.fields[b] as any)?.area ?? "CAMARAS";
         const rankA = AREA_RENDER_ORDER[areaA as ActivityRow["area"]] ?? 99;
         const rankB = AREA_RENDER_ORDER[areaB as ActivityRow["area"]] ?? 99;
         if (rankA !== rankB) return rankA - rankB;
@@ -203,48 +283,76 @@ export default function PreventiveReportForm(props: Props) {
       });
   }, [activitiesFA.fields, watchedActivities]);
 
+  async function uploadActivityPhotos(activityKey: string, files: FileList | null) {
+    if (!files?.length) return 0;
+    let count = 0;
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.set("activityKey", activityKey);
+      fd.set("photo", file);
+      const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
+        method: "PUT",
+        body: fd,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "No se pudo subir evidencia");
+      }
+      count += 1;
+    }
+    return count;
+  }
+
   async function onSubmit(v: FormValues) {
     setSaving(true);
     setMsg(null);
+    try {
+      const payload = {
+        ...v,
+        ticketNumber: v.ticketNumber.trim(),
+        workOrderNumber: v.workOrderNumber.trim(),
 
-    const payload = {
-      ...v,
-      ticketNumber: v.ticketNumber.trim(),
-      workOrderNumber: v.workOrderNumber.trim(),
+        biarticuladoNo: v.biarticuladoNo.trim(),
+        mileage: v.mileage.trim(),
+        plate: v.plate.trim(),
 
-      biarticuladoNo: v.biarticuladoNo.trim(),
-      mileage: v.mileage.trim(),
-      plate: v.plate.trim(),
+        scheduledAt: v.scheduledAt || null,
+        executedAt: v.executedAt || null,
+        rescheduledAt: v.rescheduledAt || null,
 
-      scheduledAt: v.scheduledAt || null,
-      executedAt: v.executedAt || null,
-      rescheduledAt: v.rescheduledAt || null,
+        activities: v.activities,
 
-      activities: v.activities,
+        observations: v.observations.trim(),
+        responsibleUpk: v.responsibleUpk.trim(),
+        responsibleCapitalBus: v.responsibleCapitalBus.trim(),
+      };
 
-      observations: v.observations.trim(),
-      timeStart: v.timeStart.trim(),
-      timeEnd: v.timeEnd.trim(),
-      responsibleUpk: v.responsibleUpk.trim(),
-      responsibleCapitalBus: v.responsibleCapitalBus.trim(),
-    };
+      const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data?.error ?? "No se pudo guardar");
+        return;
+      }
 
-    const data = await res.json().catch(() => ({}));
-    setSaving(false);
+      let uploadedCount = 0;
+      for (const row of v.activities) {
+        const files = photoFilesByKey[row.key] ?? null;
+        if (!files?.length) continue;
+        uploadedCount += await uploadActivityPhotos(row.key, files);
+      }
 
-    if (!res.ok) {
-      setMsg(data?.error ?? "No se pudo guardar");
-      return;
+      setMsg(uploadedCount > 0 ? `Guardado correctamente (${uploadedCount} foto(s) cargada(s)).` : "Guardado correctamente");
+      router.refresh();
+    } catch (e: any) {
+      setMsg(e?.message ?? "No se pudo guardar");
+    } finally {
+      setSaving(false);
     }
-
-    setMsg("Guardado correctamente");
-    router.refresh();
   }
 
   return (
@@ -326,64 +434,105 @@ export default function PreventiveReportForm(props: Props) {
 
         {/* TABLA DISPOSITIVOS (removida por solicitud) */}
 
-        {/* ACTIVIDADES + VOLTAJES */}
+        {/* ACTIVIDADES + EVIDENCIAS */}
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">Actividades mantenimiento preventivo</h4>
+          <h4 className="text-sm font-semibold">Tareas del preventivo (NVR → Cámaras → Batería)</h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Evidencia obligatoria para cierre: VMS, habitáculo, CANBUS y batería (foto + valor escrito).
+          </p>
 
-          <div className="mt-3">
-            <table className="w-full sts-table sts-table-compact">
-              <thead className="text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="py-2 text-left">Área</th>
-                  <th className="py-2 text-left">Actividad</th>
-                  <th className="py-2 text-left">Tipo mantenimiento</th>
-                  <th className="py-2 text-left">Resultado</th>
-                  <th className="py-2 text-left">Valor</th>
+          <div className="mt-3 hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[980px] table-fixed">
+              <thead className="border-b border-border/50 bg-muted/20 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="w-14 p-3 text-left">OK</th>
+                  <th className="w-24 p-3 text-left">Área</th>
+                  <th className="p-3 text-left">Tarea</th>
+                  <th className="w-40 p-3 text-left">Tipo</th>
+                  <th className="w-44 p-3 text-left">Estado</th>
+                  <th className="w-36 p-3 text-left">Valor</th>
+                  <th className="w-56 p-3 text-left">Evidencia</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/30">
                 {orderedActivityIndexes.map((idx) => {
-                  const f = activitiesFA.fields[idx];
-                  const result = form.watch(`activities.${idx}.result`);
-                  const valueRequired = Boolean((f as any).valueRequired);
+                  const field = activitiesFA.fields[idx] as any;
+                  const rowKey = String(form.watch(`activities.${idx}.key`) ?? field.key ?? "");
+                  const result = String(form.watch(`activities.${idx}.result`) ?? "");
+                  const value = String(form.watch(`activities.${idx}.value`) ?? "");
+                  const valueRequired = Boolean(field.valueRequired);
+                  const photoRequired = Boolean(field.photoRequired);
+                  const existingPhotos = normalizePhotoPaths(form.watch(`activities.${idx}.photoPaths`) as any);
+                  const pendingPhotos = photoFilesByKey[rowKey];
+                  const hasPhoto = existingPhotos.length > 0 || Boolean(pendingPhotos?.length);
+                  const done = result === "FUNCIONAL" && (!valueRequired || hasText(value)) && (!photoRequired || hasPhoto);
 
                   return (
-                    <React.Fragment key={f.id}>
-                      <tr className="border-b align-top">
-                        <td className="py-2 pr-2">
+                    <React.Fragment key={field.id}>
+                      <tr className="align-top hover:bg-muted/30">
+                        <td className="p-3">
+                          <input type="hidden" {...form.register(`activities.${idx}.key`)} />
+                          <input type="checkbox" checked={done} readOnly className="h-4 w-4 rounded border" />
+                        </td>
+                        <td className="p-3">
                           <input className={inputCls()} readOnly {...form.register(`activities.${idx}.area`)} />
                         </td>
-                        <td className="py-2 pr-2">
+                        <td className="p-3">
                           <input className={inputCls()} {...form.register(`activities.${idx}.activity`)} />
                         </td>
-                        <td className="py-2 pr-2">
-                          <Select className={inputCls()} {...form.register(`activities.${idx}.maintenanceType`)}>
+                        <td className="p-3">
+                          <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.maintenanceType`)}>
                             <option value="">—</option>
                             <option value="Preventivo">Preventivo</option>
                             <option value="Correctivo">Correctivo</option>
                           </Select>
                         </td>
-                        <td className="py-2 pr-2">
-                          <Select className={inputCls()} {...form.register(`activities.${idx}.result`)}>
+                        <td className="p-3">
+                          <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.result`)}>
                             <option value="">—</option>
                             <option value="FUNCIONAL">Funcional</option>
                             <option value="NO_FUNCIONAL">No funcional</option>
                           </Select>
                         </td>
-                        <td className="py-2 pr-2">
+                        <td className="p-3">
                           <input
                             className={inputCls()}
-                            placeholder={valueRequired ? "Ingresa voltaje" : "—"}
+                            placeholder={valueRequired ? "Ej: 24.5 V" : "—"}
                             disabled={!valueRequired}
                             {...form.register(`activities.${idx}.value`)}
                           />
                         </td>
+                        <td className="p-3">
+                          {photoRequired ? (
+                            <div className="space-y-1.5">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) =>
+                                  setPhotoFilesByKey((prev) => ({
+                                    ...prev,
+                                    [rowKey]: e.currentTarget.files,
+                                  }))
+                                }
+                                className="block w-full text-xs"
+                              />
+                              {existingPhotos.length ? (
+                                <p className="text-[11px] text-muted-foreground">Guardadas: {existingPhotos.length}</p>
+                              ) : (
+                                <p className="text-[11px] text-amber-700">Pendiente foto.</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No aplica</span>
+                          )}
+                        </td>
                       </tr>
-
                       {result === "NO_FUNCIONAL" ? (
-                        <tr className="border-b last:border-b-0">
-                          <td className="py-2 pr-2 text-xs text-muted-foreground">Observación</td>
-                          <td className="py-2 pr-2" colSpan={4}>
+                        <tr className="bg-muted/20">
+                          <td className="p-3 text-xs text-muted-foreground" colSpan={2}>
+                            Observación
+                          </td>
+                          <td className="p-3" colSpan={5}>
                             <input
                               className={smallInputCls()}
                               placeholder="Describe la novedad"
@@ -399,7 +548,92 @@ export default function PreventiveReportForm(props: Props) {
             </table>
           </div>
 
-          {/* Se elimina bloque de voltajes debajo de actividades */}
+          <div className="mt-3 space-y-3 md:hidden">
+            {orderedActivityIndexes.map((idx) => {
+              const field = activitiesFA.fields[idx] as any;
+              const rowKey = String(form.watch(`activities.${idx}.key`) ?? field.key ?? "");
+              const result = String(form.watch(`activities.${idx}.result`) ?? "");
+              const valueRequired = Boolean(field.valueRequired);
+              const photoRequired = Boolean(field.photoRequired);
+              const existingPhotos = normalizePhotoPaths(form.watch(`activities.${idx}.photoPaths`) as any);
+              const pendingPhotos = photoFilesByKey[rowKey];
+              const hasPhoto = existingPhotos.length > 0 || Boolean(pendingPhotos?.length);
+              const value = String(form.watch(`activities.${idx}.value`) ?? "");
+              const done = result === "FUNCIONAL" && (!valueRequired || hasText(value)) && (!photoRequired || hasPhoto);
+
+              return (
+                <div key={field.id} className="rounded-xl border border-border/60 bg-card p-3 space-y-2">
+                  <input type="hidden" {...form.register(`activities.${idx}.key`)} />
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">{String(form.watch(`activities.${idx}.area`) ?? field.area)}</p>
+                      <p className="text-sm font-medium">{String(form.watch(`activities.${idx}.activity`) ?? field.activity)}</p>
+                    </div>
+                    <input type="checkbox" checked={done} readOnly className="mt-0.5 h-4 w-4 rounded border" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] text-muted-foreground">Tipo</label>
+                      <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.maintenanceType`)}>
+                        <option value="">—</option>
+                        <option value="Preventivo">Preventivo</option>
+                        <option value="Correctivo">Correctivo</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-muted-foreground">Estado</label>
+                      <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.result`)}>
+                        <option value="">—</option>
+                        <option value="FUNCIONAL">Funcional</option>
+                        <option value="NO_FUNCIONAL">No funcional</option>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {valueRequired ? (
+                    <div>
+                      <label className="text-[11px] text-muted-foreground">Valor (escrito)</label>
+                      <input className={inputCls()} placeholder="Ej: 24.5 V" {...form.register(`activities.${idx}.value`)} />
+                    </div>
+                  ) : null}
+
+                  {photoRequired ? (
+                    <div>
+                      <label className="text-[11px] text-muted-foreground">Evidencia</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          setPhotoFilesByKey((prev) => ({
+                            ...prev,
+                            [rowKey]: e.currentTarget.files,
+                          }))
+                        }
+                        className="mt-1 block w-full text-xs"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {existingPhotos.length ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto."}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {result === "NO_FUNCIONAL" ? (
+                    <div>
+                      <label className="text-[11px] text-muted-foreground">Observación</label>
+                      <input
+                        className={smallInputCls()}
+                        placeholder="Describe la novedad"
+                        {...form.register(`activities.${idx}.observation`)}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="mt-2 text-[11px] text-muted-foreground">Las evidencias se cargan al guardar.</p>
         </section>
 
         {/* OBSERVACIONES + TIEMPO + RESPONSABLES */}
@@ -410,15 +644,6 @@ export default function PreventiveReportForm(props: Props) {
             <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Observaciones</label>
               <textarea className={textareaCls()} {...form.register("observations")} />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">Hora inicio</label>
-              <input type="time" className={inputCls()} {...form.register("timeStart")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Hora fin</label>
-              <input type="time" className={inputCls()} {...form.register("timeEnd")} />
             </div>
 
             <div>

@@ -30,7 +30,8 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 
   const tenantId = (session.user as any).tenantId as string;
   const technicianId = String(ctx.params.id ?? "").trim();
-  const days = 1;
+  const requestedDays = Number(req.nextUrl.searchParams.get("days") ?? "14");
+  const days = Number.isFinite(requestedDays) ? Math.min(Math.max(Math.trunc(requestedDays), 1), 30) : 14;
 
   const tech = await prisma.user.findFirst({
     where: { id: technicianId, tenantId, active: true, role: Role.TECHNICIAN },
@@ -41,14 +42,14 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const now = new Date();
   const startParts = toBogotaParts(now);
   const rangeStart = bogotaDateTimeToUtc(startParts, 0, 0);
-  const rangeEnd = bogotaDateTimeToUtc(addDaysBogota(startParts, 1), 0, 0);
+  const rangeEnd = bogotaDateTimeToUtc(addDaysBogota(startParts, days), 0, 0);
 
   const baseSlots = tech.technicianSchedule
     ? buildShiftHourlySlots({
         shiftType: tech.technicianSchedule.shiftType,
         restDay: tech.technicianSchedule.restDay,
         startParts,
-        days: 1,
+        days,
         slotMinutes: 60,
       }).filter((s) => s.endUtc.getTime() > now.getTime())
     : [];

@@ -159,8 +159,27 @@ model Tenant {
   stsMaintenanceWindows StsMaintenanceWindow[]
   stsAuditLogs StsAuditLog[]
   themeSettings ThemeSettings?
+  inventorySerialCatalog InventorySerialCatalog[]
 
   sequence      TenantSequence?
+}
+
+model InventorySerialCatalog {
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  serialNormalized String
+  serialDisplay    String
+  model            String
+  brand            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, serialNormalized])
+  @@index([tenantId, serialNormalized])
 }
 
 model TenantSequence {

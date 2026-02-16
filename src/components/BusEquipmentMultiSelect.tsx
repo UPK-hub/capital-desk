@@ -98,6 +98,8 @@ export function BusEquipmentMultiSelect({
           <label key={x.id} className={`flex items-center gap-2 text-sm ${disabled ? "opacity-50" : ""}`}>
             <input
               type="checkbox"
+              className="h-4 w-4 align-middle"
+              style={{ accentColor: "hsl(var(--primary))" }}
               checked={checked}
               onChange={(e) => toggle(x.id, e.target.checked)}
               disabled={disabled}

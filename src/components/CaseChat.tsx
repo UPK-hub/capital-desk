@@ -225,48 +225,42 @@ export default function CaseChat({
   }
 
   return (
-    <section className="sts-card p-0 overflow-hidden">
+    <section className="chat-panel">
       {showHeader ? (
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold"
-              style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}
-            >
+        <div className="chat-panel__header">
+          <div className="chat-panel__identity">
+            <div className="chat-panel__avatar">
               {messages.length ? messages[messages.length - 1]?.sender?.name?.charAt(0) ?? "C" : "C"}
             </div>
             <div>
-              <h2 className="text-base font-semibold">Chat</h2>
-              <p className="text-xs text-muted-foreground">Backoffice · Técnico</p>
+              <h2 className="chat-panel__title">Chat</h2>
+              <p className="chat-panel__subtitle">Backoffice · Técnico</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="chat-panel__actions">
             {unreadCount > 0 ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
+                className="chat-unread-btn"
                 onClick={() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })}
               >
                 {unreadCount} nuevo(s)
               </button>
             ) : null}
-            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="chat-status">
+              <span className="chat-status__dot" />
               En línea
             </span>
           </div>
         </div>
       ) : null}
 
-      <div className="flex h-[460px] flex-col">
-        <div
-          ref={listRef}
-          className={`flex-1 space-y-3 overflow-auto px-4 ${showHeader ? "py-4" : "py-3"}`}
-        >
-          {loading ? <p className="text-xs text-muted-foreground">Cargando chat…</p> : null}
-          {error ? <p className="text-xs text-red-500">{error}</p> : null}
+      <div className="chat-panel__body">
+        <div ref={listRef} className="chat-panel__messages">
+          {loading ? <p className="chat-panel__loading">Cargando chat…</p> : null}
+          {error ? <p className="chat-panel__error">{error}</p> : null}
           {!loading && messages.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Sin mensajes todavía.</p>
+            <p className="chat-panel__empty">Sin mensajes todavía.</p>
           ) : null}
           {messages.map((m) => {
             const isMe = currentUserId && m.sender.id === currentUserId;
@@ -275,40 +269,35 @@ export default function CaseChat({
               minute: "2-digit",
             }).format(new Date(m.createdAt));
             return (
-              <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                <div className="max-w-[75%] space-y-1">
+              <div key={m.id} className={`chat-row ${isMe ? "chat-row--me" : "chat-row--other"}`}>
+                <div className="chat-stack">
                   {!isMe ? (
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <div className="chat-meta">
                       <span className="font-medium">{m.sender.name}</span>
                       <span>·</span>
                       <span>{time}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
+                    <div className="chat-meta chat-meta--me">
                       <span>{time}</span>
                       <span>·</span>
                       <span className="font-medium">Tú</span>
                     </div>
                   )}
                   <div
-                    className="rounded-2xl px-3 py-2 text-sm shadow-sm"
-                    style={
-                      isMe
-                        ? { background: "hsl(var(--sts-accent))", color: "white" }
-                        : { background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }
-                    }
+                    className={`chat-bubble ${isMe ? "chat-bubble--me" : "chat-bubble--other"}`}
                   >
                     {m.meta?.kind === "image" && m.meta.filePath ? (
                       <img
                         src={`/api/uploads/${m.meta.filePath}`}
                         alt={m.meta.filename ?? "imagen"}
-                        className="mt-2 w-full rounded-xl border object-cover"
+                        className="chat-media"
                       />
                     ) : null}
                     {m.meta?.kind === "file" && m.meta.filePath ? (
                       <a
                         href={`/api/uploads/${m.meta.filePath}`}
-                        className="text-xs underline"
+                        className="chat-file"
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -323,15 +312,15 @@ export default function CaseChat({
           })}
         </div>
 
-        <div className="border-t px-4 py-3">
+        <div className="chat-panel__composer">
           {typingUsers.length ? (
-            <p className="mb-2 text-xs text-muted-foreground">
+            <p className="chat-panel__typing">
               {typingUsers.map((u) => u.name).join(", ")} escribiendo…
             </p>
           ) : null}
-          <div className="flex items-center gap-2">
+          <div className="chat-panel__compose-row">
             <button
-              className="flex h-10 w-10 items-center justify-center rounded-full border"
+              className="chat-attach-btn"
               title="Adjuntar"
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -346,7 +335,7 @@ export default function CaseChat({
               onChange={(event) => handleAttachment(event.target.files?.[0])}
             />
             <input
-              className="h-10 flex-1 rounded-full border px-4 text-sm"
+              className="chat-input"
               placeholder="Escribe un mensaje…"
               value={text}
               onChange={(e) => handleInputChange(e.target.value)}

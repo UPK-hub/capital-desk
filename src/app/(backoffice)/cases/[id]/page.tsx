@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, Role } from "@prisma/client";
+import { CaseEventType, ProcedureType, Role } from "@prisma/client";
 import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
@@ -94,10 +94,23 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           equipmentType: { select: { name: true } },
         },
       },
+      caseEquipments: {
+        select: {
+          busEquipment: {
+            select: {
+              id: true,
+              serial: true,
+              location: true,
+              equipmentType: { select: { name: true } },
+            },
+          },
+        },
+      },
       workOrder: {
         include: {
           assignedTo: { select: { id: true, name: true, email: true, role: true } },
           interventionReceipt: true,
+          correctiveReport: { select: { procedureType: true } },
         },
       },
       events: { orderBy: { createdAt: "asc" }, take: 200 },
@@ -131,16 +144,29 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   });
   const userById = new Map(users.map((u) => [u.id, u]));
 
-  const equipmentLabel = c.busEquipment
-    ? `${c.busEquipment.equipmentType.name}${c.busEquipment.serial ? ` | ${c.busEquipment.serial}` : ""}${
-        c.busEquipment.location ? ` | ${c.busEquipment.location}` : ""
-      }`
-    : "No aplica / No seleccionado";
+  const equipmentList = c.caseEquipments?.length
+    ? c.caseEquipments.map((item) => item.busEquipment)
+    : c.busEquipment
+    ? [c.busEquipment]
+    : [];
+  const equipmentLabel =
+    equipmentList.length > 0
+      ? equipmentList
+          .map(
+            (eq) =>
+              `${eq.equipmentType.name}${eq.serial ? ` | ${eq.serial}` : ""}${eq.location ? ` | ${eq.location}` : ""}`
+          )
+          .join(" | ")
+      : "No aplica / No seleccionado";
 
   const hasWo = Boolean(c.workOrder?.id);
   const isVideoCase = c.type === "SOLICITUD_DESCARGA_VIDEO";
+  const contextBoxClass = "rounded-lg border-2 border-border/60 bg-muted/30 p-4";
 
   const refs = `${fmtCaseNo(c.caseNo)}${c.workOrder?.workOrderNo ? ` | ${fmtWoNo(c.workOrder.workOrderNo)}` : ""}`;
+  const isProductImprovement = c.type === "MEJORA_PRODUCTO";
+  const renewalActaLabel =
+    isProductImprovement ? "Descargar acta de mejora de producto" : "Descargar acta de cambios";
 
   const timeline = [
     ...c.events.map((e) => {
@@ -221,19 +247,19 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="sts-card p-3">
+              <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 text-sm font-medium">
                   {c.bus.code} {c.bus.plate ? `| ${c.bus.plate}` : ""}
                 </p>
               </div>
 
-              <div className="sts-card p-3">
+              <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Equipo</p>
                 <p className="mt-1 text-sm font-medium">{equipmentLabel}</p>
               </div>
 
-              <div className="sts-card p-3 md:col-span-2">
+              <div className={`${contextBoxClass} md:col-span-2`}>
                 <p className="text-xs text-muted-foreground">Descripcion</p>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{c.description}</p>
               </div>
@@ -373,14 +399,31 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                           Descargar recibo de intervención
                         </a>
                       ) : null}
-                      {c.type === "RENOVACION_TECNOLOGICA" && c.workOrder?.status === "FINALIZADA" ? (
+                      {(c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO") &&
+                      c.workOrder?.status === "FINALIZADA" ? (
                         <a
-                          className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          className={
+                            isProductImprovement
+                              ? "inline-flex w-full items-center justify-center sts-btn-primary text-sm"
+                              : "inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          }
                           href={`/api/work-orders/${c.workOrder!.id}/renewal-acta`}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Descargar acta de cambios
+                          {renewalActaLabel}
+                        </a>
+                      ) : null}
+                      {c.type === "CORRECTIVO" &&
+                      c.workOrder?.status === "FINALIZADA" &&
+                      c.workOrder.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE ? (
+                        <a
+                          className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          href={`/api/work-orders/${c.workOrder!.id}/corrective-acta`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Descargar acta de cambio de equipo
                         </a>
                       ) : null}
                     </div>
@@ -435,6 +478,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   caseId={c.id}
                   workOrderId={c.workOrder?.id ?? null}
                   currentAssignedToId={c.workOrder?.assignedToId ?? null}
+                  caseType={c.type}
+                  currentScheduledAt={c.workOrder?.scheduledAt ? c.workOrder.scheduledAt.toISOString() : null}
                   technicians={technicians}
                 />
               ) : (
@@ -444,7 +489,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                 </section>
               )}
 
-              {c.workOrder?.id && c.workOrder.status === ("EN_VALIDACION" as any) && (role === Role.ADMIN || role === Role.BACKOFFICE || role === Role.SUPERVISOR) ? (
+              {c.workOrder?.id &&
+              c.workOrder.status === ("EN_VALIDACION" as any) &&
+              (role === Role.ADMIN || role === Role.BACKOFFICE) ? (
                 <ValidateWorkOrderCard workOrderId={c.workOrder.id} />
               ) : null}
             </>

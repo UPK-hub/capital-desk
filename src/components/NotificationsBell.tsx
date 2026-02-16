@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 
 type NotificationItem = {
   id: string;
@@ -147,15 +148,15 @@ export default function NotificationsBell() {
   const badge = useMemo(() => {
     if (unreadCount <= 0) return null;
     return (
-      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[hsl(var(--card))]">
+      <span className="notifications__badge">
         <span className="sr-only">{unreadCount} notificaciones sin leer</span>
       </span>
     );
   }, [unreadCount]);
 
   return (
-    <div className="relative z-40">
-      <button
+    <div className="notifications">
+      <motion.button
         type="button"
         onClick={async () => {
           canPlaySoundRef.current = true;
@@ -163,9 +164,12 @@ export default function NotificationsBell() {
           setOpen(next);
           if (next) await load();
         }}
-        className="relative app-pill inline-flex h-10 w-10 items-center justify-center p-0"
+        className="app-pill notifications__trigger"
         aria-label="Notificaciones"
         title="Notificaciones"
+        whileHover={{ y: -1, scale: 1.02 }}
+        whileTap={{ y: 0, scale: 0.98 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
       >
         <svg
           viewBox="0 0 24 24"
@@ -181,95 +185,111 @@ export default function NotificationsBell() {
           <path d="M10 17a2 2 0 0 0 4 0" />
         </svg>
         {badge}
-      </button>
+      </motion.button>
 
-      {open ? (
-        <div className="absolute right-0 mt-2 w-[420px] max-w-[90vw] sts-card overflow-hidden z-50">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold">Notificaciones</p>
-              <p className="text-xs text-muted-foreground">
-                {loading ? "Cargando…" : `${unreadCount} sin leer`}
-              </p>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            className="notifications__panel"
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="notifications__header">
+              <div>
+                <p className="text-sm font-semibold">Notificaciones</p>
+                <p className="text-xs text-muted-foreground">
+                  {loading ? "Cargando…" : `${unreadCount} sin leer`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="sts-btn-ghost text-xs"
+              >
+                Cerrar
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="sts-btn-ghost text-xs"
-            >
-              Cerrar
-            </button>
-          </div>
 
-          <div className="max-h-[480px] overflow-auto">
-            {!hasItems ? (
-              <div className="p-4 text-sm text-muted-foreground">No hay notificaciones.</div>
-            ) : (
-              items.map((n) => {
-                const href = inferHref(n);
-                const isUnread = !n.readAt;
+            <div className="notifications__list">
+              {!hasItems ? (
+                <div className="notifications__empty">No hay notificaciones.</div>
+              ) : (
+                <AnimatePresence initial={false}>
+                  {items.map((n) => {
+                    const href = inferHref(n);
+                    const isUnread = !n.readAt;
 
-                return (
-                  <div key={n.id} className="border-b last:border-b-0">
-                    <div className="px-4 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className={`text-sm ${isUnread ? "font-semibold" : "font-medium"}`}>
-                            {n.title}
-                          </p>
-                          {n.body ? (
-                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
-                              {n.body}
-                            </p>
-                          ) : null}
-                          <p className="mt-2 text-xs text-muted-foreground">{fmtDate(n.createdAt)}</p>
-                        </div>
+                    return (
+                      <motion.div
+                        key={n.id}
+                        className="notifications__item"
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        <div className={`notifications__item-content ${isUnread ? "notifications__item-content--unread" : ""}`}>
+                          <div className="notifications__item-meta">
+                              <p className={`notifications__item-title ${isUnread ? "font-semibold" : "font-medium"}`}>
+                                {n.title}
+                              </p>
+                              {n.body ? (
+                                <p className="notifications__item-body">
+                                  {n.body}
+                                </p>
+                              ) : null}
+                              <p className="notifications__item-date">{fmtDate(n.createdAt)}</p>
+                            </div>
 
-                        <div className="flex flex-col items-end gap-2">
-                          {isUnread ? (
-                            <button
-                              type="button"
-                              onClick={() => markRead(n.id)}
-                              className="sts-btn-ghost text-xs"
-                            >
-                              Marcar leída
-                            </button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Leída</span>
-                          )}
+                            <div className="notifications__item-actions">
+                              {isUnread ? (
+                                <button
+                                  type="button"
+                                  onClick={() => markRead(n.id)}
+                                  className="sts-btn-ghost text-xs"
+                                >
+                                  Marcar leída
+                                </button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Leída</span>
+                              )}
 
-                          {href ? (
-                            <Link
-                              href={href}
-                              onClick={() => setOpen(false)}
-                              className="text-xs underline"
-                            >
-                              Abrir
-                            </Link>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                              {href ? (
+                                <Link
+                                  href={href}
+                                  onClick={() => setOpen(false)}
+                                  className="notifications__item-link"
+                                >
+                                  Abrir
+                                </Link>
+                              ) : null}
+                            </div>
+                          </div>
+                        </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              )}
+            </div>
 
-          <div className="border-t px-4 py-3 flex justify-end">
-            <button
-              type="button"
-              className="sts-btn-primary text-sm"
-              onClick={async () => {
-                await load();
-                router.refresh();
-              }}
-            >
-              Actualizar
-            </button>
-          </div>
-        </div>
-      ) : null}
+            <div className="notifications__footer">
+              <button
+                type="button"
+                className="sts-btn-primary text-sm"
+                onClick={async () => {
+                  await load();
+                  router.refresh();
+                }}
+              >
+                Actualizar
+              </button>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

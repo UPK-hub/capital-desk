@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { Input as UiInput } from "@/components/ui/input";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export function Field({
   label,
@@ -12,9 +15,9 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-baseline justify-between gap-3">
-        <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+        <Label className="mb-0 text-sm font-medium text-foreground">{label}</Label>
         {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
       </div>
       {children}
@@ -26,28 +29,12 @@ type BaseProps = React.InputHTMLAttributes<HTMLInputElement> & { className?: str
 
 export function Input(props: BaseProps) {
   const { className, ...rest } = props;
-  return (
-    <input
-      {...rest}
-      className={
-        "app-field-control h-10 w-full px-3 text-sm disabled:opacity-60 " +
-        (className ?? "")
-      }
-    />
-  );
+  return <UiInput {...rest} className={"h-10 " + (className ?? "")} />;
 }
 
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { className?: string }) {
   const { className, ...rest } = props;
-  return (
-    <textarea
-      {...rest}
-      className={
-        "app-field-control w-full px-3 py-2 text-sm disabled:opacity-60 " +
-        (className ?? "")
-      }
-    />
-  );
+  return <UiTextarea {...rest} className={className} />;
 }
 
 type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & { className?: string };
@@ -166,7 +153,10 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
           defaultValue={defaultValue}
           onChange={onChange}
           onBlur={onBlur}
-          className={"app-field-control h-10 w-full px-3 text-sm disabled:opacity-60 " + (className ?? "")}
+          className={
+            "app-field-control h-10 w-full text-sm disabled:cursor-not-allowed disabled:opacity-55 " +
+            (className ?? "")
+          }
         >
           {children}
         </select>
@@ -186,12 +176,20 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
           disabled={disabled}
           onClick={() => !disabled && setOpen((v) => !v)}
           className={
-            "app-field-control h-10 w-full px-3 text-sm disabled:opacity-60 flex items-center justify-between gap-2 rounded-xl border " +
+            "app-field-control flex h-10 w-full items-center justify-between gap-2 text-left text-sm disabled:cursor-not-allowed disabled:opacity-55 " +
             (className ?? "")
           }
+          aria-haspopup="listbox"
+          aria-expanded={open}
         >
           <span className="truncate text-left">{selectedOption?.label ?? "Selecciona"}</span>
-          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 opacity-70" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
@@ -207,13 +205,17 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
           onBlur={onBlur}
           tabIndex={-1}
           aria-hidden="true"
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
+          className="hidden"
         >
           {children}
         </select>
 
         {open ? (
-          <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto sts-card p-1 shadow-xl">
+          <div
+            className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-border/70 bg-card shadow-[var(--shadow-lg)]"
+            role="listbox"
+          >
+            <div className="max-h-72 overflow-auto p-1.5">
             {options.map((opt) => (
               <button
                 key={`${name ?? "select"}-${opt.value}-${opt.label}`}
@@ -224,13 +226,18 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
                   emit(opt.value);
                   setOpen(false);
                 }}
-                className={`w-full rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                  selectedValue === opt.value ? "bg-muted font-medium" : "hover:bg-muted"
+                className={`w-full rounded-md border px-2.5 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  selectedValue === opt.value
+                    ? "border-border/60 bg-muted/70 font-semibold text-foreground"
+                    : "border-transparent text-foreground hover:border-border/40 hover:bg-muted/50"
                 } ${opt.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                role="option"
+                aria-selected={selectedValue === opt.value}
               >
                 {opt.label}
               </button>
             ))}
+            </div>
           </div>
         ) : null}
       </div>

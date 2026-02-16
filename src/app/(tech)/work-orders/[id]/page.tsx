@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { ProcedureType, Role } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 
 import StartWorkOrderCard from "./ui/StartWorkOrderCard";
@@ -143,7 +143,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
       : cfg?.formKind === "PREVENTIVE"
       ? preventiveCompletion(wo.preventiveReport)
       : cfg?.formKind === "RENEWAL"
-      ? renewalCompletion((wo as any).renewalTechReport)
+      ? renewalCompletion((wo as any).renewalTechReport, wo.case.type as any)
       : { ok: true, reasons: [] as string[] };
 
   const missingFinishForm = requiresFinishForm && !completion.ok;
@@ -154,23 +154,39 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   const finishDone = Boolean(wo.finishedAt);
   const canDownloadRenewalActa =
     cfg?.formKind === "RENEWAL" && finishDone && !isPendingValidation;
+  const canDownloadCorrectiveActa =
+    cfg?.formKind === "CORRECTIVE" &&
+    finishDone &&
+    !isPendingValidation &&
+    wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE;
+  const isProductImprovement = wo.case.type === "MEJORA_PRODUCTO";
+  const renewalActaLabel =
+    isProductImprovement
+      ? "Descargar acta de mejora de producto (Word)"
+      : "Descargar acta de cambios (plantilla)";
   const onlyStartFlow = !startDone && !finishDone;
 
   const suggestedTicketNumber =
     wo.interventionReceipt?.ticketNo ??
     (wo.workOrderNo ? `UPK-${String(wo.workOrderNo).padStart(3, "0")}` : "");
+  const contextBoxClass = "rounded-lg border-2 border-border/60 bg-muted/30 p-4";
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] p-6 space-y-6">
+    <div className="w-full space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
           <p className="text-sm text-muted-foreground">
             Caso: <span className="font-medium">{fmtCaseNo(wo.case.caseNo)}</span> •{" "}
             <span className="font-medium">{wo.case.title}</span> • Bus:{" "}
             <span className="font-medium">{wo.case.bus.code}</span>
             {wo.case.bus.plate ? ` • ${wo.case.bus.plate}` : ""}
           </p>
+          {isProductImprovement ? (
+            <span className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
+              Modo mejora de producto
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">
@@ -183,14 +199,14 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Contenido principal */}
-        <div className="space-y-6">
+        <div className="order-2 space-y-5 xl:order-1">
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Contexto</h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="sts-card p-3">
+              <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Estado OT</p>
                 <p className="mt-1 text-sm font-medium">{labelFromMap(wo.status, workOrderStatusLabels)}</p>
                 {wo.assignedAt ? (
@@ -198,23 +214,23 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 ) : null}
               </div>
 
-              <div className="sts-card p-3">
+              <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Técnico</p>
                 <p className="mt-1 text-sm font-medium">{wo.assignedTo?.name ?? wo.assignedToId ?? "—"}</p>
                 {wo.assignedTo?.email ? <p className="mt-1 text-xs text-muted-foreground">{wo.assignedTo.email}</p> : null}
               </div>
 
-              <div className="sts-card p-3">
+              <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Tipo de caso</p>
                 <p className="mt-1 text-sm font-medium">{labelFromMap(wo.case.type, caseTypeLabels)}</p>
               </div>
 
-              <div className="sts-card p-3">
+              <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Equipo</p>
                 <p className="mt-1 text-sm font-medium">{equipmentLabel}</p>
               </div>
 
-              <div className="sts-card p-3 md:col-span-2">
+              <div className={`${contextBoxClass} md:col-span-2`}>
                 <p className="text-xs text-muted-foreground">Descripción del caso</p>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{wo.case.description}</p>
               </div>
@@ -279,6 +295,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     workOrderId={wo.id}
                     initialReport={(wo as any).renewalTechReport}
                     suggestedTicketNumber={suggestedTicketNumber}
+                    caseType={wo.case.type}
                   />
                 ) : (
                   <PreventiveReportForm
@@ -330,7 +347,19 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                               target="_blank"
                               rel="noreferrer"
                             >
-                              Descargar acta de cambios (plantilla)
+                              {renewalActaLabel}
+                            </a>
+                          </div>
+                        ) : null}
+                        {canDownloadCorrectiveActa ? (
+                          <div>
+                            <a
+                              className="text-xs underline"
+                              href={`/api/work-orders/${wo.id}/corrective-acta`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Descargar acta de cambio de equipo (Word)
                             </a>
                           </div>
                         ) : null}
@@ -355,7 +384,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
 
         {/* Panel lateral */}
-        <div className="space-y-6">
+        <div className="order-1 space-y-5 self-start xl:order-2 xl:sticky xl:top-20">
           <StartWorkOrderCard
             workOrderId={wo.id}
             disabled={startDone || finishDone}
@@ -415,12 +444,26 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               ) : null}
               {canDownloadRenewalActa ? (
                 <a
-                  className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                  className={
+                    isProductImprovement
+                      ? "inline-flex w-full items-center justify-center sts-btn-primary text-sm"
+                      : "inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                  }
                   href={`/api/work-orders/${wo.id}/renewal-acta`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Descargar acta de cambios
+                  {renewalActaLabel}
+                </a>
+              ) : null}
+              {canDownloadCorrectiveActa ? (
+                <a
+                  className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                  href={`/api/work-orders/${wo.id}/corrective-acta`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Descargar acta de cambio de equipo
                 </a>
               ) : null}
             </div>

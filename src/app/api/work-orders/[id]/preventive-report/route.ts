@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { saveUpload } from "@/lib/uploads";
 import { Role, NotificationType, CaseEventType } from "@prisma/client";
 import { z } from "zod";
 import { notifyTenantUsers } from "@/lib/notifications";
@@ -29,8 +30,6 @@ const schema = z.object({
   activities: z.any().optional().nullable(),
 
   observations: z.string().trim().optional().nullable(),
-  timeStart: z.string().trim().optional().nullable(),
-  timeEnd: z.string().trim().optional().nullable(),
   responsibleUpk: z.string().trim().optional().nullable(),
   responsibleCapitalBus: z.string().trim().optional().nullable(),
 });
@@ -45,6 +44,48 @@ const toDate = (s?: string | null) => {
 const emptyToNull = (v?: string | null) => {
   const s = String(v ?? "").trim();
   return s ? s : null;
+};
+
+function normalizePhotoPaths(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((x) => String(x ?? "").trim()).filter(Boolean);
+}
+
+function normalizeActivityKey(row: any, idx: number): string {
+  const key = String(row?.key ?? "").trim();
+  if (key) return key;
+  const label = String(row?.activity ?? "")
+    .trim()
+    .toLowerCase();
+  if (label.includes("foto vms")) return "nvr_foto_vms";
+  if (label.includes("habitaculo")) return "nvr_foto_habitaculo";
+  if (label.includes("canbus") || label.includes("data")) return "nvr_data_canbus";
+  if (label.includes("voltaje bater")) return "bateria_voltaje";
+  return `actividad_${idx + 1}`;
+}
+
+function normalizeActivities(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.map((row, idx) => {
+    const r = (row ?? {}) as any;
+    return {
+      ...r,
+      key: normalizeActivityKey(r, idx),
+      photoRequired: Boolean(r?.photoRequired),
+      photoPaths: normalizePhotoPaths(r?.photoPaths),
+      valueRequired: Boolean(r?.valueRequired),
+    };
+  });
+}
+
+const formatInternalTime = (d?: Date | null) => {
+  if (!d) return null;
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
+  }).format(d);
 };
 
 const allowedGet: Role[] = [Role.ADMIN, Role.TECHNICIAN, Role.BACKOFFICE];
@@ -95,6 +136,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     autofill: {
       biarticuladoNo: wo.case.bus.code,
       plate: wo.case.bus.plate ?? null,
+      scheduledAt: wo.preventiveReport?.scheduledAt ?? wo.scheduledAt ?? null,
+      rescheduledAt: wo.preventiveReport?.rescheduledAt ?? null,
       equipmentLabel,
       equipments: selectedEquipments.map((eq) => ({
         id: eq.id,
@@ -117,6 +160,50 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const tenantId = (session.user as any).tenantId as string;
 
+  const wo = await prisma.workOrder.findFirst({
+    where: { id: params.id, tenantId },
+    include: { case: { include: { bus: true } }, preventiveReport: true },
+  });
+  if (!wo) return NextResponse.json({ error: "WorkOrder not found" }, { status: 404 });
+  if (wo.case.type !== "PREVENTIVO") return NextResponse.json({ error: "No es PREVENTIVO" }, { status: 400 });
+
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    const form = await req.formData();
+    const photo = form.get("photo") as File | null;
+    const activityKey = String(form.get("activityKey") ?? "").trim();
+    if (!photo) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
+    if (!activityKey) return NextResponse.json({ error: "activityKey requerido" }, { status: 400 });
+
+    const relPath = await saveUpload(photo, `work-orders/${wo.id}/preventive-report/${activityKey}`);
+    const currentActivities = normalizeActivities(wo.preventiveReport?.activities);
+    const idx = currentActivities.findIndex((x) => String(x?.key ?? "") === activityKey);
+    if (idx < 0) {
+      return NextResponse.json({ error: "No se encontró la actividad para asociar foto" }, { status: 400 });
+    }
+    const row = currentActivities[idx];
+    const nextPaths = normalizePhotoPaths(row?.photoPaths);
+    nextPaths.push(relPath);
+    currentActivities[idx] = { ...row, photoPaths: nextPaths };
+
+    const report = await prisma.preventiveReport.upsert({
+      where: { workOrderId: wo.id },
+      create: {
+        workOrderId: wo.id,
+        activities: currentActivities,
+        timeStart: formatInternalTime(wo.startedAt),
+        timeEnd: formatInternalTime(wo.finishedAt),
+      },
+      update: {
+        activities: currentActivities,
+        timeStart: formatInternalTime(wo.startedAt),
+        timeEnd: formatInternalTime(wo.finishedAt),
+      },
+    });
+
+    return NextResponse.json({ ok: true, report });
+  }
+
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -128,14 +215,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       { status: 400 }
     );
   }
-
-  // IMPORTANTE: incluye case.bus para usarlo abajo (en notificación)
-  const wo = await prisma.workOrder.findFirst({
-    where: { id: params.id, tenantId },
-    include: { case: { include: { bus: true } } },
-  });
-  if (!wo) return NextResponse.json({ error: "WorkOrder not found" }, { status: 404 });
-  if (wo.case.type !== "PREVENTIVO") return NextResponse.json({ error: "No es PREVENTIVO" }, { status: 400 });
 
   const v = parsed.data;
 
@@ -156,11 +235,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     rescheduledAt: toDate(v.rescheduledAt),
 
     // devicesInstalled eliminado
-    activities: v.activities ?? null,
+    activities: normalizeActivities(v.activities),
 
     observations: emptyToNull(v.observations),
-    timeStart: emptyToNull(v.timeStart),
-    timeEnd: emptyToNull(v.timeEnd),
+    timeStart: formatInternalTime(wo.startedAt),
+    timeEnd: formatInternalTime(wo.finishedAt),
     responsibleUpk: emptyToNull((v as any).responsibleUpk),
     responsibleCapitalBus: emptyToNull(v.responsibleCapitalBus),
   };

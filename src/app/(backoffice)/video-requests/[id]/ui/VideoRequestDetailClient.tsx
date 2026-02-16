@@ -50,7 +50,7 @@ function fmtDate(d: string) {
 }
 
 function inputCls() {
-  return "h-10 w-full rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "h-10 w-full rounded-md border px-3 text-sm focus-visible:outline-none";
 }
 
 export default function VideoRequestDetailClient({ initialItem }: { initialItem: Item }) {
@@ -248,7 +248,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
               <div className="sm:col-span-2">
                 <label className="text-xs text-muted-foreground">Observaciones tecnico</label>
                 <textarea
-                  className="min-h-[88px] w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
+                  className="min-h-[88px] w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
                 />

@@ -97,7 +97,7 @@ export default function ProfileClient({ user }: Props) {
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground">Correo</label>
                 <input
-                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -106,7 +106,7 @@ export default function ProfileClient({ user }: Props) {
                 <label className="text-xs text-muted-foreground">Clave actual</label>
                 <input
                   type="password"
-                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                 />
@@ -115,7 +115,7 @@ export default function ProfileClient({ user }: Props) {
                 <label className="text-xs text-muted-foreground">Nueva clave</label>
                 <input
                   type="password"
-                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                 />

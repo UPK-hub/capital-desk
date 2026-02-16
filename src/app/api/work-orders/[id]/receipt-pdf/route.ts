@@ -86,8 +86,8 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 
   y -= lineHeight / 2;
   drawLine("== Horas internas ==", true);
-  drawLine(`Hora inicio (interno): ${r.internalStart ?? "—"}`);
-  drawLine(`Hora cierre (interno): ${r.internalEnd ?? "—"}`);
+  drawLine(`Inicio OT (interno): ${r.internalStart ?? "—"}`);
+  drawLine(`Cierre OT (interno): ${r.internalEnd ?? "—"}`);
 
   y -= lineHeight / 2;
   drawLine(`Generado: ${fmtDateTime(r.createdAt)}`);

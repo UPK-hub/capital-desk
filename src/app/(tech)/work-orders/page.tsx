@@ -6,7 +6,17 @@ import { Role, WorkOrderStatus } from "@prisma/client";
 import { fmtWorkOrderNo, fmtCaseNo } from "@/lib/format-no";
 import { caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import ShiftClockCard from "@/components/ShiftClockCard";
-import { Select } from "@/components/Field";
+import { Input, Select } from "@/components/Field";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "@/components/ui/data-table";
+import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
+import { TypeBadge } from "@/components/ui/TypeBadge";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
@@ -18,6 +28,13 @@ type SearchParams = {
   status?: string;
 };
 
+function mapWorkOrderStatus(status: WorkOrderStatus): StatusPillStatus {
+  if (status === "CREADA") return "nuevo";
+  if (status === "ASIGNADA" || status === "EN_CAMPO") return "en_ejecucion";
+  if (status === "EN_VALIDACION") return "activo";
+  return "completado";
+}
+
 export default async function WorkOrdersPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -25,7 +42,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
       <div className="mx-auto max-w-5xl p-6">
         <div className="sts-card p-6">
           <p className="text-sm">No autenticado.</p>
-          <Link className="underline" href="/login">
+          <Link className="sts-btn-ghost mt-3 text-sm" href="/login">
             Ir a login
           </Link>
         </div>
@@ -95,11 +112,11 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
 
       <div className="sts-card p-4">
         <form className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between" method="get">
-          <input
+          <Input
             name="q"
             placeholder="Buscar por bus (codigo/placa) o caso."
             defaultValue={searchParams?.q ?? ""}
-            className="h-10 w-full md:w-96 rounded-md border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
+            className="w-full md:w-96"
           />
 
           <div className="flex gap-2">
@@ -122,41 +139,53 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
         </form>
       </div>
 
-      <div className="sts-card">
-        <div className="grid grid-cols-12 border-b px-4 py-2 text-xs text-muted-foreground">
-          <div className="col-span-3">Bus</div>
-          <div className="col-span-3">Caso</div>
-          <div className="col-span-2">Tipo</div>
-          <div className="col-span-2">Estado OT</div>
-          <div className="col-span-2"></div>
-        </div>
+      <DataTable>
+        <DataTableHeader>
+          <DataTableRow>
+            <DataTableHead>Bus</DataTableHead>
+            <DataTableHead>Caso</DataTableHead>
+            <DataTableHead>Tipo</DataTableHead>
+            <DataTableHead>Estado OT</DataTableHead>
+            <DataTableHead className="text-right">Acción</DataTableHead>
+          </DataTableRow>
+        </DataTableHeader>
+        <DataTableBody>
+          {workOrders.map((wo) => (
+            <DataTableRow key={wo.id}>
+              <DataTableCell>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{wo.case.bus.code}</span>
+                  <span className="text-xs text-muted-foreground">{wo.case.bus.plate ?? "Sin placa"}</span>
+                </div>
+              </DataTableCell>
+              <DataTableCell>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{fmtCaseNo(wo.case.caseNo)}</span>
+                  <span className="text-xs text-muted-foreground">{wo.case.title}</span>
+                </div>
+              </DataTableCell>
+              <DataTableCell>
+                <TypeBadge type={wo.case.type} label={labelFromMap(wo.case.type, caseTypeLabels)} />
+              </DataTableCell>
+              <DataTableCell>
+                <StatusPill
+                  status={mapWorkOrderStatus(wo.status)}
+                  label={labelFromMap(wo.status, workOrderStatusLabels)}
+                  pulse={wo.status === "ASIGNADA" || wo.status === "EN_CAMPO"}
+                />
+              </DataTableCell>
+              <DataTableCell className="text-right">
+                <div className="mb-1 text-xs text-muted-foreground">{fmtWorkOrderNo(wo.workOrderNo)}</div>
+                <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/work-orders/${wo.id}`}>
+                  Abrir
+                </Link>
+              </DataTableCell>
+            </DataTableRow>
+          ))}
+        </DataTableBody>
+      </DataTable>
 
-        {workOrders.map((wo) => (
-          <div key={wo.id} className="grid grid-cols-12 items-center px-4 py-3 text-sm border-b last:border-b-0">
-            <div className="col-span-3">
-              <div className="font-medium">{wo.case.bus.code}</div>
-              <div className="text-xs text-muted-foreground">{wo.case.bus.plate ?? "-"}</div>
-            </div>
-
-            <div className="col-span-3">
-              <div className="font-medium">{fmtCaseNo(wo.case.caseNo)}</div>
-              <div className="text-xs text-muted-foreground">{wo.case.title}</div>
-            </div>
-
-            <div className="col-span-2">{labelFromMap(wo.case.type, caseTypeLabels)}</div>
-            <div className="col-span-2">{labelFromMap(wo.status, workOrderStatusLabels)}</div>
-
-            <div className="col-span-2 text-right">
-              <div className="text-xs text-muted-foreground">{fmtWorkOrderNo(wo.workOrderNo)}</div>
-              <Link className="underline" href={`/work-orders/${wo.id}`}>
-                Abrir
-              </Link>
-            </div>
-          </div>
-        ))}
-
-        {workOrders.length === 0 ? <div className="p-6 text-sm text-muted-foreground">No hay OTs.</div> : null}
-      </div>
+      {workOrders.length === 0 ? <div className="sts-card p-6 text-sm text-muted-foreground">No hay OTs.</div> : null}
     </div>
   );
 }

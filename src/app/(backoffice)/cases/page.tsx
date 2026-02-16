@@ -5,10 +5,29 @@ import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, Role } from "@prisma/client";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import { Select } from "@/components/Field";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "@/components/ui/data-table";
+import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { TypeBadge } from "@/components/ui/TypeBadge";
+import { ChevronRight } from "lucide-react";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
   return s ? s : null;
+}
+
+function mapCaseStatus(status: CaseStatus): StatusPillStatus {
+  if (status === "NUEVO") return "nuevo";
+  if (status === "OT_ASIGNADA" || status === "EN_EJECUCION") return "en_ejecucion";
+  if (status === "RESUELTO" || status === "CERRADO") return "completado";
+  return "nuevo";
 }
 
 export default async function CasesPage({ searchParams }: { searchParams: any }) {
@@ -64,14 +83,14 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     },
     orderBy: { createdAt: "desc" },
     take: 50,
-    include: { bus: { select: { code: true, plate: true } }, workOrder: true },
+    include: { bus: { select: { code: true, plate: true } } },
   });
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Casos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Casos</h1>
           <p className="text-sm text-muted-foreground">Bandeja Backoffice</p>
         </div>
         <Link className="sts-btn-ghost text-sm" href="/cases/new">
@@ -79,12 +98,12 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
         </Link>
       </div>
 
-      <div className="sts-card p-4">
-        <form className="flex flex-wrap gap-2" method="get">
+      <div className="sts-card p-4 md:p-5">
+        <form className="flex flex-wrap gap-2.5" method="get">
           <input
             name="q"
             placeholder="Buscar por busCode o placa"
-            className="w-72 rounded-md border px-3 py-2 text-sm"
+            className="app-field-control h-10 w-[18rem] rounded-xl px-3 text-sm"
             defaultValue={searchParams?.q ?? ""}
           />
           <Select name="status" className="h-10 min-w-44" defaultValue={searchParams?.status ?? ""}>
@@ -101,6 +120,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             <option value="NOVEDAD">{caseTypeLabels.NOVEDAD}</option>
             <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
             <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
+            <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
             <option value="MEJORA_PRODUCTO">{caseTypeLabels.MEJORA_PRODUCTO}</option>
             <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
           </Select>
@@ -118,43 +138,57 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
         </form>
       </div>
 
-      <div className="sts-card overflow-hidden">
-        <table className="sts-table">
-          <thead>
-            <tr>
-              <th>Bus</th>
-              <th>Título</th>
-              <th>Tipo</th>
-              <th>Estado</th>
-              <th>Prio</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {cases.map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <div className="font-medium">{c.bus.code}</div>
-                  <div className="text-xs text-muted-foreground">{c.bus.plate ?? "-"}</div>
-                </td>
-                <td>{c.title}</td>
-                <td>{labelFromMap(c.type, caseTypeLabels)}</td>
-                <td>
-                  <span className="sts-chip">{labelFromMap(c.status, caseStatusLabels)}</span>
-                </td>
-                <td>{c.priority}</td>
-                <td className="text-right">
-                  <Link className="text-sm underline" href={`/cases/${c.id}`}>
-                    Abrir
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <DataTable>
+        <DataTableHeader>
+          <DataTableRow>
+            <DataTableHead>Bus</DataTableHead>
+            <DataTableHead>Título</DataTableHead>
+            <DataTableHead>Tipo</DataTableHead>
+            <DataTableHead>Estado</DataTableHead>
+            <DataTableHead>Prioridad</DataTableHead>
+            <DataTableHead className="text-right">Acción</DataTableHead>
+          </DataTableRow>
+        </DataTableHeader>
+        <DataTableBody>
+          {cases.map((c) => (
+            <DataTableRow key={c.id} clickable>
+              <DataTableCell>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{c.bus.code}</span>
+                  <span className="text-xs text-muted-foreground">{c.bus.plate ?? "Sin placa"}</span>
+                </div>
+              </DataTableCell>
+              <DataTableCell>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{c.title}</span>
+                  <span className="text-xs text-muted-foreground">Caso #{c.caseNo}</span>
+                </div>
+              </DataTableCell>
+              <DataTableCell>
+                <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} />
+              </DataTableCell>
+              <DataTableCell>
+                <StatusPill
+                  status={mapCaseStatus(c.status)}
+                  label={labelFromMap(c.status, caseStatusLabels)}
+                  pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
+                />
+              </DataTableCell>
+              <DataTableCell>
+                <PriorityBadge priority={c.priority} />
+              </DataTableCell>
+              <DataTableCell className="text-right">
+                <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/cases/${c.id}`}>
+                  Abrir
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </DataTableCell>
+            </DataTableRow>
+          ))}
+        </DataTableBody>
+      </DataTable>
 
-        {cases.length === 0 ? <div className="p-6 text-sm text-muted-foreground">No hay casos.</div> : null}
-      </div>
+      {cases.length === 0 ? <div className="sts-card p-6 text-sm text-muted-foreground">No hay casos.</div> : null}
     </div>
   );
 }

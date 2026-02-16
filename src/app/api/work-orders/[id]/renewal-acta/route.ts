@@ -33,8 +33,8 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     },
   });
   if (!wo) return new Response("WorkOrder not found", { status: 404 });
-  if (wo.case.type !== CaseType.RENOVACION_TECNOLOGICA) {
-    return new Response("Solo aplica para renovacion tecnologica", { status: 400 });
+  if (wo.case.type !== CaseType.RENOVACION_TECNOLOGICA && wo.case.type !== CaseType.MEJORA_PRODUCTO) {
+    return new Response("Solo aplica para renovacion/mejora de producto", { status: 400 });
   }
   if (wo.status !== WorkOrderStatus.FINALIZADA) {
     return new Response("OT pendiente de cierre/validacion", { status: 409 });
@@ -67,7 +67,10 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 
   const docx = await generateRenewalActaDocxBuffer(templatePath, placeholders);
   const ticketNo = String(report.ticketNumber ?? wo.workOrderNo ?? workOrderId).replace(/[^\w.-]+/g, "_");
-  const fileName = `ACTA-RENOVACION-${ticketNo}.docx`;
+  const fileName =
+    wo.case.type === CaseType.MEJORA_PRODUCTO
+      ? `ACTA-MEJORA-PRODUCTO-${ticketNo}.docx`
+      : `ACTA-RENOVACION-${ticketNo}.docx`;
 
   return new Response(Buffer.from(docx), {
     status: 200,

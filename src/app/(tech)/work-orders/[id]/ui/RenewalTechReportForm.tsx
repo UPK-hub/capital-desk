@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import type { RenewalTechReport } from "@prisma/client";
+import { lookupModelBySerial, normalizeSerialForLookup } from "@/lib/inventory-autofill-client";
+import { InventorySerialCombobox } from "@/components/InventorySerialCombobox";
 
 type EquipmentRow = {
   busEquipmentId: string;
@@ -19,6 +21,7 @@ type Props = {
   workOrderId: string;
   initialReport: RenewalTechReport | null;
   suggestedTicketNumber?: string;
+  caseType?: string;
 };
 
 type FormValues = {
@@ -29,17 +32,15 @@ type FormValues = {
   verificationDate: string;
   linkSmartHelios: string;
   ipSimcard: string;
-  timeStart: string;
-  timeEnd: string;
   observations: string;
 };
 
 function inputCls() {
-  return "app-field-control h-9 w-full min-w-0 rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-10 w-full min-w-0 rounded-xl border px-3 text-base md:text-sm focus-visible:outline-none";
 }
 
 function textareaCls() {
-  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-base md:text-sm focus-visible:outline-none";
 }
 
 const REMOVED_ITEMS = [
@@ -90,6 +91,46 @@ const EQUIPMENT_ORDER = [
   "CONTROLADOR_DE_CARGA",
 ] as const;
 
+const OLD_PHOTO_REQUIRED_TYPES = new Set([
+  "BO",
+  "BF",
+  "BFE",
+  "BV1_1",
+  "BV1_2",
+  "BV1_3",
+  "BV1_4",
+  "BV2_1",
+  "BV2_2",
+  "BV3_1",
+  "BV3_2",
+  "BV3_3",
+  "BV3_4",
+  "BT",
+  "BTE",
+  "NVR",
+  "COLECTOR",
+  "COLECTOR_DATOS",
+]);
+
+const NEW_PHOTO_REQUIRED_TYPES = new Set([
+  "BO",
+  "BF",
+  "BFE",
+  "BV1_1",
+  "BV1_2",
+  "BV1_3",
+  "BV1_4",
+  "BV2_1",
+  "BV2_2",
+  "BV3_1",
+  "BV3_2",
+  "BV3_3",
+  "BV3_4",
+  "BT",
+  "BTE",
+  "NVR",
+]);
+
 function normalizeTypeName(value: string) {
   return value
     .trim()
@@ -105,12 +146,50 @@ function equipmentSortIndex(type: string) {
   return idx >= 0 ? idx : 9999;
 }
 
+function requiresOldPhoto(type: string) {
+  return OLD_PHOTO_REQUIRED_TYPES.has(normalizeTypeName(type));
+}
+
+function requiresNewPhoto(type: string) {
+  return NEW_PHOTO_REQUIRED_TYPES.has(normalizeTypeName(type));
+}
+
+const DISK_TYPE_KEYS = new Set([
+  "DISCOS_DUROS",
+  "DISCOS_DURO",
+  "DISCO_DURO",
+  "DISCOS",
+  "DISCO",
+]);
+
+function isDiskType(type: string) {
+  return DISK_TYPE_KEYS.has(normalizeTypeName(type));
+}
+
+function splitSerialPair(value: string | null | undefined): [string, string] {
+  const raw = String(value ?? "").trim();
+  if (!raw) return ["", ""];
+  const parts = raw
+    .split(/[\/|,;\n]+/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  return [parts[0] ?? "", parts[1] ?? ""];
+}
+
+function joinSerialPair(first: string | null | undefined, second: string | null | undefined): string {
+  const a = String(first ?? "").trim();
+  const b = String(second ?? "").trim();
+  if (a && b) return `${a} / ${b}`;
+  return a || b || "";
+}
+
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function RenewalTechReportForm(props: Props) {
   const router = useRouter();
+  const isProductImprovement = props.caseType === "MEJORA_PRODUCTO";
   const [saving, setSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [msg, setMsg] = React.useState<string | null>(null);
@@ -118,11 +197,20 @@ export default function RenewalTechReportForm(props: Props) {
   const [equipmentRows, setEquipmentRows] = React.useState<EquipmentRow[]>([]);
   const [removedChecklist, setRemovedChecklist] = React.useState<Record<string, boolean>>({});
   const [finalChecklist, setFinalChecklist] = React.useState<Record<string, boolean>>({});
-  const [photosChecklist, setPhotosChecklist] = React.useState<FileList | null>(null);
   const [oldPhotosByEquipment, setOldPhotosByEquipment] = React.useState<Record<string, FileList | null>>({});
   const [newPhotosByEquipment, setNewPhotosByEquipment] = React.useState<Record<string, FileList | null>>({});
 
   const r = props.initialReport as any;
+  const oldCompletedCount = equipmentRows.filter((row) => {
+    if (!isDiskType(row.type)) return String(row.oldSerial ?? "").trim().length > 0;
+    const [s1, s2] = splitSerialPair(row.oldSerial);
+    return Boolean(s1 && s2);
+  }).length;
+  const newCompletedCount = equipmentRows.filter((row) => {
+    if (!isDiskType(row.type)) return String(row.newSerial ?? "").trim().length > 0;
+    const [s1, s2] = splitSerialPair(row.newSerial);
+    return Boolean(s1 && s2);
+  }).length;
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -133,11 +221,32 @@ export default function RenewalTechReportForm(props: Props) {
       verificationDate: (r?.newInstallation as any)?.verificationDate ?? todayIsoDate(),
       linkSmartHelios: r?.linkSmartHelios ?? "",
       ipSimcard: r?.ipSimcard ?? "",
-      timeStart: r?.timeStart ?? "",
-      timeEnd: r?.timeEnd ?? "",
       observations: r?.observations ?? "",
     },
   });
+
+  const tryAutofillRowModel = React.useCallback(async (rowIndex: number, serialInput: string) => {
+    const serialKey = normalizeSerialForLookup(serialInput);
+    if (serialKey.length < 6) return;
+
+    const model = await lookupModelBySerial(serialKey);
+    if (!model) return;
+
+    setEquipmentRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const currentNormalized = normalizeSerialForLookup(row.newSerial);
+        if (currentNormalized !== serialKey) {
+          const [disk1, disk2] = splitSerialPair(row.newSerial);
+          const disk1Norm = normalizeSerialForLookup(disk1);
+          const disk2Norm = normalizeSerialForLookup(disk2);
+          if (disk1Norm !== serialKey && disk2Norm !== serialKey) return row;
+        }
+        if (String(row.model ?? "").trim() === model) return row;
+        return { ...row, model };
+      })
+    );
+  }, []);
 
   React.useEffect(() => {
     let alive = true;
@@ -212,7 +321,7 @@ export default function RenewalTechReportForm(props: Props) {
   }, [props.workOrderId]);
 
   async function uploadPhotos(
-    bucket: "old" | "new" | "checklist",
+    bucket: "old" | "new",
     files: FileList | null,
     busEquipmentId?: string
   ) {
@@ -263,10 +372,21 @@ export default function RenewalTechReportForm(props: Props) {
       if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar");
 
       for (const row of equipmentRows) {
-        await uploadPhotos("old", oldPhotosByEquipment[row.busEquipmentId] ?? null, row.busEquipmentId);
-        await uploadPhotos("new", newPhotosByEquipment[row.busEquipmentId] ?? null, row.busEquipmentId);
+        await uploadPhotos(
+          "old",
+          isProductImprovement || requiresOldPhoto(row.type)
+            ? oldPhotosByEquipment[row.busEquipmentId] ?? null
+            : null,
+          row.busEquipmentId
+        );
+        await uploadPhotos(
+          "new",
+          isProductImprovement || requiresNewPhoto(row.type)
+            ? newPhotosByEquipment[row.busEquipmentId] ?? null
+            : null,
+          row.busEquipmentId
+        );
       }
-      await uploadPhotos("checklist", photosChecklist);
 
       setMsg("Guardado correctamente");
       router.refresh();
@@ -277,15 +397,29 @@ export default function RenewalTechReportForm(props: Props) {
     }
   }
 
+  function updateRow(idx: number, patch: Partial<EquipmentRow>) {
+    setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
   return (
     <div className="space-y-6">
       <div className="sts-card p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold">Formato Renovación Tecnológica (inline)</h3>
-            <p className="text-xs text-muted-foreground">
-              Desmonte de componentes anteriores, instalación nueva, checklist de IPs y acta de cambios.
-            </p>
+            <h3 className="text-base font-semibold">
+              {isProductImprovement
+                ? "Formato Mejora de Producto (inline)"
+                : "Formato Renovación Tecnológica (inline)"}
+            </h3>
+            {isProductImprovement ? (
+              <p className="text-xs text-muted-foreground">
+                Cambio de equipos seleccionados con serial antiguo/nuevo, evidencia fotográfica y acta Word.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Desmonte de componentes anteriores, instalación nueva, checklist de IPs y acta de cambios.
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -323,39 +457,62 @@ export default function RenewalTechReportForm(props: Props) {
               <label className="text-xs text-muted-foreground">Fecha de verificación</label>
               <input type="date" className={inputCls()} {...form.register("verificationDate")} />
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Link SmartHelios</label>
-              <input className={inputCls()} placeholder="https://..." {...form.register("linkSmartHelios")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">IP de la SIMCARD</label>
-              <input className={inputCls()} placeholder="x.x.x.x" {...form.register("ipSimcard")} />
-            </div>
+            {!isProductImprovement ? (
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground">Link SmartHelios</label>
+                  <input className={inputCls()} placeholder="https://..." {...form.register("linkSmartHelios")} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">IP de la SIMCARD</label>
+                  <input className={inputCls()} placeholder="x.x.x.x" {...form.register("ipSimcard")} />
+                </div>
+              </>
+            ) : null}
           </div>
         </section>
 
-        <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">Paso 1 · Desmonte de lo antiguo</h4>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {REMOVED_ITEMS.map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(removedChecklist[item])}
-                  onChange={(e) =>
-                    setRemovedChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
-                  }
-                />
-                {item}
-              </label>
-            ))}
-          </div>
-        </section>
+        {!isProductImprovement ? (
+          <section className="sts-card p-4 md:p-5">
+            <h4 className="text-sm font-semibold">Paso 1 · Desmonte de lo antiguo</h4>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {REMOVED_ITEMS.map((item) => (
+                <label key={item} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(removedChecklist[item])}
+                    onChange={(e) =>
+                      setRemovedChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
+                    }
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">Paso 2 · Instalación nueva y alimentación por equipo</h4>
+          <h4 className="text-sm font-semibold">
+            {isProductImprovement
+              ? "Paso 1 · Equipos actuales (serial y foto antiguo)"
+              : "Paso 2 · Desmonte de equipos antiguos"}
+          </h4>
           <p className="mt-1 text-xs text-muted-foreground">
-            Orden de llenado por equipo: serial desinstalado, serial instalado, foto serial antiguo, foto serial nuevo, IP y datos del equipo.
+            {isProductImprovement
+              ? "Registra serial antiguo y foto de serial antiguo por cada equipo seleccionado."
+              : "Primero completa todo lo antiguo (serial y foto de serial desinstalado) por cada equipo."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isProductImprovement
+              ? "En mejora de producto, la foto de serial antiguo es obligatoria por equipo."
+              : "La foto se solicita solo en los equipos que la plantilla del acta requiere."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Avance desmonte:{" "}
+            <span className="font-medium">
+              {oldCompletedCount}/{equipmentRows.length}
+            </span>
           </p>
           <div className="mt-3 overflow-auto">
             <table className="w-full sts-table sts-table-compact">
@@ -363,12 +520,7 @@ export default function RenewalTechReportForm(props: Props) {
                 <tr className="border-b">
                   <th className="py-2 text-left">Tipo</th>
                   <th className="py-2 text-left">Serial antiguo</th>
-                  <th className="py-2 text-left">Serial nuevo</th>
                   <th className="py-2 text-left">Foto serial antiguo</th>
-                  <th className="py-2 text-left">Foto serial nuevo</th>
-                  <th className="py-2 text-left">IP</th>
-                  <th className="py-2 text-left">Marca</th>
-                  <th className="py-2 text-left">Modelo</th>
                 </tr>
               </thead>
               <tbody>
@@ -376,77 +528,52 @@ export default function RenewalTechReportForm(props: Props) {
                   <tr key={row.busEquipmentId} className="border-b">
                     <td className="py-2">{row.type}</td>
                     <td className="py-2">
-                      <input
-                        className={inputCls()}
-                        value={row.oldSerial}
-                        onChange={(e) =>
-                          setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, oldSerial: e.target.value } : r)))
-                        }
-                      />
+                      {isDiskType(row.type) ? (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <input
+                            className={inputCls()}
+                            placeholder="Serial disco 1"
+                            value={splitSerialPair(row.oldSerial)[0]}
+                            onChange={(e) => {
+                              const [, second] = splitSerialPair(row.oldSerial);
+                              updateRow(idx, { oldSerial: joinSerialPair(e.target.value, second) });
+                            }}
+                          />
+                          <input
+                            className={inputCls()}
+                            placeholder="Serial disco 2"
+                            value={splitSerialPair(row.oldSerial)[1]}
+                            onChange={(e) => {
+                              const [first] = splitSerialPair(row.oldSerial);
+                              updateRow(idx, { oldSerial: joinSerialPair(first, e.target.value) });
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <input
+                          className={inputCls()}
+                          value={row.oldSerial}
+                          onChange={(e) => updateRow(idx, { oldSerial: e.target.value })}
+                        />
+                      )}
                     </td>
                     <td className="py-2">
-                      <input
-                        className={inputCls()}
-                        value={row.newSerial}
-                        onChange={(e) =>
-                          setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, newSerial: e.target.value } : r)))
-                        }
-                      />
-                    </td>
-                    <td className="py-2">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className={inputCls()}
-                        onChange={(e) =>
-                          setOldPhotosByEquipment((prev) => ({
-                            ...prev,
-                            [row.busEquipmentId]: e.target.files,
-                          }))
-                        }
-                      />
-                    </td>
-                    <td className="py-2">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className={inputCls()}
-                        onChange={(e) =>
-                          setNewPhotosByEquipment((prev) => ({
-                            ...prev,
-                            [row.busEquipmentId]: e.target.files,
-                          }))
-                        }
-                      />
-                    </td>
-                    <td className="py-2">
-                      <input
-                        className={inputCls()}
-                        value={row.ipAddress}
-                        onChange={(e) =>
-                          setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ipAddress: e.target.value } : r)))
-                        }
-                      />
-                    </td>
-                    <td className="py-2">
-                      <input
-                        className={inputCls()}
-                        value={row.brand}
-                        onChange={(e) =>
-                          setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, brand: e.target.value } : r)))
-                        }
-                      />
-                    </td>
-                    <td className="py-2">
-                      <input
-                        className={inputCls()}
-                        value={row.model}
-                        onChange={(e) =>
-                          setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, model: e.target.value } : r)))
-                        }
-                      />
+                      {isProductImprovement || requiresOldPhoto(row.type) ? (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className={inputCls()}
+                          onChange={(e) =>
+                            setOldPhotosByEquipment((prev) => ({
+                              ...prev,
+                              [row.busEquipmentId]: e.target.files,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No requerido</div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -456,44 +583,181 @@ export default function RenewalTechReportForm(props: Props) {
         </section>
 
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">Checklist final instalación</h4>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {FINAL_CHECKLIST.map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(finalChecklist[item])}
-                  onChange={(e) =>
-                    setFinalChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
-                  }
-                />
-                {item}
-              </label>
-            ))}
-          </div>
-          <div className="mt-3">
-            <label className="text-xs text-muted-foreground">Fotos checklist final</label>
-            <input type="file" accept="image/*" multiple className={inputCls()} onChange={(e) => setPhotosChecklist(e.target.files)} />
+          <h4 className="text-sm font-semibold">
+            {isProductImprovement
+              ? "Paso 2 · Equipos nuevos (serial y foto nuevo)"
+              : "Paso 3 · Instalación de equipos nuevos"}
+          </h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isProductImprovement
+              ? "Registra serial nuevo y foto de serial nuevo por cada equipo seleccionado."
+              : "Después del desmonte, registra serial nuevo, foto serial nuevo, IP y datos del equipo instalado."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isProductImprovement
+              ? "En mejora de producto, la foto de serial nuevo es obligatoria por equipo."
+              : "La foto se solicita solo donde la plantilla del acta tiene campo de foto nuevo."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Avance instalación:{" "}
+            <span className="font-medium">
+              {newCompletedCount}/{equipmentRows.length}
+            </span>
+          </p>
+          <div className="mt-3 overflow-auto">
+            <table className="w-full sts-table sts-table-compact">
+              <thead className="text-xs text-muted-foreground">
+                <tr className="border-b">
+                  <th className="py-2 text-left">Tipo</th>
+                  <th className="py-2 text-left">Serial nuevo</th>
+                  <th className="py-2 text-left">Foto serial nuevo</th>
+                  {!isProductImprovement ? <th className="py-2 text-left">IP</th> : null}
+                  {!isProductImprovement ? <th className="py-2 text-left">Marca</th> : null}
+                  {!isProductImprovement ? <th className="py-2 text-left">Modelo</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {equipmentRows.map((row, idx) => (
+                  <tr key={row.busEquipmentId} className="border-b">
+                    <td className="py-2">{row.type}</td>
+                    <td className="py-2">
+                      {isDiskType(row.type) ? (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <InventorySerialCombobox
+                            value={splitSerialPair(row.newSerial)[0]}
+                            className={inputCls()}
+                            placeholder="Serial disco 1"
+                            onChange={(value) => {
+                              const [, second] = splitSerialPair(row.newSerial);
+                              updateRow(idx, { newSerial: joinSerialPair(value, second) });
+                              void tryAutofillRowModel(idx, value);
+                            }}
+                            onModelDetected={(model) => {
+                              if (!String(row.model ?? "").trim()) updateRow(idx, { model });
+                            }}
+                          />
+                          <InventorySerialCombobox
+                            value={splitSerialPair(row.newSerial)[1]}
+                            className={inputCls()}
+                            placeholder="Serial disco 2"
+                            onChange={(value) => {
+                              const [first] = splitSerialPair(row.newSerial);
+                              updateRow(idx, { newSerial: joinSerialPair(first, value) });
+                              void tryAutofillRowModel(idx, value);
+                            }}
+                            onModelDetected={(model) => {
+                              if (!String(row.model ?? "").trim()) updateRow(idx, { model });
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <InventorySerialCombobox
+                          value={row.newSerial}
+                          className={inputCls()}
+                          onChange={(value) => {
+                            updateRow(idx, { newSerial: value });
+                            void tryAutofillRowModel(idx, value);
+                          }}
+                          onModelDetected={(model) => {
+                            if (!String(row.model ?? "").trim()) {
+                              updateRow(idx, { model });
+                            }
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td className="py-2">
+                      {isProductImprovement || requiresNewPhoto(row.type) ? (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className={inputCls()}
+                          onChange={(e) =>
+                            setNewPhotosByEquipment((prev) => ({
+                              ...prev,
+                              [row.busEquipmentId]: e.target.files,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No requerido</div>
+                      )}
+                    </td>
+                    {!isProductImprovement ? (
+                      <td className="py-2">
+                        <input
+                          className={inputCls()}
+                          value={row.ipAddress}
+                          onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
+                        />
+                      </td>
+                    ) : null}
+                    {!isProductImprovement ? (
+                      <td className="py-2">
+                        <input
+                          className={inputCls()}
+                          value={row.brand}
+                          onChange={(e) => updateRow(idx, { brand: e.target.value })}
+                        />
+                      </td>
+                    ) : null}
+                    {!isProductImprovement ? (
+                      <td className="py-2">
+                        <input
+                          className={inputCls()}
+                          value={row.model}
+                          onChange={(e) => updateRow(idx, { model: e.target.value })}
+                        />
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
-        <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">Cierre</h4>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-xs text-muted-foreground">Hora inicio (interno)</label>
-              <input type="time" className={inputCls()} {...form.register("timeStart")} />
+        {!isProductImprovement ? (
+          <section className="sts-card p-4 md:p-5">
+            <h4 className="text-sm font-semibold">Checklist final instalación</h4>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {FINAL_CHECKLIST.map((item) => (
+                <label key={item} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(finalChecklist[item])}
+                    onChange={(e) =>
+                      setFinalChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
+                    }
+                  />
+                  {item}
+                </label>
+              ))}
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Hora cierre (interno)</label>
-              <input type="time" className={inputCls()} {...form.register("timeEnd")} />
+          </section>
+        ) : null}
+
+        {!isProductImprovement ? (
+          <section className="sts-card p-4 md:p-5">
+            <h4 className="text-sm font-semibold">Cierre</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="text-xs text-muted-foreground">Observaciones</label>
+                <textarea className={textareaCls()} {...form.register("observations")} />
+              </div>
             </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Observaciones</label>
+          </section>
+        ) : null}
+
+        {isProductImprovement ? (
+          <section className="sts-card p-4 md:p-5">
+            <h4 className="text-sm font-semibold">Observaciones (opcional)</h4>
+            <div className="mt-3">
               <textarea className={textareaCls()} {...form.register("observations")} />
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <button type="submit" className="hidden" />
       </form>

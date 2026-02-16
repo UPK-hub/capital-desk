@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { ProcedureType, FailureType, DeviceLocation, CorrectiveReport } from "@prisma/client";
 import { Select } from "@/components/Field";
+import {
+  lookupModelBySerial,
+  normalizeSerialForLookup,
+} from "@/lib/inventory-autofill-client";
+import { InventorySerialCombobox } from "@/components/InventorySerialCombobox";
 
 type Props = {
   workOrderId: string;
@@ -56,9 +61,6 @@ type FormValues = {
   solutionOther: string;
   manufacturerEta: string;
 
-  timeStart: string;
-  timeEnd: string;
-
   installDate: string;
   newBrand: string;
   newModel: string;
@@ -76,10 +78,10 @@ function isoDate(d?: Date | null) {
 }
 
 function classInput() {
-  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm focus-visible:outline-none";
 }
 function classTextArea() {
-  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10";
+  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm focus-visible:outline-none";
 }
 
 function normalizeEquipmentLocation(input: string | null | undefined): DeviceLocation | null {
@@ -194,8 +196,6 @@ export default function CorrectiveReportForm(props: Props) {
       solutionPreset: initialSolutionPreset,
       solutionOther: initialSolutionOther,
       manufacturerEta: r?.manufacturerEta ?? "",
-      timeStart: (r as any)?.timeStart ?? "",
-      timeEnd: (r as any)?.timeEnd ?? "",
 
       installDate: isoDate(r?.installDate),
       newBrand: r?.newBrand ?? "",
@@ -276,9 +276,10 @@ export default function CorrectiveReportForm(props: Props) {
   const procedureType = form.watch("procedureType");
   const failureType = form.watch("failureType");
   const location = form.watch("location");
+  const serialValue = form.watch("serial");
+  const newSerialValue = form.watch("newSerial");
 
-  const isCambioComponente =
-    procedureType === ProcedureType.CAMBIO_COMPONENTE || procedureType === "CAMBIO_COMPONENTE";
+  const isCambioComponente = String(procedureType ?? "") === "CAMBIO_COMPONENTE";
   const isProcedureOther = procedureType === ProcedureType.OTRO;
   const isFailureOther = failureType === FailureType.OTRO;
   const isLocationOther = location === DeviceLocation.OTRO;
@@ -297,6 +298,46 @@ export default function CorrectiveReportForm(props: Props) {
     form.setValue("photoSerialCurrent", undefined as any);
     form.setValue("photoSerialNew", undefined as any);
   }, [isCambioComponente, form]);
+
+  React.useEffect(() => {
+    const serialKey = normalizeSerialForLookup(serialValue);
+    if (serialKey.length < 6) return;
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      const model = await lookupModelBySerial(serialKey);
+      if (!active || !model) return;
+      if (normalizeSerialForLookup(form.getValues("serial")) !== serialKey) return;
+      if (String(form.getValues("model") ?? "").trim() === model) return;
+      form.setValue("model", model, { shouldDirty: true });
+    }, 220);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [serialValue, form]);
+
+  React.useEffect(() => {
+    if (!isCambioComponente) return;
+
+    const serialKey = normalizeSerialForLookup(newSerialValue);
+    if (serialKey.length < 6) return;
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      const model = await lookupModelBySerial(serialKey);
+      if (!active || !model) return;
+      if (normalizeSerialForLookup(form.getValues("newSerial")) !== serialKey) return;
+      if (String(form.getValues("newModel") ?? "").trim() === model) return;
+      form.setValue("newModel", model, { shouldDirty: true });
+    }, 220);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [newSerialValue, isCambioComponente, form]);
 
   async function onSubmit(v: FormValues) {
     setSaving(true);
@@ -330,8 +371,6 @@ export default function CorrectiveReportForm(props: Props) {
       diagnosis,
       solution,
       manufacturerEta: v.manufacturerEta.trim(),
-      timeStart: v.timeStart.trim(),
-      timeEnd: v.timeEnd.trim(),
       newBrand: v.newBrand.trim(),
       newModel: v.newModel.trim(),
       newSerial: v.newSerial.trim(),
@@ -444,7 +483,16 @@ export default function CorrectiveReportForm(props: Props) {
 
             <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">No. Serial</label>
-              <input className={classInput()} {...form.register("serial")} />
+              <InventorySerialCombobox
+                value={serialValue}
+                className={classInput()}
+                onChange={(value) => form.setValue("serial", value, { shouldDirty: true })}
+                onModelDetected={(model) => {
+                  if (!String(form.getValues("model") ?? "").trim()) {
+                    form.setValue("model", model, { shouldDirty: true });
+                  }
+                }}
+              />
               <p className="mt-1 text-[11px] text-muted-foreground">Sugerido: {autofill.equipmentSerial ?? "—"}</p>
             </div>
 
@@ -590,16 +638,6 @@ export default function CorrectiveReportForm(props: Props) {
               ) : null}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="text-xs text-muted-foreground">Hora inicio (interno)</label>
-                <input type="time" className={classInput()} {...form.register("timeStart")} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Hora cierre (interno)</label>
-                <input type="time" className={classInput()} {...form.register("timeEnd")} />
-              </div>
-            </div>
           </div>
         </section>
 
@@ -633,7 +671,16 @@ export default function CorrectiveReportForm(props: Props) {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Serial nuevo (texto)</label>
-                <input className={classInput()} {...form.register("newSerial")} />
+                <InventorySerialCombobox
+                  value={newSerialValue}
+                  className={classInput()}
+                  onChange={(value) => form.setValue("newSerial", value, { shouldDirty: true })}
+                  onModelDetected={(model) => {
+                    if (!String(form.getValues("newModel") ?? "").trim()) {
+                      form.setValue("newModel", model, { shouldDirty: true });
+                    }
+                  }}
+                />
               </div>
             </div>
           </section>

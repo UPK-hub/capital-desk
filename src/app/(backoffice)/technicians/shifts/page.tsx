@@ -4,6 +4,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role, TechnicianShiftType } from "@prisma/client";
 import { shiftDurationMinutes } from "@/lib/technician-schedule";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "@/components/ui/data-table";
 
 function fmtDate(d: Date | null) {
   if (!d) return "-";
@@ -32,7 +40,7 @@ export default async function TechnicianShiftLogsPage() {
       <div className="mx-auto max-w-6xl p-6">
         <div className="sts-card p-6">
           <p className="text-sm">No autenticado.</p>
-          <Link className="underline" href="/login">
+          <Link className="sts-btn-ghost mt-3 text-sm" href="/login">
             Ir a login
           </Link>
         </div>
@@ -41,7 +49,7 @@ export default async function TechnicianShiftLogsPage() {
   }
 
   const role = (session.user as any).role as Role;
-  if (![Role.ADMIN, Role.BACKOFFICE].includes(role)) {
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="sts-card p-6">
@@ -76,7 +84,7 @@ export default async function TechnicianShiftLogsPage() {
           <p className="text-sm text-muted-foreground">Registro de ingreso/salida y horas extra.</p>
         </div>
         <a
-          className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm"
+          className="sts-btn-primary text-sm"
           href="/api/technicians/shifts/export"
           target="_blank"
           rel="noreferrer"
@@ -85,41 +93,46 @@ export default async function TechnicianShiftLogsPage() {
         </a>
       </div>
 
-      <div className="sts-card">
-        <div className="grid grid-cols-12 border-b px-4 py-2 text-xs text-muted-foreground">
-          <div className="col-span-3">Técnico</div>
-          <div className="col-span-3">Turno asignado</div>
-          <div className="col-span-2">Inicio</div>
-          <div className="col-span-2">Salida</div>
-          <div className="col-span-1">Horas</div>
-          <div className="col-span-1">Extra</div>
-        </div>
+      <DataTable>
+        <DataTableHeader>
+          <DataTableRow>
+            <DataTableHead>Técnico</DataTableHead>
+            <DataTableHead>Turno asignado</DataTableHead>
+            <DataTableHead>Inicio</DataTableHead>
+            <DataTableHead>Salida</DataTableHead>
+            <DataTableHead>Horas</DataTableHead>
+            <DataTableHead>Extra</DataTableHead>
+          </DataTableRow>
+        </DataTableHeader>
+        <DataTableBody>
+          {logs.map((log) => {
+            const shiftType = log.user.technicianSchedule?.shiftType ?? null;
+            const expected = shiftType ? shiftDurationMinutes(shiftType) / 60 : null;
+            const worked = log.endedAt ? hoursDiff(log.startedAt, log.endedAt) : null;
+            const overtime = worked !== null && expected !== null ? Math.max(0, worked - expected) : null;
 
-        {logs.map((log) => {
-          const shiftType = log.user.technicianSchedule?.shiftType ?? null;
-          const expected = shiftType ? shiftDurationMinutes(shiftType) / 60 : null;
-          const worked = log.endedAt ? hoursDiff(log.startedAt, log.endedAt) : null;
-          const overtime = worked !== null && expected !== null ? Math.max(0, worked - expected) : null;
+            return (
+              <DataTableRow key={log.id}>
+                <DataTableCell>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">{log.user.name}</span>
+                    <span className="text-xs text-muted-foreground">{log.user.email ?? "-"}</span>
+                  </div>
+                </DataTableCell>
+                <DataTableCell>
+                  <span className="text-xs text-muted-foreground">{shiftType ? SHIFT_LABELS[shiftType] : "Sin asignar"}</span>
+                </DataTableCell>
+                <DataTableCell>{fmtDate(log.startedAt)}</DataTableCell>
+                <DataTableCell>{fmtDate(log.endedAt)}</DataTableCell>
+                <DataTableCell>{worked !== null ? fmtHours(worked) : "-"}</DataTableCell>
+                <DataTableCell>{overtime !== null ? fmtHours(overtime) : "-"}</DataTableCell>
+              </DataTableRow>
+            );
+          })}
+        </DataTableBody>
+      </DataTable>
 
-          return (
-            <div key={log.id} className="grid grid-cols-12 items-center px-4 py-3 text-sm border-b last:border-b-0">
-              <div className="col-span-3">
-                <div className="font-medium">{log.user.name}</div>
-                <div className="text-xs text-muted-foreground">{log.user.email ?? "-"}</div>
-              </div>
-              <div className="col-span-3 text-xs">
-                {shiftType ? SHIFT_LABELS[shiftType] : "Sin asignar"}
-              </div>
-              <div className="col-span-2">{fmtDate(log.startedAt)}</div>
-              <div className="col-span-2">{fmtDate(log.endedAt)}</div>
-              <div className="col-span-1">{worked !== null ? fmtHours(worked) : "-"}</div>
-              <div className="col-span-1">{overtime !== null ? fmtHours(overtime) : "-"}</div>
-            </div>
-          );
-        })}
-
-        {logs.length === 0 ? <div className="p-6 text-sm text-muted-foreground">No hay registros.</div> : null}
-      </div>
+      {logs.length === 0 ? <div className="sts-card p-6 text-sm text-muted-foreground">No hay registros.</div> : null}
     </div>
   );
 }

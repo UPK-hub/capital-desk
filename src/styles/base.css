@@ -1,0 +1,245 @@
+/* ========================================
+   Base Layer
+   Reset + tipografía + controles de formulario
+======================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.18);
+  color: hsl(var(--foreground));
+}
+
+/* Focus accesible global */
+a,
+button,
+input,
+textarea,
+select,
+[role="button"] {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--ring) / 0.45);
+}
+
+/* Normaliza look de controles nativos */
+.theme-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+.theme-shell textarea,
+.theme-shell select {
+  min-height: 2.5rem;
+  width: 100%;
+  background: hsl(var(--input, var(--card))) !important;
+  border: 1px solid var(--border-normal) !important;
+  color: hsl(var(--foreground)) !important;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs) !important;
+  padding: 0.5rem 0.75rem;
+  transition:
+    border-color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard);
+}
+
+.theme-shell textarea {
+  min-height: 5.5rem;
+  line-height: 1.4;
+}
+
+.theme-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):hover,
+.theme-shell textarea:hover,
+.theme-shell select:hover {
+  border-color: hsl(var(--primary) / 0.45) !important;
+  background: hsl(var(--card)) !important;
+}
+
+.theme-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):focus-visible,
+.theme-shell textarea:focus-visible,
+.theme-shell select:focus-visible {
+  border-color: hsl(var(--primary) / 0.75) !important;
+  box-shadow:
+    0 0 0 2px hsl(var(--background)) !important,
+    0 0 0 4px hsl(var(--ring) / 0.26),
+    var(--shadow-sm) !important;
+}
+
+.theme-shell input::placeholder,
+.theme-shell textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.theme-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):disabled,
+.theme-shell textarea:disabled,
+.theme-shell select:disabled {
+  background: hsl(var(--muted) / 0.62) !important;
+  border-color: hsl(var(--border) / 0.45) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  opacity: 0.78;
+}
+
+.theme-shell input[aria-invalid="true"]:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+.theme-shell textarea[aria-invalid="true"],
+.theme-shell select[aria-invalid="true"] {
+  border-color: hsl(var(--destructive) / 0.85) !important;
+}
+
+.theme-shell input[aria-invalid="true"]:focus-visible:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+.theme-shell textarea[aria-invalid="true"]:focus-visible,
+.theme-shell select[aria-invalid="true"]:focus-visible {
+  box-shadow:
+    0 0 0 2px hsl(var(--background)) !important,
+    0 0 0 4px hsl(var(--destructive) / 0.24),
+    var(--shadow-sm) !important;
+}
+
+/* Select nativo */
+.theme-shell select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.3rem !important;
+  background-image:
+    linear-gradient(45deg, transparent 50%, hsl(var(--muted-foreground)) 50%),
+    linear-gradient(135deg, hsl(var(--muted-foreground)) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.theme-shell select option,
+.theme-shell select optgroup {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+
+.theme-shell select[multiple],
+.theme-shell select[size]:not([size="1"]) {
+  background-image: none;
+  padding-right: 0.75rem;
+}
+
+/* Date/Time */
+.theme-shell input[type="date"],
+.theme-shell input[type="time"] {
+  min-height: 2.5rem;
+}
+
+.theme-shell input[type="date"]::-webkit-calendar-picker-indicator,
+.theme-shell input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+/* File input */
+.theme-shell input[type="file"] {
+  min-height: 2.6rem;
+  border: 1px solid var(--border-normal) !important;
+  border-radius: var(--radius-md);
+  background: hsl(var(--input, var(--card))) !important;
+  color: hsl(var(--muted-foreground));
+  box-shadow: var(--shadow-xs) !important;
+  padding: 0.36rem 0.45rem;
+  transition:
+    border-color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard);
+}
+
+.theme-shell input[type="file"]:hover {
+  border-color: hsl(var(--primary) / 0.45) !important;
+}
+
+.theme-shell input[type="file"]:focus-visible {
+  border-color: hsl(var(--primary) / 0.75) !important;
+  box-shadow:
+    0 0 0 2px hsl(var(--background)) !important,
+    0 0 0 4px hsl(var(--ring) / 0.24),
+    var(--shadow-sm) !important;
+}
+
+.theme-shell input[type="file"]::file-selector-button {
+  border: 1px solid hsl(var(--primary) / 0.35);
+  border-radius: var(--radius-sm);
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-right: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.theme-shell input[type="file"]::file-selector-button:hover {
+  background: hsl(var(--primary) / 0.18);
+  border-color: hsl(var(--primary) / 0.5);
+  color: hsl(var(--primary));
+}
+
+/* Jerarquia visual de secciones de formulario */
+.theme-shell label {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.theme-shell fieldset {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-xs);
+  padding: 1rem;
+}
+
+.theme-shell legend {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0 0.25rem;
+}
