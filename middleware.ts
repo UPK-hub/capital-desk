@@ -34,7 +34,7 @@ export default withAuth(
         const path = req.nextUrl.pathname;
         const isPublic = path === "/" || path.startsWith("/login") || path.startsWith("/api/auth");
         if (isPublic) return true;
-        return !!token;
+        return !!token && !(token as any).revoked;
       },
     },
   }

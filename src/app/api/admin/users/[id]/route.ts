@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 
 
@@ -15,7 +16,7 @@ const patchSchema = z
     role: z.nativeEnum(Role).optional(),
     active: z.boolean().optional(),
     // set directo de password por admin (opcional)
-    newPassword: z.string().trim().min(6).optional(),
+    newPassword: z.string().trim().min(MIN_PASSWORD_LENGTH).optional(),
     capabilities: z.array(z.string().trim().min(2)).optional(),
   })
   .refine((x) => Object.keys(x).length > 0, { message: "Nada para actualizar" });
@@ -38,15 +39,27 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
   const target = await prisma.user.findFirst({
     where: { id: userId, tenantId },
-    select: { id: true },
+    select: { id: true, active: true },
   });
   if (!target) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
 
   const data: any = {};
+  let shouldIncrementSessionVersion = false;
+
   if (parsed.data.role) data.role = parsed.data.role;
-  if (typeof parsed.data.active === "boolean") data.active = parsed.data.active;
-  if (parsed.data.newPassword) data.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  if (typeof parsed.data.active === "boolean") {
+    data.active = parsed.data.active;
+    if (parsed.data.active !== target.active) shouldIncrementSessionVersion = true;
+  }
+  if (parsed.data.newPassword) {
+    data.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+    shouldIncrementSessionVersion = true;
+  }
   if (parsed.data.capabilities) data.capabilities = parsed.data.capabilities;
+
+  if (shouldIncrementSessionVersion) {
+    data.sessionVersion = { increment: 1 };
+  }
 
   const updated = await prisma.user.update({
     where: { id: userId },

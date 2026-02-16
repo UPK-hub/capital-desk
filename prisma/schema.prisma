@@ -207,6 +207,7 @@ model User {
   role         Role
   active       Boolean  @default(true)
   capabilities String[] @default([])
+  sessionVersion Int    @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

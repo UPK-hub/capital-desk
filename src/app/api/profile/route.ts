@@ -7,11 +7,12 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 const updateSchema = z.object({
   email: z.string().email().optional(),
   currentPassword: z.string().min(4).optional(),
-  newPassword: z.string().min(8).optional(),
+  newPassword: z.string().min(MIN_PASSWORD_LENGTH).optional(),
 });
 
 export async function GET() {
@@ -57,9 +58,12 @@ export async function PUT(req: NextRequest) {
     if (!ok) return NextResponse.json({ error: "Clave actual incorrecta" }, { status: 400 });
   }
 
-  const data: { email?: string; passwordHash?: string } = {};
+  const data: { email?: string; passwordHash?: string; sessionVersion?: { increment: number } } = {};
   if (email && email !== user.email) data.email = email.toLowerCase().trim();
-  if (newPassword) data.passwordHash = await bcrypt.hash(newPassword, 10);
+  if (newPassword) {
+    data.passwordHash = await bcrypt.hash(newPassword, 10);
+    data.sessionVersion = { increment: 1 };
+  }
 
   try {
     const updated = await prisma.user.update({ where: { id: userId }, data });

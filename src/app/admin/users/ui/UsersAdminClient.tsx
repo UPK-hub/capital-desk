@@ -4,6 +4,7 @@ import * as React from "react";
 import { Role } from "@prisma/client";
 import { Select } from "@/components/Field";
 import { StatusPill } from "@/components/ui/status-pill";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 type UserRow = {
   id: string;
@@ -67,6 +68,13 @@ export default function UsersAdminClient() {
     setError(null);
     setMsg(null);
 
+    const trimmedPassword = password.trim();
+    if (trimmedPassword && trimmedPassword.length < MIN_PASSWORD_LENGTH) {
+      setBusy(false);
+      setError(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+      return;
+    }
+
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -74,7 +82,7 @@ export default function UsersAdminClient() {
         name,
         email,
         role,
-        password: password.trim() ? password.trim() : null,
+        password: trimmedPassword ? trimmedPassword : null,
       }),
     });
 
@@ -89,7 +97,14 @@ export default function UsersAdminClient() {
     setName("");
     setEmail("");
     setPassword("");
-    setMsg("Usuario creado.");
+
+    if (data?.warning) {
+      setMsg(String(data.warning));
+    } else if (data?.resetEmailSent) {
+      setMsg("Usuario creado. Se envio correo para configurar contraseña.");
+    } else {
+      setMsg("Usuario creado.");
+    }
     await load();
   }
 
@@ -121,17 +136,16 @@ export default function UsersAdminClient() {
     setError(null);
     setMsg(null);
 
-    const res = await fetch(`/api/admin/users/${id}/reset-token`, { method: "POST" });
+    const res = await fetch(`/api/admin/users/${id}/reset-password`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
 
     if (!res.ok) {
-      setError(data?.error ?? "No se pudo generar token");
+      setError(data?.error ?? "No se pudo enviar correo de restablecimiento");
       return;
     }
 
-    // por ahora lo mostramos para pruebas; luego se envía por correo.
-    setMsg(`Reset token generado (prueba): ${data.rawToken} (expira ${new Date(data.expiresAt).toLocaleString()})`);
+    setMsg(`Correo de restablecimiento enviado. Expira ${new Date(data.expiresAt).toLocaleString()}.`);
   }
 
   async function deleteUser(id: string) {
@@ -185,7 +199,7 @@ export default function UsersAdminClient() {
             <label className="text-xs text-muted-foreground">Contraseña (opcional)</label>
             <input
               className={clsInput()}
-              placeholder="Si vacío: sin contraseña, usar reset"
+              placeholder={`Si vacio: envio por correo (min ${MIN_PASSWORD_LENGTH})`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -340,13 +354,13 @@ function UserCardItem({
       <div className="flex flex-wrap items-center gap-2">
         <input
           className="app-field-control h-9 w-52 rounded-xl border px-2 text-sm"
-          placeholder="Nueva clave"
+          placeholder={`Nueva clave (min ${MIN_PASSWORD_LENGTH})`}
           value={newPass}
           onChange={(e) => setNewPass(e.target.value)}
         />
         <button
           className="sts-btn-ghost text-sm h-9 px-3"
-          disabled={disabled || newPass.trim().length < 6}
+          disabled={disabled || newPass.trim().length < MIN_PASSWORD_LENGTH}
           onClick={async () => {
             await onPatch(u.id, { newPassword: newPass.trim() });
             setNewPass("");
@@ -356,7 +370,7 @@ function UserCardItem({
         </button>
 
         <button className="sts-btn-ghost text-sm h-9 px-3" disabled={disabled} onClick={() => onReset(u.id)}>
-          Generar reset token
+          Enviar reset por correo
         </button>
         <button
           className="sts-btn-ghost text-sm h-9 px-3 text-red-600"

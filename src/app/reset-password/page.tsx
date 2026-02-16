@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 export default function ResetPasswordPage() {
   const sp = useSearchParams();
@@ -19,7 +20,7 @@ export default function ResetPasswordPage() {
     const res = await fetch("/api/auth/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, newPassword: pwd }),
+      body: JSON.stringify({ token, password: pwd }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -42,14 +43,14 @@ export default function ResetPasswordPage() {
           className="h-10 w-full rounded-md border px-3 text-sm"
           value={pwd}
           onChange={(e) => setPwd(e.target.value)}
-          placeholder="mínimo 8 caracteres"
+          placeholder={`minimo ${MIN_PASSWORD_LENGTH} caracteres`}
           type="password"
         />
 
         {msg ? <div className="rounded-md border p-3 text-sm">{msg}</div> : null}
 
         <button
-          disabled={!token || pwd.length < 8 || saving}
+          disabled={!token || pwd.length < MIN_PASSWORD_LENGTH || saving}
           className="sts-btn-primary text-sm disabled:opacity-50"
           onClick={submit}
         >

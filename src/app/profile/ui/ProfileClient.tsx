@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 type Props = {
   user: { name: string; email: string; role: string };
@@ -16,6 +17,11 @@ export default function ProfileClient({ user }: Props) {
   const [error, setError] = React.useState<string | null>(null);
 
   async function save() {
+    if (newPassword.trim() && newPassword.trim().length < MIN_PASSWORD_LENGTH) {
+      setError(`La nueva clave debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+      return;
+    }
+
     setSaving(true);
     setMsg(null);
     setError(null);
@@ -118,6 +124,7 @@ export default function ProfileClient({ user }: Props) {
                   className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={`Minimo ${MIN_PASSWORD_LENGTH} caracteres`}
                 />
               </div>
             </div>
