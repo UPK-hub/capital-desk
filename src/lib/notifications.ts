@@ -64,24 +64,29 @@ export async function notifyTenantUsers(params: NotifyParams) {
 
   // 3) Enviar correos (solo server)
   const sendEmailFlag = params.sendEmail ?? true;
+  const queuedEmails =
+    sendEmailFlag && shouldEmail(type)
+      ? recipients
+          .map((u) => u.email?.trim())
+          .filter((email): email is string => Boolean(email))
+      : [];
 
-  let emailed = 0;
-  if (sendEmailFlag && shouldEmail(type)) {
+  if (queuedEmails.length) {
     const { subject, html, text } = buildEmail({ type, title, body, href });
 
-    // Envío 1 a 1 (más control); si luego quieres batch, se puede optimizar
-    for (const u of recipients) {
-      const email = u.email?.trim();
-      if (!email) continue;
-      try {
-        await sendMail({ to: email, subject, html, text });
-        emailed++;
-      } catch (e) {
-        // No abortar todo por un correo fallido
-        console.error("EMAIL_SEND_FAILED", { to: u.email, type, err: e });
-      }
-    }
+    // Enviar correos en background para no bloquear requests criticos.
+    void (async () => {
+      await Promise.allSettled(
+        queuedEmails.map(async (email) => {
+          try {
+            await sendMail({ to: email, subject, html, text });
+          } catch (e) {
+            console.error("EMAIL_SEND_FAILED", { to: email, type, err: e });
+          }
+        })
+      );
+    })();
   }
 
-  return { ok: true, created: recipients.length, emailed };
+  return { ok: true, created: recipients.length, emailed: 0, queued: queuedEmails.length };
 }

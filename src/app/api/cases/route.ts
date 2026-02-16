@@ -314,9 +314,15 @@ export async function POST(req: NextRequest) {
             bodyLines: [...bodyLines, "Su solicitud fue recibida y esta en espera."],
           });
 
-          for (const to of allEmails) {
-            await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
-          }
+          await Promise.allSettled(
+            allEmails.map(async (to) => {
+              try {
+                await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
+              } catch (err) {
+                console.error("VIDEO_EMAIL_SEND_FAILED", { to, err });
+              }
+            })
+          );
 
           await prisma.videoDownloadRequest.update({
             where: { id: req.id },

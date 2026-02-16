@@ -145,13 +145,15 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       bodyLines: [...baseLines, "Su solicitud esta en curso."],
     });
 
-    for (const to of clientEmails) {
-      try {
-        await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
-      } catch (err) {
-        console.error("VIDEO_EMAIL_SEND_FAILED", { to, err });
-      }
-    }
+    await Promise.allSettled(
+      clientEmails.map(async (to) => {
+        try {
+          await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
+        } catch (err) {
+          console.error("VIDEO_EMAIL_SEND_FAILED", { to, err });
+        }
+      })
+    );
 
     await prisma.videoDownloadRequest.update({
       where: { id: requestId },
@@ -229,13 +231,15 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
         downloadUrl,
       });
 
-      for (const to of clientEmails) {
-        try {
-          await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
-        } catch (err) {
-          console.error("VIDEO_EMAIL_SEND_FAILED", { to, err });
-        }
-      }
+      await Promise.allSettled(
+        clientEmails.map(async (to) => {
+          try {
+            await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
+          } catch (err) {
+            console.error("VIDEO_EMAIL_SEND_FAILED", { to, err });
+          }
+        })
+      );
 
       await prisma.videoDownloadRequest.update({
         where: { id: requestId },
