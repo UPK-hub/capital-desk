@@ -132,6 +132,13 @@ enum CaseEventType {
   COMMENT
 }
 
+enum IntegrationInboundStatus {
+  RECEIVED
+  PROCESSED
+  REJECTED
+  ERROR
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   code      String   @unique
@@ -160,6 +167,8 @@ model Tenant {
   stsAuditLogs StsAuditLog[]
   themeSettings ThemeSettings?
   inventorySerialCatalog InventorySerialCatalog[]
+  integrationInboundEvents IntegrationInboundEvent[]
+  busTelemetryStates BusTelemetryState[]
 
   sequence      TenantSequence?
 }
@@ -495,6 +504,56 @@ model StsAuditLog {
   @@index([tenantId, createdAt])
 }
 
+model IntegrationInboundEvent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  busId String?
+  bus   Bus? @relation(fields: [busId], references: [id], onDelete: SetNull)
+  busCode String
+
+  source      String
+  externalId  String
+  kind        StsTelemetryKind
+  eventType   String
+  severity    String?
+  message     String?
+  eventAt     DateTime?
+  payload     Json
+  receivedAt  DateTime @default(now())
+  processedAt DateTime?
+  status      IntegrationInboundStatus @default(RECEIVED)
+  retries     Int @default(0)
+  error       String?
+  requestMeta Json?
+
+  @@unique([tenantId, externalId])
+  @@index([tenantId, status, receivedAt])
+  @@index([tenantId, busId, eventAt])
+  @@index([tenantId, busCode, eventAt])
+}
+
+model BusTelemetryState {
+  busId String @id
+  bus   Bus @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  lastSeenAt    DateTime?
+  lastEventAt   DateTime?
+  lastEventType String?
+  lastSeverity  String?
+  lastMessage   String?
+  lastPayload   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, lastSeenAt])
+}
+
 model ThemeSettings {
   id       String @id @default(cuid())
   tenantId String @unique
@@ -566,6 +625,8 @@ model Bus {
   equipments BusEquipment[]
   cases      Case[]
   lifecycle  BusLifecycleEvent[]
+  telemetryState BusTelemetryState?
+  inboundEvents IntegrationInboundEvent[]
 
   @@unique([tenantId, code])
 }
