@@ -179,7 +179,44 @@ export default function TicketsClient() {
           </button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
+        <details className="group rounded-xl border border-border/60 bg-card lg:hidden" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+            Filtros
+            <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="grid gap-3 border-t border-border/50 p-3">
+            <Select className={clsInput()} value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
+              <option value="">Prioridad</option>
+              <option value={StsTicketSeverity.EMERGENCY}>{stsSeverityLabels.EMERGENCY}</option>
+              <option value={StsTicketSeverity.HIGH}>{stsSeverityLabels.HIGH}</option>
+              <option value={StsTicketSeverity.MEDIUM}>{stsSeverityLabels.MEDIUM}</option>
+              <option value={StsTicketSeverity.LOW}>{stsSeverityLabels.LOW}</option>
+            </Select>
+            <Select className={clsInput()} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="">Estado</option>
+              <option value={StsTicketStatus.OPEN}>{stsStatusLabels.OPEN}</option>
+              <option value={StsTicketStatus.IN_PROGRESS}>{stsStatusLabels.IN_PROGRESS}</option>
+              <option value={StsTicketStatus.WAITING_VENDOR}>{stsStatusLabels.WAITING_VENDOR}</option>
+              <option value={StsTicketStatus.RESOLVED}>{stsStatusLabels.RESOLVED}</option>
+              <option value={StsTicketStatus.CLOSED}>{stsStatusLabels.CLOSED}</option>
+            </Select>
+            <Select className={clsInput()} value={filterComponent} onChange={(e) => setFilterComponent(e.target.value)}>
+              <option value="">Componente</option>
+              {components.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <Select className={clsInput()} value={filterBreach} onChange={(e) => setFilterBreach(e.target.value)}>
+              <option value="">Breaches</option>
+              <option value="response">Respuesta</option>
+              <option value="resolution">Resolucion</option>
+            </Select>
+          </div>
+        </details>
+
+        <div className="hidden gap-3 md:grid-cols-4 lg:grid">
           <Select className={clsInput()} value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}>
             <option value="">Prioridad</option>
             <option value={StsTicketSeverity.EMERGENCY}>{stsSeverityLabels.EMERGENCY}</option>
@@ -215,42 +252,84 @@ export default function TicketsClient() {
         ) : tickets.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hay tickets.</p>
         ) : (
-          <div className="overflow-auto sts-card">
-            <table className="sts-table">
-              <thead>
-                <tr>
-                  <th>Componente</th>
-                  <th>Prioridad</th>
-                  <th>Estado</th>
-                  <th>Canal</th>
-                  <th>Apertura</th>
-                  <th>Breaches</th>
-                  <th>Accion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tickets.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.component.name}</td>
-                    <td>{labelFromMap(t.severity, stsSeverityLabels)}</td>
-                    <td>
+          <>
+            <div className="mobile-list-stack lg:hidden">
+              {tickets.map((t) => (
+                <article key={t.id} className="rounded-xl border border-border/60 bg-card p-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs uppercase text-muted-foreground">Componente</span>
+                      <span className="text-right font-medium">{t.component.name}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs uppercase text-muted-foreground">Prioridad</span>
+                      <span>{labelFromMap(t.severity, stsSeverityLabels)}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs uppercase text-muted-foreground">Estado</span>
                       <span className="sts-chip">{labelFromMap(t.status, stsStatusLabels)}</span>
-                    </td>
-                    <td>{labelFromMap(t.channel, stsChannelLabels)}</td>
-                    <td>{new Date(t.openedAt).toLocaleString("es-CO")}</td>
-                    <td>
-                      {t.breachResponse ? "Resp" : ""} {t.breachResolution ? "Res" : ""}
-                    </td>
-                    <td>
-                      <Link className="underline" href={`/sts/tickets/${t.id}`}>
-                        Ver
-                      </Link>
-                    </td>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs uppercase text-muted-foreground">Canal</span>
+                      <span>{labelFromMap(t.channel, stsChannelLabels)}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs uppercase text-muted-foreground">Apertura</span>
+                      <span className="text-right text-xs text-muted-foreground">
+                        {new Date(t.openedAt).toLocaleString("es-CO")}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs uppercase text-muted-foreground">Breach</span>
+                      <span>{t.breachResponse ? "Resp" : ""} {t.breachResolution ? "Res" : "" || "—"}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/sts/tickets/${t.id}`}>
+                      Ver detalles
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="hidden overflow-auto sts-card lg:block">
+              <table className="sts-table">
+                <thead>
+                  <tr>
+                    <th>Componente</th>
+                    <th>Prioridad</th>
+                    <th>Estado</th>
+                    <th>Canal</th>
+                    <th>Apertura</th>
+                    <th>Breaches</th>
+                    <th>Accion</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {tickets.map((t) => (
+                    <tr key={t.id}>
+                      <td>{t.component.name}</td>
+                      <td>{labelFromMap(t.severity, stsSeverityLabels)}</td>
+                      <td>
+                        <span className="sts-chip">{labelFromMap(t.status, stsStatusLabels)}</span>
+                      </td>
+                      <td>{labelFromMap(t.channel, stsChannelLabels)}</td>
+                      <td>{new Date(t.openedAt).toLocaleString("es-CO")}</td>
+                      <td>
+                        {t.breachResponse ? "Resp" : ""} {t.breachResolution ? "Res" : ""}
+                      </td>
+                      <td>
+                        <Link className="underline" href={`/sts/tickets/${t.id}`}>
+                          Ver
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>

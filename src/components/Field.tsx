@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Input as UiInput } from "@/components/ui/input";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -92,6 +93,9 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
     const [open, setOpen] = React.useState(false);
     const wrapRef = React.useRef<HTMLDivElement | null>(null);
     const mirrorRef = React.useRef<HTMLSelectElement | null>(null);
+    const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+    const menuRef = React.useRef<HTMLDivElement | null>(null);
+    const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties | undefined>(undefined);
 
     const selectedValue = controlled ? String(value ?? "") : internalValue;
     const selectedOption =
@@ -100,10 +104,43 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
       options[0] ??
       null;
 
+    function updateMenuPosition() {
+      if (!triggerRef.current || typeof window === "undefined") return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const estimatedHeight = Math.min(320, Math.max(120, options.length * 38 + 16));
+      const margin = 8;
+      const spaceBelow = viewportH - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+
+      const width = Math.min(rect.width, viewportW - margin * 2);
+      let left = rect.left;
+      if (left + width > viewportW - margin) left = viewportW - width - margin;
+      if (left < margin) left = margin;
+
+      let top = rect.bottom + 4;
+      if (openUp) {
+        top = Math.max(margin, rect.top - Math.min(estimatedHeight, spaceAbove) - 4);
+      }
+
+      setMenuStyle({
+        position: "fixed",
+        top,
+        left,
+        width,
+        zIndex: 9999,
+      });
+    }
+
     React.useEffect(() => {
       function handleOutsideClick(e: MouseEvent) {
+        const target = e.target as Node;
+        if (wrapRef.current?.contains(target)) return;
+        if (menuRef.current?.contains(target)) return;
         if (!wrapRef.current) return;
-        if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+        setOpen(false);
       }
       function handleEsc(e: KeyboardEvent) {
         if (e.key === "Escape") setOpen(false);
@@ -128,6 +165,24 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
         setInternalValue(domValue);
       }
     }, [controlled, internalValue, options.length]);
+
+    React.useEffect(() => {
+      if (!open) return;
+
+      updateMenuPosition();
+
+      function handleScrollOrResize() {
+        updateMenuPosition();
+      }
+
+      window.addEventListener("resize", handleScrollOrResize);
+      window.addEventListener("scroll", handleScrollOrResize, true);
+      return () => {
+        window.removeEventListener("resize", handleScrollOrResize);
+        window.removeEventListener("scroll", handleScrollOrResize, true);
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, options.length]);
 
     function bindMirrorRef(node: HTMLSelectElement | null) {
       mirrorRef.current = node;
@@ -170,8 +225,9 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
     }
 
     return (
-      <div className="relative" ref={wrapRef}>
+      <div className="app-select-wrap relative" ref={wrapRef}>
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           onClick={() => !disabled && setOpen((v) => !v)}
@@ -210,36 +266,41 @@ export const Select = React.forwardRef<HTMLInputElement | HTMLSelectElement, Sel
           {children}
         </select>
 
-        {open ? (
-          <div
-            className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-border/70 bg-card shadow-[var(--shadow-lg)]"
-            role="listbox"
-          >
-            <div className="max-h-72 overflow-auto p-1.5">
-            {options.map((opt) => (
-              <button
-                key={`${name ?? "select"}-${opt.value}-${opt.label}`}
-                type="button"
-                disabled={disabled || opt.disabled}
-                onClick={() => {
-                  if (opt.disabled) return;
-                  emit(opt.value);
-                  setOpen(false);
-                }}
-                className={`w-full rounded-md border px-2.5 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  selectedValue === opt.value
-                    ? "border-border/60 bg-muted/70 font-semibold text-foreground"
-                    : "border-transparent text-foreground hover:border-border/40 hover:bg-muted/50"
-                } ${opt.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                role="option"
-                aria-selected={selectedValue === opt.value}
+        {open && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                ref={menuRef}
+                style={menuStyle}
+                className="dropdown-content overflow-hidden rounded-lg border border-border/70 bg-card shadow-[var(--shadow-lg)]"
+                role="listbox"
               >
-                {opt.label}
-              </button>
-            ))}
-            </div>
-          </div>
-        ) : null}
+                <div className="max-h-72 overflow-auto p-1.5">
+                  {options.map((opt) => (
+                    <button
+                      key={`${name ?? "select"}-${opt.value}-${opt.label}`}
+                      type="button"
+                      disabled={disabled || opt.disabled}
+                      onClick={() => {
+                        if (opt.disabled) return;
+                        emit(opt.value);
+                        setOpen(false);
+                      }}
+                      className={`w-full rounded-md border px-2.5 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        selectedValue === opt.value
+                          ? "border-border/60 bg-muted/70 font-semibold text-foreground"
+                          : "border-transparent text-foreground hover:border-border/40 hover:bg-muted/50"
+                      } ${opt.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      role="option"
+                      aria-selected={selectedValue === opt.value}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     );
   }

@@ -9,5 +9,6 @@ export const RBAC = {
   techRoutes: [Role.ADMIN, Role.TECHNICIAN],
   busesRoutes: [Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN], // ajustable
   plannerRoutes: [Role.ADMIN, Role.PLANNER],
+  shiftRoutes: [Role.ADMIN, Role.BACKOFFICE],
   stsRoutes: [Role.ADMIN, Role.SUPERVISOR, Role.HELPDESK, Role.AUDITOR],
 };

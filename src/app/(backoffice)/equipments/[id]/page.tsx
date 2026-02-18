@@ -250,30 +250,33 @@ export default async function EquipmentLifePage({ params }: PageProps) {
   timeline.sort((a, b) => a.at.getTime() - b.at.getTime());
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Hoja de vida · {equipment.equipmentType.name} {equipment.serial ? `· ${equipment.serial}` : ""}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Bus {equipment.bus.code} {equipment.bus.plate ? `· ${equipment.bus.plate}` : ""}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Marca: {equipment.brand ?? "—"} · Modelo: {equipment.model ?? "—"}
-          </p>
-        </div>
+    <div className="mobile-page-shell">
+      <header className="mobile-page-header">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+          <div className="min-w-0 space-y-1">
+            <h1 className="truncate text-lg font-semibold tracking-tight lg:text-3xl">
+              Hoja de vida · {equipment.equipmentType.name} {equipment.serial ? `· ${equipment.serial}` : ""}
+            </h1>
+            <p className="truncate text-xs text-muted-foreground lg:text-sm">
+              Bus {equipment.bus.code} {equipment.bus.plate ? `· ${equipment.bus.plate}` : ""}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Marca: {equipment.brand ?? "—"} · Modelo: {equipment.model ?? "—"}
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <span className={statusBadge(equipment.active)}>{equipment.active ? "Activo" : "Inactivo"}</span>
-          <Link className="sts-btn-ghost text-sm" href={`/buses/${equipment.bus.id}`}>
-            Volver al bus
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={statusBadge(equipment.active)}>{equipment.active ? "Activo" : "Inactivo"}</span>
+            <Link className="sts-btn-ghost text-sm" href={`/buses/${equipment.bus.id}`}>
+              Volver al bus
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="sts-card p-4">
+      <div className="mobile-page-content max-w-6xl lg:px-6">
+        <div className="mobile-kpi-grid md:grid-cols-4">
+          <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Casos asociados</p>
           <p className="mt-1 text-lg font-semibold">{cases.length}</p>
           <p className="text-xs text-muted-foreground">totales</p>
@@ -293,9 +296,9 @@ export default async function EquipmentLifePage({ params }: PageProps) {
           <p className="mt-1 text-lg font-semibold">{equipment.location ?? "—"}</p>
           <p className="text-xs text-muted-foreground">registro actual</p>
         </div>
-      </div>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <section className="sts-card p-5">
             <div className="flex items-center justify-between">
@@ -303,62 +306,90 @@ export default async function EquipmentLifePage({ params }: PageProps) {
               <p className="text-xs text-muted-foreground">{cases.length} registros</p>
             </div>
 
-            <div className="mt-4 overflow-auto">
-              <table className="sts-table">
-                <thead className="text-xs text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="py-2 text-left">Fecha</th>
-                    <th className="py-2 text-left">Título</th>
-                    <th className="py-2 text-left">Tipo</th>
-                    <th className="py-2 text-left">Estado</th>
-                    <th className="py-2 text-left">OT</th>
-                    <th className="py-2 text-left"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cases.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-muted-foreground">
-                        Sin casos asociados.
-                      </td>
-                    </tr>
-                  ) : (
-                    cases.map((c) => (
-                      <tr key={c.id} className="border-b last:border-b-0">
-                        <td className="py-2 whitespace-nowrap">{fmtDate(c.createdAt)}</td>
-                        <td className="py-2">
-                          <div className="font-medium">{c.title}</div>
-                          <div className="text-xs text-muted-foreground">Prio {c.priority}</div>
-                        </td>
-                        <td className="py-2">{c.type}</td>
-                        <td className="py-2">
+            <div className="mt-4">
+              {cases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin casos asociados.</p>
+              ) : (
+                <>
+                  <div className="mobile-list-stack lg:hidden">
+                    {cases.map((c) => (
+                      <article key={c.id} className="rounded-xl border border-border/60 bg-card p-4">
+                        <p className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</p>
+                        <p className="mt-1 text-sm font-semibold break-words">{c.title}</p>
+                        <p className="text-xs text-muted-foreground">Prioridad {c.priority}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className={caseStatusBadge(c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
-                        </td>
-                        <td className="py-2">
                           {c.workOrder ? (
                             <span className={woStatusBadge(c.workOrder.status)}>{labelFromMap(c.workOrder.status, workOrderStatusLabels)}</span>
                           ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
+                            <span className="text-xs text-muted-foreground">Sin OT</span>
                           )}
-                        </td>
-                        <td className="py-2 text-right whitespace-nowrap">
-                          <Link className="underline" href={`/cases/${c.id}`}>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${c.id}`}>
                             Abrir caso
                           </Link>
                           {c.workOrder?.id ? (
-                            <>
-                              <span className="mx-2 text-muted-foreground">·</span>
-                              <Link className="underline" href={`/work-orders/${c.workOrder.id}`}>
-                                Abrir OT
-                              </Link>
-                            </>
+                            <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/work-orders/${c.workOrder.id}`}>
+                              Abrir OT
+                            </Link>
                           ) : null}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-auto lg:block">
+                    <table className="sts-table">
+                      <thead className="text-xs text-muted-foreground">
+                        <tr className="border-b">
+                          <th className="py-2 text-left">Fecha</th>
+                          <th className="py-2 text-left">Título</th>
+                          <th className="py-2 text-left">Tipo</th>
+                          <th className="py-2 text-left">Estado</th>
+                          <th className="py-2 text-left">OT</th>
+                          <th className="py-2 text-left"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cases.map((c) => (
+                          <tr key={c.id} className="border-b last:border-b-0">
+                            <td className="py-2 whitespace-nowrap">{fmtDate(c.createdAt)}</td>
+                            <td className="py-2">
+                              <div className="font-medium">{c.title}</div>
+                              <div className="text-xs text-muted-foreground">Prio {c.priority}</div>
+                            </td>
+                            <td className="py-2">{c.type}</td>
+                            <td className="py-2">
+                              <span className={caseStatusBadge(c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
+                            </td>
+                            <td className="py-2">
+                              {c.workOrder ? (
+                                <span className={woStatusBadge(c.workOrder.status)}>{labelFromMap(c.workOrder.status, workOrderStatusLabels)}</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="py-2 text-right whitespace-nowrap">
+                              <Link className="underline" href={`/cases/${c.id}`}>
+                                Abrir caso
+                              </Link>
+                              {c.workOrder?.id ? (
+                                <>
+                                  <span className="mx-2 text-muted-foreground">·</span>
+                                  <Link className="underline" href={`/work-orders/${c.workOrder.id}`}>
+                                    Abrir OT
+                                  </Link>
+                                </>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
@@ -461,6 +492,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

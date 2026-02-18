@@ -7,6 +7,7 @@ import { CaseEventType, ProcedureType, Role } from "@prisma/client";
 import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
+import { CheckCircle2, FileText } from "lucide-react";
 
 function badgeClass(kind: "status" | "type" | "priority", value: string | number) {
   const base = "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium";
@@ -167,6 +168,10 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const isProductImprovement = c.type === "MEJORA_PRODUCTO";
   const renewalActaLabel =
     isProductImprovement ? "Descargar acta de mejora de producto" : "Descargar acta de cambios";
+  const equipmentItems = equipmentLabel
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
 
   const timeline = [
     ...c.events.map((e) => {
@@ -220,33 +225,68 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("CASE_ASSIGN"));
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{c.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
-          </p>
-        </div>
+    <div className="mobile-page-shell">
+      <header className="mobile-page-header sticky top-16 lg:static lg:top-auto">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+          <div className="min-w-0 space-y-2">
+            <h1 className="text-base font-semibold leading-tight break-words lg:text-3xl">{c.title}</h1>
+            <p className="text-xs leading-tight text-muted-foreground break-all lg:text-sm lg:break-normal">
+              {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <span className={badgeClass("type", c.type)}>{labelFromMap(c.type, caseTypeLabels)}</span>
-          <span className={badgeClass("status", c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
-          <span className={badgeClass("priority", c.priority)}>Prioridad {c.priority}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={badgeClass("type", c.type)}>{labelFromMap(c.type, caseTypeLabels)}</span>
+            <span className={badgeClass("status", c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
+            <span className={badgeClass("priority", c.priority)}>Prioridad {c.priority}</span>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <section className="sts-card p-5">
-            <div className="flex items-center justify-between">
+      <div className="mobile-page-content max-w-6xl lg:px-6">
+        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
+          <section className="sts-card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border/50 bg-muted/20 p-4 lg:p-5">
               <h2 className="text-base font-semibold">Contexto</h2>
-              <Link className="text-sm underline" href={`/buses/${c.bus.id}`}>
+              <Link className="text-xs underline lg:text-sm" href={`/buses/${c.bus.id}`}>
                 Ver hoja de vida del bus
               </Link>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="divide-y divide-border/30 lg:hidden">
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Bus</p>
+                <p className="text-sm font-medium">
+                  {c.bus.code} {c.bus.plate ? `| ${c.bus.plate}` : ""}
+                </p>
+              </div>
+
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Equipos</p>
+                {equipmentItems.length === 0 ? (
+                  <p className="text-sm font-medium">No aplica / No seleccionado</p>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto rounded-lg bg-muted/30 p-3">
+                    <ul className="space-y-1 text-xs">
+                      {equipmentItems.map((item, idx) => (
+                        <li key={`${item}-${idx}`} className="flex items-start gap-2">
+                          <span className="mt-0.5 text-muted-foreground">•</span>
+                          <span className="break-all">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Descripción</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{c.description}</p>
+              </div>
+            </div>
+
+            <div className="hidden gap-4 p-5 md:grid md:grid-cols-2">
               <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 text-sm font-medium">
@@ -256,7 +296,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
               <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Equipo</p>
-                <p className="mt-1 text-sm font-medium">{equipmentLabel}</p>
+                {equipmentItems.length === 0 ? (
+                  <p className="mt-1 text-sm font-medium">No aplica / No seleccionado</p>
+                ) : (
+                  <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-lg border border-border/60 bg-card/80 p-2">
+                    {equipmentItems.map((item, idx) => (
+                      <p key={`${item}-${idx}`} className="text-xs leading-relaxed">
+                        • {item}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className={`${contextBoxClass} md:col-span-2`}>
@@ -266,15 +316,66 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </div>
           </section>
 
-          <section className="sts-card p-5">
-            <div className="flex items-center justify-between">
+          <section className="sts-card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border/50 bg-muted/20 p-4 lg:p-5">
               <h2 className="text-base font-semibold">Trazabilidad</h2>
               <p className="text-xs text-muted-foreground">
                 {c.events.length} eventos de caso | {lifecycle.length} eventos de bus
               </p>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="divide-y divide-border/30 lg:hidden">
+              {timeline.map((it, idx) => (
+                <div key={`${it.kind}-${idx}`} className="relative">
+                  {idx !== timeline.length - 1 ? (
+                    <div className="absolute bottom-0 left-7 top-12 w-px bg-border/80" />
+                  ) : null}
+
+                  <div className="flex items-start gap-3 p-4">
+                    <div
+                      className={`relative z-10 mt-1 rounded-full p-1.5 ${
+                        it.kind === "CASE" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+                      }`}
+                    >
+                      {it.kind === "CASE" ? <FileText className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                    </div>
+
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium ${
+                            it.kind === "CASE" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {it.kind}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{fmtDate(it.at)}</span>
+                      </div>
+
+                      <p className="text-sm font-semibold leading-snug">{it.title}</p>
+                      {it.message ? <p className="text-xs leading-relaxed text-muted-foreground">{it.message}</p> : null}
+                      {it.extra ? <p className="text-xs leading-relaxed text-muted-foreground">{it.extra}</p> : null}
+                      {it.actor ? (
+                        <p className="text-xs text-muted-foreground">
+                          Por: <span className="font-medium text-foreground">{it.actor}</span>
+                        </p>
+                      ) : null}
+
+                      {debug && it.meta ? (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-xs text-muted-foreground">Ver detalles tecnicos</summary>
+                          <pre className="mt-2 max-h-56 overflow-auto rounded bg-zinc-50 p-2 text-xs">
+                            {JSON.stringify(it.meta, null, 2)}
+                          </pre>
+                        </details>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden space-y-3 p-5 lg:block">
               {timeline.map((it, idx) => (
                 <div key={`${it.kind}-${idx}`} className="flex gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-zinc-400" />
@@ -316,7 +417,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </div>
 
             {!debug ? (
-              <p className="mt-4 text-xs text-muted-foreground">
+              <p className="p-4 text-xs text-muted-foreground lg:px-5 lg:pb-5 lg:pt-0">
                 Detalles tecnicos ocultos. Para ver meta: agrega <span className="font-mono">?debug=1</span> a la URL.
               </p>
             ) : null}
@@ -515,6 +616,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -235,35 +235,36 @@ export default async function BusLifePage({ params }: PageProps) {
   const casesWithWo = bus.cases.filter((c) => Boolean(c.workOrder?.id)).length;
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Hoja de vida • Bus {bus.code} {bus.plate ? `• ${bus.plate}` : ""}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Bus <span className="font-mono">{bus.id}</span> • Creado {fmtDate(bus.createdAt)}
-          </p>
-        </div>
+    <div className="mobile-page-shell">
+      <header className="mobile-page-header">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+          <div className="min-w-0 space-y-1">
+            <h1 className="truncate text-lg font-semibold tracking-tight lg:text-3xl">
+              Hoja de vida • Bus {bus.code} {bus.plate ? `• ${bus.plate}` : ""}
+            </h1>
+            <p className="truncate text-xs text-muted-foreground lg:text-sm">
+              Bus <span className="font-mono">{bus.id}</span> • Creado {fmtDate(bus.createdAt)}
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <StatusPill
-            status={bus.active ? "activo" : "cancelado"}
-            label={bus.active ? "Activo" : "Inactivo"}
-          />
-          <Link className="sts-btn-ghost text-sm" href="/buses">
-            Volver
-          </Link>
-          <Link className="sts-btn-primary text-sm" href="/cases/new">
-            Crear caso
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill
+              status={bus.active ? "activo" : "cancelado"}
+              label={bus.active ? "Activo" : "Inactivo"}
+            />
+            <Link className="sts-btn-ghost text-sm" href="/buses">
+              Volver
+            </Link>
+            <Link className="sts-btn-primary text-sm" href="/cases/new">
+              Crear caso
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="sts-card p-4">
+      <div className="mobile-page-content max-w-6xl lg:px-6">
+        <div className="mobile-kpi-grid md:grid-cols-4">
+          <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Equipos</p>
           <p className="mt-1 text-lg font-semibold">{totalEquipments}</p>
           <p className="text-xs text-muted-foreground">{activeEquipments} activos</p>
@@ -283,9 +284,9 @@ export default async function BusLifePage({ params }: PageProps) {
           <p className="mt-1 text-lg font-semibold">{timeline.length}</p>
           <p className="text-xs text-muted-foreground">bus + casos + OT</p>
         </div>
-      </div>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-3">
         {/* Izquierda */}
         <div className="lg:col-span-2 space-y-6">
           {/* Inventario */}
@@ -296,52 +297,90 @@ export default async function BusLifePage({ params }: PageProps) {
             </div>
 
             <div className="mt-4">
-              <DataTable>
-                <DataTableHeader>
-                  <DataTableRow>
-                    <DataTableHead>Tipo</DataTableHead>
-                    <DataTableHead>Marca</DataTableHead>
-                    <DataTableHead>Modelo</DataTableHead>
-                    <DataTableHead>Serial</DataTableHead>
-                    <DataTableHead>IP equipo</DataTableHead>
-                    <DataTableHead>Estado</DataTableHead>
-                    <DataTableHead className="text-right">Acción</DataTableHead>
-                  </DataTableRow>
-                </DataTableHeader>
-                <DataTableBody>
-                  {bus.equipments.length === 0 ? (
-                    <DataTableRow>
-                      <DataTableCell colSpan={7} className="text-sm text-muted-foreground">
-                        Sin equipos asociados.
-                      </DataTableCell>
-                    </DataTableRow>
-                  ) : (
-                    bus.equipments.map((e) => (
-                      <DataTableRow key={e.id}>
-                        <DataTableCell>
-                          <span className="font-medium">{e.equipmentType.name}</span>
-                        </DataTableCell>
-                        <DataTableCell>{e.brand ?? "—"}</DataTableCell>
-                        <DataTableCell>{e.model ?? "—"}</DataTableCell>
-                        <DataTableCell>{e.serial ?? "—"}</DataTableCell>
-                        <DataTableCell className="text-xs text-muted-foreground">{e.ipAddress ?? "—"}</DataTableCell>
-                        <DataTableCell>
-                          <StatusPill
-                            status={e.active ? "activo" : "cancelado"}
-                            label={e.active ? "Activo" : "Inactivo"}
-                            size="sm"
-                          />
-                        </DataTableCell>
-                        <DataTableCell className="text-right whitespace-nowrap">
-                          <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/equipments/${e.id}`}>
+              {bus.equipments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin equipos asociados.</p>
+              ) : (
+                <>
+                  <div className="mobile-list-stack lg:hidden">
+                    {bus.equipments.map((e) => (
+                      <article key={e.id} className="rounded-xl border border-border/60 bg-card p-4">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-xs uppercase text-muted-foreground">Tipo</span>
+                            <span className="text-right font-medium">{e.equipmentType.name}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-xs uppercase text-muted-foreground">Marca / Modelo</span>
+                            <span className="text-right">{e.brand ?? "—"} {e.model ?? ""}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-xs uppercase text-muted-foreground">Serial</span>
+                            <span className="text-right">{e.serial ?? "—"}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-xs uppercase text-muted-foreground">IP</span>
+                            <span className="text-right text-xs text-muted-foreground">{e.ipAddress ?? "—"}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="text-xs uppercase text-muted-foreground">Estado</span>
+                            <StatusPill
+                              status={e.active ? "activo" : "cancelado"}
+                              label={e.active ? "Activo" : "Inactivo"}
+                              size="sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/equipments/${e.id}`}>
                             Ver hoja de vida
                           </Link>
-                        </DataTableCell>
-                      </DataTableRow>
-                    ))
-                  )}
-                </DataTableBody>
-              </DataTable>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="hidden lg:block">
+                    <DataTable>
+                      <DataTableHeader>
+                        <DataTableRow>
+                          <DataTableHead>Tipo</DataTableHead>
+                          <DataTableHead>Marca</DataTableHead>
+                          <DataTableHead>Modelo</DataTableHead>
+                          <DataTableHead>Serial</DataTableHead>
+                          <DataTableHead>IP equipo</DataTableHead>
+                          <DataTableHead>Estado</DataTableHead>
+                          <DataTableHead className="text-right">Acción</DataTableHead>
+                        </DataTableRow>
+                      </DataTableHeader>
+                      <DataTableBody>
+                        {bus.equipments.map((e) => (
+                          <DataTableRow key={e.id}>
+                            <DataTableCell>
+                              <span className="font-medium">{e.equipmentType.name}</span>
+                            </DataTableCell>
+                            <DataTableCell>{e.brand ?? "—"}</DataTableCell>
+                            <DataTableCell>{e.model ?? "—"}</DataTableCell>
+                            <DataTableCell>{e.serial ?? "—"}</DataTableCell>
+                            <DataTableCell className="text-xs text-muted-foreground">{e.ipAddress ?? "—"}</DataTableCell>
+                            <DataTableCell>
+                              <StatusPill
+                                status={e.active ? "activo" : "cancelado"}
+                                label={e.active ? "Activo" : "Inactivo"}
+                                size="sm"
+                              />
+                            </DataTableCell>
+                            <DataTableCell className="text-right whitespace-nowrap">
+                              <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/equipments/${e.id}`}>
+                                Ver hoja de vida
+                              </Link>
+                            </DataTableCell>
+                          </DataTableRow>
+                        ))}
+                      </DataTableBody>
+                    </DataTable>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
@@ -353,46 +392,26 @@ export default async function BusLifePage({ params }: PageProps) {
             </div>
 
             <div className="mt-4">
-              <DataTable>
-                <DataTableHeader>
-                  <DataTableRow>
-                    <DataTableHead>Fecha</DataTableHead>
-                    <DataTableHead>Título</DataTableHead>
-                    <DataTableHead>Tipo</DataTableHead>
-                    <DataTableHead>Estado</DataTableHead>
-                    <DataTableHead>OT</DataTableHead>
-                    <DataTableHead className="text-right">Acción</DataTableHead>
-                  </DataTableRow>
-                </DataTableHeader>
-                <DataTableBody>
-                  {bus.cases.length === 0 ? (
-                    <DataTableRow>
-                      <DataTableCell colSpan={6} className="text-sm text-muted-foreground">
-                        No hay casos para este bus.
-                      </DataTableCell>
-                    </DataTableRow>
-                  ) : (
-                    bus.cases.map((c) => (
-                      <DataTableRow key={c.id}>
-                        <DataTableCell className="whitespace-nowrap">{fmtDate(c.createdAt)}</DataTableCell>
-                        <DataTableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">{c.title}</span>
-                            <PriorityBadge priority={c.priority} size="sm" />
-                          </div>
-                        </DataTableCell>
-                        <DataTableCell>
+              {bus.cases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay casos para este bus.</p>
+              ) : (
+                <>
+                  <div className="mobile-list-stack lg:hidden">
+                    {bus.cases.map((c) => (
+                      <article key={c.id} className="rounded-xl border border-border/60 bg-card p-4">
+                        <p className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</p>
+                        <p className="mt-1 text-sm font-semibold break-words">{c.title}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <TypeBadge type={c.type} />
-                        </DataTableCell>
-                        <DataTableCell>
+                          <PriorityBadge priority={c.priority} size="sm" />
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <StatusPill
                             status={mapCaseStatus(c.status)}
                             label={labelFromMap(c.status, caseStatusLabels)}
                             size="sm"
                             pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
                           />
-                        </DataTableCell>
-                        <DataTableCell>
                           {c.workOrder ? (
                             <StatusPill
                               status={mapWorkOrderStatus(c.workOrder.status)}
@@ -401,24 +420,85 @@ export default async function BusLifePage({ params }: PageProps) {
                               pulse={c.workOrder.status === "EN_CAMPO" || c.workOrder.status === "EN_VALIDACION"}
                             />
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">Sin OT</span>
                           )}
-                        </DataTableCell>
-                        <DataTableCell className="text-right whitespace-nowrap">
-                          <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/cases/${c.id}`}>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${c.id}`}>
                             Abrir caso
                           </Link>
                           {c.workOrder?.id ? (
-                            <Link className="ml-2 sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/work-orders/${c.workOrder.id}`}>
+                            <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/work-orders/${c.workOrder.id}`}>
                               Abrir OT
                             </Link>
                           ) : null}
-                        </DataTableCell>
-                      </DataTableRow>
-                    ))
-                  )}
-                </DataTableBody>
-              </DataTable>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="hidden lg:block">
+                    <DataTable>
+                      <DataTableHeader>
+                        <DataTableRow>
+                          <DataTableHead>Fecha</DataTableHead>
+                          <DataTableHead>Título</DataTableHead>
+                          <DataTableHead>Tipo</DataTableHead>
+                          <DataTableHead>Estado</DataTableHead>
+                          <DataTableHead>OT</DataTableHead>
+                          <DataTableHead className="text-right">Acción</DataTableHead>
+                        </DataTableRow>
+                      </DataTableHeader>
+                      <DataTableBody>
+                        {bus.cases.map((c) => (
+                          <DataTableRow key={c.id}>
+                            <DataTableCell className="whitespace-nowrap">{fmtDate(c.createdAt)}</DataTableCell>
+                            <DataTableCell>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">{c.title}</span>
+                                <PriorityBadge priority={c.priority} size="sm" />
+                              </div>
+                            </DataTableCell>
+                            <DataTableCell>
+                              <TypeBadge type={c.type} />
+                            </DataTableCell>
+                            <DataTableCell>
+                              <StatusPill
+                                status={mapCaseStatus(c.status)}
+                                label={labelFromMap(c.status, caseStatusLabels)}
+                                size="sm"
+                                pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
+                              />
+                            </DataTableCell>
+                            <DataTableCell>
+                              {c.workOrder ? (
+                                <StatusPill
+                                  status={mapWorkOrderStatus(c.workOrder.status)}
+                                  label={labelFromMap(c.workOrder.status, workOrderStatusLabels)}
+                                  size="sm"
+                                  pulse={c.workOrder.status === "EN_CAMPO" || c.workOrder.status === "EN_VALIDACION"}
+                                />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </DataTableCell>
+                            <DataTableCell className="text-right whitespace-nowrap">
+                              <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/cases/${c.id}`}>
+                                Abrir caso
+                              </Link>
+                              {c.workOrder?.id ? (
+                                <Link className="ml-2 sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/work-orders/${c.workOrder.id}`}>
+                                  Abrir OT
+                                </Link>
+                              ) : null}
+                            </DataTableCell>
+                          </DataTableRow>
+                        ))}
+                      </DataTableBody>
+                    </DataTable>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
@@ -535,6 +615,7 @@ export default async function BusLifePage({ params }: PageProps) {
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

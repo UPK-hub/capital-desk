@@ -77,62 +77,98 @@ export default async function TechnicianShiftLogsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Turnos técnicos</h1>
-          <p className="text-sm text-muted-foreground">Registro de ingreso/salida y horas extra.</p>
+    <div className="mobile-page-shell">
+      <header className="mobile-page-header">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6 lg:py-0">
+          <div>
+            <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Turnos técnicos</h1>
+            <p className="text-sm text-muted-foreground">Registro de ingreso/salida y horas extra.</p>
+          </div>
+          <a
+            className="sts-btn-primary inline-flex h-10 items-center justify-center px-4 text-sm"
+            href="/api/technicians/shifts/export"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Exportar Excel
+          </a>
         </div>
-        <a
-          className="sts-btn-primary text-sm"
-          href="/api/technicians/shifts/export"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Exportar Excel
-        </a>
-      </div>
+      </header>
 
-      <DataTable>
-        <DataTableHeader>
-          <DataTableRow>
-            <DataTableHead>Técnico</DataTableHead>
-            <DataTableHead>Turno asignado</DataTableHead>
-            <DataTableHead>Inicio</DataTableHead>
-            <DataTableHead>Salida</DataTableHead>
-            <DataTableHead>Horas</DataTableHead>
-            <DataTableHead>Extra</DataTableHead>
-          </DataTableRow>
-        </DataTableHeader>
-        <DataTableBody>
-          {logs.map((log) => {
-            const shiftType = log.user.technicianSchedule?.shiftType ?? null;
-            const expected = shiftType ? shiftDurationMinutes(shiftType) / 60 : null;
-            const worked = log.endedAt ? hoursDiff(log.startedAt, log.endedAt) : null;
-            const overtime = worked !== null && expected !== null ? Math.max(0, worked - expected) : null;
+      <div className="mobile-page-content max-w-6xl lg:px-6">
 
-            return (
-              <DataTableRow key={log.id}>
-                <DataTableCell>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">{log.user.name}</span>
-                    <span className="text-xs text-muted-foreground">{log.user.email ?? "-"}</span>
+      {logs.length === 0 ? (
+        <div className="sts-card p-6 text-sm text-muted-foreground">No hay registros.</div>
+      ) : (
+        <>
+          <div className="mobile-list-stack lg:hidden">
+            {logs.map((log) => {
+              const shiftType = log.user.technicianSchedule?.shiftType ?? null;
+              const expected = shiftType ? shiftDurationMinutes(shiftType) / 60 : null;
+              const worked = log.endedAt ? hoursDiff(log.startedAt, log.endedAt) : null;
+              const overtime = worked !== null && expected !== null ? Math.max(0, worked - expected) : null;
+
+              return (
+                <article key={log.id} className="sts-card p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{log.user.name}</p>
+                    <p className="text-xs text-muted-foreground break-all">{log.user.email ?? "-"}</p>
                   </div>
-                </DataTableCell>
-                <DataTableCell>
-                  <span className="text-xs text-muted-foreground">{shiftType ? SHIFT_LABELS[shiftType] : "Sin asignar"}</span>
-                </DataTableCell>
-                <DataTableCell>{fmtDate(log.startedAt)}</DataTableCell>
-                <DataTableCell>{fmtDate(log.endedAt)}</DataTableCell>
-                <DataTableCell>{worked !== null ? fmtHours(worked) : "-"}</DataTableCell>
-                <DataTableCell>{overtime !== null ? fmtHours(overtime) : "-"}</DataTableCell>
-              </DataTableRow>
-            );
-          })}
-        </DataTableBody>
-      </DataTable>
+                  <div className="mt-3 space-y-1.5 text-xs">
+                    <p className="text-muted-foreground">Turno: <span className="text-foreground">{shiftType ? SHIFT_LABELS[shiftType] : "Sin asignar"}</span></p>
+                    <p className="text-muted-foreground">Inicio: <span className="text-foreground">{fmtDate(log.startedAt)}</span></p>
+                    <p className="text-muted-foreground">Salida: <span className="text-foreground">{fmtDate(log.endedAt)}</span></p>
+                    <p className="text-muted-foreground">Horas: <span className="text-foreground">{worked !== null ? fmtHours(worked) : "-"}</span></p>
+                    <p className="text-muted-foreground">Extra: <span className="text-foreground">{overtime !== null ? fmtHours(overtime) : "-"}</span></p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
 
-      {logs.length === 0 ? <div className="sts-card p-6 text-sm text-muted-foreground">No hay registros.</div> : null}
+          <div className="hidden lg:block">
+            <DataTable>
+              <DataTableHeader>
+                <DataTableRow>
+                  <DataTableHead>Técnico</DataTableHead>
+                  <DataTableHead>Turno asignado</DataTableHead>
+                  <DataTableHead>Inicio</DataTableHead>
+                  <DataTableHead>Salida</DataTableHead>
+                  <DataTableHead>Horas</DataTableHead>
+                  <DataTableHead>Extra</DataTableHead>
+                </DataTableRow>
+              </DataTableHeader>
+              <DataTableBody>
+                {logs.map((log) => {
+                  const shiftType = log.user.technicianSchedule?.shiftType ?? null;
+                  const expected = shiftType ? shiftDurationMinutes(shiftType) / 60 : null;
+                  const worked = log.endedAt ? hoursDiff(log.startedAt, log.endedAt) : null;
+                  const overtime = worked !== null && expected !== null ? Math.max(0, worked - expected) : null;
+
+                  return (
+                    <DataTableRow key={log.id}>
+                      <DataTableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium">{log.user.name}</span>
+                          <span className="text-xs text-muted-foreground">{log.user.email ?? "-"}</span>
+                        </div>
+                      </DataTableCell>
+                      <DataTableCell>
+                        <span className="text-xs text-muted-foreground">{shiftType ? SHIFT_LABELS[shiftType] : "Sin asignar"}</span>
+                      </DataTableCell>
+                      <DataTableCell>{fmtDate(log.startedAt)}</DataTableCell>
+                      <DataTableCell>{fmtDate(log.endedAt)}</DataTableCell>
+                      <DataTableCell>{worked !== null ? fmtHours(worked) : "-"}</DataTableCell>
+                      <DataTableCell>{overtime !== null ? fmtHours(overtime) : "-"}</DataTableCell>
+                    </DataTableRow>
+                  );
+                })}
+              </DataTableBody>
+            </DataTable>
+          </div>
+        </>
+      )}
+      </div>
     </div>
   );
 }

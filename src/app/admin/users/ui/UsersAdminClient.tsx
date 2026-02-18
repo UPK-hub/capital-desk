@@ -169,7 +169,7 @@ export default function UsersAdminClient() {
   return (
     <div className="space-y-6 max-w-full">
       {/* Crear */}
-      <section className="sts-card p-5 space-y-4">
+      <section className="sts-card card-with-dropdown overflow-visible p-5 space-y-4">
         <h2 className="text-base font-semibold">Crear usuario</h2>
 
         {error ? <div className="rounded-xl border p-3 text-sm">{error}</div> : null}
@@ -186,7 +186,7 @@ export default function UsersAdminClient() {
             <input className={clsInput()} value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
 
-          <div>
+          <div className="card-with-dropdown overflow-visible">
             <label className="text-xs text-muted-foreground">Rol</label>
             <Select className={clsInput()} value={role} onChange={(e) => setRole(e.target.value as Role)}>
               <option value={Role.ADMIN}>Administrador</option>
@@ -217,7 +217,7 @@ export default function UsersAdminClient() {
       </section>
 
       {/* Listado */}
-      <section className="sts-card p-5">
+      <section className="sts-card card-with-dropdown overflow-visible p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Usuarios</h2>
           <button className="sts-btn-ghost text-sm" disabled={loading} onClick={load}>
@@ -231,7 +231,7 @@ export default function UsersAdminClient() {
           ) : users.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay usuarios en este tenant.</p>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 overflow-visible lg:grid-cols-2">
               {users.map((u) => (
                 <UserCardItem
                   key={u.id}
@@ -267,7 +267,7 @@ function UserCardItem({
   const caps = new Set(u.capabilities ?? []);
 
   return (
-    <article className="sts-card sts-card--interactive p-5 space-y-4">
+    <article className="sts-card sts-card--interactive card-with-dropdown relative overflow-visible p-5 space-y-4 lg:focus-within:z-[120]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold leading-5">{u.name}</p>
@@ -284,7 +284,7 @@ function UserCardItem({
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <div>
+        <div className="card-with-dropdown overflow-visible">
           <label className="text-xs text-muted-foreground">Rol</label>
           <Select
             className="app-field-control h-9 w-full rounded-xl border px-2 text-sm"

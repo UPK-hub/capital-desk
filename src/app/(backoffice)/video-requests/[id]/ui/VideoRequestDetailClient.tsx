@@ -139,30 +139,33 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
     : "";
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Solicitud {item.case.caseNo ?? item.case.id}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {item.case.title} · Bus {item.case.bus.code}
-            {item.case.bus.plate ? ` (${item.case.bus.plate})` : ""}
-          </p>
+    <div className="mobile-page-shell">
+      <header className="mobile-page-header">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+          <div className="min-w-0 space-y-1">
+            <h1 className="truncate text-lg font-semibold tracking-tight lg:text-3xl">
+              Solicitud {item.case.caseNo ?? item.case.id}
+            </h1>
+            <p className="truncate text-xs text-muted-foreground lg:text-sm">
+              {item.case.title} · Bus {item.case.bus.code}
+              {item.case.bus.plate ? ` (${item.case.bus.plate})` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link className="sts-btn-ghost text-sm" href="/video-requests">
+              Volver
+            </Link>
+            <Link className="sts-btn-primary text-sm" href={`/cases/${item.case.id}`}>
+              Ver caso
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Link className="sts-btn-ghost text-sm" href="/video-requests">
-            Volver
-          </Link>
-          <Link className="sts-btn-primary text-sm" href={`/cases/${item.case.id}`}>
-            Ver caso
-          </Link>
-        </div>
-      </div>
+      </header>
 
-      {msg ? <div className="sts-card p-3 text-sm">{msg}</div> : null}
+      <div className="mobile-page-content max-w-6xl lg:px-6">
+        {msg ? <div className="sts-card p-3 text-sm">{msg}</div> : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Datos de la solicitud</h2>
@@ -331,6 +334,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

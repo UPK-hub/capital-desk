@@ -78,7 +78,7 @@ function isoDate(d?: Date | null) {
 }
 
 function classInput() {
-  return "app-field-control h-10 w-full rounded-xl border px-3 text-sm focus-visible:outline-none";
+  return "app-field-control h-9 w-full min-w-0 rounded-xl border px-3 text-sm focus-visible:outline-none";
 }
 function classTextArea() {
   return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm focus-visible:outline-none";
@@ -413,7 +413,7 @@ export default function CorrectiveReportForm(props: Props) {
   return (
     <div className="space-y-6">
       <div className="sts-card p-4 md:p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-semibold">Formato Correctivo (inline)</h3>
             <p className="text-xs text-muted-foreground">Estructura basada en CAP-FO-M-CR-002. Campos opcionales.</p>
@@ -422,7 +422,7 @@ export default function CorrectiveReportForm(props: Props) {
             type="button"
             onClick={form.handleSubmit(onSubmit)}
             disabled={saving || loading}
-            className="sts-btn-primary text-sm disabled:opacity-50"
+            className="sts-btn-primary w-full text-sm disabled:opacity-50 sm:w-auto"
           >
             {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
           </button>

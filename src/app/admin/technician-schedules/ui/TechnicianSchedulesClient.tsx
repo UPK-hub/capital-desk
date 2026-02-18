@@ -87,9 +87,9 @@ export default function TechnicianSchedulesClient() {
   }
 
   return (
-    <section className="sts-card p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Configuracion de turnos</h2>
+    <section className="sts-card p-4 sm:p-5 space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-semibold">Configuración de turnos</h2>
         <button className="sts-btn-ghost text-sm" disabled={loading} onClick={load}>
           {loading ? "Cargando..." : "Refrescar"}
         </button>
@@ -103,23 +103,17 @@ export default function TechnicianSchedulesClient() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No hay tecnicos activos.</p>
       ) : (
-        <DataTable>
-          <DataTableHeader>
-            <DataTableRow>
-              <DataTableHead>Técnico</DataTableHead>
-              <DataTableHead>Turno</DataTableHead>
-              <DataTableHead>Descanso</DataTableHead>
-              <DataTableHead className="text-right">Acción</DataTableHead>
-            </DataTableRow>
-          </DataTableHeader>
-          <DataTableBody>
+        <>
+          <div className="space-y-3 lg:hidden">
             {rows.map((row) => (
-              <DataTableRow key={row.id}>
-                <DataTableCell>
-                  <div className="font-medium">{row.name}</div>
-                  <div className="text-xs text-muted-foreground">{row.email}</div>
-                </DataTableCell>
-                <DataTableCell>
+              <article key={row.id} className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">{row.name}</p>
+                  <p className="text-xs text-muted-foreground break-all">{row.email}</p>
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">Turno</label>
                   <Select
                     className={clsInput()}
                     value={row.shiftType ?? ""}
@@ -137,8 +131,10 @@ export default function TechnicianSchedulesClient() {
                     <option value={TechnicianShiftType.DIURNO_PM}>Diurno 14:00-18:00</option>
                     <option value={TechnicianShiftType.NOCTURNO}>Nocturno 21:00-05:00</option>
                   </Select>
-                </DataTableCell>
-                <DataTableCell>
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">Descanso</label>
                   <Select
                     className={clsInput()}
                     value={row.restDay ?? ""}
@@ -160,20 +156,93 @@ export default function TechnicianSchedulesClient() {
                     <option value={TechnicianRestDay.SATURDAY}>Sábado</option>
                     <option value={TechnicianRestDay.SUNDAY}>Domingo</option>
                   </Select>
-                </DataTableCell>
-                <DataTableCell className="text-right">
-                  <button
-                    className="sts-btn-ghost h-9 px-3 text-sm data-table-row-action"
-                    disabled={busyId === row.id}
-                    onClick={() => saveRow(row)}
-                  >
-                    {busyId === row.id ? "Guardando..." : "Guardar"}
-                  </button>
-                </DataTableCell>
-              </DataTableRow>
+                </div>
+
+                <button
+                  className="sts-btn-ghost h-10 w-full text-sm data-table-row-action"
+                  disabled={busyId === row.id}
+                  onClick={() => saveRow(row)}
+                >
+                  {busyId === row.id ? "Guardando..." : "Guardar"}
+                </button>
+              </article>
             ))}
-          </DataTableBody>
-        </DataTable>
+          </div>
+
+          <div className="hidden lg:block">
+            <DataTable>
+              <DataTableHeader>
+                <DataTableRow>
+                  <DataTableHead>Técnico</DataTableHead>
+                  <DataTableHead>Turno</DataTableHead>
+                  <DataTableHead>Descanso</DataTableHead>
+                  <DataTableHead className="text-right">Acción</DataTableHead>
+                </DataTableRow>
+              </DataTableHeader>
+              <DataTableBody>
+                {rows.map((row) => (
+                  <DataTableRow key={row.id}>
+                    <DataTableCell>
+                      <div className="font-medium">{row.name}</div>
+                      <div className="text-xs text-muted-foreground">{row.email}</div>
+                    </DataTableCell>
+                    <DataTableCell>
+                      <Select
+                        className={clsInput()}
+                        value={row.shiftType ?? ""}
+                        disabled={busyId === row.id}
+                        onChange={(e) =>
+                          setRows((prev) =>
+                            prev.map((r) =>
+                              r.id === row.id ? { ...r, shiftType: (e.target.value || null) as any } : r
+                            )
+                          )
+                        }
+                      >
+                        <option value="">Sin configurar</option>
+                        <option value={TechnicianShiftType.DIURNO_AM}>Diurno 04:00-12:00</option>
+                        <option value={TechnicianShiftType.DIURNO_PM}>Diurno 14:00-18:00</option>
+                        <option value={TechnicianShiftType.NOCTURNO}>Nocturno 21:00-05:00</option>
+                      </Select>
+                    </DataTableCell>
+                    <DataTableCell>
+                      <Select
+                        className={clsInput()}
+                        value={row.restDay ?? ""}
+                        disabled={busyId === row.id}
+                        onChange={(e) =>
+                          setRows((prev) =>
+                            prev.map((r) =>
+                              r.id === row.id ? { ...r, restDay: (e.target.value || null) as any } : r
+                            )
+                          )
+                        }
+                      >
+                        <option value={TechnicianRestDay.NONE}>Sin descanso</option>
+                        <option value={TechnicianRestDay.MONDAY}>Lunes</option>
+                        <option value={TechnicianRestDay.TUESDAY}>Martes</option>
+                        <option value={TechnicianRestDay.WEDNESDAY}>Miércoles</option>
+                        <option value={TechnicianRestDay.THURSDAY}>Jueves</option>
+                        <option value={TechnicianRestDay.FRIDAY}>Viernes</option>
+                        <option value={TechnicianRestDay.SATURDAY}>Sábado</option>
+                        <option value={TechnicianRestDay.SUNDAY}>Domingo</option>
+                      </Select>
+                    </DataTableCell>
+                    <DataTableCell className="text-right">
+                      <button
+                        className="sts-btn-ghost h-9 px-3 text-sm data-table-row-action"
+                        disabled={busyId === row.id}
+                        onClick={() => saveRow(row)}
+                      >
+                        {busyId === row.id ? "Guardando..." : "Guardar"}
+                      </button>
+                    </DataTableCell>
+                  </DataTableRow>
+                ))}
+              </DataTableBody>
+            </DataTable>
+          </div>
+        </>
       )}
     </section>
   );

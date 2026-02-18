@@ -133,6 +133,10 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
           )
           .join(" | ")
       : "No aplica / No seleccionado";
+  const equipmentItems = equipmentLabel
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
 
   // Reglas finalizar por formulario (según registry)
   const requiresFinishForm = Boolean(cfg?.finishRequiresForm);
@@ -172,40 +176,87 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   const contextBoxClass = "rounded-lg border-2 border-border/60 bg-muted/30 p-4";
 
   return (
-    <div className="w-full space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
-          <p className="text-sm text-muted-foreground">
-            Caso: <span className="font-medium">{fmtCaseNo(wo.case.caseNo)}</span> •{" "}
-            <span className="font-medium">{wo.case.title}</span> • Bus:{" "}
-            <span className="font-medium">{wo.case.bus.code}</span>
-            {wo.case.bus.plate ? ` • ${wo.case.bus.plate}` : ""}
-          </p>
-          {isProductImprovement ? (
-            <span className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
-              Modo mejora de producto
-            </span>
-          ) : null}
-        </div>
+    <div className="mobile-page-shell overflow-x-hidden">
+      <header className="mobile-page-header sticky top-16 lg:static lg:top-auto">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+          <div className="min-w-0 space-y-2">
+            <h1 className="text-base font-semibold leading-tight break-words lg:text-2xl">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
+            <p className="text-xs leading-tight text-muted-foreground break-all lg:text-sm lg:break-normal">
+              Caso: <span className="font-medium">{fmtCaseNo(wo.case.caseNo)}</span> •{" "}
+              <span className="font-medium">{wo.case.title}</span> • Bus:{" "}
+              <span className="font-medium">{wo.case.bus.code}</span>
+              {wo.case.bus.plate ? ` • ${wo.case.bus.plate}` : ""}
+            </p>
+            {isProductImprovement ? (
+              <span className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
+                Modo mejora de producto
+              </span>
+            ) : null}
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Link className="sts-btn-ghost text-sm" href="/work-orders">
-            Volver
-          </Link>
-          <Link className="sts-btn-primary text-sm" href={`/cases/${wo.case.id}`}>
-            Abrir caso
-          </Link>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <Link className="sts-btn-ghost flex-1 text-sm sm:flex-none" href="/work-orders">
+              Volver
+            </Link>
+            <Link className="sts-btn-primary flex-1 text-sm sm:flex-none" href={`/cases/${wo.case.id}`}>
+              Abrir caso
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mobile-page-content max-w-6xl overflow-x-hidden lg:px-6">
+        <div className="ot-layout flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start">
         {/* Contenido principal */}
-        <div className="order-2 space-y-5 xl:order-1">
-          <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Contexto</h2>
+        <div className="order-2 min-w-0 flex-1 space-y-5 lg:order-1">
+          <section className="sts-card overflow-hidden">
+            <div className="border-b border-border/50 bg-muted/20 p-4 lg:p-5">
+              <h2 className="text-base font-semibold">Contexto</h2>
+            </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="divide-y divide-border/30 lg:hidden">
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Estado OT</p>
+                <p className="text-sm font-medium">{labelFromMap(wo.status, workOrderStatusLabels)}</p>
+                {wo.assignedAt ? <p className="mt-1 text-xs text-muted-foreground">Asignada: {fmtDate(wo.assignedAt)}</p> : null}
+              </div>
+
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Técnico</p>
+                <p className="text-sm font-medium">{wo.assignedTo?.name ?? wo.assignedToId ?? "—"}</p>
+                {wo.assignedTo?.email ? <p className="mt-1 text-xs text-muted-foreground">{wo.assignedTo.email}</p> : null}
+              </div>
+
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de caso</p>
+                <p className="text-sm font-medium">{labelFromMap(wo.case.type, caseTypeLabels)}</p>
+              </div>
+
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Equipos</p>
+                {equipmentItems.length === 0 ? (
+                  <p className="text-sm font-medium">No aplica / No seleccionado</p>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto rounded-lg bg-muted/30 p-3">
+                    <ul className="space-y-1 text-xs">
+                      {equipmentItems.map((item, idx) => (
+                        <li key={`${item}-${idx}`} className="flex items-start gap-2">
+                          <span className="mt-0.5 text-muted-foreground">•</span>
+                          <span className="break-all">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Descripción del caso</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{wo.case.description}</p>
+              </div>
+            </div>
+
+            <div className="hidden gap-4 p-5 md:grid md:grid-cols-2">
               <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Estado OT</p>
                 <p className="mt-1 text-sm font-medium">{labelFromMap(wo.status, workOrderStatusLabels)}</p>
@@ -227,7 +278,17 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
 
               <div className={contextBoxClass}>
                 <p className="text-xs text-muted-foreground">Equipo</p>
-                <p className="mt-1 text-sm font-medium">{equipmentLabel}</p>
+                {equipmentItems.length === 0 ? (
+                  <p className="mt-1 text-sm font-medium">No aplica / No seleccionado</p>
+                ) : (
+                  <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-lg border border-border/60 bg-card/80 p-2">
+                    {equipmentItems.map((item, idx) => (
+                      <p key={`${item}-${idx}`} className="text-xs leading-relaxed">
+                        • {item}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className={`${contextBoxClass} md:col-span-2`}>
@@ -384,34 +445,106 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
 
         {/* Panel lateral */}
-        <div className="order-1 space-y-5 self-start xl:order-2 xl:sticky xl:top-20">
-          <StartWorkOrderCard
-            workOrderId={wo.id}
-            disabled={startDone || finishDone}
-            startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
-          />
+        <aside className="ot-panel order-1 w-full min-w-0 flex-shrink-0 space-y-4 xl:order-2 xl:w-[340px] 2xl:w-[380px]">
+          <div className="space-y-3 xl:hidden">
+            <details className="group rounded-xl border border-border/60 bg-card p-0">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">Iniciar OT</span>
+                  {startDone ? (
+                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                      Iniciada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                      Pendiente
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+              </summary>
+              <div className="border-t border-border/50 p-3">
+                <StartWorkOrderCard
+                  workOrderId={wo.id}
+                  disabled={startDone || finishDone}
+                  startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
+                  embedded
+                />
+              </div>
+            </details>
 
-          {!onlyStartFlow ? (
-            <FinishWorkOrderCard
+            {!onlyStartFlow ? (
+              <details className="group rounded-xl border border-border/60 bg-card p-0">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">Finalizar OT</span>
+                    {finishDone ? (
+                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                        Finalizada
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        En proceso
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+                </summary>
+                <div className="border-t border-border/50 p-3">
+                  <FinishWorkOrderCard
+                    workOrderId={wo.id}
+                    disabled={!startDone || finishDone || missingFinishForm}
+                    finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
+                    embedded
+                    caseType={wo.case.type}
+                    equipmentOptions={equipments.map((eq) => ({
+                      id: eq.id,
+                      label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
+                    }))}
+                    blockingReason={
+                      !startDone
+                        ? "Debes iniciar la OT primero."
+                        : finishDone
+                        ? "La OT ya está finalizada."
+                        : missingFinishForm
+                        ? "Debes completar el formulario requerido antes de finalizar."
+                        : null
+                    }
+                  />
+                </div>
+              </details>
+            ) : null}
+          </div>
+
+          <div className="hidden space-y-4 xl:sticky xl:top-20 xl:block">
+            <StartWorkOrderCard
               workOrderId={wo.id}
-              disabled={!startDone || finishDone || missingFinishForm}
-              finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
-              caseType={wo.case.type}
-              equipmentOptions={equipments.map((eq) => ({
-                id: eq.id,
-                label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
-              }))}
-              blockingReason={
-                !startDone
-                  ? "Debes iniciar la OT primero."
-                  : finishDone
-                  ? "La OT ya está finalizada."
-                  : missingFinishForm
-                  ? "Debes completar el formulario requerido antes de finalizar."
-                  : null
-              }
+              disabled={startDone || finishDone}
+              startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
             />
-          ) : null}
+
+            {!onlyStartFlow ? (
+              <FinishWorkOrderCard
+                workOrderId={wo.id}
+                disabled={!startDone || finishDone || missingFinishForm}
+                finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
+                caseType={wo.case.type}
+                equipmentOptions={equipments.map((eq) => ({
+                  id: eq.id,
+                  label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
+                }))}
+                blockingReason={
+                  !startDone
+                    ? "Debes iniciar la OT primero."
+                    : finishDone
+                    ? "La OT ya está finalizada."
+                    : missingFinishForm
+                    ? "Debes completar el formulario requerido antes de finalizar."
+                    : null
+                }
+              />
+            ) : null}
+          </div>
 
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Estado</h2>
@@ -468,7 +601,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               ) : null}
             </div>
           </section>
-
+        </aside>
         </div>
       </div>
     </div>

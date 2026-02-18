@@ -160,6 +160,23 @@ select:focus-visible,
   padding-right: 0.75rem;
 }
 
+/* Global dropdown stacking for native/custom selects */
+select:focus {
+  position: relative;
+  z-index: 50;
+}
+
+[data-radix-select-content],
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+select option,
+[role="option"] {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+
 /* Date/Time */
 .theme-shell input[type="date"],
 .theme-shell input[type="time"] {

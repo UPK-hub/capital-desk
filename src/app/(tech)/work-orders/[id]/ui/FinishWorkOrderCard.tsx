@@ -11,6 +11,7 @@ type Props = {
   blockingReason: string | null;
   caseType?: "PREVENTIVO" | "CORRECTIVO" | string;
   equipmentOptions?: Array<{ id: string; label: string }>;
+  embedded?: boolean;
 };
 
 export default function FinishWorkOrderCard({
@@ -20,6 +21,7 @@ export default function FinishWorkOrderCard({
   blockingReason,
   caseType,
   equipmentOptions = [],
+  embedded = false,
 }: Props) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
@@ -81,21 +83,23 @@ export default function FinishWorkOrderCard({
   }
 
   return (
-    <section className="sts-card border-2 border-border/60 bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Finalizar OT</h2>
-        {finishedAt ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Finalizada
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-            <AlertCircle className="h-3.5 w-3.5" />
-            En proceso
-          </span>
-        )}
-      </div>
+    <section className={embedded ? "space-y-4" : "sts-card border-2 border-border/60 bg-card p-5"}>
+      {!embedded ? (
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Finalizar OT</h2>
+          {finishedAt ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Finalizada
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              <AlertCircle className="h-3.5 w-3.5" />
+              En proceso
+            </span>
+          )}
+        </div>
+      ) : null}
 
       {finishedAt ? (
         <p className="mt-2 text-sm text-muted-foreground">Finalizada: {finishedAt}</p>
@@ -176,7 +180,7 @@ export default function FinishWorkOrderCard({
         ) : null}
 
         <textarea
-          className="app-field-control min-h-[90px] w-full rounded-xl border p-3 text-base md:text-sm focus-visible:outline-none"
+          className="app-field-control min-h-[88px] w-full rounded-xl border p-3 text-sm focus-visible:outline-none"
           placeholder="Notas de finalización..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -208,7 +212,7 @@ export default function FinishWorkOrderCard({
             disabled={disabled || saving}
           />
           {fileName ? (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1 break-all text-xs text-muted-foreground">
               <FileText className="h-3.5 w-3.5" />
               {fileName}
             </p>

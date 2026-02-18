@@ -12,13 +12,17 @@ export default async function AdminUsersPage() {
   if (role !== Role.ADMIN) redirect("/");
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Usuarios</h1>
-        <p className="text-sm text-muted-foreground">Crear usuarios, asignar roles y restablecer contraseña.</p>
-      </div>
+    <div className="mobile-page-shell">
+      <header className="mobile-page-header">
+        <div className="mx-auto w-full max-w-6xl px-4 py-4 lg:px-6 lg:py-0">
+          <h1 className="text-xl font-semibold tracking-tight lg:text-3xl">Usuarios</h1>
+          <p className="text-sm text-muted-foreground">Crear usuarios, asignar roles y restablecer contraseña.</p>
+        </div>
+      </header>
 
-      <UsersAdminClient />
+      <div className="mobile-page-content max-w-6xl lg:px-6">
+        <UsersAdminClient />
+      </div>
     </div>
   );
 }

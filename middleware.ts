@@ -13,6 +13,7 @@ export default withAuth(
     if (path.startsWith("/cases") && !RBAC.backofficeRoutes.includes(role as any)) return deny();
     if (path.startsWith("/work-orders") && !RBAC.techRoutes.includes(role as any)) return deny();
     if (path.startsWith("/buses") && !RBAC.busesRoutes.includes(role as any)) return deny();
+    if (path.startsWith("/technicians/shifts") && !RBAC.shiftRoutes.includes(role as any)) return deny();
     if (path.startsWith("/planner")) {
       const ok = RBAC.plannerRoutes.includes(role as any) || capabilities?.includes("PLANNER");
       if (!ok) return deny();
@@ -41,5 +42,12 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/cases/:path*", "/work-orders/:path*", "/buses/:path*", "/planner/:path*", "/sts/:path*"],
+  matcher: [
+    "/cases/:path*",
+    "/work-orders/:path*",
+    "/buses/:path*",
+    "/technicians/shifts/:path*",
+    "/planner/:path*",
+    "/sts/:path*",
+  ],
 };

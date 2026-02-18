@@ -183,6 +183,21 @@ const AREA_RENDER_ORDER: Record<ActivityRow["area"], number> = {
   BATERIA: 2,
 };
 
+const REQUIRED_PHOTO_KEYS = new Set(["nvr_foto_vms", "nvr_foto_habitaculo", "nvr_data_canbus", "bateria_voltaje"]);
+const BATTERY_VOLTAGE_OPTIONS = Array.from({ length: 101 }, (_, i) => `${(20 + i * 0.1).toFixed(1)} V`);
+
+function isVoltageRow(activityKey: string, activityLabel: string) {
+  return activityKey === "bateria_voltaje" || /voltaje/i.test(activityLabel);
+}
+
+function isPhotoRequiredRow(activityKey: string, currentFlag: boolean | undefined) {
+  return Boolean(currentFlag || REQUIRED_PHOTO_KEYS.has(activityKey));
+}
+
+function isBatteryArea(area: unknown) {
+  return String(area ?? "").trim().toUpperCase() === "BATERIA";
+}
+
 export default function PreventiveReportForm(props: Props) {
   return (
     <PreventiveReportErrorBoundary>
@@ -372,7 +387,21 @@ function PreventiveReportFormInner(props: Props) {
         executedAt: v.executedAt || null,
         rescheduledAt: v.rescheduledAt || null,
 
-        activities: v.activities,
+        activities: v.activities.map((row, idx) => {
+          const key = String(row.key ?? "").trim() || inferKey(row, idx);
+          const activityLabel = String(row.activity ?? "");
+          const batteryVoltageByArea = isBatteryArea((row as any).area) && /voltaje|bater/i.test(activityLabel);
+          const valueRequired = Boolean((row.valueRequired ?? isVoltageRow(key, activityLabel)) || batteryVoltageByArea);
+          const photoRequired = isPhotoRequiredRow(key, row.photoRequired) || batteryVoltageByArea;
+          const value = valueRequired ? String(row.value ?? "") : "";
+          return {
+            ...row,
+            key,
+            value,
+            valueRequired,
+            photoRequired,
+          };
+        }),
 
         observations: v.observations.trim(),
         responsibleUpk: v.responsibleUpk.trim(),
@@ -392,10 +421,12 @@ function PreventiveReportFormInner(props: Props) {
       }
 
       let uploadedCount = 0;
-      for (const row of v.activities) {
-        const files = photoFilesByKey[row.key] ?? null;
+      for (let i = 0; i < v.activities.length; i += 1) {
+        const row = v.activities[i];
+        const rowKey = String(row.key ?? "").trim() || inferKey(row, i);
+        const files = photoFilesByKey[rowKey] ?? photoFilesByKey[`idx_${i}`] ?? null;
         if (!files?.length) continue;
-        uploadedCount += await uploadActivityPhotos(row.key, files);
+        uploadedCount += await uploadActivityPhotos(rowKey, files);
       }
 
       setPhotoFilesByKey({});
@@ -415,7 +446,7 @@ function PreventiveReportFormInner(props: Props) {
   return (
     <div className="space-y-6">
       <div className="sts-card p-4 md:p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-semibold">Formato Preventivo (inline)</h3>
             <p className="text-xs text-muted-foreground">
@@ -429,7 +460,7 @@ function PreventiveReportFormInner(props: Props) {
             type="button"
             onClick={form.handleSubmit(onSubmit)}
             disabled={saving || loading}
-            className="sts-btn-primary text-sm disabled:opacity-50"
+            className="sts-btn-primary w-full text-sm disabled:opacity-50 sm:w-auto"
           >
             {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
           </button>
@@ -492,93 +523,127 @@ function PreventiveReportFormInner(props: Props) {
         {/* TABLA DISPOSITIVOS (removida por solicitud) */}
 
         {/* ACTIVIDADES + EVIDENCIAS */}
-        <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">Tareas del preventivo (NVR → Cámaras → Batería)</h4>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Evidencia obligatoria para cierre: VMS, habitáculo, CANBUS y batería (foto + valor escrito).
-          </p>
+        <section className="sts-card overflow-visible p-0">
+          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+            <h4 className="text-sm font-semibold">Tareas del preventivo (NVR → Cámaras → Batería)</h4>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Evidencia obligatoria para cierre: VMS, habitáculo, CANBUS y batería (foto + valor escrito).
+            </p>
+          </div>
 
-          <div className="mt-3 hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[980px] table-fixed">
+          <div className="ot-table-scroll hidden lg:block overflow-x-auto overflow-y-visible">
+            <table className="w-full min-w-[1080px] border-collapse [table-layout:auto]">
+              <colgroup>
+                <col style={{ width: "2.5rem" }} />
+                <col style={{ width: "7rem" }} />
+                <col />
+                <col style={{ width: "9rem" }} />
+                <col style={{ width: "9rem" }} />
+                <col style={{ width: "8rem" }} />
+                <col style={{ width: "8rem" }} />
+              </colgroup>
               <thead className="border-b border-border/50 bg-muted/20 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="w-14 p-3 text-left">OK</th>
-                  <th className="w-24 p-3 text-left">Área</th>
-                  <th className="p-3 text-left">Tarea</th>
-                  <th className="w-40 p-3 text-left">Tipo</th>
-                  <th className="w-44 p-3 text-left">Estado</th>
-                  <th className="w-36 p-3 text-left">Valor</th>
-                  <th className="w-56 p-3 text-left">Evidencia</th>
+                  <th className="w-12 p-3 text-left">OK</th>
+                  <th className="w-28 p-3 text-left">Área</th>
+                  <th className="min-w-[260px] p-3 text-left">Tarea</th>
+                  <th className="w-36 p-3 text-left">Tipo</th>
+                  <th className="w-36 p-3 text-left">Estado</th>
+                  <th className="w-32 p-3 text-left">Valor</th>
+                  <th className="w-32 p-3 text-left">Evidencia</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {orderedActivityIndexes.map((idx) => {
                   const field = activitiesFA.fields[idx] as any;
-                  const rowKey = String(form.watch(`activities.${idx}.key`) ?? field.key ?? "");
-                  const result = String(form.watch(`activities.${idx}.result`) ?? "");
-                  const value = String(form.watch(`activities.${idx}.value`) ?? "");
-                  const valueRequired = Boolean(field.valueRequired);
-                  const photoRequired = Boolean(field.photoRequired);
+                  const watchedRow = (watchedActivities?.[idx] ?? {}) as Partial<ActivityRow>;
+                  const rowKey = String(watchedRow.key ?? field.key ?? "");
+                  const formKey = String(form.getValues(`activities.${idx}.key`) ?? "");
+                  const activityKey = formKey || rowKey || inferKey({ ...field, ...watchedRow }, idx);
+                  const filesStateKey = activityKey || `idx_${idx}`;
+                  const result = String(watchedRow.result ?? "");
+                  const value = String(watchedRow.value ?? "");
+                  const areaLabel = String(watchedRow.area ?? field.area ?? "");
+                  const activityLabel = String(watchedRow.activity ?? field.activity ?? "");
+                  const isBatteryVoltageRow =
+                    isVoltageRow(activityKey, activityLabel) || (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
+                  const valueRequired = isBatteryVoltageRow;
+                  const photoRequired = isPhotoRequiredRow(activityKey, watchedRow.photoRequired ?? field.photoRequired) || isBatteryVoltageRow;
                   const existingPhotos = normalizePhotoPaths(form.watch(`activities.${idx}.photoPaths`) as any);
-                  const pendingPhotos = photoFilesByKey[rowKey];
+                  const pendingPhotos = photoFilesByKey[filesStateKey] ?? photoFilesByKey[`idx_${idx}`];
                   const hasPhoto = existingPhotos.length > 0 || Boolean(pendingPhotos?.length);
                   const done = result === "FUNCIONAL" && (!valueRequired || hasText(value)) && (!photoRequired || hasPhoto);
 
                   return (
                     <React.Fragment key={field.id}>
-                      <tr className="align-top hover:bg-muted/30">
+                      <tr className="align-top hover:bg-muted/25">
                         <td className="p-3">
                           <input type="hidden" {...form.register(`activities.${idx}.key`)} />
+                          <input type="hidden" {...form.register(`activities.${idx}.area`)} />
+                          <input type="hidden" {...form.register(`activities.${idx}.activity`)} />
                           <input type="checkbox" checked={done} readOnly className="h-4 w-4 rounded border" />
                         </td>
                         <td className="p-3">
-                          <input className={inputCls()} readOnly {...form.register(`activities.${idx}.area`)} />
+                          <span className="inline-flex items-center rounded-md border border-border/60 bg-muted px-2 py-1 text-[11px] font-medium">
+                            {areaLabel}
+                          </span>
+                        </td>
+                        <td className="min-w-[260px] p-3">
+                          <p className="whitespace-normal break-words text-sm leading-snug [word-break:normal] [overflow-wrap:anywhere]">
+                            {activityLabel}
+                          </p>
                         </td>
                         <td className="p-3">
-                          <input className={inputCls()} {...form.register(`activities.${idx}.activity`)} />
-                        </td>
-                        <td className="p-3">
-                          <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.maintenanceType`)}>
+                          <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.maintenanceType`)}>
                             <option value="">—</option>
                             <option value="Preventivo">Preventivo</option>
                             <option value="Correctivo">Correctivo</option>
                           </Select>
                         </td>
                         <td className="p-3">
-                          <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.result`)}>
+                          <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.result`)}>
                             <option value="">—</option>
                             <option value="FUNCIONAL">Funcional</option>
                             <option value="NO_FUNCIONAL">No funcional</option>
                           </Select>
                         </td>
                         <td className="p-3">
-                          <input
-                            className={inputCls()}
-                            placeholder={valueRequired ? "Ej: 24.5 V" : "—"}
-                            disabled={!valueRequired}
-                            {...form.register(`activities.${idx}.value`)}
-                          />
+                          {valueRequired ? (
+                            <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.value`)}>
+                              <option value="">Seleccionar voltaje</option>
+                              {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
+                              {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            <span className="inline-flex h-8 items-center text-xs text-muted-foreground">No aplica</span>
+                          )}
                         </td>
                         <td className="p-3">
                           {photoRequired ? (
                             <div className="space-y-1.5">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const files = e.currentTarget.files;
-                                  setPhotoFilesByKey((prev) => ({
-                                    ...prev,
-                                    [rowKey]: files,
-                                  }));
-                                }}
-                                className="block w-full text-xs"
-                              />
-                              {existingPhotos.length ? (
-                                <p className="text-[11px] text-muted-foreground">Guardadas: {existingPhotos.length}</p>
-                              ) : (
-                                <p className="text-[11px] text-amber-700">Pendiente foto.</p>
-                              )}
+                              <label className="inline-flex w-full cursor-pointer items-center justify-center rounded-lg border border-border/60 px-2 py-1.5 text-[11px] font-medium transition-colors hover:border-primary/40 hover:bg-muted/30">
+                                Seleccionar archivo
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const files = e.currentTarget.files;
+                                    setPhotoFilesByKey((prev) => ({
+                                      ...prev,
+                                      [filesStateKey]: files,
+                                      [`idx_${idx}`]: files,
+                                    }));
+                                  }}
+                                />
+                              </label>
+                              <p className={`text-[11px] ${hasPhoto ? "text-emerald-700" : "text-amber-700"}`}>
+                                {hasPhoto ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto."}
+                              </p>
                             </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">No aplica</span>
@@ -586,7 +651,7 @@ function PreventiveReportFormInner(props: Props) {
                         </td>
                       </tr>
                       {result === "NO_FUNCIONAL" ? (
-                        <tr className="bg-muted/20">
+                        <tr className="bg-muted/15">
                           <td className="p-3 text-xs text-muted-foreground" colSpan={2}>
                             Observación
                           </td>
@@ -606,33 +671,46 @@ function PreventiveReportFormInner(props: Props) {
             </table>
           </div>
 
-          <div className="mt-3 space-y-3 md:hidden">
+          <div className="divide-y divide-border/30 lg:hidden">
             {orderedActivityIndexes.map((idx) => {
               const field = activitiesFA.fields[idx] as any;
-              const rowKey = String(form.watch(`activities.${idx}.key`) ?? field.key ?? "");
-              const result = String(form.watch(`activities.${idx}.result`) ?? "");
-              const valueRequired = Boolean(field.valueRequired);
-              const photoRequired = Boolean(field.photoRequired);
+              const watchedRow = (watchedActivities?.[idx] ?? {}) as Partial<ActivityRow>;
+              const rowKey = String(watchedRow.key ?? field.key ?? "");
+              const formKey = String(form.getValues(`activities.${idx}.key`) ?? "");
+              const activityKey = formKey || rowKey || inferKey({ ...field, ...watchedRow }, idx);
+              const filesStateKey = activityKey || `idx_${idx}`;
+              const result = String(watchedRow.result ?? "");
+              const areaLabel = String(watchedRow.area ?? field.area ?? "");
+              const activityLabel = String(watchedRow.activity ?? field.activity ?? "");
+              const isBatteryVoltageRow =
+                isVoltageRow(activityKey, activityLabel) || (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
+              const valueRequired = isBatteryVoltageRow;
+              const photoRequired = isPhotoRequiredRow(activityKey, watchedRow.photoRequired ?? field.photoRequired) || isBatteryVoltageRow;
               const existingPhotos = normalizePhotoPaths(form.watch(`activities.${idx}.photoPaths`) as any);
-              const pendingPhotos = photoFilesByKey[rowKey];
+              const pendingPhotos = photoFilesByKey[filesStateKey] ?? photoFilesByKey[`idx_${idx}`];
               const hasPhoto = existingPhotos.length > 0 || Boolean(pendingPhotos?.length);
-              const value = String(form.watch(`activities.${idx}.value`) ?? "");
+              const value = String(watchedRow.value ?? "");
               const done = result === "FUNCIONAL" && (!valueRequired || hasText(value)) && (!photoRequired || hasPhoto);
 
               return (
-                <div key={field.id} className="rounded-xl border border-border/60 bg-card p-3 space-y-2">
+                <div key={field.id} className="space-y-3 p-4">
                   <input type="hidden" {...form.register(`activities.${idx}.key`)} />
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">{String(form.watch(`activities.${idx}.area`) ?? field.area)}</p>
-                      <p className="text-sm font-medium">{String(form.watch(`activities.${idx}.activity`) ?? field.activity)}</p>
-                    </div>
+                  <input type="hidden" {...form.register(`activities.${idx}.area`)} />
+                  <input type="hidden" {...form.register(`activities.${idx}.activity`)} />
+
+                  <div className="flex items-start gap-3">
                     <input type="checkbox" checked={done} readOnly className="mt-0.5 h-4 w-4 rounded border" />
+                    <div className="min-w-0 flex-1">
+                      <span className="inline-flex items-center rounded border border-border/60 bg-muted px-2 py-0.5 text-[11px] font-medium">
+                        {areaLabel}
+                      </span>
+                      <p className="mt-1 text-sm font-medium leading-snug">{activityLabel}</p>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <div>
-                      <label className="text-[11px] text-muted-foreground">Tipo</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Tipo</label>
                       <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.maintenanceType`)}>
                         <option value="">—</option>
                         <option value="Preventivo">Preventivo</option>
@@ -640,7 +718,7 @@ function PreventiveReportFormInner(props: Props) {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-[11px] text-muted-foreground">Estado</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Estado</label>
                       <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.result`)}>
                         <option value="">—</option>
                         <option value="FUNCIONAL">Funcional</option>
@@ -651,35 +729,47 @@ function PreventiveReportFormInner(props: Props) {
 
                   {valueRequired ? (
                     <div>
-                      <label className="text-[11px] text-muted-foreground">Valor (escrito)</label>
-                      <input className={inputCls()} placeholder="Ej: 24.5 V" {...form.register(`activities.${idx}.value`)} />
+                      <label className="text-[11px] font-medium text-muted-foreground">Valor</label>
+                      <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.value`)}>
+                        <option value="">Seleccionar voltaje</option>
+                        {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
+                        {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </Select>
                     </div>
                   ) : null}
 
                   {photoRequired ? (
                     <div>
-                      <label className="text-[11px] text-muted-foreground">Evidencia</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const files = e.currentTarget.files;
-                          setPhotoFilesByKey((prev) => ({
-                            ...prev,
-                            [rowKey]: files,
-                          }));
-                        }}
-                        className="mt-1 block w-full text-xs"
-                      />
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {existingPhotos.length ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto."}
+                      <label className="text-[11px] font-medium text-muted-foreground">Evidencia</label>
+                      <label className="mt-1 flex h-10 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary/45 hover:bg-muted/30">
+                        Seleccionar archivo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = e.currentTarget.files;
+                            setPhotoFilesByKey((prev) => ({
+                              ...prev,
+                              [filesStateKey]: files,
+                              [`idx_${idx}`]: files,
+                            }));
+                          }}
+                        />
+                      </label>
+                      <p className={`mt-1 text-[11px] ${hasPhoto ? "text-emerald-700" : "text-amber-700"}`}>
+                        {hasPhoto ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto."}
                       </p>
                     </div>
                   ) : null}
 
                   {result === "NO_FUNCIONAL" ? (
                     <div>
-                      <label className="text-[11px] text-muted-foreground">Observación</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">Observación</label>
                       <input
                         className={smallInputCls()}
                         placeholder="Describe la novedad"
@@ -692,7 +782,9 @@ function PreventiveReportFormInner(props: Props) {
             })}
           </div>
 
-          <p className="mt-2 text-[11px] text-muted-foreground">Las evidencias se cargan al guardar.</p>
+          <div className="border-t border-border/50 px-4 py-3 md:px-5">
+            <p className="text-[11px] text-muted-foreground">Las evidencias se cargan al guardar.</p>
+          </div>
         </section>
 
         {/* OBSERVACIONES + TIEMPO + RESPONSABLES */}

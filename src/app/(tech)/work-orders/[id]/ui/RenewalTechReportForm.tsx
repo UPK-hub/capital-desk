@@ -35,12 +35,127 @@ type FormValues = {
   observations: string;
 };
 
-function inputCls() {
-  return "app-field-control h-10 w-full min-w-0 rounded-xl border px-3 text-base md:text-sm focus-visible:outline-none";
+function cx(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
 }
 
-function textareaCls() {
-  return "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-base md:text-sm focus-visible:outline-none";
+function inputCls(value?: string) {
+  return cx(
+    "app-field-control h-9 w-full min-w-0 rounded-xl border px-3 text-sm transition-all focus-visible:outline-none",
+    "placeholder:text-muted-foreground/70",
+    String(value ?? "").trim().length > 0 && "border-emerald-500/45 bg-emerald-50/30"
+  );
+}
+
+function textareaCls(value?: string) {
+  return cx(
+    "app-field-control min-h-[88px] w-full rounded-xl border px-3 py-2 text-sm transition-all focus-visible:outline-none",
+    "placeholder:text-muted-foreground/70",
+    String(value ?? "").trim().length > 0 && "border-emerald-500/45 bg-emerald-50/30"
+  );
+}
+
+function progressPct(completed: number, total: number) {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
+}
+
+function StepProgress({
+  label,
+  completed,
+  total,
+}: {
+  label: string;
+  completed: number;
+  total: number;
+}) {
+  const pct = progressPct(completed, total);
+  return (
+    <div className="mt-3">
+      <div className="mb-1.5 flex items-center justify-between text-xs">
+        <span className="font-medium text-muted-foreground">{label}</span>
+        <span className="font-semibold text-foreground">
+          {completed}/{total}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FileUploadField({
+  id,
+  files,
+  required,
+  onFiles,
+  onClear,
+}: {
+  id: string;
+  files: FileList | null | undefined;
+  required: boolean;
+  onFiles: (files: FileList | null) => void;
+  onClear: () => void;
+}) {
+  const count = files?.length ?? 0;
+  const firstName = count > 0 ? String(files?.item(0)?.name ?? "") : "";
+  return (
+    <div className="space-y-1.5">
+      <input
+        id={id}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => onFiles(e.currentTarget.files)}
+      />
+      <label
+        htmlFor={id}
+        className={cx(
+          "group flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2 transition-all",
+          count > 0
+            ? "border-emerald-500 bg-emerald-50/70 hover:bg-emerald-100/70"
+            : "border-border/70 hover:border-primary/50 hover:bg-primary/5"
+        )}
+      >
+        <span
+          className={cx(
+            "inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-semibold",
+            count > 0 ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+          )}
+        >
+          {count > 0 ? "OK" : "UP"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-medium">
+            {count > 0 ? firstName : "Elegir archivos"}
+          </span>
+          <span className="block text-[11px] text-muted-foreground">
+            {count > 0
+              ? `${count} archivo(s) seleccionado(s)`
+              : required
+                ? "JPG/PNG (obligatorio)"
+                : "JPG/PNG (opcional)"}
+          </span>
+        </span>
+      </label>
+      {count > 0 ? (
+        <button
+          type="button"
+          className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          onClick={onClear}
+        >
+          Quitar selección
+        </button>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">Ningún archivo seleccionado</p>
+      )}
+    </div>
+  );
 }
 
 const REMOVED_ITEMS = [
@@ -190,6 +305,7 @@ function todayIsoDate() {
 export default function RenewalTechReportForm(props: Props) {
   const router = useRouter();
   const isProductImprovement = props.caseType === "MEJORA_PRODUCTO";
+  const [currentStep, setCurrentStep] = React.useState(1);
   const [saving, setSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [msg, setMsg] = React.useState<string | null>(null);
@@ -211,6 +327,8 @@ export default function RenewalTechReportForm(props: Props) {
     const [s1, s2] = splitSerialPair(row.newSerial);
     return Boolean(s1 && s2);
   }).length;
+  const removedDoneCount = REMOVED_ITEMS.filter((item) => Boolean(removedChecklist[item])).length;
+  const finalDoneCount = FINAL_CHECKLIST.filter((item) => Boolean(finalChecklist[item])).length;
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -224,6 +342,83 @@ export default function RenewalTechReportForm(props: Props) {
       observations: r?.observations ?? "",
     },
   });
+  const observedNotes = form.watch("observations");
+  const stepDefs = React.useMemo(() => {
+    if (isProductImprovement) {
+      return [
+        {
+          id: "step-old",
+          label: "Paso 1 · Equipos actuales",
+          complete: oldCompletedCount > 0 && oldCompletedCount >= equipmentRows.length,
+        },
+        {
+          id: "step-new",
+          label: "Paso 2 · Equipos nuevos",
+          complete: newCompletedCount > 0 && newCompletedCount >= equipmentRows.length,
+        },
+        {
+          id: "step-notes",
+          label: "Paso 3 · Observaciones",
+          complete: String(observedNotes ?? "").trim().length > 0,
+        },
+      ];
+    }
+    return [
+      {
+        id: "step-remove",
+        label: "Paso 1 · Desmonte",
+        complete: removedDoneCount === REMOVED_ITEMS.length && REMOVED_ITEMS.length > 0,
+      },
+      {
+        id: "step-old",
+        label: "Paso 2 · Equipos antiguos",
+        complete: oldCompletedCount > 0 && oldCompletedCount >= equipmentRows.length,
+      },
+      {
+        id: "step-new",
+        label: "Paso 3 · Equipos nuevos",
+        complete: newCompletedCount > 0 && newCompletedCount >= equipmentRows.length,
+      },
+      {
+        id: "step-final",
+        label: "Paso 4 · Checklist final",
+        complete: finalDoneCount === FINAL_CHECKLIST.length && FINAL_CHECKLIST.length > 0,
+      },
+      {
+        id: "step-close",
+        label: "Paso 5 · Cierre",
+        complete: String(observedNotes ?? "").trim().length > 0,
+      },
+    ];
+  }, [
+    isProductImprovement,
+    oldCompletedCount,
+    newCompletedCount,
+    equipmentRows.length,
+    observedNotes,
+    removedDoneCount,
+    finalDoneCount,
+  ]);
+  const completeSteps = stepDefs.filter((x) => x.complete).length;
+  const stepCompletionPct = progressPct(completeSteps, stepDefs.length);
+
+  const goToStep = React.useCallback(
+    (step: number) => {
+      if (step < 1 || step > stepDefs.length) return;
+      setCurrentStep(step);
+      if (typeof document === "undefined") return;
+      const targetId = stepDefs[step - 1]?.id;
+      if (!targetId) return;
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [stepDefs]
+  );
+
+  React.useEffect(() => {
+    if (currentStep > stepDefs.length) {
+      setCurrentStep(Math.max(1, stepDefs.length));
+    }
+  }, [currentStep, stepDefs.length]);
 
   const tryAutofillRowModel = React.useCallback(async (rowIndex: number, serialInput: string) => {
     const serialKey = normalizeSerialForLookup(serialInput);
@@ -400,11 +595,14 @@ export default function RenewalTechReportForm(props: Props) {
   function updateRow(idx: number, patch: Partial<EquipmentRow>) {
     setEquipmentRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
+  const canGoPrev = currentStep > 1;
+  const canGoNext = currentStep < stepDefs.length;
+  const canAdvance = canGoNext && Boolean(stepDefs[currentStep - 1]?.complete);
 
   return (
     <div className="space-y-6">
       <div className="sts-card p-4 md:p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-semibold">
               {isProductImprovement
@@ -425,13 +623,65 @@ export default function RenewalTechReportForm(props: Props) {
             type="button"
             onClick={form.handleSubmit(onSubmit)}
             disabled={saving || loading}
-            className="sts-btn-primary text-sm disabled:opacity-50"
+            className="sts-btn-primary w-full text-sm disabled:opacity-50 sm:w-auto"
           >
             {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
           </button>
         </div>
         {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
       </div>
+
+      <section className="sts-card p-4 md:p-5">
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {stepDefs.map((step, idx) => {
+              const stepNo = idx + 1;
+              const active = currentStep === stepNo;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => goToStep(stepNo)}
+                  className={cx(
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : step.complete
+                        ? "border-emerald-400/60 bg-emerald-50 text-emerald-700"
+                        : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  )}
+                >
+                  <span
+                    className={cx(
+                      "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : step.complete
+                          ? "bg-emerald-600 text-white"
+                          : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {stepNo}
+                  </span>
+                  <span>{step.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${stepCompletionPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Progreso general:{" "}
+            <span className="font-semibold text-foreground">
+              {completeSteps}/{stepDefs.length}
+            </span>
+          </p>
+        </div>
+      </section>
 
       <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         <section className="sts-card p-4 md:p-5">
@@ -473,26 +723,47 @@ export default function RenewalTechReportForm(props: Props) {
         </section>
 
         {!isProductImprovement ? (
-          <section className="sts-card p-4 md:p-5">
-            <h4 className="text-sm font-semibold">Paso 1 · Desmonte de lo antiguo</h4>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {REMOVED_ITEMS.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(removedChecklist[item])}
-                    onChange={(e) =>
-                      setRemovedChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
-                    }
-                  />
-                  {item}
-                </label>
-              ))}
+          <section id="step-remove" className="sts-card overflow-hidden">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+              <h4 className="text-sm font-semibold">Paso 1 · Desmonte de lo antiguo</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Marca cada componente desmontado para validar avance del cambio tecnológico.
+              </p>
+              <StepProgress label="Progreso del paso" completed={removedDoneCount} total={REMOVED_ITEMS.length} />
+            </div>
+            <div className="p-4 md:p-6">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {REMOVED_ITEMS.map((item) => {
+                  const selected = Boolean(removedChecklist[item]);
+                  return (
+                    <label
+                      key={item}
+                      className={cx(
+                        "flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-all",
+                        "hover:border-primary/50 hover:bg-primary/5",
+                        selected ? "border-primary bg-primary/10" : "border-border bg-card"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(e) =>
+                          setRemovedChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
+                        }
+                        className="h-4 w-4 rounded border"
+                      />
+                      <span className="flex-1 text-sm font-medium">{item}</span>
+                      {selected ? <span className="text-[11px] font-semibold text-primary">Listo</span> : null}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </section>
         ) : null}
 
-        <section className="sts-card p-4 md:p-5">
+        <section id="step-old" className="sts-card overflow-hidden">
+          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
           <h4 className="text-sm font-semibold">
             {isProductImprovement
               ? "Paso 1 · Equipos actuales (serial y foto antiguo)"
@@ -508,81 +779,161 @@ export default function RenewalTechReportForm(props: Props) {
               ? "En mejora de producto, la foto de serial antiguo es obligatoria por equipo."
               : "La foto se solicita solo en los equipos que la plantilla del acta requiere."}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Avance desmonte:{" "}
-            <span className="font-medium">
-              {oldCompletedCount}/{equipmentRows.length}
-            </span>
-          </p>
-          <div className="mt-3 overflow-auto">
-            <table className="w-full sts-table sts-table-compact">
-              <thead className="text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="py-2 text-left">Tipo</th>
-                  <th className="py-2 text-left">Serial antiguo</th>
-                  <th className="py-2 text-left">Foto serial antiguo</th>
+            <StepProgress label="Avance desmonte" completed={oldCompletedCount} total={equipmentRows.length} />
+          </div>
+          <div className="p-0">
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[980px] table-fixed">
+              <colgroup>
+                <col className="w-32" />
+                <col />
+                <col className="w-[22rem]" />
+              </colgroup>
+              <thead className="border-b border-border/50 bg-muted/45 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="p-3 text-left font-semibold">Tipo</th>
+                  <th className="p-3 text-left font-semibold">Serial antiguo</th>
+                  <th className="p-3 text-left font-semibold">Foto serial antiguo</th>
                 </tr>
               </thead>
-              <tbody>
-                {equipmentRows.map((row, idx) => (
-                  <tr key={row.busEquipmentId} className="border-b">
-                    <td className="py-2">{row.type}</td>
-                    <td className="py-2">
-                      {isDiskType(row.type) ? (
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <tbody className="divide-y divide-border/30">
+                {equipmentRows.map((row, idx) => {
+                  const [oldDisk1, oldDisk2] = splitSerialPair(row.oldSerial);
+                  const oldRequired = isProductImprovement || requiresOldPhoto(row.type);
+                  const oldFiles = oldPhotosByEquipment[row.busEquipmentId] ?? null;
+                  const oldUploadId = `old-photo-${row.busEquipmentId}`;
+                  return (
+                    <tr key={row.busEquipmentId} className="align-top transition-colors hover:bg-muted/20">
+                      <td className="p-3">
+                        <span className="inline-flex items-center rounded-md border border-border/60 bg-muted px-2.5 py-1 text-xs font-medium">
+                          {row.type}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {isDiskType(row.type) ? (
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <input
+                              className={inputCls(oldDisk1)}
+                              placeholder="Serial disco 1"
+                              value={oldDisk1}
+                              onChange={(e) => updateRow(idx, { oldSerial: joinSerialPair(e.target.value, oldDisk2) })}
+                            />
+                            <input
+                              className={inputCls(oldDisk2)}
+                              placeholder="Serial disco 2"
+                              value={oldDisk2}
+                              onChange={(e) => updateRow(idx, { oldSerial: joinSerialPair(oldDisk1, e.target.value) })}
+                            />
+                          </div>
+                        ) : (
                           <input
-                            className={inputCls()}
-                            placeholder="Serial disco 1"
-                            value={splitSerialPair(row.oldSerial)[0]}
-                            onChange={(e) => {
-                              const [, second] = splitSerialPair(row.oldSerial);
-                              updateRow(idx, { oldSerial: joinSerialPair(e.target.value, second) });
-                            }}
+                            className={inputCls(row.oldSerial)}
+                            placeholder="Escribe el serial antiguo..."
+                            value={row.oldSerial}
+                            onChange={(e) => updateRow(idx, { oldSerial: e.target.value })}
                           />
-                          <input
-                            className={inputCls()}
-                            placeholder="Serial disco 2"
-                            value={splitSerialPair(row.oldSerial)[1]}
-                            onChange={(e) => {
-                              const [first] = splitSerialPair(row.oldSerial);
-                              updateRow(idx, { oldSerial: joinSerialPair(first, e.target.value) });
-                            }}
+                        )}
+                      </td>
+                      <td className="p-3">
+                        {oldRequired ? (
+                          <FileUploadField
+                            id={oldUploadId}
+                            files={oldFiles}
+                            required={oldRequired}
+                            onFiles={(files) =>
+                              setOldPhotosByEquipment((prev) => ({
+                                ...prev,
+                                [row.busEquipmentId]: files,
+                              }))
+                            }
+                            onClear={() =>
+                              setOldPhotosByEquipment((prev) => ({
+                                ...prev,
+                                [row.busEquipmentId]: null,
+                              }))
+                            }
                           />
-                        </div>
-                      ) : (
-                        <input
-                          className={inputCls()}
-                          value={row.oldSerial}
-                          onChange={(e) => updateRow(idx, { oldSerial: e.target.value })}
-                        />
-                      )}
-                    </td>
-                    <td className="py-2">
-                      {isProductImprovement || requiresOldPhoto(row.type) ? (
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className={inputCls()}
-                          onChange={(e) =>
-                            setOldPhotosByEquipment((prev) => ({
-                              ...prev,
-                              [row.busEquipmentId]: e.target.files,
-                            }))
-                          }
-                        />
-                      ) : (
-                        <div className="text-xs text-muted-foreground">No requerido</div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        ) : (
+                          <div className="pt-2 text-xs text-muted-foreground">No requerido</div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          <div className="space-y-3 p-4 lg:hidden">
+            {equipmentRows.map((row, idx) => {
+              const [oldDisk1, oldDisk2] = splitSerialPair(row.oldSerial);
+              const oldRequired = isProductImprovement || requiresOldPhoto(row.type);
+              const oldFiles = oldPhotosByEquipment[row.busEquipmentId] ?? null;
+              const oldUploadId = `old-photo-mobile-${row.busEquipmentId}`;
+              return (
+                <article key={row.busEquipmentId} className="rounded-xl border border-border/60 bg-card p-3">
+                  <p className="text-sm font-semibold">{row.type}</p>
+
+                  <div className="mt-3 space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Serial antiguo</label>
+                    {isDiskType(row.type) ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <input
+                          className={inputCls(oldDisk1)}
+                          placeholder="Serial disco 1"
+                          value={oldDisk1}
+                          onChange={(e) => updateRow(idx, { oldSerial: joinSerialPair(e.target.value, oldDisk2) })}
+                        />
+                        <input
+                          className={inputCls(oldDisk2)}
+                          placeholder="Serial disco 2"
+                          value={oldDisk2}
+                          onChange={(e) => updateRow(idx, { oldSerial: joinSerialPair(oldDisk1, e.target.value) })}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        className={inputCls(row.oldSerial)}
+                        placeholder="Escribe el serial antiguo..."
+                        value={row.oldSerial}
+                        onChange={(e) => updateRow(idx, { oldSerial: e.target.value })}
+                      />
+                    )}
+                  </div>
+
+                  <div className="mt-3 space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Foto serial antiguo</label>
+                    {oldRequired ? (
+                      <FileUploadField
+                        id={oldUploadId}
+                        files={oldFiles}
+                        required={oldRequired}
+                        onFiles={(files) =>
+                          setOldPhotosByEquipment((prev) => ({
+                            ...prev,
+                            [row.busEquipmentId]: files,
+                          }))
+                        }
+                        onClear={() =>
+                          setOldPhotosByEquipment((prev) => ({
+                            ...prev,
+                            [row.busEquipmentId]: null,
+                          }))
+                        }
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No requerido</p>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          </div>
         </section>
 
-        <section className="sts-card p-4 md:p-5">
+        <section id="step-new" className="sts-card overflow-hidden">
+          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
           <h4 className="text-sm font-semibold">
             {isProductImprovement
               ? "Paso 2 · Equipos nuevos (serial y foto nuevo)"
@@ -598,166 +949,382 @@ export default function RenewalTechReportForm(props: Props) {
               ? "En mejora de producto, la foto de serial nuevo es obligatoria por equipo."
               : "La foto se solicita solo donde la plantilla del acta tiene campo de foto nuevo."}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Avance instalación:{" "}
-            <span className="font-medium">
-              {newCompletedCount}/{equipmentRows.length}
-            </span>
-          </p>
-          <div className="mt-3 overflow-auto">
-            <table className="w-full sts-table sts-table-compact">
-              <thead className="text-xs text-muted-foreground">
-                <tr className="border-b">
-                  <th className="py-2 text-left">Tipo</th>
-                  <th className="py-2 text-left">Serial nuevo</th>
-                  <th className="py-2 text-left">Foto serial nuevo</th>
-                  {!isProductImprovement ? <th className="py-2 text-left">IP</th> : null}
-                  {!isProductImprovement ? <th className="py-2 text-left">Marca</th> : null}
-                  {!isProductImprovement ? <th className="py-2 text-left">Modelo</th> : null}
+            <StepProgress label="Avance instalación" completed={newCompletedCount} total={equipmentRows.length} />
+          </div>
+          <div className="p-0">
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[1180px] table-fixed">
+              <colgroup>
+                <col className="w-24" />
+                <col />
+                <col className="w-[15rem]" />
+                {!isProductImprovement ? <col className="w-32" /> : null}
+                {!isProductImprovement ? <col className="w-40" /> : null}
+                {!isProductImprovement ? <col className="w-40" /> : null}
+              </colgroup>
+              <thead className="border-b border-border/50 bg-muted/45 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="p-3 text-left font-semibold">Tipo</th>
+                  <th className="p-3 text-left font-semibold">Serial nuevo</th>
+                  <th className="p-3 text-left font-semibold">Foto</th>
+                  {!isProductImprovement ? <th className="p-3 text-left font-semibold">IP</th> : null}
+                  {!isProductImprovement ? <th className="p-3 text-left font-semibold">Marca</th> : null}
+                  {!isProductImprovement ? <th className="p-3 text-left font-semibold">Modelo</th> : null}
                 </tr>
               </thead>
-              <tbody>
-                {equipmentRows.map((row, idx) => (
-                  <tr key={row.busEquipmentId} className="border-b">
-                    <td className="py-2">{row.type}</td>
-                    <td className="py-2">
-                      {isDiskType(row.type) ? (
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <tbody className="divide-y divide-border/30">
+                {equipmentRows.map((row, idx) => {
+                  const [newDisk1, newDisk2] = splitSerialPair(row.newSerial);
+                  const newRequired = isProductImprovement || requiresNewPhoto(row.type);
+                  const newFiles = newPhotosByEquipment[row.busEquipmentId] ?? null;
+                  const newUploadId = `new-photo-${row.busEquipmentId}`;
+                  return (
+                    <tr key={row.busEquipmentId} className="align-top transition-colors hover:bg-muted/20">
+                      <td className="p-3">
+                        <span className="inline-flex items-center rounded-md border border-border/60 bg-muted px-2 py-1 text-xs font-medium">
+                          {row.type}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {isDiskType(row.type) ? (
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <InventorySerialCombobox
+                              value={newDisk1}
+                              className={inputCls(newDisk1)}
+                              placeholder="Serial disco 1"
+                              onChange={(value) => {
+                                updateRow(idx, { newSerial: joinSerialPair(value, newDisk2) });
+                                void tryAutofillRowModel(idx, value);
+                              }}
+                              onModelDetected={(model) => {
+                                if (!String(row.model ?? "").trim()) updateRow(idx, { model });
+                              }}
+                            />
+                            <InventorySerialCombobox
+                              value={newDisk2}
+                              className={inputCls(newDisk2)}
+                              placeholder="Serial disco 2"
+                              onChange={(value) => {
+                                updateRow(idx, { newSerial: joinSerialPair(newDisk1, value) });
+                                void tryAutofillRowModel(idx, value);
+                              }}
+                              onModelDetected={(model) => {
+                                if (!String(row.model ?? "").trim()) updateRow(idx, { model });
+                              }}
+                            />
+                          </div>
+                        ) : (
                           <InventorySerialCombobox
-                            value={splitSerialPair(row.newSerial)[0]}
-                            className={inputCls()}
-                            placeholder="Serial disco 1"
+                            value={row.newSerial}
+                            className={inputCls(row.newSerial)}
                             onChange={(value) => {
-                              const [, second] = splitSerialPair(row.newSerial);
-                              updateRow(idx, { newSerial: joinSerialPair(value, second) });
+                              updateRow(idx, { newSerial: value });
                               void tryAutofillRowModel(idx, value);
                             }}
                             onModelDetected={(model) => {
-                              if (!String(row.model ?? "").trim()) updateRow(idx, { model });
+                              if (!String(row.model ?? "").trim()) {
+                                updateRow(idx, { model });
+                              }
                             }}
                           />
-                          <InventorySerialCombobox
-                            value={splitSerialPair(row.newSerial)[1]}
-                            className={inputCls()}
-                            placeholder="Serial disco 2"
-                            onChange={(value) => {
-                              const [first] = splitSerialPair(row.newSerial);
-                              updateRow(idx, { newSerial: joinSerialPair(first, value) });
-                              void tryAutofillRowModel(idx, value);
-                            }}
-                            onModelDetected={(model) => {
-                              if (!String(row.model ?? "").trim()) updateRow(idx, { model });
-                            }}
+                        )}
+                      </td>
+                      <td className="p-3">
+                        {newRequired ? (
+                          <FileUploadField
+                            id={newUploadId}
+                            files={newFiles}
+                            required={newRequired}
+                            onFiles={(files) =>
+                              setNewPhotosByEquipment((prev) => ({
+                                ...prev,
+                                [row.busEquipmentId]: files,
+                              }))
+                            }
+                            onClear={() =>
+                              setNewPhotosByEquipment((prev) => ({
+                                ...prev,
+                                [row.busEquipmentId]: null,
+                              }))
+                            }
                           />
-                        </div>
-                      ) : (
+                        ) : (
+                          <div className="pt-2 text-xs text-muted-foreground">No requerido</div>
+                        )}
+                      </td>
+                      {!isProductImprovement ? (
+                        <td className="p-3">
+                          <input
+                            className={inputCls(row.ipAddress)}
+                            placeholder="IP..."
+                            value={row.ipAddress}
+                            onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
+                          />
+                        </td>
+                      ) : null}
+                      {!isProductImprovement ? (
+                        <td className="p-3">
+                          <input
+                            className={inputCls(row.brand)}
+                            placeholder="Marca..."
+                            value={row.brand}
+                            onChange={(e) => updateRow(idx, { brand: e.target.value })}
+                          />
+                        </td>
+                      ) : null}
+                      {!isProductImprovement ? (
+                        <td className="p-3">
+                          <input
+                            className={inputCls(row.model)}
+                            placeholder="Modelo..."
+                            value={row.model}
+                            onChange={(e) => updateRow(idx, { model: e.target.value })}
+                          />
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-3 p-4 lg:hidden">
+            {equipmentRows.map((row, idx) => {
+              const [newDisk1, newDisk2] = splitSerialPair(row.newSerial);
+              const newRequired = isProductImprovement || requiresNewPhoto(row.type);
+              const newFiles = newPhotosByEquipment[row.busEquipmentId] ?? null;
+              const newUploadId = `new-photo-mobile-${row.busEquipmentId}`;
+              return (
+                <article key={row.busEquipmentId} className="rounded-xl border border-border/60 bg-card p-3">
+                  <p className="text-sm font-semibold">{row.type}</p>
+
+                  <div className="mt-3 space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Serial nuevo</label>
+                    {isDiskType(row.type) ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <InventorySerialCombobox
-                          value={row.newSerial}
-                          className={inputCls()}
+                          value={newDisk1}
+                          className={inputCls(newDisk1)}
+                          placeholder="Serial disco 1"
                           onChange={(value) => {
-                            updateRow(idx, { newSerial: value });
+                            updateRow(idx, { newSerial: joinSerialPair(value, newDisk2) });
                             void tryAutofillRowModel(idx, value);
                           }}
                           onModelDetected={(model) => {
-                            if (!String(row.model ?? "").trim()) {
-                              updateRow(idx, { model });
-                            }
+                            if (!String(row.model ?? "").trim()) updateRow(idx, { model });
                           }}
                         />
-                      )}
-                    </td>
-                    <td className="py-2">
-                      {isProductImprovement || requiresNewPhoto(row.type) ? (
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className={inputCls()}
-                          onChange={(e) =>
-                            setNewPhotosByEquipment((prev) => ({
-                              ...prev,
-                              [row.busEquipmentId]: e.target.files,
-                            }))
-                          }
+                        <InventorySerialCombobox
+                          value={newDisk2}
+                          className={inputCls(newDisk2)}
+                          placeholder="Serial disco 2"
+                          onChange={(value) => {
+                            updateRow(idx, { newSerial: joinSerialPair(newDisk1, value) });
+                            void tryAutofillRowModel(idx, value);
+                          }}
+                          onModelDetected={(model) => {
+                            if (!String(row.model ?? "").trim()) updateRow(idx, { model });
+                          }}
                         />
-                      ) : (
-                        <div className="text-xs text-muted-foreground">No requerido</div>
-                      )}
-                    </td>
-                    {!isProductImprovement ? (
-                      <td className="py-2">
+                      </div>
+                    ) : (
+                      <InventorySerialCombobox
+                        value={row.newSerial}
+                        className={inputCls(row.newSerial)}
+                        onChange={(value) => {
+                          updateRow(idx, { newSerial: value });
+                          void tryAutofillRowModel(idx, value);
+                        }}
+                        onModelDetected={(model) => {
+                          if (!String(row.model ?? "").trim()) {
+                            updateRow(idx, { model });
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="mt-3 space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Foto serial nuevo</label>
+                    {newRequired ? (
+                      <FileUploadField
+                        id={newUploadId}
+                        files={newFiles}
+                        required={newRequired}
+                        onFiles={(files) =>
+                          setNewPhotosByEquipment((prev) => ({
+                            ...prev,
+                            [row.busEquipmentId]: files,
+                          }))
+                        }
+                        onClear={() =>
+                          setNewPhotosByEquipment((prev) => ({
+                            ...prev,
+                            [row.busEquipmentId]: null,
+                          }))
+                        }
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No requerido</p>
+                    )}
+                  </div>
+
+                  {!isProductImprovement ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">IP</label>
                         <input
-                          className={inputCls()}
+                          className={inputCls(row.ipAddress)}
+                          placeholder="IP..."
                           value={row.ipAddress}
                           onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
                         />
-                      </td>
-                    ) : null}
-                    {!isProductImprovement ? (
-                      <td className="py-2">
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">Marca</label>
                         <input
-                          className={inputCls()}
+                          className={inputCls(row.brand)}
+                          placeholder="Marca..."
                           value={row.brand}
                           onChange={(e) => updateRow(idx, { brand: e.target.value })}
                         />
-                      </td>
-                    ) : null}
-                    {!isProductImprovement ? (
-                      <td className="py-2">
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">Modelo</label>
                         <input
-                          className={inputCls()}
+                          className={inputCls(row.model)}
+                          placeholder="Modelo..."
                           value={row.model}
                           onChange={(e) => updateRow(idx, { model: e.target.value })}
                         />
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
           </div>
         </section>
 
         {!isProductImprovement ? (
-          <section className="sts-card p-4 md:p-5">
-            <h4 className="text-sm font-semibold">Checklist final instalación</h4>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {FINAL_CHECKLIST.map((item) => (
-                <label key={item} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(finalChecklist[item])}
-                    onChange={(e) =>
-                      setFinalChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
-                    }
-                  />
-                  {item}
-                </label>
-              ))}
+          <section id="step-final" className="sts-card overflow-hidden">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+              <h4 className="text-sm font-semibold">Paso 4 · Checklist final instalación</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Verificación de codificación, IPs, almacenamiento y componentes de cierre.
+              </p>
+              <StepProgress label="Progreso del paso" completed={finalDoneCount} total={FINAL_CHECKLIST.length} />
+            </div>
+            <div className="p-4 md:p-6">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {FINAL_CHECKLIST.map((item) => {
+                  const selected = Boolean(finalChecklist[item]);
+                  return (
+                    <label
+                      key={item}
+                      className={cx(
+                        "flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-all",
+                        "hover:border-primary/50 hover:bg-primary/5",
+                        selected ? "border-primary bg-primary/10" : "border-border bg-card"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(e) =>
+                          setFinalChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
+                        }
+                        className="h-4 w-4 rounded border"
+                      />
+                      <span className="flex-1 text-sm font-medium">{item}</span>
+                      {selected ? <span className="text-[11px] font-semibold text-primary">OK</span> : null}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </section>
         ) : null}
 
         {!isProductImprovement ? (
-          <section className="sts-card p-4 md:p-5">
-            <h4 className="text-sm font-semibold">Cierre</h4>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground">Observaciones</label>
-                <textarea className={textareaCls()} {...form.register("observations")} />
+          <section id="step-close" className="sts-card overflow-hidden">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+              <h4 className="text-sm font-semibold">Paso 5 · Cierre</h4>
+            </div>
+            <div className="p-4 md:p-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">Observaciones</label>
+                  <textarea
+                    className={textareaCls(observedNotes)}
+                    placeholder="Observaciones de cierre..."
+                    {...form.register("observations")}
+                  />
+                </div>
               </div>
             </div>
           </section>
         ) : null}
 
         {isProductImprovement ? (
-          <section className="sts-card p-4 md:p-5">
-            <h4 className="text-sm font-semibold">Observaciones (opcional)</h4>
-            <div className="mt-3">
-              <textarea className={textareaCls()} {...form.register("observations")} />
+          <section id="step-notes" className="sts-card overflow-hidden">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+              <h4 className="text-sm font-semibold">Paso 3 · Observaciones (opcional)</h4>
+            </div>
+            <div className="p-4 md:p-5">
+              <textarea
+                className={textareaCls(observedNotes)}
+                placeholder="Observaciones..."
+                {...form.register("observations")}
+              />
             </div>
           </section>
         ) : null}
+
+        <section className="sts-card p-4 md:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={() => goToStep(currentStep - 1)}
+              disabled={!canGoPrev}
+              className="sts-btn-ghost text-sm disabled:opacity-50"
+            >
+              Paso anterior
+            </button>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {stepDefs.map((step, idx) => (
+                <button
+                  key={`jump-${step.id}`}
+                  type="button"
+                  onClick={() => goToStep(idx + 1)}
+                  className={cx(
+                    "h-2.5 rounded-full transition-all",
+                    currentStep === idx + 1
+                      ? "w-12 bg-primary"
+                      : step.complete
+                        ? "w-8 bg-emerald-500"
+                        : "w-8 bg-muted"
+                  )}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => goToStep(currentStep + 1)}
+              disabled={!canAdvance}
+              className="sts-btn-primary text-sm disabled:opacity-50"
+            >
+              {canGoNext ? "Siguiente paso" : "Último paso"}
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Puedes guardar en cualquier momento. Esta navegación te ayuda a completar el flujo de forma ordenada.
+          </p>
+        </section>
 
         <button type="submit" className="hidden" />
       </form>
