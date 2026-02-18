@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProcedureType, Role } from "@prisma/client";
-import { caseStatusLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import {
   DataTable,
   DataTableBody,
