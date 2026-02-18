@@ -46,6 +46,8 @@ function normalizeEnvelope(input: unknown): unknown {
   const obj = input as Record<string, unknown>;
   if ("events" in obj || "event" in obj || "tenantCode" in obj) return obj;
   if ("externalId" in obj && "busCode" in obj) return { event: obj };
+  // ETB raw event (single object)
+  if ("idRegistro" in obj && "idVehiculo" in obj) return { event: obj };
   return obj;
 }
 

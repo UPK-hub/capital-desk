@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { searchInventorySerialSuggestions } from "@/lib/inventory-autofill-client";
+import { sanitizeModelText, searchInventorySerialSuggestions } from "@/lib/inventory-autofill-client";
 
 type Suggestion = { serial: string; model: string };
 
@@ -164,12 +164,15 @@ export function InventorySerialCombobox({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       onChange(item.serial);
-                      if (item.model) onModelDetected?.(item.model);
+                      const cleanModel = sanitizeModelText(item.model);
+                      if (cleanModel) onModelDetected?.(cleanModel);
                       setOpen(false);
                     }}
                   >
                     <div className="font-medium">{item.serial}</div>
-                    <div className="text-xs text-muted-foreground">{item.model || "Sin modelo"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {sanitizeModelText(item.model) || "Sin modelo"}
+                    </div>
                   </button>
                 ))}
               </div>

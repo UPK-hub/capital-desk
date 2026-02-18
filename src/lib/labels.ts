@@ -80,7 +80,7 @@ export const videoDownloadStatusLabels: Record<string, string> = {
 export const videoOriginLabels: Record<string, string> = {
   TRANSMILENIO_SA: "Transmilenio S.A.",
   INTERVENTORIA: "Interventoría",
-  CAPITAL_BUS: "Capital Bus",
+  CAPITAL_BUS: "CapitalBus",
   OTRO: "Otro",
 };
 

@@ -802,7 +802,7 @@ function PreventiveReportFormInner(props: Props) {
               <input className={inputCls()} {...form.register("responsibleUpk")} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Responsable Capital Bus</label>
+              <label className="text-xs text-muted-foreground">Responsable CapitalBus</label>
               <input className={inputCls()} {...form.register("responsibleCapitalBus")} />
             </div>
 

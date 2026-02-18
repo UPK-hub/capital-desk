@@ -17,7 +17,7 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: "Capital Desk",
-  description: "Mesa de ayuda y mantenimiento - Capital Bus",
+  description: "Mesa de ayuda y mantenimiento - CapitalBus",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

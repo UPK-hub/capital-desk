@@ -25,8 +25,7 @@ export default function FinishWorkOrderCard({
 }: Props) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [fileName, setFileName] = useState<string>("");
+  const [evidences, setEvidences] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsPreventive, setNeedsPreventive] = useState(false);
@@ -42,7 +41,7 @@ export default function FinishWorkOrderCard({
     try {
       const fd = new FormData();
       fd.set("notes", notes);
-      if (photo) fd.set("photo", photo);
+      for (const file of evidences) fd.append("evidences", file);
       if (opts?.forcePreventive) fd.set("createPreventive", "true");
       if (caseType === "PREVENTIVO" && createCorrective) {
         fd.set("createCorrective", "true");
@@ -69,8 +68,7 @@ export default function FinishWorkOrderCard({
       }
 
       setNotes("");
-      setPhoto(null);
-      setFileName("");
+      setEvidences([]);
       setCreateCorrective(false);
       setSelectedEquipments([]);
       setNeedsPreventive(false);
@@ -188,36 +186,40 @@ export default function FinishWorkOrderCard({
         />
 
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Evidencia final</p>
+          <p className="text-xs text-muted-foreground">Evidencias finales</p>
           <div className="rounded-xl border-2 border-dashed border-primary/35 bg-primary/5 p-4">
             <label
               htmlFor={inputId}
               className={`flex cursor-pointer flex-col items-center justify-center gap-2 text-center ${disabled || saving ? "pointer-events-none opacity-60" : ""}`}
             >
               <Upload className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Seleccionar archivo</span>
-              <span className="text-xs text-primary/80">Evidencia de cierre</span>
+              <span className="text-sm font-medium text-primary">Seleccionar archivos</span>
+              <span className="text-xs text-primary/80">Evidencias de cierre (múltiples)</span>
             </label>
           </div>
           <input
             id={inputId}
             type="file"
-            accept="image/*"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+            multiple
             className="sr-only"
             onChange={(e) => {
-              const file = e.target.files?.[0] ?? null;
-              setPhoto(file);
-              setFileName(file?.name ?? "");
+              const files = Array.from(e.target.files ?? []);
+              setEvidences(files);
             }}
             disabled={disabled || saving}
           />
-          {fileName ? (
-            <p className="flex items-center gap-1 break-all text-xs text-muted-foreground">
-              <FileText className="h-3.5 w-3.5" />
-              {fileName}
-            </p>
+          {evidences.length ? (
+            <div className="space-y-1">
+              {evidences.map((file, idx) => (
+                <p key={`${file.name}-${idx}`} className="flex items-center gap-1 break-all text-xs text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  {file.name}
+                </p>
+              ))}
+            </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Sin archivo seleccionado.</p>
+            <p className="text-xs text-muted-foreground">Sin archivos seleccionados.</p>
           )}
         </div>
 
@@ -228,7 +230,7 @@ export default function FinishWorkOrderCard({
             disabled ||
             saving ||
             !notes.trim() ||
-            !photo ||
+            evidences.length === 0 ||
             (caseType === "PREVENTIVO" && createCorrective && selectedEquipments.length === 0)
           }
           className="sts-btn-primary w-full text-sm disabled:opacity-60"

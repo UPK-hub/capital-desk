@@ -15,6 +15,7 @@ type EquipmentRow = {
   model: string;
   oldSerial: string;
   newSerial: string;
+  oldOnly?: boolean;
 };
 
 type Props = {
@@ -199,9 +200,9 @@ const EQUIPMENT_ORDER = [
   "BT",
   "BTE",
   "NVR",
+  "DISCOS_DUROS",
   "COLECTOR",
   "COLECTOR_DATOS",
-  "DISCOS_DUROS",
   "BATERIAS",
   "CONTROLADOR_DE_CARGA",
 ] as const;
@@ -246,6 +247,8 @@ const NEW_PHOTO_REQUIRED_TYPES = new Set([
   "NVR",
 ]);
 
+const VIRTUAL_COLLECTOR_ID = "__virtual_colector__";
+
 function normalizeTypeName(value: string) {
   return value
     .trim()
@@ -255,18 +258,51 @@ function normalizeTypeName(value: string) {
     .replace(/\s+/g, "_");
 }
 
+function isCollectorType(rawType: string) {
+  const key = normalizeTypeName(rawType);
+  return key.includes("COLECTOR") || key.includes("COLLECTOR");
+}
+
+function canonicalTypeKey(rawType: string) {
+  const key = normalizeTypeName(rawType);
+  if (key.includes("COLLECTOR")) return key.replace("COLLECTOR", "COLECTOR");
+  return key;
+}
+
+function shouldIncludeRenewalType(rawType: string) {
+  const key = canonicalTypeKey(rawType);
+  if (!key) return false;
+
+  // Regla de negocio: "COLECTOR" sí entra al desmonte (con foto para acta).
+  if (isCollectorType(rawType) || key.includes("COLECTOR")) return true;
+
+  // Excluir tipos que no se diligencian en desmonte de renovación.
+  if (key.includes("BATERIA")) return false;
+  if (key.includes("CONTROLADOR") && key.includes("CARGA")) return false;
+  if (key.includes("MODULO") && key.includes("4G")) return false;
+  if (key.includes("MODEM") && key.includes("4G")) return false;
+  if (key === "4G" || key.endsWith("_4G")) return false;
+
+  return true;
+}
+
+function oldStepTypeLabel(rawType: string) {
+  if (isCollectorType(rawType)) return "COLECTOR";
+  return rawType;
+}
+
 function equipmentSortIndex(type: string) {
-  const key = normalizeTypeName(type);
+  const key = canonicalTypeKey(type);
   const idx = EQUIPMENT_ORDER.indexOf(key as (typeof EQUIPMENT_ORDER)[number]);
   return idx >= 0 ? idx : 9999;
 }
 
 function requiresOldPhoto(type: string) {
-  return OLD_PHOTO_REQUIRED_TYPES.has(normalizeTypeName(type));
+  return OLD_PHOTO_REQUIRED_TYPES.has(canonicalTypeKey(type));
 }
 
 function requiresNewPhoto(type: string) {
-  return NEW_PHOTO_REQUIRED_TYPES.has(normalizeTypeName(type));
+  return NEW_PHOTO_REQUIRED_TYPES.has(canonicalTypeKey(type));
 }
 
 const DISK_TYPE_KEYS = new Set([
@@ -279,6 +315,19 @@ const DISK_TYPE_KEYS = new Set([
 
 function isDiskType(type: string) {
   return DISK_TYPE_KEYS.has(normalizeTypeName(type));
+}
+
+function usesIpField(rawType: string) {
+  const key = canonicalTypeKey(rawType);
+  if (!key) return true;
+  if (isDiskType(rawType)) return false;
+  if (key.includes("BATERIA")) return false;
+  if (key.includes("CONTROLADOR") && key.includes("CARGA")) return false;
+  if (key.includes("MODULO") && (key.includes("4G") || key.includes("5G"))) return false;
+  if (key.includes("MODEM") && (key.includes("4G") || key.includes("5G"))) return false;
+  if (key === "4G" || key.endsWith("_4G")) return false;
+  if (key === "5G" || key.endsWith("_5G")) return false;
+  return true;
 }
 
 function splitSerialPair(value: string | null | undefined): [string, string] {
@@ -317,12 +366,23 @@ export default function RenewalTechReportForm(props: Props) {
   const [newPhotosByEquipment, setNewPhotosByEquipment] = React.useState<Record<string, FileList | null>>({});
 
   const r = props.initialReport as any;
-  const oldCompletedCount = equipmentRows.filter((row) => {
+  const oldStepEntries = React.useMemo(() => {
+    const all = equipmentRows.map((row, idx) => ({ row, idx }));
+    if (isProductImprovement) return all;
+    return all.filter(({ row }) => shouldIncludeRenewalType(row.type));
+  }, [equipmentRows, isProductImprovement]);
+  const newStepEntries = React.useMemo(
+    () => equipmentRows.filter((row) => !row.oldOnly),
+    [equipmentRows]
+  );
+  const oldStepTotal = oldStepEntries.length;
+
+  const oldCompletedCount = oldStepEntries.filter(({ row }) => {
     if (!isDiskType(row.type)) return String(row.oldSerial ?? "").trim().length > 0;
     const [s1, s2] = splitSerialPair(row.oldSerial);
     return Boolean(s1 && s2);
   }).length;
-  const newCompletedCount = equipmentRows.filter((row) => {
+  const newCompletedCount = newStepEntries.filter((row) => {
     if (!isDiskType(row.type)) return String(row.newSerial ?? "").trim().length > 0;
     const [s1, s2] = splitSerialPair(row.newSerial);
     return Boolean(s1 && s2);
@@ -349,12 +409,12 @@ export default function RenewalTechReportForm(props: Props) {
         {
           id: "step-old",
           label: "Paso 1 · Equipos actuales",
-          complete: oldCompletedCount > 0 && oldCompletedCount >= equipmentRows.length,
+          complete: oldCompletedCount > 0 && oldCompletedCount >= oldStepTotal,
         },
         {
           id: "step-new",
           label: "Paso 2 · Equipos nuevos",
-          complete: newCompletedCount > 0 && newCompletedCount >= equipmentRows.length,
+          complete: newCompletedCount > 0 && newCompletedCount >= newStepEntries.length,
         },
         {
           id: "step-notes",
@@ -372,12 +432,12 @@ export default function RenewalTechReportForm(props: Props) {
       {
         id: "step-old",
         label: "Paso 2 · Equipos antiguos",
-        complete: oldCompletedCount > 0 && oldCompletedCount >= equipmentRows.length,
+        complete: oldCompletedCount > 0 && oldCompletedCount >= oldStepTotal,
       },
       {
         id: "step-new",
         label: "Paso 3 · Equipos nuevos",
-        complete: newCompletedCount > 0 && newCompletedCount >= equipmentRows.length,
+        complete: newCompletedCount > 0 && newCompletedCount >= newStepEntries.length,
       },
       {
         id: "step-final",
@@ -393,8 +453,9 @@ export default function RenewalTechReportForm(props: Props) {
   }, [
     isProductImprovement,
     oldCompletedCount,
+    oldStepTotal,
     newCompletedCount,
-    equipmentRows.length,
+    newStepEntries.length,
     observedNotes,
     removedDoneCount,
     finalDoneCount,
@@ -489,12 +550,34 @@ export default function RenewalTechReportForm(props: Props) {
             model: String(persisted?.model ?? eq.model ?? ""),
             oldSerial: String(persisted?.oldSerial ?? fallbackSerial),
             newSerial: String(persisted?.newSerial ?? persisted?.serial ?? fallbackSerial),
+            oldOnly: Boolean(persisted?.oldOnly ?? false),
           } as EquipmentRow;
         })
         .sort((a: EquipmentRow, b: EquipmentRow) => {
           const diff = equipmentSortIndex(a.type) - equipmentSortIndex(b.type);
           return diff !== 0 ? diff : a.type.localeCompare(b.type, "es");
         });
+
+      if (!isProductImprovement && !rows.some((row) => isCollectorType(row.type))) {
+        const persistedCollector = persistedUpdates.find((row: any) =>
+          isCollectorType(String(row?.type ?? ""))
+        );
+        const fallbackCollectorSerial = String(persistedCollector?.oldSerial ?? "");
+        rows.push({
+          busEquipmentId: VIRTUAL_COLLECTOR_ID,
+          type: "COLECTOR",
+          ipAddress: "",
+          brand: "",
+          model: "",
+          oldSerial: fallbackCollectorSerial,
+          newSerial: String(persistedCollector?.newSerial ?? persistedCollector?.serial ?? ""),
+          oldOnly: true,
+        });
+        rows.sort((a: EquipmentRow, b: EquipmentRow) => {
+          const diff = equipmentSortIndex(a.type) - equipmentSortIndex(b.type);
+          return diff !== 0 ? diff : a.type.localeCompare(b.type, "es");
+        });
+      }
       setEquipmentRows(rows);
 
       const persistedRemoved = (data?.report?.removedChecklist ?? {}) as Record<string, boolean>;
@@ -554,7 +637,10 @@ export default function RenewalTechReportForm(props: Props) {
         finalChecklist,
         newInstallation: {
           verificationDate: v.verificationDate || null,
-          equipmentUpdates: equipmentRows,
+          equipmentUpdates: equipmentRows.map((row) => ({
+            ...row,
+            ipAddress: usesIpField(row.type) ? row.ipAddress : "",
+          })),
         },
       };
 
@@ -779,7 +865,7 @@ export default function RenewalTechReportForm(props: Props) {
               ? "En mejora de producto, la foto de serial antiguo es obligatoria por equipo."
               : "La foto se solicita solo en los equipos que la plantilla del acta requiere."}
           </p>
-            <StepProgress label="Avance desmonte" completed={oldCompletedCount} total={equipmentRows.length} />
+            <StepProgress label="Avance desmonte" completed={oldCompletedCount} total={oldStepTotal} />
           </div>
           <div className="p-0">
           <div className="hidden overflow-x-auto lg:block">
@@ -797,7 +883,7 @@ export default function RenewalTechReportForm(props: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {equipmentRows.map((row, idx) => {
+                {oldStepEntries.map(({ row, idx }) => {
                   const [oldDisk1, oldDisk2] = splitSerialPair(row.oldSerial);
                   const oldRequired = isProductImprovement || requiresOldPhoto(row.type);
                   const oldFiles = oldPhotosByEquipment[row.busEquipmentId] ?? null;
@@ -806,7 +892,7 @@ export default function RenewalTechReportForm(props: Props) {
                     <tr key={row.busEquipmentId} className="align-top transition-colors hover:bg-muted/20">
                       <td className="p-3">
                         <span className="inline-flex items-center rounded-md border border-border/60 bg-muted px-2.5 py-1 text-xs font-medium">
-                          {row.type}
+                          {oldStepTypeLabel(row.type)}
                         </span>
                       </td>
                       <td className="p-3">
@@ -865,14 +951,14 @@ export default function RenewalTechReportForm(props: Props) {
           </div>
 
           <div className="space-y-3 p-4 lg:hidden">
-            {equipmentRows.map((row, idx) => {
+            {oldStepEntries.map(({ row, idx }) => {
               const [oldDisk1, oldDisk2] = splitSerialPair(row.oldSerial);
               const oldRequired = isProductImprovement || requiresOldPhoto(row.type);
               const oldFiles = oldPhotosByEquipment[row.busEquipmentId] ?? null;
               const oldUploadId = `old-photo-mobile-${row.busEquipmentId}`;
               return (
                 <article key={row.busEquipmentId} className="rounded-xl border border-border/60 bg-card p-3">
-                  <p className="text-sm font-semibold">{row.type}</p>
+                  <p className="text-sm font-semibold">{oldStepTypeLabel(row.type)}</p>
 
                   <div className="mt-3 space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Serial antiguo</label>
@@ -949,7 +1035,7 @@ export default function RenewalTechReportForm(props: Props) {
               ? "En mejora de producto, la foto de serial nuevo es obligatoria por equipo."
               : "La foto se solicita solo donde la plantilla del acta tiene campo de foto nuevo."}
           </p>
-            <StepProgress label="Avance instalación" completed={newCompletedCount} total={equipmentRows.length} />
+            <StepProgress label="Avance instalación" completed={newCompletedCount} total={newStepEntries.length} />
           </div>
           <div className="p-0">
           <div className="hidden overflow-x-auto lg:block">
@@ -973,7 +1059,9 @@ export default function RenewalTechReportForm(props: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {equipmentRows.map((row, idx) => {
+                {newStepEntries.map((row) => {
+                  const idx = equipmentRows.findIndex((x) => x.busEquipmentId === row.busEquipmentId);
+                  if (idx < 0) return null;
                   const [newDisk1, newDisk2] = splitSerialPair(row.newSerial);
                   const newRequired = isProductImprovement || requiresNewPhoto(row.type);
                   const newFiles = newPhotosByEquipment[row.busEquipmentId] ?? null;
@@ -1054,12 +1142,16 @@ export default function RenewalTechReportForm(props: Props) {
                       </td>
                       {!isProductImprovement ? (
                         <td className="p-3">
-                          <input
-                            className={inputCls(row.ipAddress)}
-                            placeholder="IP..."
-                            value={row.ipAddress}
-                            onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
-                          />
+                          {usesIpField(row.type) ? (
+                            <input
+                              className={inputCls(row.ipAddress)}
+                              placeholder="IP..."
+                              value={row.ipAddress}
+                              onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
+                            />
+                          ) : (
+                            <div className="pt-2 text-xs text-muted-foreground">No aplica</div>
+                          )}
                         </td>
                       ) : null}
                       {!isProductImprovement ? (
@@ -1090,7 +1182,9 @@ export default function RenewalTechReportForm(props: Props) {
           </div>
 
           <div className="space-y-3 p-4 lg:hidden">
-            {equipmentRows.map((row, idx) => {
+            {newStepEntries.map((row) => {
+              const idx = equipmentRows.findIndex((x) => x.busEquipmentId === row.busEquipmentId);
+              if (idx < 0) return null;
               const [newDisk1, newDisk2] = splitSerialPair(row.newSerial);
               const newRequired = isProductImprovement || requiresNewPhoto(row.type);
               const newFiles = newPhotosByEquipment[row.busEquipmentId] ?? null;
@@ -1174,12 +1268,16 @@ export default function RenewalTechReportForm(props: Props) {
                     <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       <div className="space-y-1">
                         <label className="text-[11px] font-medium text-muted-foreground">IP</label>
-                        <input
-                          className={inputCls(row.ipAddress)}
-                          placeholder="IP..."
-                          value={row.ipAddress}
-                          onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
-                        />
+                        {usesIpField(row.type) ? (
+                          <input
+                            className={inputCls(row.ipAddress)}
+                            placeholder="IP..."
+                            value={row.ipAddress}
+                            onChange={(e) => updateRow(idx, { ipAddress: e.target.value })}
+                          />
+                        ) : (
+                          <p className="rounded-xl border px-3 py-2 text-xs text-muted-foreground">No aplica</p>
+                        )}
                       </div>
                       <div className="space-y-1">
                         <label className="text-[11px] font-medium text-muted-foreground">Marca</label>

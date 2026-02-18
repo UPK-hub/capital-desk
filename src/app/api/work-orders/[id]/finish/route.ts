@@ -42,7 +42,12 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
   const form = await req.formData();
   const notes = String(form.get("notes") ?? "").trim();
-  const file = form.get("photo") as File | null;
+  const files: File[] = [];
+  const singlePhoto = form.get("photo");
+  if (singlePhoto instanceof File && singlePhoto.size > 0) files.push(singlePhoto);
+  for (const item of form.getAll("evidences")) {
+    if (item instanceof File && item.size > 0) files.push(item);
+  }
   const createPreventive = String(form.get("createPreventive") ?? "").toLowerCase() === "true";
   const createCorrective = String(form.get("createCorrective") ?? "").toLowerCase() === "true";
   const correctiveEquipmentIdsRaw = String(form.get("correctiveEquipmentIds") ?? "").trim();
@@ -51,7 +56,9 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     : [];
 
   if (!notes) return NextResponse.json({ error: "La nota de finalización es requerida" }, { status: 400 });
-  if (!file) return NextResponse.json({ error: "La foto de finalización es requerida" }, { status: 400 });
+  if (!files.length) {
+    return NextResponse.json({ error: "Debes adjuntar al menos una evidencia de finalización" }, { status: 400 });
+  }
 
   const wo = await prisma.workOrder.findFirst({
     where: { id: ctx.params.id, tenantId },
@@ -124,7 +131,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     }
   }
 
-  const relPath = await saveUpload(file, `work-orders/${wo.id}/finish`);
+  const relPaths: string[] = [];
+  for (const file of files) {
+    const relPath = await saveUpload(file, `work-orders/${wo.id}/finish`);
+    relPaths.push(relPath);
+  }
   const tmMinutes = cfg?.tmDurationMinutes ?? 60;
   const tmEndedAt = new Date();
   const tmStartedAt = new Date(tmEndedAt.getTime() - tmMinutes * 60 * 1000);
@@ -168,8 +179,12 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       data: { workOrderId: wo.id, stepType: "FIN", notes },
     });
 
-    await tx.workOrderMedia.create({
-      data: { workOrderStepId: step.id, kind: MediaKind.FOTO_FIN, filePath: relPath },
+    await tx.workOrderMedia.createMany({
+      data: relPaths.map((filePath) => ({
+        workOrderStepId: step.id,
+        kind: MediaKind.FOTO_FIN,
+        filePath,
+      })),
     });
 
     await tx.workOrder.update({

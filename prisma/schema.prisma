@@ -814,6 +814,11 @@ model WorkOrder {
 
   startedAt  DateTime?
   finishedAt DateTime?
+  orderFilePath String?
+  orderFileName String?
+  orderFileMimeType String?
+  orderFileSize Int?
+  orderFileUpdatedAt DateTime?
   createdAt  DateTime @default(now())
 
   steps WorkOrderStep[]

@@ -3,6 +3,18 @@ const pending = new Map<string, Promise<string | null>>();
 const searchCache = new Map<string, Array<{ serial: string; model: string }>>();
 const searchPending = new Map<string, Promise<Array<{ serial: string; model: string }>>>();
 
+export function sanitizeModelText(value: string | null | undefined): string {
+  let text = String(value ?? "").trim();
+  if (!text) return "";
+  text = text.replace(/\uFFFD/g, "");
+  text = text.replace(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g, "");
+  text = text.replace(/\(\s*\?{2,}\s*\)/g, "");
+  text = text.replace(/\[\s*\?{2,}\s*\]/g, "");
+  text = text.replace(/\?{3,}/g, "");
+  text = text.replace(/\s{2,}/g, " ").trim();
+  return text;
+}
+
 export function normalizeSerialForLookup(value: string | null | undefined): string {
   return String(value ?? "")
     .trim()
@@ -27,10 +39,8 @@ export async function lookupModelBySerial(serialInput: string | null | undefined
       }
       const data = await res.json().catch(() => null);
       const modelRaw = data?.item?.model;
-      const model =
-        typeof modelRaw === "string" && modelRaw.trim().length
-          ? modelRaw.trim()
-          : null;
+      const modelSanitized = sanitizeModelText(typeof modelRaw === "string" ? modelRaw : "");
+      const model = modelSanitized.length ? modelSanitized : null;
       modelCache.set(serial, model);
       return model;
     } catch {
@@ -73,7 +83,7 @@ export async function searchInventorySerialSuggestions(
       const items = itemsRaw
         .map((x: any) => ({
           serial: normalizeSerialForLookup(x?.serial),
-          model: String(x?.model ?? "").trim(),
+          model: sanitizeModelText(String(x?.model ?? "")),
         }))
         .filter((x: { serial: string; model: string }) => Boolean(x.serial))
         .slice(0, limit);

@@ -7,6 +7,7 @@ import { CaseEventType, ProcedureType, Role } from "@prisma/client";
 import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
+import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import { CheckCircle2, FileText } from "lucide-react";
 
 function badgeClass(kind: "status" | "type" | "priority", value: string | number) {
@@ -527,6 +528,12 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                           Descargar acta de cambio de equipo
                         </a>
                       ) : null}
+
+                      <WorkOrderFileUploadCard
+                        workOrderId={c.workOrder!.id}
+                        currentFilePath={(c.workOrder as any).orderFilePath ?? null}
+                        currentFileName={(c.workOrder as any).orderFileName ?? null}
+                      />
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">

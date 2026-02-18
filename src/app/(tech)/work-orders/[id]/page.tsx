@@ -22,6 +22,11 @@ function fmtDate(d: Date) {
   }).format(d);
 }
 
+function isImageFilePath(filePath: string | null | undefined) {
+  const value = String(filePath ?? "").toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
+}
+
 type PageProps = { params: { id: string } };
 
 export default async function WorkOrderDetailPage({ params }: PageProps) {
@@ -320,14 +325,26 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
 
                     {s.media?.length ? (
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {s.media.map((m) => (
-                          <img
-                            key={m.id}
-                            src={`/api/uploads/${m.filePath}`}
-                            alt={m.kind}
-                            className="h-40 w-full rounded-md border object-cover"
-                          />
-                        ))}
+                        {s.media.map((m) =>
+                          isImageFilePath(m.filePath) ? (
+                            <img
+                              key={m.id}
+                              src={`/api/uploads/${m.filePath}`}
+                              alt={m.kind}
+                              className="h-40 w-full rounded-md border object-cover"
+                            />
+                          ) : (
+                            <a
+                              key={m.id}
+                              href={`/api/uploads/${m.filePath}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex h-12 items-center justify-center rounded-md border px-3 text-sm"
+                            >
+                              Abrir archivo adjunto
+                            </a>
+                          )
+                        )}
                       </div>
                     ) : null}
                   </div>
@@ -445,7 +462,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
 
         {/* Panel lateral */}
-        <aside className="ot-panel order-1 w-full min-w-0 flex-shrink-0 space-y-4 xl:order-2 xl:w-[340px] 2xl:w-[380px]">
+        <aside className="ot-panel order-1 w-full min-w-0 flex-shrink-0 space-y-4 xl:order-2 xl:w-[340px] xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-1 2xl:w-[380px]">
           <div className="space-y-3 xl:hidden">
             <details className="group rounded-xl border border-border/60 bg-card p-0">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
@@ -516,7 +533,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             ) : null}
           </div>
 
-          <div className="hidden space-y-4 xl:sticky xl:top-20 xl:block">
+          <div className="hidden space-y-4 xl:block">
             <StartWorkOrderCard
               workOrderId={wo.id}
               disabled={startDone || finishDone}

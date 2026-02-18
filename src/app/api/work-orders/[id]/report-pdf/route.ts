@@ -78,7 +78,7 @@ function renderPreventive(report: Record<string, any>, internalStart: string, in
   push("Inicio OT", internalStart);
   push("Cierre OT", internalEnd);
   push("Responsable UPK", report.responsibleUpk);
-  push("Responsable Capital Bus", report.responsibleCapitalBus);
+  push("Responsable CapitalBus", report.responsibleCapitalBus);
 
   return lines;
 }

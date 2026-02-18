@@ -300,7 +300,7 @@ export default function NewCasePage() {
               >
                 <option value="TRANSMILENIO_SA">TRANSMILENIO S.A</option>
                 <option value="INTERVENTORIA">Interventoría</option>
-                <option value="CAPITAL_BUS">Capital Bus</option>
+                <option value="CAPITAL_BUS">CapitalBus</option>
                 <option value="OTRO">Otro</option>
               </Select>
             </Field>

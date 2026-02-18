@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { ProcedureType, Role } from "@prisma/client";
 import { caseStatusLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import {
   DataTable,
@@ -16,9 +16,20 @@ import {
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import BusCommentsCard from "./ui/BusCommentsCard";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+}
+
+function fmtCaseNo(n?: number | null) {
+  if (!n) return "CASO--";
+  return `CASO-${String(n).padStart(3, "0")}`;
+}
+
+function fmtWoNo(n?: number | null) {
+  if (!n) return "OT--";
+  return `OT-${String(n).padStart(3, "0")}`;
 }
 
 function mapCaseStatus(status: string): StatusPillStatus {
@@ -33,6 +44,52 @@ function mapWorkOrderStatus(status: string): StatusPillStatus {
   if (status === "CREADA") return "nuevo";
   if (status === "ASIGNADA" || status === "EN_CAMPO" || status === "EN_VALIDACION") return "en_ejecucion";
   return "nuevo";
+}
+
+function cleanInventoryText(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .replace(/\uFFFD/g, "")
+    .replace(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/g, "")
+    .replace(/\(\s*\?+\s*\)/g, "")
+    .replace(/\?{2,}/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function displayInventoryText(value: string | null | undefined): string {
+  const cleaned = cleanInventoryText(value);
+  return cleaned || "—";
+}
+
+function displayBrandModel(brand: string | null | undefined, model: string | null | undefined): string {
+  const parts = [cleanInventoryText(brand), cleanInventoryText(model)].filter(Boolean);
+  return parts.length ? parts.join(" ") : "—";
+}
+
+function toExternalHttpUrl(raw: string | null | undefined): string | null {
+  const cleaned = cleanInventoryText(raw);
+  if (!cleaned) return null;
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  return `https://${cleaned}`;
+}
+
+function shortUrlLabel(rawUrl: string | null | undefined): string {
+  const normalized = toExternalHttpUrl(rawUrl);
+  if (!normalized) return "—";
+  try {
+    const parsed = new URL(normalized);
+    const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "";
+    const shortPath = path.length > 48 ? `${path.slice(0, 48)}...` : path;
+    return `${parsed.hostname}${shortPath}`;
+  } catch {
+    return cleanInventoryText(rawUrl) || "—";
+  }
+}
+
+function isImageFilePath(filePath: string | null | undefined): boolean {
+  const value = String(filePath ?? "").toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
 }
 
 type PageProps = { params: { id: string } };
@@ -95,6 +152,7 @@ export default async function BusLifePage({ params }: PageProps) {
         take: 50,
         select: {
           id: true,
+          caseNo: true,
           type: true,
           status: true,
           priority: true,
@@ -104,11 +162,17 @@ export default async function BusLifePage({ params }: PageProps) {
           workOrder: {
             select: {
               id: true,
+              workOrderNo: true,
               status: true,
               assignedToId: true,
               assignedAt: true,
               startedAt: true,
               finishedAt: true,
+              orderFilePath: true,
+              orderFileName: true,
+              orderFileUpdatedAt: true,
+              interventionReceipt: { select: { id: true } },
+              correctiveReport: { select: { procedureType: true } },
               assignedTo: { select: { id: true, name: true, email: true } },
             },
           },
@@ -134,6 +198,8 @@ export default async function BusLifePage({ params }: PageProps) {
 
   const caseIds = bus.cases.map((c) => c.id);
   const woIds = bus.cases.map((c) => c.workOrder?.id).filter(Boolean) as string[];
+  const smartHeliosUrl = toExternalHttpUrl(bus.linkSmartHelios);
+  const smartHeliosText = shortUrlLabel(bus.linkSmartHelios);
 
   const caseEvents = caseIds.length
     ? await prisma.caseEvent.findMany({
@@ -169,7 +235,7 @@ export default async function BusLifePage({ params }: PageProps) {
 
   // ✅ Helpers tipados (sin map/filter que rompe tuplas)
   const equipmentNameById = new Map<string, string>();
-  for (const e of bus.equipments) equipmentNameById.set(e.id, e.equipmentType.name);
+  for (const e of bus.equipments) equipmentNameById.set(e.id, displayInventoryText(e.equipmentType.name));
 
   const caseTitleById = new Map<string, string>();
   for (const c of bus.cases) caseTitleById.set(c.id, c.title);
@@ -233,6 +299,101 @@ export default async function BusLifePage({ params }: PageProps) {
 
   const totalCases = bus.cases.length;
   const casesWithWo = bus.cases.filter((c) => Boolean(c.workOrder?.id)).length;
+  const busComments = bus.lifecycle
+    .filter((e) => e.eventType === "BUS_COMMENT")
+    .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+  const stepsByWorkOrder = new Map<
+    string,
+    Array<{
+      id: string;
+      stepType: string;
+      createdAt: Date;
+      media: Array<{ id: string; kind: string; filePath: string; createdAt: Date }>;
+    }>
+  >();
+  for (const step of woSteps) {
+    const list = stepsByWorkOrder.get(step.workOrderId) ?? [];
+    list.push(step);
+    stepsByWorkOrder.set(step.workOrderId, list);
+  }
+
+  const caseFolders = bus.cases
+    .filter((c) => Boolean(c.workOrder?.id))
+    .map((c) => {
+      const wo = c.workOrder!;
+      const attachments: Array<{ label: string; href: string; at?: Date | null }> = [];
+
+      if (wo.orderFilePath) {
+        attachments.push({
+          label: wo.orderFileName?.trim() || "Archivo de OT",
+          href: `/api/uploads/${wo.orderFilePath}`,
+          at: wo.orderFileUpdatedAt ?? null,
+        });
+      }
+
+      const finalizada = wo.status === "FINALIZADA";
+      if (finalizada && (c.type === "PREVENTIVO" || c.type === "CORRECTIVO" || c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")) {
+        const kind =
+          c.type === "PREVENTIVO"
+            ? "PREVENTIVE"
+            : c.type === "CORRECTIVO"
+            ? "CORRECTIVE"
+            : "RENEWAL";
+        attachments.push({
+          label: "Formulario OT (PDF)",
+          href: `/api/work-orders/${wo.id}/report-pdf?kind=${kind}`,
+          at: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
+        });
+      }
+
+      if (wo.interventionReceipt?.id) {
+        attachments.push({
+          label: "Recibo de intervención (PDF)",
+          href: `/api/work-orders/${wo.id}/receipt-pdf`,
+          at: wo.finishedAt ?? null,
+        });
+      }
+
+      if (finalizada && (c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")) {
+        attachments.push({
+          label: c.type === "MEJORA_PRODUCTO" ? "Acta mejora de producto (Word)" : "Acta de cambios (Word)",
+          href: `/api/work-orders/${wo.id}/renewal-acta`,
+          at: wo.finishedAt ?? null,
+        });
+      }
+
+      if (finalizada && c.type === "CORRECTIVO" && wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE) {
+        attachments.push({
+          label: "Acta de cambio de equipo (Word)",
+          href: `/api/work-orders/${wo.id}/corrective-acta`,
+          at: wo.finishedAt ?? null,
+        });
+      }
+
+      const stepList = stepsByWorkOrder.get(wo.id) ?? [];
+      let mediaIndex = 0;
+      for (const step of stepList) {
+        for (const media of step.media ?? []) {
+          mediaIndex += 1;
+          attachments.push({
+            label: `${step.stepType} · ${media.kind} · adjunto ${String(mediaIndex).padStart(2, "0")}`,
+            href: `/api/uploads/${media.filePath}`,
+            at: media.createdAt ?? step.createdAt,
+          });
+        }
+      }
+
+      return {
+        caseId: c.id,
+        caseNo: c.caseNo,
+        caseTitle: c.title,
+        caseType: c.type,
+        workOrderId: wo.id,
+        workOrderNo: wo.workOrderNo,
+        workOrderDate: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
+        attachments,
+      };
+    });
 
   return (
     <div className="mobile-page-shell">
@@ -252,6 +413,14 @@ export default async function BusLifePage({ params }: PageProps) {
               status={bus.active ? "activo" : "cancelado"}
               label={bus.active ? "Activo" : "Inactivo"}
             />
+            <a
+              className="sts-btn-ghost text-sm"
+              href={`/api/buses/${bus.id}/life-pdf`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Exportar PDF
+            </a>
             <Link className="sts-btn-ghost text-sm" href="/buses">
               Volver
             </Link>
@@ -307,19 +476,27 @@ export default async function BusLifePage({ params }: PageProps) {
                         <div className="space-y-2 text-sm">
                           <div className="flex items-start justify-between gap-3">
                             <span className="text-xs uppercase text-muted-foreground">Tipo</span>
-                            <span className="text-right font-medium">{e.equipmentType.name}</span>
+                            <span className="min-w-0 max-w-[72%] break-words text-right font-medium">
+                              {displayInventoryText(e.equipmentType.name)}
+                            </span>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <span className="text-xs uppercase text-muted-foreground">Marca / Modelo</span>
-                            <span className="text-right">{e.brand ?? "—"} {e.model ?? ""}</span>
+                            <span className="min-w-0 max-w-[72%] break-words text-right">
+                              {displayBrandModel(e.brand, e.model)}
+                            </span>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <span className="text-xs uppercase text-muted-foreground">Serial</span>
-                            <span className="text-right">{e.serial ?? "—"}</span>
+                            <span className="min-w-0 max-w-[72%] break-all text-right">
+                              {displayInventoryText(e.serial)}
+                            </span>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <span className="text-xs uppercase text-muted-foreground">IP</span>
-                            <span className="text-right text-xs text-muted-foreground">{e.ipAddress ?? "—"}</span>
+                            <span className="min-w-0 max-w-[72%] break-all text-right text-xs text-muted-foreground">
+                              {e.ipAddress ?? "—"}
+                            </span>
                           </div>
                           <div className="flex items-start justify-between gap-3">
                             <span className="text-xs uppercase text-muted-foreground">Estado</span>
@@ -356,11 +533,25 @@ export default async function BusLifePage({ params }: PageProps) {
                         {bus.equipments.map((e) => (
                           <DataTableRow key={e.id}>
                             <DataTableCell>
-                              <span className="font-medium">{e.equipmentType.name}</span>
+                              <span className="block max-w-[18rem] truncate font-medium" title={displayInventoryText(e.equipmentType.name)}>
+                                {displayInventoryText(e.equipmentType.name)}
+                              </span>
                             </DataTableCell>
-                            <DataTableCell>{e.brand ?? "—"}</DataTableCell>
-                            <DataTableCell>{e.model ?? "—"}</DataTableCell>
-                            <DataTableCell>{e.serial ?? "—"}</DataTableCell>
+                            <DataTableCell>
+                              <span className="block max-w-[12rem] truncate" title={displayInventoryText(e.brand)}>
+                                {displayInventoryText(e.brand)}
+                              </span>
+                            </DataTableCell>
+                            <DataTableCell>
+                              <span className="block max-w-[12rem] truncate" title={displayInventoryText(e.model)}>
+                                {displayInventoryText(e.model)}
+                              </span>
+                            </DataTableCell>
+                            <DataTableCell>
+                              <span className="block max-w-[12rem] truncate" title={displayInventoryText(e.serial)}>
+                                {displayInventoryText(e.serial)}
+                              </span>
+                            </DataTableCell>
                             <DataTableCell className="text-xs text-muted-foreground">{e.ipAddress ?? "—"}</DataTableCell>
                             <DataTableCell>
                               <StatusPill
@@ -553,17 +744,83 @@ export default async function BusLifePage({ params }: PageProps) {
 
                     {it.meta?.media?.length ? (
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {it.meta.media.map((m: any, idx: number) => (
-                          <img
-                            key={`${m.filePath}-${idx}`}
-                            src={`/api/uploads/${m.filePath}`}
-                            alt={m.kind ?? "Evidencia"}
-                            className="h-40 w-full rounded-md border object-cover"
-                          />
-                        ))}
+                        {it.meta.media.map((m: any, idx: number) =>
+                          isImageFilePath(m.filePath) ? (
+                            <img
+                              key={`${m.filePath}-${idx}`}
+                              src={`/api/uploads/${m.filePath}`}
+                              alt={m.kind ?? "Evidencia"}
+                              className="h-40 w-full rounded-md border object-cover"
+                            />
+                          ) : (
+                            <a
+                              key={`${m.filePath}-${idx}`}
+                              href={`/api/uploads/${m.filePath}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex h-12 items-center justify-center rounded-md border px-3 text-sm"
+                            >
+                              Abrir archivo adjunto
+                            </a>
+                          )
+                        )}
                       </div>
                     ) : null}
                   </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="sts-card p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Carpeta de archivos</h2>
+              <p className="text-xs text-muted-foreground">{caseFolders.length} casos</p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {caseFolders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay casos con OT para este bus.</p>
+              ) : (
+                caseFolders.map((folder) => (
+                  <details key={folder.caseId} className="rounded-lg border border-border/60 bg-card p-3">
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {fmtCaseNo(folder.caseNo)} · {fmtWoNo(folder.workOrderNo)} · {fmtDate(folder.workOrderDate)}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {labelFromMap(folder.caseType, caseTypeLabels)} · {folder.caseTitle}
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
+                          {folder.attachments.length} archivo(s)
+                        </span>
+                      </div>
+                    </summary>
+
+                    <div className="mt-3 space-y-2 border-t border-border/50 pt-3">
+                      {folder.attachments.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Sin adjuntos para esta OT.</p>
+                      ) : (
+                        folder.attachments.map((att, idx) => (
+                          <a
+                            key={`${att.href}-${idx}`}
+                            href={att.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/40"
+                          >
+                            <span className="min-w-0 truncate">{att.label}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {att.at ? fmtDate(att.at) : ""}
+                            </span>
+                          </a>
+                        ))
+                      )}
+                    </div>
+                  </details>
                 ))
               )}
             </div>
@@ -597,7 +854,22 @@ export default async function BusLifePage({ params }: PageProps) {
                 <p className="text-xs text-muted-foreground">Bus</p>
                 <p className="mt-1 font-medium">{bus.code}</p>
                 <p className="text-xs text-muted-foreground">{bus.plate ?? "Sin placa"}</p>
-                <p className="mt-1 text-xs text-muted-foreground">SmartHelios: {bus.linkSmartHelios ?? "—"}</p>
+                <p className="mt-2 text-xs text-muted-foreground">SmartHelios</p>
+                {smartHeliosUrl ? (
+                  <div className="mt-1 flex flex-col gap-1">
+                    <a
+                      href={smartHeliosUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      Abrir enlace
+                    </a>
+                    <p className="text-[11px] text-muted-foreground break-all">{smartHeliosText}</p>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">—</p>
+                )}
                 <p className="text-xs text-muted-foreground">IP SIM: {bus.ipSimcard ?? "—"}</p>
               </div>
 
@@ -614,6 +886,15 @@ export default async function BusLifePage({ params }: PageProps) {
               </div>
             </div>
           </section>
+
+          <BusCommentsCard
+            busId={bus.id}
+            comments={busComments.map((c) => ({
+              id: c.id,
+              summary: c.summary,
+              occurredAt: c.occurredAt.toISOString(),
+            }))}
+          />
         </div>
       </div>
       </div>
