@@ -16,6 +16,14 @@ function fmtDateTime(d: Date | null) {
   }).format(d);
 }
 
+function fmtDurationMinutes(totalMinutes: number) {
+  const mins = Math.max(0, Math.floor(totalMinutes));
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours <= 0) return `${rem} min`;
+  return `${hours} h ${String(rem).padStart(2, "0")} min`;
+}
+
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
@@ -80,14 +88,22 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   }
   y -= lineHeight / 2;
 
-  drawLine("== Horas para TransMilenio ==", true);
-  drawLine(`Inicio (TM): ${fmtDateTime(r.tmStartedAt)}`);
-  drawLine(`Cierre (TM): ${fmtDateTime(r.tmEndedAt)}`);
+  const interventionStartedAt = wo.startedAt ?? r.tmStartedAt;
+  const interventionEndedAt = wo.finishedAt ?? r.tmEndedAt;
+  const durationMinutes =
+    interventionStartedAt && interventionEndedAt
+      ? Math.max(0, (interventionEndedAt.getTime() - interventionStartedAt.getTime()) / 60000)
+      : 0;
+
+  drawLine("== Horas de intervención ==", true);
+  drawLine(`Inicio intervención: ${fmtDateTime(interventionStartedAt)}`);
+  drawLine(`Cierre intervención: ${fmtDateTime(interventionEndedAt)}`);
+  drawLine(`Duración intervención: ${fmtDurationMinutes(durationMinutes)}`);
 
   y -= lineHeight / 2;
-  drawLine("== Horas internas ==", true);
-  drawLine(`Inicio OT (interno): ${r.internalStart ?? "—"}`);
-  drawLine(`Cierre OT (interno): ${r.internalEnd ?? "—"}`);
+  drawLine("== Registro interno ==", true);
+  drawLine(`Inicio OT (hora interna): ${r.internalStart ?? "—"}`);
+  drawLine(`Cierre OT (hora interna): ${r.internalEnd ?? "—"}`);
 
   y -= lineHeight / 2;
   drawLine(`Generado: ${fmtDateTime(r.createdAt)}`);

@@ -59,7 +59,7 @@ export default function TopBar({
   return (
     <>
       <header className="app-topbar sticky top-0 z-30 flex h-16 flex-shrink-0 items-center border-b border-border/60 bg-background/95 px-3 backdrop-blur-sm sm:px-4 md:px-6">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 sm:gap-3 md:gap-4">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-2 sm:gap-3 md:gap-4">
           <div className="flex items-center gap-2">
             <button
               type="button"

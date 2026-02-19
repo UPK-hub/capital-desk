@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/Field";
-import {
-  DataTable,
-  DataTableBody,
-  DataTableCell,
-  DataTableHead,
-  DataTableHeader,
-  DataTableRow,
-} from "@/components/ui/data-table";
 
-type BusRow = { id: string; code: string; plate: string | null };
+type BusRow = {
+  id: string;
+  code: string;
+  plate: string | null;
+  equipmentCount: number;
+  caseCount: number;
+  otCount: number;
+};
 
 export default function BusesPage() {
   const [q, setQ] = useState("");
@@ -35,6 +34,9 @@ export default function BusesPage() {
       <header className="mobile-page-header">
         <div className="mx-auto w-full max-w-6xl px-4 py-4 lg:px-6 lg:py-0">
           <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Buses</h1>
+          <p className="mt-1 text-xs text-muted-foreground lg:text-sm">
+            Consulta por código/placa y abre la hoja de vida con su contexto operativo.
+          </p>
         </div>
       </header>
 
@@ -47,54 +49,46 @@ export default function BusesPage() {
         {items.length === 0 ? (
           <div className="mobile-section-card mobile-section-card__body text-sm text-muted-foreground">Sin resultados.</div>
         ) : (
-          <>
-            <div className="mobile-list-stack lg:hidden">
-              {items.map((b) => (
-                <article key={b.id} className="mobile-section-card mobile-section-card__body">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">{b.code}</p>
-                      <p className="text-xs text-muted-foreground">{b.plate ?? "Sin placa"}</p>
+          <div className="mobile-list-stack">
+            {items.map((b) => (
+              <article key={b.id} className="mobile-section-card mobile-section-card__body">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold lg:text-lg">{b.code}</p>
+                        <p className="text-xs text-muted-foreground lg:text-sm">{b.plate ?? "Sin placa"}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2 lg:max-w-xl">
+                      <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2 text-center">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Equipos</p>
+                        <p className="text-sm font-semibold">{b.equipmentCount}</p>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2 text-center">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Casos</p>
+                        <p className="text-sm font-semibold">{b.caseCount}</p>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2 text-center">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">OT</p>
+                        <p className="text-sm font-semibold">{b.otCount}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/buses/${b.id}`}>
+
+                  <div className="w-full lg:w-auto">
+                    <Link
+                      className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center px-4 text-sm lg:h-11 lg:min-w-[180px]"
+                      href={`/buses/${b.id}`}
+                    >
                       Ver hoja de vida
                     </Link>
                   </div>
-                </article>
-              ))}
-            </div>
-
-            <div className="hidden lg:block">
-              <DataTable>
-                <DataTableHeader>
-                  <DataTableRow>
-                    <DataTableHead>Código</DataTableHead>
-                    <DataTableHead>Placa</DataTableHead>
-                    <DataTableHead className="text-right">Acción</DataTableHead>
-                  </DataTableRow>
-                </DataTableHeader>
-                <DataTableBody>
-                  {items.map((b) => (
-                    <DataTableRow key={b.id}>
-                      <DataTableCell>
-                        <div className="font-medium">{b.code}</div>
-                      </DataTableCell>
-                      <DataTableCell>
-                        <span className="text-muted-foreground">{b.plate ?? "—"}</span>
-                      </DataTableCell>
-                      <DataTableCell className="text-right">
-                        <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/buses/${b.id}`}>
-                          Ver hoja de vida
-                        </Link>
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))}
-                </DataTableBody>
-              </DataTable>
-            </div>
-          </>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </div>
     </div>

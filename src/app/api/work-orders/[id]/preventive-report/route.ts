@@ -57,6 +57,16 @@ function normalizeActivityKey(row: any, idx: number): string {
   const label = String(row?.activity ?? "")
     .trim()
     .toLowerCase();
+  if (label.includes("video inicio") || label.includes("video final")) return "nvr_video_inicio_final";
+  if (label.includes("batch")) return "nvr_batch_foto";
+  if (label.includes("wifi")) return "nvr_wifi_foto";
+  if (label.includes("lte") || label.includes("4g") || label.includes("5g")) return "nvr_lte_foto";
+  if (label.includes("tapa")) return "nvr_tapa_foto";
+  if (label.includes("playback")) return "nvr_playback_foto";
+  if (label.includes("conteo") && label.includes("grab")) return "nvr_conteo_dias_grabacion";
+  if (label.includes("capacidad") && label.includes("disco")) return "nvr_capacidad_discos_foto";
+  if (label.includes("configur")) return "nvr_config";
+  if (label.includes("ping")) return "nvr_ping";
   if (label.includes("foto vms")) return "nvr_foto_vms";
   if (label.includes("habitaculo")) return "nvr_foto_habitaculo";
   if (label.includes("canbus") || label.includes("data")) return "nvr_data_canbus";

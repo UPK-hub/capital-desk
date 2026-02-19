@@ -317,83 +317,86 @@ export default async function BusLifePage({ params }: PageProps) {
     stepsByWorkOrder.set(step.workOrderId, list);
   }
 
-  const caseFolders = bus.cases
-    .filter((c) => Boolean(c.workOrder?.id))
-    .map((c) => {
-      const wo = c.workOrder!;
-      const attachments: Array<{ label: string; href: string; at?: Date | null }> = [];
+  const caseFolders = bus.cases.map((c) => {
+    const wo = c.workOrder;
+    const attachments: Array<{ label: string; href: string; at?: Date | null }> = [];
 
-      if (wo.orderFilePath) {
+    if (wo?.orderFilePath) {
+      attachments.push({
+        label: wo.orderFileName?.trim() || "Archivo de OT",
+        href: `/api/uploads/${wo.orderFilePath}`,
+        at: wo.orderFileUpdatedAt ?? null,
+      });
+    }
+
+    const finalizada = wo?.status === "FINALIZADA";
+    if (
+      wo?.id &&
+      finalizada &&
+      (c.type === "PREVENTIVO" || c.type === "CORRECTIVO" || c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")
+    ) {
+      const kind =
+        c.type === "PREVENTIVO"
+          ? "PREVENTIVE"
+          : c.type === "CORRECTIVO"
+          ? "CORRECTIVE"
+          : "RENEWAL";
+      attachments.push({
+        label: "Formulario OT (PDF)",
+        href: `/api/work-orders/${wo.id}/report-pdf?kind=${kind}`,
+        at: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
+      });
+    }
+
+    if (wo?.id && wo.interventionReceipt?.id) {
+      attachments.push({
+        label: "Recibo de intervención (PDF)",
+        href: `/api/work-orders/${wo.id}/receipt-pdf`,
+        at: wo.finishedAt ?? null,
+      });
+    }
+
+    if (wo?.id && finalizada && (c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")) {
+      attachments.push({
+        label: c.type === "MEJORA_PRODUCTO" ? "Acta mejora de producto (Word)" : "Acta de cambios (Word)",
+        href: `/api/work-orders/${wo.id}/renewal-acta`,
+        at: wo.finishedAt ?? null,
+      });
+    }
+
+    if (wo?.id && finalizada && c.type === "CORRECTIVO" && wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE) {
+      attachments.push({
+        label: "Acta de cambio de equipo (Word)",
+        href: `/api/work-orders/${wo.id}/corrective-acta`,
+        at: wo.finishedAt ?? null,
+      });
+    }
+
+    const stepList = wo?.id ? (stepsByWorkOrder.get(wo.id) ?? []) : [];
+    let mediaIndex = 0;
+    for (const step of stepList) {
+      for (const media of step.media ?? []) {
+        mediaIndex += 1;
         attachments.push({
-          label: wo.orderFileName?.trim() || "Archivo de OT",
-          href: `/api/uploads/${wo.orderFilePath}`,
-          at: wo.orderFileUpdatedAt ?? null,
+          label: `${step.stepType} · ${media.kind} · adjunto ${String(mediaIndex).padStart(2, "0")}`,
+          href: `/api/uploads/${media.filePath}`,
+          at: media.createdAt ?? step.createdAt,
         });
       }
+    }
 
-      const finalizada = wo.status === "FINALIZADA";
-      if (finalizada && (c.type === "PREVENTIVO" || c.type === "CORRECTIVO" || c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")) {
-        const kind =
-          c.type === "PREVENTIVO"
-            ? "PREVENTIVE"
-            : c.type === "CORRECTIVO"
-            ? "CORRECTIVE"
-            : "RENEWAL";
-        attachments.push({
-          label: "Formulario OT (PDF)",
-          href: `/api/work-orders/${wo.id}/report-pdf?kind=${kind}`,
-          at: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
-        });
-      }
-
-      if (wo.interventionReceipt?.id) {
-        attachments.push({
-          label: "Recibo de intervención (PDF)",
-          href: `/api/work-orders/${wo.id}/receipt-pdf`,
-          at: wo.finishedAt ?? null,
-        });
-      }
-
-      if (finalizada && (c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")) {
-        attachments.push({
-          label: c.type === "MEJORA_PRODUCTO" ? "Acta mejora de producto (Word)" : "Acta de cambios (Word)",
-          href: `/api/work-orders/${wo.id}/renewal-acta`,
-          at: wo.finishedAt ?? null,
-        });
-      }
-
-      if (finalizada && c.type === "CORRECTIVO" && wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE) {
-        attachments.push({
-          label: "Acta de cambio de equipo (Word)",
-          href: `/api/work-orders/${wo.id}/corrective-acta`,
-          at: wo.finishedAt ?? null,
-        });
-      }
-
-      const stepList = stepsByWorkOrder.get(wo.id) ?? [];
-      let mediaIndex = 0;
-      for (const step of stepList) {
-        for (const media of step.media ?? []) {
-          mediaIndex += 1;
-          attachments.push({
-            label: `${step.stepType} · ${media.kind} · adjunto ${String(mediaIndex).padStart(2, "0")}`,
-            href: `/api/uploads/${media.filePath}`,
-            at: media.createdAt ?? step.createdAt,
-          });
-        }
-      }
-
-      return {
-        caseId: c.id,
-        caseNo: c.caseNo,
-        caseTitle: c.title,
-        caseType: c.type,
-        workOrderId: wo.id,
-        workOrderNo: wo.workOrderNo,
-        workOrderDate: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
-        attachments,
-      };
-    });
+    return {
+      caseId: c.id,
+      caseNo: c.caseNo,
+      caseTitle: c.title,
+      caseType: c.type,
+      hasWorkOrder: Boolean(wo?.id),
+      workOrderId: wo?.id ?? null,
+      workOrderNo: wo?.workOrderNo ?? null,
+      workOrderDate: wo?.finishedAt ?? wo?.startedAt ?? wo?.assignedAt ?? c.createdAt,
+      attachments,
+    };
+  });
 
   return (
     <div className="mobile-page-shell">
@@ -470,50 +473,52 @@ export default async function BusLifePage({ params }: PageProps) {
                 <p className="text-sm text-muted-foreground">Sin equipos asociados.</p>
               ) : (
                 <>
-                  <div className="mobile-list-stack lg:hidden">
-                    {bus.equipments.map((e) => (
-                      <article key={e.id} className="rounded-xl border border-border/60 bg-card p-4">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="text-xs uppercase text-muted-foreground">Tipo</span>
-                            <span className="min-w-0 max-w-[72%] break-words text-right font-medium">
-                              {displayInventoryText(e.equipmentType.name)}
-                            </span>
+                  <div className="lg:hidden">
+                    <div className="mobile-list-stack">
+                      {bus.equipments.map((e) => (
+                        <article key={e.id} className="rounded-xl border border-border/60 bg-card p-4">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-xs uppercase text-muted-foreground">Tipo</span>
+                              <span className="min-w-0 max-w-[72%] break-words text-right font-medium">
+                                {displayInventoryText(e.equipmentType.name)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-xs uppercase text-muted-foreground">Marca / Modelo</span>
+                              <span className="min-w-0 max-w-[72%] break-words text-right">
+                                {displayBrandModel(e.brand, e.model)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-xs uppercase text-muted-foreground">Serial</span>
+                              <span className="min-w-0 max-w-[72%] break-all text-right">
+                                {displayInventoryText(e.serial)}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-xs uppercase text-muted-foreground">IP</span>
+                              <span className="min-w-0 max-w-[72%] break-all text-right text-xs text-muted-foreground">
+                                {e.ipAddress ?? "—"}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-xs uppercase text-muted-foreground">Estado</span>
+                              <StatusPill
+                                status={e.active ? "activo" : "cancelado"}
+                                label={e.active ? "Activo" : "Inactivo"}
+                                size="sm"
+                              />
+                            </div>
                           </div>
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="text-xs uppercase text-muted-foreground">Marca / Modelo</span>
-                            <span className="min-w-0 max-w-[72%] break-words text-right">
-                              {displayBrandModel(e.brand, e.model)}
-                            </span>
+                          <div className="mt-3">
+                            <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/equipments/${e.id}`}>
+                              Ver hoja de vida
+                            </Link>
                           </div>
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="text-xs uppercase text-muted-foreground">Serial</span>
-                            <span className="min-w-0 max-w-[72%] break-all text-right">
-                              {displayInventoryText(e.serial)}
-                            </span>
-                          </div>
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="text-xs uppercase text-muted-foreground">IP</span>
-                            <span className="min-w-0 max-w-[72%] break-all text-right text-xs text-muted-foreground">
-                              {e.ipAddress ?? "—"}
-                            </span>
-                          </div>
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="text-xs uppercase text-muted-foreground">Estado</span>
-                            <StatusPill
-                              status={e.active ? "activo" : "cancelado"}
-                              label={e.active ? "Activo" : "Inactivo"}
-                              size="sm"
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/equipments/${e.id}`}>
-                            Ver hoja de vida
-                          </Link>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="hidden lg:block">
@@ -587,45 +592,47 @@ export default async function BusLifePage({ params }: PageProps) {
                 <p className="text-sm text-muted-foreground">No hay casos para este bus.</p>
               ) : (
                 <>
-                  <div className="mobile-list-stack lg:hidden">
-                    {bus.cases.map((c) => (
-                      <article key={c.id} className="rounded-xl border border-border/60 bg-card p-4">
-                        <p className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</p>
-                        <p className="mt-1 text-sm font-semibold break-words">{c.title}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <TypeBadge type={c.type} />
-                          <PriorityBadge priority={c.priority} size="sm" />
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <StatusPill
-                            status={mapCaseStatus(c.status)}
-                            label={labelFromMap(c.status, caseStatusLabels)}
-                            size="sm"
-                            pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
-                          />
-                          {c.workOrder ? (
+                  <div className="lg:hidden">
+                    <div className="mobile-list-stack">
+                      {bus.cases.map((c) => (
+                        <article key={c.id} className="rounded-xl border border-border/60 bg-card p-4">
+                          <p className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</p>
+                          <p className="mt-1 text-sm font-semibold break-words">{c.title}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <TypeBadge type={c.type} />
+                            <PriorityBadge priority={c.priority} size="sm" />
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             <StatusPill
-                              status={mapWorkOrderStatus(c.workOrder.status)}
-                              label={labelFromMap(c.workOrder.status, workOrderStatusLabels)}
+                              status={mapCaseStatus(c.status)}
+                              label={labelFromMap(c.status, caseStatusLabels)}
                               size="sm"
-                              pulse={c.workOrder.status === "EN_CAMPO" || c.workOrder.status === "EN_VALIDACION"}
+                              pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
                             />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Sin OT</span>
-                          )}
-                        </div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${c.id}`}>
-                            Abrir caso
-                          </Link>
-                          {c.workOrder?.id ? (
-                            <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/work-orders/${c.workOrder.id}`}>
-                              Abrir OT
+                            {c.workOrder ? (
+                              <StatusPill
+                                status={mapWorkOrderStatus(c.workOrder.status)}
+                                label={labelFromMap(c.workOrder.status, workOrderStatusLabels)}
+                                size="sm"
+                                pulse={c.workOrder.status === "EN_CAMPO" || c.workOrder.status === "EN_VALIDACION"}
+                              />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sin OT</span>
+                            )}
+                          </div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${c.id}`}>
+                              Abrir caso
                             </Link>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
+                            {c.workOrder?.id ? (
+                              <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/work-orders/${c.workOrder.id}`}>
+                                Abrir OT
+                              </Link>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="hidden lg:block">
@@ -774,13 +781,13 @@ export default async function BusLifePage({ params }: PageProps) {
 
           <section className="sts-card p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Carpeta de archivos</h2>
+              <h2 className="text-base font-semibold">Carpetas por caso</h2>
               <p className="text-xs text-muted-foreground">{caseFolders.length} casos</p>
             </div>
 
             <div className="mt-4 space-y-3">
               {caseFolders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No hay casos con OT para este bus.</p>
+                <p className="text-sm text-muted-foreground">No hay casos para este bus.</p>
               ) : (
                 caseFolders.map((folder) => (
                   <details key={folder.caseId} className="rounded-lg border border-border/60 bg-card p-3">
@@ -788,7 +795,7 @@ export default async function BusLifePage({ params }: PageProps) {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">
-                            {fmtCaseNo(folder.caseNo)} · {fmtWoNo(folder.workOrderNo)} · {fmtDate(folder.workOrderDate)}
+                            {fmtCaseNo(folder.caseNo)} · {folder.hasWorkOrder ? fmtWoNo(folder.workOrderNo) : "Sin OT"} · {fmtDate(folder.workOrderDate)}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
                             {labelFromMap(folder.caseType, caseTypeLabels)} · {folder.caseTitle}
@@ -801,8 +808,21 @@ export default async function BusLifePage({ params }: PageProps) {
                     </summary>
 
                     <div className="mt-3 space-y-2 border-t border-border/50 pt-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Link className="sts-btn-ghost h-8 px-3 text-xs" href={`/cases/${folder.caseId}`}>
+                          Abrir caso
+                        </Link>
+                        {folder.workOrderId ? (
+                          <Link className="sts-btn-ghost h-8 px-3 text-xs" href={`/work-orders/${folder.workOrderId}`}>
+                            Abrir OT
+                          </Link>
+                        ) : null}
+                      </div>
+
                       {folder.attachments.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Sin adjuntos para esta OT.</p>
+                        <p className="text-xs text-muted-foreground">
+                          {folder.hasWorkOrder ? "Sin adjuntos para esta OT." : "Caso sin OT asociada todavía."}
+                        </p>
                       ) : (
                         folder.attachments.map((att, idx) => (
                           <a

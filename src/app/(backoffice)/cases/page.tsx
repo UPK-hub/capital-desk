@@ -156,38 +156,40 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           <div className="mobile-section-card mobile-section-card__body text-sm text-muted-foreground">No hay casos.</div>
         ) : (
           <>
-            <div className="mobile-list-stack lg:hidden">
-              {cases.map((c) => (
-                <article key={c.id} className="mobile-section-card">
-                  <div className="mobile-section-card__header">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold">{c.bus.code}</span>
-                          <span className="text-xs text-muted-foreground">{c.bus.plate ?? "Sin placa"}</span>
+            <div className="lg:hidden">
+              <div className="mobile-list-stack">
+                {cases.map((c) => (
+                  <article key={c.id} className="mobile-section-card">
+                    <div className="mobile-section-card__header">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold">{c.bus.code}</span>
+                            <span className="text-xs text-muted-foreground">{c.bus.plate ?? "Sin placa"}</span>
+                          </div>
+                          <p className="mt-1 text-sm font-medium break-words">{c.title}</p>
+                          <p className="text-xs text-muted-foreground">Caso #{c.caseNo}</p>
                         </div>
-                        <p className="mt-1 text-sm font-medium break-words">{c.title}</p>
-                        <p className="text-xs text-muted-foreground">Caso #{c.caseNo}</p>
+                        <StatusPill
+                          status={mapCaseStatus(c.status)}
+                          label={labelFromMap(c.status, caseStatusLabels)}
+                          pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
+                        />
                       </div>
-                      <StatusPill
-                        status={mapCaseStatus(c.status)}
-                        label={labelFromMap(c.status, caseStatusLabels)}
-                        pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
-                      />
                     </div>
-                  </div>
-                  <div className="mobile-section-card__body space-y-3">
-                    <div className="flex items-center gap-2">
-                      <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} />
-                      <PriorityBadge priority={c.priority} />
+                    <div className="mobile-section-card__body space-y-3">
+                      <div className="flex items-center gap-2">
+                        <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} />
+                        <PriorityBadge priority={c.priority} />
+                      </div>
+                      <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${c.id}`}>
+                        Abrir
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
                     </div>
-                    <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${c.id}`}>
-                      Abrir
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ))}
+              </div>
             </div>
 
             <div className="hidden lg:block">

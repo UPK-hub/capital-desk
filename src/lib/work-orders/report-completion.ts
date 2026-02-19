@@ -5,6 +5,13 @@ function hasText(v?: string | null) {
   return (v ?? "").trim().length > 0;
 }
 
+function hasNumeric(v: unknown) {
+  const raw = String(v ?? "").trim().replace(",", ".");
+  if (!raw) return false;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0;
+}
+
 function normalizePhotoPaths(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map((x) => String(x ?? "").trim()).filter(Boolean);
@@ -28,15 +35,33 @@ export function preventiveCompletion(r: PreventiveReport | null | undefined) {
 
   if (!activitiesOk) reasons.push("Falta registrar actividades (al menos 1).");
   if (activitiesOk) {
+    const nvrPing = findActivity(activities, "nvr_ping", "ping");
+    const nvrConfig = findActivity(activities, "nvr_config", "configur");
+    const nvrBatch = findActivity(activities, "nvr_batch_foto", "batch");
+    const nvrWifi = findActivity(activities, "nvr_wifi_foto", "wifi");
+    const nvrLte = findActivity(activities, "nvr_lte_foto", "lte");
+    const nvrTapa = findActivity(activities, "nvr_tapa_foto", "tapa");
+    const nvrPlayback = findActivity(activities, "nvr_playback_foto", "playback");
     const nvrVms = findActivity(activities, "nvr_foto_vms", "foto vms");
     const nvrCabin = findActivity(activities, "nvr_foto_habitaculo", "habitaculo");
     const nvrCanbus = findActivity(activities, "nvr_data_canbus", "canbus");
+    const nvrDiskCapacity = findActivity(activities, "nvr_capacidad_discos_foto", "capacidad de discos");
+    const nvrRecordingDays = findActivity(activities, "nvr_conteo_dias_grabacion", "conteo de días de grabación");
     const battery = findActivity(activities, "bateria_voltaje", "voltaje bater");
 
+    if (normalizePhotoPaths(nvrPing?.photoPaths).length === 0) reasons.push("Falta foto de ping.");
+    if (normalizePhotoPaths(nvrConfig?.photoPaths).length === 0) reasons.push("Falta foto de configuración NVR.");
+    if (normalizePhotoPaths(nvrBatch?.photoPaths).length === 0) reasons.push("Falta foto de batch.");
+    if (normalizePhotoPaths(nvrWifi?.photoPaths).length === 0) reasons.push("Falta foto de WiFi.");
+    if (normalizePhotoPaths(nvrLte?.photoPaths).length === 0) reasons.push("Falta foto de LTE.");
+    if (normalizePhotoPaths(nvrTapa?.photoPaths).length === 0) reasons.push("Falta foto de tapa.");
+    if (normalizePhotoPaths(nvrPlayback?.photoPaths).length === 0) reasons.push("Falta foto de playback.");
     if (normalizePhotoPaths(nvrVms?.photoPaths).length === 0) reasons.push("Falta foto de VMS.");
     if (normalizePhotoPaths(nvrCabin?.photoPaths).length === 0) reasons.push("Falta foto de habitáculo.");
     if (normalizePhotoPaths(nvrCanbus?.photoPaths).length === 0)
       reasons.push("Falta evidencia de generación de data (CANBUS).");
+    if (normalizePhotoPaths(nvrDiskCapacity?.photoPaths).length === 0) reasons.push("Falta foto de capacidad de discos.");
+    if (!hasNumeric(nvrRecordingDays?.value)) reasons.push("Falta valor numérico de conteo de días de grabación.");
 
     if (!hasText(String(battery?.value ?? ""))) reasons.push("Falta valor escrito de voltaje de baterías.");
     if (normalizePhotoPaths(battery?.photoPaths).length === 0) reasons.push("Falta foto de voltaje de baterías.");

@@ -39,8 +39,27 @@ export async function GET(req: NextRequest) {
       id: true,
       code: true,
       plate: true,
+      _count: {
+        select: {
+          equipments: true,
+          cases: true,
+        },
+      },
+      cases: {
+        where: { workOrder: { isNot: null } },
+        select: { id: true },
+      },
     },
   });
 
-  return NextResponse.json(buses);
+  const data = buses.map((b) => ({
+    id: b.id,
+    code: b.code,
+    plate: b.plate,
+    equipmentCount: b._count.equipments,
+    caseCount: b._count.cases,
+    otCount: b.cases.length,
+  }));
+
+  return NextResponse.json(data);
 }

@@ -686,8 +686,8 @@ export default function RenewalTechReportForm(props: Props) {
   const canAdvance = canGoNext && Boolean(stepDefs[currentStep - 1]?.complete);
 
   return (
-    <div className="space-y-6">
-      <div className="sts-card p-4 md:p-5">
+    <div className="space-y-6 xl:space-y-7">
+      <div className="sts-card p-4 md:p-5 xl:p-6">
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-semibold">
@@ -717,7 +717,7 @@ export default function RenewalTechReportForm(props: Props) {
         {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
       </div>
 
-      <section className="sts-card p-4 md:p-5">
+      <section className="sts-card p-4 md:p-5 xl:p-6">
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {stepDefs.map((step, idx) => {
@@ -769,10 +769,10 @@ export default function RenewalTechReportForm(props: Props) {
         </div>
       </section>
 
-      <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-        <section className="sts-card p-4 md:p-5">
+      <form className="space-y-6 xl:space-y-7" onSubmit={form.handleSubmit(onSubmit)}>
+        <section className="sts-card p-4 md:p-5 xl:p-6">
           <h4 className="text-sm font-semibold">Datos base del bus</h4>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             <div>
               <label className="text-xs text-muted-foreground">Número de ticket</label>
               <input className={inputCls()} readOnly {...form.register("ticketNumber")} />
@@ -810,15 +810,15 @@ export default function RenewalTechReportForm(props: Props) {
 
         {!isProductImprovement ? (
           <section id="step-remove" className="sts-card overflow-hidden">
-            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5 xl:p-6">
               <h4 className="text-sm font-semibold">Paso 1 · Desmonte de lo antiguo</h4>
               <p className="mt-1 text-xs text-muted-foreground">
                 Marca cada componente desmontado para validar avance del cambio tecnológico.
               </p>
               <StepProgress label="Progreso del paso" completed={removedDoneCount} total={REMOVED_ITEMS.length} />
             </div>
-            <div className="p-4 md:p-6">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="p-4 md:p-6 xl:p-7">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {REMOVED_ITEMS.map((item) => {
                   const selected = Boolean(removedChecklist[item]);
                   return (
@@ -849,7 +849,7 @@ export default function RenewalTechReportForm(props: Props) {
         ) : null}
 
         <section id="step-old" className="sts-card overflow-hidden">
-          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5 xl:p-6">
           <h4 className="text-sm font-semibold">
             {isProductImprovement
               ? "Paso 1 · Equipos actuales (serial y foto antiguo)"
@@ -869,11 +869,11 @@ export default function RenewalTechReportForm(props: Props) {
           </div>
           <div className="p-0">
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[980px] table-fixed">
+            <table className="w-full table-fixed lg:min-w-[980px] xl:min-w-0">
               <colgroup>
                 <col className="w-32" />
                 <col />
-                <col className="w-[22rem]" />
+                <col className="w-[20rem]" />
               </colgroup>
               <thead className="border-b border-border/50 bg-muted/45 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -1019,7 +1019,7 @@ export default function RenewalTechReportForm(props: Props) {
         </section>
 
         <section id="step-new" className="sts-card overflow-hidden">
-          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+          <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5 xl:p-6">
           <h4 className="text-sm font-semibold">
             {isProductImprovement
               ? "Paso 2 · Equipos nuevos (serial y foto nuevo)"
@@ -1039,14 +1039,14 @@ export default function RenewalTechReportForm(props: Props) {
           </div>
           <div className="p-0">
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[1180px] table-fixed">
+            <table className="w-full table-fixed lg:min-w-[1120px] xl:min-w-0">
               <colgroup>
                 <col className="w-24" />
                 <col />
-                <col className="w-[15rem]" />
-                {!isProductImprovement ? <col className="w-32" /> : null}
-                {!isProductImprovement ? <col className="w-40" /> : null}
-                {!isProductImprovement ? <col className="w-40" /> : null}
+                <col className="w-[14rem]" />
+                {!isProductImprovement ? <col className="w-[10rem]" /> : null}
+                {!isProductImprovement ? <col className="w-[11rem]" /> : null}
+                {!isProductImprovement ? <col className="w-[11rem]" /> : null}
               </colgroup>
               <thead className="border-b border-border/50 bg-muted/45 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -1308,15 +1308,15 @@ export default function RenewalTechReportForm(props: Props) {
 
         {!isProductImprovement ? (
           <section id="step-final" className="sts-card overflow-hidden">
-            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5 xl:p-6">
               <h4 className="text-sm font-semibold">Paso 4 · Checklist final instalación</h4>
               <p className="mt-1 text-xs text-muted-foreground">
                 Verificación de codificación, IPs, almacenamiento y componentes de cierre.
               </p>
               <StepProgress label="Progreso del paso" completed={finalDoneCount} total={FINAL_CHECKLIST.length} />
             </div>
-            <div className="p-4 md:p-6">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="p-4 md:p-6 xl:p-7">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {FINAL_CHECKLIST.map((item) => {
                   const selected = Boolean(finalChecklist[item]);
                   return (
@@ -1348,10 +1348,10 @@ export default function RenewalTechReportForm(props: Props) {
 
         {!isProductImprovement ? (
           <section id="step-close" className="sts-card overflow-hidden">
-            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5 xl:p-6">
               <h4 className="text-sm font-semibold">Paso 5 · Cierre</h4>
             </div>
-            <div className="p-4 md:p-5">
+            <div className="p-4 md:p-5 xl:p-6">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <label className="text-xs text-muted-foreground">Observaciones</label>
@@ -1368,10 +1368,10 @@ export default function RenewalTechReportForm(props: Props) {
 
         {isProductImprovement ? (
           <section id="step-notes" className="sts-card overflow-hidden">
-            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
+            <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5 xl:p-6">
               <h4 className="text-sm font-semibold">Paso 3 · Observaciones (opcional)</h4>
             </div>
-            <div className="p-4 md:p-5">
+            <div className="p-4 md:p-5 xl:p-6">
               <textarea
                 className={textareaCls(observedNotes)}
                 placeholder="Observaciones..."
@@ -1381,7 +1381,7 @@ export default function RenewalTechReportForm(props: Props) {
           </section>
         ) : null}
 
-        <section className="sts-card p-4 md:p-5">
+        <section className="sts-card p-4 md:p-5 xl:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"

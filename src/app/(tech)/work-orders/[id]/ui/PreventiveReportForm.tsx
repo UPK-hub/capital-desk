@@ -82,11 +82,64 @@ function smallInputCls() {
 
 function defaultActivities(): ActivityRow[] {
   return [
-    { key: "nvr_ping", area: "NVR", activity: "Comprobación NVR (prueba de ping)", maintenanceType: "Preventivo" },
-    { key: "nvr_config", area: "NVR", activity: "Verificar óptima configuración", maintenanceType: "Preventivo" },
+    {
+      key: "nvr_video_inicio_final",
+      area: "NVR",
+      activity: "Campo de video inicio y final",
+      maintenanceType: "Preventivo",
+    },
+    {
+      key: "nvr_ping",
+      area: "NVR",
+      activity: "Comprobación NVR (prueba de ping) (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
+    {
+      key: "nvr_config",
+      area: "NVR",
+      activity: "Configuración NVR (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
     { key: "nvr_stream", area: "NVR", activity: "Revisión transmisión de video en tiempo real", maintenanceType: "Preventivo" },
     { key: "nvr_link", area: "NVR", activity: "Revisión enlace remoto vía internet", maintenanceType: "Preventivo" },
     { key: "nvr_funcionamiento", area: "NVR", activity: "Pruebas de funcionamiento NVR", maintenanceType: "Preventivo", result: "" },
+    {
+      key: "nvr_batch_foto",
+      area: "NVR",
+      activity: "Batch (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
+    {
+      key: "nvr_wifi_foto",
+      area: "NVR",
+      activity: "WiFi (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
+    {
+      key: "nvr_lte_foto",
+      area: "NVR",
+      activity: "LTE (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
+    {
+      key: "nvr_tapa_foto",
+      area: "NVR",
+      activity: "Tapa (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
+    {
+      key: "nvr_playback_foto",
+      area: "NVR",
+      activity: "Playback (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
     { key: "nvr_foto_vms", area: "NVR", activity: "Foto VMS", maintenanceType: "Preventivo", photoRequired: true },
     { key: "nvr_foto_habitaculo", area: "NVR", activity: "Foto habitáculo", maintenanceType: "Preventivo", photoRequired: true },
     {
@@ -95,6 +148,21 @@ function defaultActivities(): ActivityRow[] {
       activity: "Generación de data (recepción de datos CANBUS)",
       maintenanceType: "Preventivo",
       photoRequired: true,
+    },
+    {
+      key: "nvr_capacidad_discos_foto",
+      area: "NVR",
+      activity: "Capacidad de discos (foto)",
+      maintenanceType: "Preventivo",
+      photoRequired: true,
+    },
+    {
+      key: "nvr_conteo_dias_grabacion",
+      area: "NVR",
+      activity: "Conteo de días de grabación",
+      maintenanceType: "Preventivo",
+      value: "",
+      valueRequired: true,
     },
 
     { key: "cctv_limpieza_general", area: "CAMARAS", activity: "Limpieza general", maintenanceType: "Preventivo" },
@@ -119,6 +187,16 @@ function inferKey(row: Partial<ActivityRow>, idx: number) {
   const key = String(row?.key ?? "").trim();
   if (key) return key;
   const label = String(row?.activity ?? "").trim().toLowerCase();
+  if (label.includes("video inicio") || label.includes("video final")) return "nvr_video_inicio_final";
+  if (label.includes("batch")) return "nvr_batch_foto";
+  if (label.includes("wifi")) return "nvr_wifi_foto";
+  if (label.includes("lte") || label.includes("4g") || label.includes("5g")) return "nvr_lte_foto";
+  if (label.includes("tapa")) return "nvr_tapa_foto";
+  if (label.includes("playback")) return "nvr_playback_foto";
+  if (label.includes("conteo") && label.includes("grab")) return "nvr_conteo_dias_grabacion";
+  if (label.includes("capacidad") && label.includes("disco")) return "nvr_capacidad_discos_foto";
+  if (label.includes("configur")) return "nvr_config";
+  if (label.includes("ping")) return "nvr_ping";
   if (label.includes("foto vms")) return "nvr_foto_vms";
   if (label.includes("habitaculo")) return "nvr_foto_habitaculo";
   if (label.includes("canbus") || label.includes("data")) return "nvr_data_canbus";
@@ -183,11 +261,29 @@ const AREA_RENDER_ORDER: Record<ActivityRow["area"], number> = {
   BATERIA: 2,
 };
 
-const REQUIRED_PHOTO_KEYS = new Set(["nvr_foto_vms", "nvr_foto_habitaculo", "nvr_data_canbus", "bateria_voltaje"]);
-const BATTERY_VOLTAGE_OPTIONS = Array.from({ length: 101 }, (_, i) => `${(20 + i * 0.1).toFixed(1)} V`);
+const REQUIRED_PHOTO_KEYS = new Set([
+  "nvr_ping",
+  "nvr_config",
+  "nvr_batch_foto",
+  "nvr_wifi_foto",
+  "nvr_lte_foto",
+  "nvr_tapa_foto",
+  "nvr_playback_foto",
+  "nvr_foto_vms",
+  "nvr_foto_habitaculo",
+  "nvr_data_canbus",
+  "nvr_capacidad_discos_foto",
+  "bateria_voltaje",
+]);
+const REQUIRED_NUMBER_KEYS = new Set(["nvr_conteo_dias_grabacion"]);
+const BATTERY_VOLTAGE_OPTIONS = Array.from({ length: 301 }, (_, i) => `${(0 + i * 0.1).toFixed(1)} V`);
 
 function isVoltageRow(activityKey: string, activityLabel: string) {
   return activityKey === "bateria_voltaje" || /voltaje/i.test(activityLabel);
+}
+
+function isNumberRow(activityKey: string, activityLabel: string) {
+  return REQUIRED_NUMBER_KEYS.has(activityKey) || (/conteo/i.test(activityLabel) && /grab/i.test(activityLabel));
 }
 
 function isPhotoRequiredRow(activityKey: string, currentFlag: boolean | undefined) {
@@ -391,7 +487,10 @@ function PreventiveReportFormInner(props: Props) {
           const key = String(row.key ?? "").trim() || inferKey(row, idx);
           const activityLabel = String(row.activity ?? "");
           const batteryVoltageByArea = isBatteryArea((row as any).area) && /voltaje|bater/i.test(activityLabel);
-          const valueRequired = Boolean((row.valueRequired ?? isVoltageRow(key, activityLabel)) || batteryVoltageByArea);
+          const inferredValueRequired = isVoltageRow(key, activityLabel) || isNumberRow(key, activityLabel);
+          const valueRequired = Boolean(
+            (row.valueRequired ?? inferredValueRequired) || batteryVoltageByArea
+          );
           const photoRequired = isPhotoRequiredRow(key, row.photoRequired) || batteryVoltageByArea;
           const value = valueRequired ? String(row.value ?? "") : "";
           return {
@@ -527,7 +626,7 @@ function PreventiveReportFormInner(props: Props) {
           <div className="border-b border-border/50 bg-muted/30 p-4 md:p-5">
             <h4 className="text-sm font-semibold">Tareas del preventivo (NVR → Cámaras → Batería)</h4>
             <p className="mt-1 text-xs text-muted-foreground">
-              Evidencia obligatoria para cierre: VMS, habitáculo, CANBUS y batería (foto + valor escrito).
+              Evidencia obligatoria para cierre: ping, configuración NVR, batch, WiFi, LTE, tapa, playback, VMS, habitáculo, CANBUS, capacidad de discos y batería (foto). Además: conteo de días de grabación (valor).
             </p>
           </div>
 
@@ -565,10 +664,16 @@ function PreventiveReportFormInner(props: Props) {
                   const value = String(watchedRow.value ?? "");
                   const areaLabel = String(watchedRow.area ?? field.area ?? "");
                   const activityLabel = String(watchedRow.activity ?? field.activity ?? "");
-                  const isBatteryVoltageRow =
-                    isVoltageRow(activityKey, activityLabel) || (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
-                  const valueRequired = isBatteryVoltageRow;
-                  const photoRequired = isPhotoRequiredRow(activityKey, watchedRow.photoRequired ?? field.photoRequired) || isBatteryVoltageRow;
+                  const valueInputKind = isVoltageRow(activityKey, activityLabel)
+                    ? "voltage"
+                    : isNumberRow(activityKey, activityLabel)
+                    ? "number"
+                    : null;
+                  const valueRequired =
+                    Boolean(valueInputKind) || (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
+                  const photoRequired =
+                    isPhotoRequiredRow(activityKey, watchedRow.photoRequired ?? field.photoRequired) ||
+                    (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
                   const existingPhotos = normalizePhotoPaths(form.watch(`activities.${idx}.photoPaths`) as any);
                   const pendingPhotos = photoFilesByKey[filesStateKey] ?? photoFilesByKey[`idx_${idx}`];
                   const hasPhoto = existingPhotos.length > 0 || Boolean(pendingPhotos?.length);
@@ -609,15 +714,26 @@ function PreventiveReportFormInner(props: Props) {
                         </td>
                         <td className="p-3">
                           {valueRequired ? (
-                            <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.value`)}>
-                              <option value="">Seleccionar voltaje</option>
-                              {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
-                              {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
-                                <option key={opt} value={opt}>
-                                  {opt}
-                                </option>
-                              ))}
-                            </Select>
+                            valueInputKind === "voltage" ? (
+                              <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.value`)}>
+                                <option value="">Seleccionar voltaje</option>
+                                {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
+                                {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </Select>
+                            ) : (
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                className="app-field-control h-8 w-full rounded-lg border px-2 text-xs"
+                                placeholder="Ej: 7"
+                                {...form.register(`activities.${idx}.value`)}
+                              />
+                            )
                           ) : (
                             <span className="inline-flex h-8 items-center text-xs text-muted-foreground">No aplica</span>
                           )}
@@ -682,10 +798,16 @@ function PreventiveReportFormInner(props: Props) {
               const result = String(watchedRow.result ?? "");
               const areaLabel = String(watchedRow.area ?? field.area ?? "");
               const activityLabel = String(watchedRow.activity ?? field.activity ?? "");
-              const isBatteryVoltageRow =
-                isVoltageRow(activityKey, activityLabel) || (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
-              const valueRequired = isBatteryVoltageRow;
-              const photoRequired = isPhotoRequiredRow(activityKey, watchedRow.photoRequired ?? field.photoRequired) || isBatteryVoltageRow;
+              const valueInputKind = isVoltageRow(activityKey, activityLabel)
+                ? "voltage"
+                : isNumberRow(activityKey, activityLabel)
+                ? "number"
+                : null;
+              const valueRequired =
+                Boolean(valueInputKind) || (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
+              const photoRequired =
+                isPhotoRequiredRow(activityKey, watchedRow.photoRequired ?? field.photoRequired) ||
+                (isBatteryArea(areaLabel) && /voltaje|bater/i.test(activityLabel));
               const existingPhotos = normalizePhotoPaths(form.watch(`activities.${idx}.photoPaths`) as any);
               const pendingPhotos = photoFilesByKey[filesStateKey] ?? photoFilesByKey[`idx_${idx}`];
               const hasPhoto = existingPhotos.length > 0 || Boolean(pendingPhotos?.length);
@@ -730,15 +852,26 @@ function PreventiveReportFormInner(props: Props) {
                   {valueRequired ? (
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Valor</label>
-                      <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.value`)}>
-                        <option value="">Seleccionar voltaje</option>
-                        {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
-                        {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </Select>
+                      {valueInputKind === "voltage" ? (
+                        <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.value`)}>
+                          <option value="">Seleccionar voltaje</option>
+                          {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
+                          {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          className="app-field-control h-9 w-full rounded-xl border px-3 text-sm"
+                          placeholder="Ej: 7"
+                          {...form.register(`activities.${idx}.value`)}
+                        />
+                      )}
                     </div>
                   ) : null}
 

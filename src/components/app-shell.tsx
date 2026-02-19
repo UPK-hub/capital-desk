@@ -104,7 +104,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               <TopBar userName={userName} navItems={filteredNav} />
 
               <main className="main-scroll flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-6xl px-4 py-5 md:px-6 md:py-6 app-main">
+                <div className="mx-auto max-w-[1600px] px-4 py-5 md:px-6 md:py-6 app-main">
                   <RouteTransition>{children}</RouteTransition>
                 </div>
               </main>

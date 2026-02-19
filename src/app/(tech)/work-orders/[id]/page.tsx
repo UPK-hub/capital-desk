@@ -169,6 +169,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
     !isPendingValidation &&
     wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE;
   const isProductImprovement = wo.case.type === "MEJORA_PRODUCTO";
+  const isRenewalFlow = cfg?.formKind === "RENEWAL";
   const renewalActaLabel =
     isProductImprovement
       ? "Descargar acta de mejora de producto (Word)"
@@ -183,7 +184,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   return (
     <div className="mobile-page-shell overflow-x-hidden">
       <header className="mobile-page-header sticky top-16 lg:static lg:top-auto">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-start gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
           <div className="min-w-0 space-y-2">
             <h1 className="text-base font-semibold leading-tight break-words lg:text-2xl">{fmtWorkOrderNo(wo.workOrderNo)}</h1>
             <p className="text-xs leading-tight text-muted-foreground break-all lg:text-sm lg:break-normal">
@@ -210,10 +211,22 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="mobile-page-content max-w-6xl overflow-x-hidden lg:px-6">
-        <div className="ot-layout flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start">
+      <div className="mobile-page-content max-w-[1600px] overflow-x-hidden lg:px-6">
+        <div
+          className={
+            isRenewalFlow
+              ? "ot-layout flex min-w-0 flex-col gap-6"
+              : "ot-layout flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start"
+          }
+        >
         {/* Contenido principal */}
-        <div className="order-2 min-w-0 flex-1 space-y-5 lg:order-1">
+        <div
+          className={
+            isRenewalFlow
+              ? "order-1 min-w-0 flex-1 space-y-5"
+              : "order-2 min-w-0 flex-1 space-y-5 lg:order-1"
+          }
+        >
           <section className="sts-card overflow-hidden">
             <div className="border-b border-border/50 bg-muted/20 p-4 lg:p-5">
               <h2 className="text-base font-semibold">Contexto</h2>
@@ -462,7 +475,13 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
         </div>
 
         {/* Panel lateral */}
-        <aside className="ot-panel order-1 w-full min-w-0 flex-shrink-0 space-y-4 xl:order-2 xl:w-[340px] xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-1 2xl:w-[380px]">
+        <aside
+          className={
+            isRenewalFlow
+              ? "ot-panel order-2 w-full min-w-0 flex-shrink-0 space-y-4"
+              : "ot-panel order-1 w-full min-w-0 flex-shrink-0 space-y-4 xl:order-2 xl:w-[340px] xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-1 2xl:w-[380px]"
+          }
+        >
           <div className="space-y-3 xl:hidden">
             <details className="group rounded-xl border border-border/60 bg-card p-0">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">

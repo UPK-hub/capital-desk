@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, ProcedureType, Role } from "@prisma/client";
+import { CaseEventType, CaseType, ProcedureType, Role } from "@prisma/client";
 import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
@@ -51,6 +51,8 @@ const CASE_EVENT_LABELS: Record<CaseEventType, string> = {
   STATUS_CHANGE: "Cambio de estado",
   COMMENT: "Comentario",
 };
+
+const DAYS_21_MS = 21 * 24 * 60 * 60 * 1000;
 
 type PageProps = { params: { id: string }; searchParams?: { debug?: string } };
 
@@ -224,6 +226,80 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const caps = (session.user as any).capabilities as string[] | undefined;
   const canAssign =
     role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("CASE_ASSIGN"));
+
+  const shouldShowNextPreventive =
+    Boolean(c.workOrder?.finishedAt) &&
+    (c.type === CaseType.PREVENTIVO || c.type === CaseType.RENOVACION_TECNOLOGICA);
+
+  const nextPreventiveFromRule =
+    c.workOrder?.finishedAt && c.type === CaseType.RENOVACION_TECNOLOGICA
+      ? new Date(c.workOrder.finishedAt.getTime() + DAYS_21_MS)
+      : c.workOrder?.finishedAt && c.type === CaseType.PREVENTIVO
+      ? new Date(c.workOrder.finishedAt.getTime() + DAYS_21_MS)
+      : null;
+
+  let nextPreventiveScheduled: {
+    scheduledAt: Date | null;
+    status: string;
+    id: string;
+    workOrderNo: number | null;
+    case: { id: string; caseNo: number | null; status: string; title: string };
+  } | null = null;
+
+  let nextPreventiveCasePending: {
+    id: string;
+    caseNo: number | null;
+    status: string;
+    title: string;
+    workOrder: { id: string; workOrderNo: number | null; status: string; scheduledAt: Date | null } | null;
+  } | null = null;
+
+  if (shouldShowNextPreventive && c.workOrder?.finishedAt) {
+    const referenceDate = c.workOrder.finishedAt;
+
+    nextPreventiveScheduled = await prisma.workOrder.findFirst({
+      where: {
+        tenantId,
+        id: { not: c.workOrder.id },
+        scheduledAt: { not: null, gte: referenceDate },
+        case: {
+          busId: c.busId,
+          type: CaseType.PREVENTIVO,
+          ...(c.type === CaseType.PREVENTIVO ? { id: { not: c.id } } : {}),
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+      select: {
+        id: true,
+        workOrderNo: true,
+        status: true,
+        scheduledAt: true,
+        case: { select: { id: true, caseNo: true, status: true, title: true } },
+      },
+    });
+
+    if (!nextPreventiveScheduled) {
+      nextPreventiveCasePending = await prisma.case.findFirst({
+        where: {
+          tenantId,
+          busId: c.busId,
+          type: CaseType.PREVENTIVO,
+          id: { not: c.id },
+          createdAt: { gte: referenceDate },
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          caseNo: true,
+          status: true,
+          title: true,
+          workOrder: {
+            select: { id: true, workOrderNo: true, status: true, scheduledAt: true },
+          },
+        },
+      });
+    }
+  }
 
   return (
     <div className="mobile-page-shell">
@@ -482,6 +558,65 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       <p className="mt-1 text-xs text-muted-foreground">Asignada: {fmtDate(c.workOrder.assignedAt)}</p>
                     ) : null}
                   </div>
+
+                  {shouldShowNextPreventive ? (
+                    <div className="sts-card p-3">
+                      <p className="text-xs text-muted-foreground">
+                        {c.type === CaseType.RENOVACION_TECNOLOGICA
+                          ? "Próximo preventivo post renovación"
+                          : "Próximo preventivo"}
+                      </p>
+
+                      {nextPreventiveScheduled?.scheduledAt ? (
+                        <>
+                          <p className="mt-1 text-sm font-medium">
+                            Programado para: {fmtDate(nextPreventiveScheduled.scheduledAt)}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {fmtCaseNo(nextPreventiveScheduled.case.caseNo)} ·{" "}
+                            {nextPreventiveScheduled.workOrderNo
+                              ? fmtWoNo(nextPreventiveScheduled.workOrderNo)
+                              : "OT por generar"}{" "}
+                            · {labelFromMap(nextPreventiveScheduled.status, workOrderStatusLabels)}
+                          </p>
+                          <Link
+                            href={`/cases/${nextPreventiveScheduled.case.id}`}
+                            className="mt-2 inline-flex text-xs underline"
+                          >
+                            Abrir caso preventivo programado
+                          </Link>
+                        </>
+                      ) : nextPreventiveCasePending ? (
+                        <>
+                          <p className="mt-1 text-sm font-medium">
+                            Caso preventivo creado, pendiente de programación.
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {fmtCaseNo(nextPreventiveCasePending.caseNo)} ·{" "}
+                            {labelFromMap(nextPreventiveCasePending.status, caseStatusLabels)}
+                            {nextPreventiveCasePending.workOrder?.workOrderNo
+                              ? ` · ${fmtWoNo(nextPreventiveCasePending.workOrder.workOrderNo)}`
+                              : ""}
+                          </p>
+                          <Link
+                            href={`/cases/${nextPreventiveCasePending.id}`}
+                            className="mt-2 inline-flex text-xs underline"
+                          >
+                            Abrir caso preventivo pendiente
+                          </Link>
+                        </>
+                      ) : nextPreventiveFromRule ? (
+                        <>
+                          <p className="mt-1 text-sm font-medium">Aún no hay preventivo programado.</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Fecha objetivo sugerida: {fmtDate(nextPreventiveFromRule)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-1 text-sm font-medium">Aún no hay preventivo programado.</p>
+                      )}
+                    </div>
+                  ) : null}
 
                   {hasWo ? (
                     <div className="space-y-2">
