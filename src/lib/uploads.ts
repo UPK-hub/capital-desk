@@ -1,7 +1,25 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+function normalizeRoot(root: string) {
+  return path.resolve(root);
+}
+
+function resolveDefaultUploadsRoot() {
+  // Permite sobreescribir root explícitamente (útil para contenedores/hosts).
+  const fromEnv = String(process.env.UPLOADS_DIR ?? "").trim();
+  if (fromEnv) return normalizeRoot(fromEnv);
+
+  // En Vercel, /var/task es solo lectura. /tmp sí es escribible.
+  if (process.env.VERCEL) {
+    const tmpRoot = String(process.env.TMPDIR ?? "/tmp");
+    return normalizeRoot(path.join(tmpRoot, "uploads"));
+  }
+
+  return normalizeRoot(path.join(process.cwd(), "uploads"));
+}
+
+const UPLOADS_DIR = resolveDefaultUploadsRoot();
 
 async function ensureDir(dir: string) {
   await fs.mkdir(dir, { recursive: true });
@@ -28,7 +46,19 @@ export async function saveUpload(file: File, subdir: string): Promise<string> {
   return relPath;
 }
 
+export function getUploadsRoot() {
+  return UPLOADS_DIR;
+}
+
 export function resolveUploadPath(relPath: string) {
-  const clean = relPath.replace(/^\/+/, "");
-  return path.join(UPLOADS_DIR, clean);
+  const clean = String(relPath ?? "")
+    .replace(/^\/+/, "")
+    .replace(/\\/g, "/");
+
+  const candidate = path.resolve(UPLOADS_DIR, clean);
+  const root = UPLOADS_DIR;
+  if (candidate !== root && !candidate.startsWith(root + path.sep)) {
+    throw new Error("Invalid upload path");
+  }
+  return candidate;
 }

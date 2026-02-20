@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import fs from "fs";
 import path from "path";
-import { resolveUploadPath } from "@/lib/uploads";
+import { getUploadsRoot, resolveUploadPath } from "@/lib/uploads";
 
 
 
@@ -14,13 +14,19 @@ export async function GET(
   ctx: { params: { path: string[] } }
 ) {
   const rel = (ctx.params.path || []).join("/");
+  if (!rel) return new Response("Not found", { status: 404 });
 
-  // Resuelve ruta absoluta usando helper oficial
-  const filePath = resolveUploadPath(rel);
+  let filePath = "";
+  try {
+    // Resuelve ruta absoluta usando helper oficial
+    filePath = resolveUploadPath(rel);
+  } catch {
+    return new Response("Invalid path", { status: 400 });
+  }
 
   // Seguridad: evita path traversal
-  const uploadsRoot = path.resolve(process.cwd(), "uploads");
-  if (!filePath.startsWith(uploadsRoot + path.sep)) {
+  const uploadsRoot = path.resolve(getUploadsRoot());
+  if (filePath !== uploadsRoot && !filePath.startsWith(uploadsRoot + path.sep)) {
     return new Response("Invalid path", { status: 400 });
   }
 

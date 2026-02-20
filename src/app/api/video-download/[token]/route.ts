@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { resolveUploadPath } from "@/lib/uploads";
+import { getUploadsRoot, resolveUploadPath } from "@/lib/uploads";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,9 +18,14 @@ export async function GET(_req: NextRequest, ctx: { params: { token: string } })
 
   if (!record) return new Response("Invalid or expired token", { status: 404 });
 
-  const filePath = resolveUploadPath(record.attachment.filePath);
-  const uploadsRoot = path.resolve(process.cwd(), "uploads");
-  if (!filePath.startsWith(uploadsRoot + path.sep)) {
+  let filePath = "";
+  try {
+    filePath = resolveUploadPath(record.attachment.filePath);
+  } catch {
+    return new Response("Invalid path", { status: 400 });
+  }
+  const uploadsRoot = path.resolve(getUploadsRoot());
+  if (filePath !== uploadsRoot && !filePath.startsWith(uploadsRoot + path.sep)) {
     return new Response("Invalid path", { status: 400 });
   }
   if (!fs.existsSync(filePath)) {
