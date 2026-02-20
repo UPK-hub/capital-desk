@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { FormCard } from "@/components/FormCard";
 import { Field, Input, Select, Textarea } from "@/components/Field";
@@ -43,8 +43,14 @@ type VideoForm = {
 
 export default function NewCasePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedType = searchParams.get("type");
+  const initialType =
+    requestedType && requestedType in CASE_TYPE_REGISTRY
+      ? (requestedType as keyof typeof CASE_TYPE_REGISTRY)
+      : "CORRECTIVO";
 
-  const [type, setType] = useState<keyof typeof CASE_TYPE_REGISTRY>("CORRECTIVO");
+  const [type, setType] = useState<keyof typeof CASE_TYPE_REGISTRY>(initialType);
   const config = CASE_TYPE_REGISTRY[type];
   const isRenewalTecnologica = type === "RENOVACION_TECNOLOGICA";
   const usesMultiEquipment =

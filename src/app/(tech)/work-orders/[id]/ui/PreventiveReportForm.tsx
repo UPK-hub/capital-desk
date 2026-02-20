@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { PreventiveReport } from "@prisma/client";
 import { Select } from "@/components/Field";
+import { withPhotoWatermark } from "@/lib/photo-watermark-client";
 
 type Props = {
   workOrderId: string;
   initialReport: PreventiveReport | null;
   suggestedTicketNumber?: string;
+  busCode?: string;
+  caseRef?: string;
 };
 
 type Autofill = {
@@ -440,13 +443,18 @@ function PreventiveReportFormInner(props: Props) {
       });
   }, [activitiesFA.fields, watchedActivities]);
 
-  async function uploadActivityPhotos(activityKey: string, files: FileList | null) {
+  async function uploadActivityPhotos(activityKey: string, activityLabel: string, files: FileList | null) {
     if (!files?.length) return 0;
     let count = 0;
     for (const file of Array.from(files)) {
+      const stampedPhoto = await withPhotoWatermark(file, {
+        equipmentLabel: activityLabel || activityKey,
+        busCode: props.busCode || null,
+        caseRef: props.caseRef || null,
+      });
       const fd = new FormData();
       fd.set("activityKey", activityKey);
-      fd.set("photo", file);
+      fd.set("photo", stampedPhoto);
       const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
         method: "PUT",
         body: fd,
@@ -525,7 +533,7 @@ function PreventiveReportFormInner(props: Props) {
         const rowKey = String(row.key ?? "").trim() || inferKey(row, i);
         const files = photoFilesByKey[rowKey] ?? photoFilesByKey[`idx_${i}`] ?? null;
         if (!files?.length) continue;
-        uploadedCount += await uploadActivityPhotos(rowKey, files);
+        uploadedCount += await uploadActivityPhotos(rowKey, row.activity ?? rowKey, files);
       }
 
       setPhotoFilesByKey({});
@@ -741,11 +749,11 @@ function PreventiveReportFormInner(props: Props) {
                         <td className="p-3">
                           {photoRequired ? (
                             <div className="space-y-1.5">
-                              <label className="inline-flex w-full cursor-pointer items-center justify-center rounded-lg border border-border/60 px-2 py-1.5 text-[11px] font-medium transition-colors hover:border-primary/40 hover:bg-muted/30">
-                                Seleccionar archivo
+                              <label className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border/60 px-2 text-[11px] font-medium transition-colors hover:border-primary/40 hover:bg-muted/30">
+                                Cargar foto o archivo
                                 <input
                                   type="file"
-                                  accept="image/*"
+                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
                                   className="hidden"
                                   onChange={(e) => {
                                     const files = e.currentTarget.files;
@@ -758,7 +766,7 @@ function PreventiveReportFormInner(props: Props) {
                                 />
                               </label>
                               <p className={`text-[11px] ${hasPhoto ? "text-emerald-700" : "text-amber-700"}`}>
-                                {hasPhoto ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto."}
+                                {hasPhoto ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto o archivo."}
                               </p>
                             </div>
                           ) : (
@@ -878,11 +886,11 @@ function PreventiveReportFormInner(props: Props) {
                   {photoRequired ? (
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Evidencia</label>
-                      <label className="mt-1 flex h-10 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary/45 hover:bg-muted/30">
-                        Seleccionar archivo
+                      <label className="mt-1 flex h-12 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary/45 hover:bg-muted/30">
+                        Cargar foto o archivo
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
                           className="hidden"
                           onChange={(e) => {
                             const files = e.currentTarget.files;
@@ -895,7 +903,7 @@ function PreventiveReportFormInner(props: Props) {
                         />
                       </label>
                       <p className={`mt-1 text-[11px] ${hasPhoto ? "text-emerald-700" : "text-amber-700"}`}>
-                        {hasPhoto ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto."}
+                        {hasPhoto ? `Guardadas: ${existingPhotos.length}` : "Pendiente foto o archivo."}
                       </p>
                     </div>
                   ) : null}

@@ -78,7 +78,10 @@ export default async function VideoRequestsPage() {
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Gestión de videos</h1>
             <p className="text-sm text-muted-foreground">Solicitudes y estado de descarga.</p>
           </div>
-          <Link className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm" href="/cases/new">
+          <Link
+            className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm"
+            href="/cases/new?type=SOLICITUD_DESCARGA_VIDEO"
+          >
             Crear solicitud
           </Link>
         </div>

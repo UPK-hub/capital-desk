@@ -39,7 +39,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
     setMsg(null);
     try {
       if (!notesStart.trim()) throw new Error("La nota de inicio es requerida.");
-      if (!photoStart) throw new Error("La foto de inicio es requerida.");
+      if (!photoStart) throw new Error("La evidencia de inicio (foto o archivo) es requerida.");
 
       await postForm(`/api/work-orders/${workOrderId}/start`, notesStart.trim(), photoStart);
       setMsg("OT iniciada correctamente.");
@@ -56,7 +56,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
     setMsg(null);
     try {
       if (!notesFinish.trim()) throw new Error("La nota de cierre es requerida.");
-      if (!photoFinish) throw new Error("La foto de cierre es requerida.");
+      if (!photoFinish) throw new Error("La evidencia de cierre (foto o archivo) es requerida.");
 
       await postForm(`/api/work-orders/${workOrderId}/finish`, notesFinish.trim(), photoFinish);
       setMsg("OT finalizada correctamente.");
@@ -93,7 +93,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
         />
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
           onChange={(e) => setPhotoStart(e.target.files?.[0] ?? null)}
           disabled={!canStart || loading}
         />
@@ -122,7 +122,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
         />
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
           onChange={(e) => setPhotoFinish(e.target.files?.[0] ?? null)}
           disabled={!canFinish || loading}
         />

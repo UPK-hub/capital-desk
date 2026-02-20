@@ -15,6 +15,8 @@ import {
   NotificationType,
   Prisma,
   Role,
+  StsTicketEventType,
+  StsTicketStatus,
   WorkOrderStatus,
 } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
@@ -201,7 +203,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           id: { in: siblingCaseIds },
           status: { notIn: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
         },
-        data: { status: CaseStatus.RESUELTO },
+        data: { status: CaseStatus.CERRADO },
       });
     }
 
@@ -223,10 +225,61 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         type: CaseEventType.STATUS_CHANGE,
         message: needsCoordinatorValidation
           ? "OT cerrada, pendiente validación de acta por coordinador"
-          : "OT finalizada",
+          : "OT finalizada y caso cerrado",
         meta: { workOrderId: wo.id, by: userId, closedByCascade: caseId !== wo.caseId },
       })),
     });
+
+    if (!needsCoordinatorValidation) {
+      const now = new Date();
+      const stsTickets = await tx.stsTicket.findMany({
+        where: { tenantId, caseId: { in: siblingCaseIds } },
+        select: {
+          id: true,
+          caseId: true,
+          status: true,
+          firstResponseAt: true,
+          resolvedAt: true,
+          closedAt: true,
+        },
+      });
+
+      for (const ticket of stsTickets) {
+        if (ticket.status === StsTicketStatus.CLOSED) continue;
+
+        await tx.stsTicket.update({
+          where: { id: ticket.id },
+          data: {
+            status: StsTicketStatus.CLOSED,
+            firstResponseAt: ticket.firstResponseAt ?? now,
+            resolvedAt: ticket.resolvedAt ?? now,
+            closedAt: ticket.closedAt ?? now,
+          },
+        });
+
+        await tx.stsTicketEvent.create({
+          data: {
+            ticketId: ticket.id,
+            type: StsTicketEventType.STATUS_CHANGE,
+            status: StsTicketStatus.CLOSED,
+            message: "Ticket cerrado automáticamente al finalizar OT.",
+            meta: { by: userId, workOrderId: wo.id },
+            createdById: userId,
+          },
+        });
+
+        if (ticket.caseId) {
+          await tx.caseEvent.create({
+            data: {
+              caseId: ticket.caseId,
+              type: CaseEventType.COMMENT,
+              message: "Ticket STS cerrado automáticamente al finalizar OT.",
+              meta: { ticketId: ticket.id, by: userId, workOrderId: wo.id },
+            },
+          });
+        }
+      }
+    }
 
     const equipmentIds = wo.case.caseEquipments?.length
       ? wo.case.caseEquipments.map((e) => e.busEquipmentId)

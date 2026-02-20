@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
+import { withPhotoWatermarkMany } from "@/lib/photo-watermark-client";
 
 type Props = {
   workOrderId: string;
@@ -12,6 +13,11 @@ type Props = {
   caseType?: "PREVENTIVO" | "CORRECTIVO" | string;
   equipmentOptions?: Array<{ id: string; label: string }>;
   embedded?: boolean;
+  watermarkContext?: {
+    equipmentLabel?: string | null;
+    busCode?: string | null;
+    caseRef?: string | null;
+  };
 };
 
 export default function FinishWorkOrderCard({
@@ -22,6 +28,7 @@ export default function FinishWorkOrderCard({
   caseType,
   equipmentOptions = [],
   embedded = false,
+  watermarkContext,
 }: Props) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
@@ -41,7 +48,12 @@ export default function FinishWorkOrderCard({
     try {
       const fd = new FormData();
       fd.set("notes", notes);
-      for (const file of evidences) fd.append("evidences", file);
+      const stamped = await withPhotoWatermarkMany(evidences, {
+        equipmentLabel: watermarkContext?.equipmentLabel || "Evidencia de cierre OT",
+        busCode: watermarkContext?.busCode || null,
+        caseRef: watermarkContext?.caseRef || null,
+      });
+      for (const file of stamped) fd.append("evidences", file);
       if (opts?.forcePreventive) fd.set("createPreventive", "true");
       if (caseType === "PREVENTIVO" && createCorrective) {
         fd.set("createCorrective", "true");
@@ -193,7 +205,7 @@ export default function FinishWorkOrderCard({
               className={`flex cursor-pointer flex-col items-center justify-center gap-2 text-center ${disabled || saving ? "pointer-events-none opacity-60" : ""}`}
             >
               <Upload className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Seleccionar archivos</span>
+              <span className="text-sm font-medium text-primary">Cargar foto o archivo</span>
               <span className="text-xs text-primary/80">Evidencias de cierre (múltiples)</span>
             </label>
           </div>
@@ -219,7 +231,7 @@ export default function FinishWorkOrderCard({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Sin archivos seleccionados.</p>
+            <p className="text-xs text-muted-foreground">Sin fotos o archivos seleccionados.</p>
           )}
         </div>
 

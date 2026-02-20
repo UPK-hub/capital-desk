@@ -3,15 +3,27 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
+import { withPhotoWatermark } from "@/lib/photo-watermark-client";
 
 type Props = {
   workOrderId: string;
   disabled: boolean;
   startedAt: string | null;
   embedded?: boolean;
+  watermarkContext?: {
+    equipmentLabel?: string | null;
+    busCode?: string | null;
+    caseRef?: string | null;
+  };
 };
 
-export default function StartWorkOrderCard({ workOrderId, disabled, startedAt, embedded = false }: Props) {
+export default function StartWorkOrderCard({
+  workOrderId,
+  disabled,
+  startedAt,
+  embedded = false,
+  watermarkContext,
+}: Props) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -27,7 +39,14 @@ export default function StartWorkOrderCard({ workOrderId, disabled, startedAt, e
     try {
       const fd = new FormData();
       fd.set("notes", notes);
-      if (photo) fd.set("photo", photo);
+      if (photo) {
+        const photoWithWatermark = await withPhotoWatermark(photo, {
+          equipmentLabel: watermarkContext?.equipmentLabel || "Evidencia de inicio OT",
+          busCode: watermarkContext?.busCode || null,
+          caseRef: watermarkContext?.caseRef || null,
+        });
+        fd.set("photo", photoWithWatermark);
+      }
 
       const res = await fetch(`/api/work-orders/${workOrderId}/start`, {
         method: "POST",
@@ -95,14 +114,14 @@ export default function StartWorkOrderCard({ workOrderId, disabled, startedAt, e
               className={`flex cursor-pointer flex-col items-center justify-center gap-2 text-center ${disabled || saving ? "pointer-events-none opacity-60" : ""}`}
             >
               <Upload className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Seleccionar archivo</span>
-              <span className="text-xs text-primary/80">Imagen de evidencia de inicio</span>
+              <span className="text-sm font-medium text-primary">Cargar foto o archivo</span>
+              <span className="text-xs text-primary/80">Evidencia de inicio</span>
             </label>
           </div>
           <input
             id={inputId}
             type="file"
-            accept="image/*"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
             className="sr-only"
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;
@@ -117,7 +136,7 @@ export default function StartWorkOrderCard({ workOrderId, disabled, startedAt, e
               {fileName}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">Sin archivo seleccionado.</p>
+            <p className="text-xs text-muted-foreground">Sin foto o archivo seleccionado.</p>
           )}
         </div>
 

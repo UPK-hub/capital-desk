@@ -380,6 +380,8 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     workOrderId={wo.id}
                     initialReport={wo.correctiveReport}
                     suggestedTicketNumber={suggestedTicketNumber}
+                    busCode={wo.case.bus.code}
+                    caseRef={fmtCaseNo(wo.case.caseNo)}
                   />
                 ) : cfg?.formKind === "RENEWAL" ? (
                   <RenewalTechReportForm
@@ -387,12 +389,16 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     initialReport={(wo as any).renewalTechReport}
                     suggestedTicketNumber={suggestedTicketNumber}
                     caseType={wo.case.type}
+                    busCode={wo.case.bus.code}
+                    caseRef={fmtCaseNo(wo.case.caseNo)}
                   />
                 ) : (
                   <PreventiveReportForm
                     workOrderId={wo.id}
                     initialReport={wo.preventiveReport}
                     suggestedTicketNumber={suggestedTicketNumber}
+                    busCode={wo.case.bus.code}
+                    caseRef={fmtCaseNo(wo.case.caseNo)}
                   />
                 )}
 
@@ -505,6 +511,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   disabled={startDone || finishDone}
                   startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
                   embedded
+                  watermarkContext={{
+                    equipmentLabel,
+                    busCode: wo.case.bus.code,
+                    caseRef: fmtCaseNo(wo.case.caseNo),
+                  }}
                 />
               </div>
             </details>
@@ -533,6 +544,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
                     embedded
                     caseType={wo.case.type}
+                    watermarkContext={{
+                      equipmentLabel,
+                      busCode: wo.case.bus.code,
+                      caseRef: fmtCaseNo(wo.case.caseNo),
+                    }}
                     equipmentOptions={equipments.map((eq) => ({
                       id: eq.id,
                       label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
@@ -557,6 +573,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               workOrderId={wo.id}
               disabled={startDone || finishDone}
               startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
+              watermarkContext={{
+                equipmentLabel,
+                busCode: wo.case.bus.code,
+                caseRef: fmtCaseNo(wo.case.caseNo),
+              }}
             />
 
             {!onlyStartFlow ? (
@@ -565,6 +586,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 disabled={!startDone || finishDone || missingFinishForm}
                 finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
                 caseType={wo.case.type}
+                watermarkContext={{
+                  equipmentLabel,
+                  busCode: wo.case.bus.code,
+                  caseRef: fmtCaseNo(wo.case.caseNo),
+                }}
                 equipmentOptions={equipments.map((eq) => ({
                   id: eq.id,
                   label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,

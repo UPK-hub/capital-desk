@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import type { RenewalTechReport } from "@prisma/client";
 import { lookupModelBySerial, normalizeSerialForLookup } from "@/lib/inventory-autofill-client";
 import { InventorySerialCombobox } from "@/components/InventorySerialCombobox";
+import { withPhotoWatermark } from "@/lib/photo-watermark-client";
 
 type EquipmentRow = {
   busEquipmentId: string;
@@ -23,6 +24,8 @@ type Props = {
   initialReport: RenewalTechReport | null;
   suggestedTicketNumber?: string;
   caseType?: string;
+  busCode?: string;
+  caseRef?: string;
 };
 
 type FormValues = {
@@ -93,12 +96,14 @@ function FileUploadField({
   id,
   files,
   required,
+  serialMode,
   onFiles,
   onClear,
 }: {
   id: string;
   files: FileList | null | undefined;
   required: boolean;
+  serialMode?: boolean;
   onFiles: (files: FileList | null) => void;
   onClear: () => void;
 }) {
@@ -109,7 +114,7 @@ function FileUploadField({
       <input
         id={id}
         type="file"
-        accept="image/*"
+        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
         multiple
         className="hidden"
         onChange={(e) => onFiles(e.currentTarget.files)}
@@ -118,6 +123,7 @@ function FileUploadField({
         htmlFor={id}
         className={cx(
           "group flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2 transition-all",
+          serialMode ? "h-24 max-w-[240px]" : "w-full",
           count > 0
             ? "border-emerald-500 bg-emerald-50/70 hover:bg-emerald-100/70"
             : "border-border/70 hover:border-primary/50 hover:bg-primary/5"
@@ -133,14 +139,14 @@ function FileUploadField({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs font-medium">
-            {count > 0 ? firstName : "Elegir archivos"}
+            {count > 0 ? firstName : "Cargar foto o archivo"}
           </span>
           <span className="block text-[11px] text-muted-foreground">
             {count > 0
               ? `${count} archivo(s) seleccionado(s)`
               : required
-                ? "JPG/PNG (obligatorio)"
-                : "JPG/PNG (opcional)"}
+                ? "Imagen o archivo (obligatorio)"
+                : "Imagen o archivo (opcional)"}
           </span>
         </span>
       </label>
@@ -153,7 +159,7 @@ function FileUploadField({
           Quitar selección
         </button>
       ) : (
-        <p className="text-[11px] text-muted-foreground">Ningún archivo seleccionado</p>
+        <p className="text-[11px] text-muted-foreground">Ninguna foto o archivo seleccionado</p>
       )}
     </div>
   );
@@ -601,14 +607,20 @@ export default function RenewalTechReportForm(props: Props) {
   async function uploadPhotos(
     bucket: "old" | "new",
     files: FileList | null,
-    busEquipmentId?: string
+    busEquipmentId?: string,
+    equipmentLabel?: string
   ) {
     if (!files?.length) return;
     for (const file of Array.from(files)) {
+      const stampedPhoto = await withPhotoWatermark(file, {
+        equipmentLabel: equipmentLabel || "Serial de equipo",
+        busCode: props.busCode || form.getValues("busCode") || null,
+        caseRef: props.caseRef || null,
+      });
       const fd = new FormData();
       fd.set("bucket", bucket);
       if (busEquipmentId) fd.set("busEquipmentId", busEquipmentId);
-      fd.set("photo", file);
+      fd.set("photo", stampedPhoto);
       const res = await fetch(`/api/work-orders/${props.workOrderId}/renewal-report`, {
         method: "PUT",
         body: fd,
@@ -658,14 +670,16 @@ export default function RenewalTechReportForm(props: Props) {
           isProductImprovement || requiresOldPhoto(row.type)
             ? oldPhotosByEquipment[row.busEquipmentId] ?? null
             : null,
-          row.busEquipmentId
+          row.busEquipmentId,
+          `${row.type} · serial antiguo`
         );
         await uploadPhotos(
           "new",
           isProductImprovement || requiresNewPhoto(row.type)
             ? newPhotosByEquipment[row.busEquipmentId] ?? null
             : null,
-          row.busEquipmentId
+          row.busEquipmentId,
+          `${row.type} · serial nuevo`
         );
       }
 
@@ -926,6 +940,7 @@ export default function RenewalTechReportForm(props: Props) {
                             id={oldUploadId}
                             files={oldFiles}
                             required={oldRequired}
+                            serialMode
                             onFiles={(files) =>
                               setOldPhotosByEquipment((prev) => ({
                                 ...prev,
@@ -994,6 +1009,7 @@ export default function RenewalTechReportForm(props: Props) {
                         id={oldUploadId}
                         files={oldFiles}
                         required={oldRequired}
+                        serialMode
                         onFiles={(files) =>
                           setOldPhotosByEquipment((prev) => ({
                             ...prev,
@@ -1123,6 +1139,7 @@ export default function RenewalTechReportForm(props: Props) {
                             id={newUploadId}
                             files={newFiles}
                             required={newRequired}
+                            serialMode
                             onFiles={(files) =>
                               setNewPhotosByEquipment((prev) => ({
                                 ...prev,
@@ -1246,6 +1263,7 @@ export default function RenewalTechReportForm(props: Props) {
                         id={newUploadId}
                         files={newFiles}
                         required={newRequired}
+                        serialMode
                         onFiles={(files) =>
                           setNewPhotosByEquipment((prev) => ({
                             ...prev,

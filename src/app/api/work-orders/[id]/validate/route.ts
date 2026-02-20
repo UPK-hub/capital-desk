@@ -12,6 +12,8 @@ import {
   CaseType,
   Prisma,
   Role,
+  StsTicketEventType,
+  StsTicketStatus,
   WorkOrderStatus,
 } from "@prisma/client";
 import { nextNumbers } from "@/lib/tenant-sequence";
@@ -35,6 +37,15 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR].includes(role)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+  let closeCaseAndTicket = true;
+  try {
+    const body = await _.json();
+    if (typeof body?.closeCaseAndTicket === "boolean") {
+      closeCaseAndTicket = body.closeCaseAndTicket;
+    }
+  } catch {
+    // Sin body: mantiene comportamiento por defecto (cerrar caso + ticket)
   }
 
   const pendingValidationStatus = "EN_VALIDACION" as any;
@@ -116,17 +127,70 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
         id: { in: siblingCaseIds },
         status: { notIn: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
       },
-      data: { status: CaseStatus.RESUELTO },
+      data: { status: closeCaseAndTicket ? CaseStatus.CERRADO : CaseStatus.RESUELTO },
     });
 
     await tx.caseEvent.createMany({
       data: siblingCaseIds.map((caseId) => ({
         caseId,
         type: CaseEventType.STATUS_CHANGE,
-        message: "OT verificada por coordinador. Caso resuelto.",
+        message: closeCaseAndTicket
+          ? "OT verificada por coordinador. Caso cerrado."
+          : "OT verificada por coordinador. Caso resuelto.",
         meta: { validatedBy: userId, workOrderId: wo.id },
       })),
     });
+
+    if (closeCaseAndTicket) {
+      const now = new Date();
+      const stsTickets = await tx.stsTicket.findMany({
+        where: { tenantId, caseId: { in: siblingCaseIds } },
+        select: {
+          id: true,
+          caseId: true,
+          status: true,
+          firstResponseAt: true,
+          resolvedAt: true,
+          closedAt: true,
+        },
+      });
+
+      for (const ticket of stsTickets) {
+        if (ticket.status === StsTicketStatus.CLOSED) continue;
+
+        await tx.stsTicket.update({
+          where: { id: ticket.id },
+          data: {
+            status: StsTicketStatus.CLOSED,
+            firstResponseAt: ticket.firstResponseAt ?? now,
+            resolvedAt: ticket.resolvedAt ?? now,
+            closedAt: ticket.closedAt ?? now,
+          },
+        });
+
+        await tx.stsTicketEvent.create({
+          data: {
+            ticketId: ticket.id,
+            type: StsTicketEventType.STATUS_CHANGE,
+            status: StsTicketStatus.CLOSED,
+            message: "Ticket cerrado automáticamente por validación de OT.",
+            meta: { by: userId, workOrderId: wo.id },
+            createdById: userId,
+          },
+        });
+
+        if (ticket.caseId) {
+          await tx.caseEvent.create({
+            data: {
+              caseId: ticket.caseId,
+              type: CaseEventType.COMMENT,
+              message: "Ticket STS cerrado automáticamente.",
+              meta: { ticketId: ticket.id, by: userId, workOrderId: wo.id },
+            },
+          });
+        }
+      }
+    }
 
     for (const item of siblingWos) {
       if (item.interventionReceipt) continue;

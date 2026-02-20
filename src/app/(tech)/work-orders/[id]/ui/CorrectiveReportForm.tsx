@@ -10,11 +10,14 @@ import {
   normalizeSerialForLookup,
 } from "@/lib/inventory-autofill-client";
 import { InventorySerialCombobox } from "@/components/InventorySerialCombobox";
+import { withPhotoWatermark } from "@/lib/photo-watermark-client";
 
 type Props = {
   workOrderId: string;
   initialReport: CorrectiveReport | null;
   suggestedTicketNumber?: string;
+  busCode?: string;
+  caseRef?: string;
 };
 
 type Autofill = {
@@ -278,6 +281,8 @@ export default function CorrectiveReportForm(props: Props) {
   const location = form.watch("location");
   const serialValue = form.watch("serial");
   const newSerialValue = form.watch("newSerial");
+  const currentPhotoName = form.watch("photoSerialCurrent")?.[0]?.name ?? "";
+  const newPhotoName = form.watch("photoSerialNew")?.[0]?.name ?? "";
 
   const isCambioComponente = String(procedureType ?? "") === "CAMBIO_COMPONENTE";
   const isProcedureOther = procedureType === ProcedureType.OTRO;
@@ -394,9 +399,17 @@ export default function CorrectiveReportForm(props: Props) {
     const newFile = v.photoSerialNew?.[0];
     if (currentFile || newFile) {
       const upload = async (kind: "current" | "new", file: File) => {
+        const stampedPhoto = await withPhotoWatermark(file, {
+          equipmentLabel:
+            kind === "current"
+              ? `${form.getValues("deviceType") || "Equipo"} · serial actual`
+              : `${form.getValues("deviceType") || "Equipo"} · serial nuevo`,
+          busCode: props.busCode || form.getValues("busCode") || null,
+          caseRef: props.caseRef || null,
+        });
         const formData = new FormData();
         formData.append("photoKind", kind);
-        formData.append("photo", file);
+        formData.append("photo", stampedPhoto);
         await fetch(`/api/work-orders/${props.workOrderId}/corrective-report`, {
           method: "PUT",
           body: formData,
@@ -649,11 +662,45 @@ export default function CorrectiveReportForm(props: Props) {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Foto serial actual</label>
-                <input type="file" accept="image/*" className={classInput()} {...form.register("photoSerialCurrent")} />
+                <div className="mt-1 space-y-1.5">
+                  <label
+                    htmlFor={`photo-serial-current-${props.workOrderId}`}
+                    className="flex h-24 w-full max-w-[240px] cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border/70 px-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    Cargar foto o archivo
+                  </label>
+                  <input
+                    id={`photo-serial-current-${props.workOrderId}`}
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                    className="sr-only"
+                    {...form.register("photoSerialCurrent")}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {currentPhotoName || "Ninguna foto o archivo seleccionado"}
+                  </p>
+                </div>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Foto serial nuevo</label>
-                <input type="file" accept="image/*" className={classInput()} {...form.register("photoSerialNew")} />
+                <div className="mt-1 space-y-1.5">
+                  <label
+                    htmlFor={`photo-serial-new-${props.workOrderId}`}
+                    className="flex h-24 w-full max-w-[240px] cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border/70 px-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    Cargar foto o archivo
+                  </label>
+                  <input
+                    id={`photo-serial-new-${props.workOrderId}`}
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                    className="sr-only"
+                    {...form.register("photoSerialNew")}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {newPhotoName || "Ninguna foto o archivo seleccionado"}
+                  </p>
+                </div>
               </div>
 
               <div>
