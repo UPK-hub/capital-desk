@@ -143,34 +143,34 @@ model Tenant {
   id        String   @id @default(cuid())
   code      String   @unique
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
-  buses         Bus[]
-  cases         Case[]
-  workOrders    WorkOrder[]
-  users         User[]
-  notifications Notification[]
-  technicianShiftLogs TechnicianShiftLog[]
-  technicianSchedules TechnicianSchedule[]
-  technicianWeekCalendars TechnicianWeekCalendar[]
-  stsComponents StsComponent[]
-  stsTickets StsTicket[]
-  stsSlaPolicies StsSlaPolicy[]
-  stsKpiPolicies StsKpiPolicy[]
-  stsKpiMeasurements StsKpiMeasurement[]
-  stsTelemetryEntries StsTelemetryEntry[]
-  caseChatMessages CaseChatMessage[]
-  directChatThreads DirectChatThread[]
-  directChatMessages DirectChatMessage[]
-  interventionReceipts InterventionReceipt[]
-  stsMaintenanceWindows StsMaintenanceWindow[]
-  stsAuditLogs StsAuditLog[]
-  themeSettings ThemeSettings?
-  inventorySerialCatalog InventorySerialCatalog[]
+  buses                    Bus[]
+  cases                    Case[]
+  workOrders               WorkOrder[]
+  users                    User[]
+  notifications            Notification[]
+  technicianShiftLogs      TechnicianShiftLog[]
+  technicianSchedules      TechnicianSchedule[]
+  technicianWeekCalendars  TechnicianWeekCalendar[]
+  stsComponents            StsComponent[]
+  stsTickets               StsTicket[]
+  stsSlaPolicies           StsSlaPolicy[]
+  stsKpiPolicies           StsKpiPolicy[]
+  stsKpiMeasurements       StsKpiMeasurement[]
+  stsTelemetryEntries      StsTelemetryEntry[]
+  caseChatMessages         CaseChatMessage[]
+  directChatThreads        DirectChatThread[]
+  directChatMessages       DirectChatMessage[]
+  interventionReceipts     InterventionReceipt[]
+  stsMaintenanceWindows    StsMaintenanceWindow[]
+  stsAuditLogs             StsAuditLog[]
+  themeSettings            ThemeSettings?
+  inventorySerialCatalog   InventorySerialCatalog[]
   integrationInboundEvents IntegrationInboundEvent[]
-  busTelemetryStates BusTelemetryState[]
+  busTelemetryStates       BusTelemetryState[]
 
-  sequence      TenantSequence?
+  sequence TenantSequence?
 }
 
 model InventorySerialCatalog {
@@ -184,8 +184,8 @@ model InventorySerialCatalog {
   model            String
   brand            String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, serialNormalized])
   @@index([tenantId, serialNormalized])
@@ -199,61 +199,61 @@ model TenantSequence {
   nextWorkOrderNo Int @default(1)
   nextTicketNo    Int @default(1)
 
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 model User {
-  id           String @id @default(cuid())
-  tenantId     String
-  tenant       Tenant @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  name         String
-  email        String @unique
+  name  String
+  email String @unique
 
   // ✅ opcional para permitir "crear usuario" y luego enviar reset por correo
   passwordHash String?
 
-  role         Role
-  active       Boolean  @default(true)
-  capabilities String[] @default([])
-  sessionVersion Int    @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role           Role
+  active         Boolean  @default(true)
+  capabilities   String[] @default([])
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
-  assignedWorkOrders   WorkOrder[] @relation("WOAssignedTo")
-  notifications        Notification[]
-  passwordResetTokens  PasswordResetToken[]
-  assignedVideoRequests VideoDownloadRequest[]
+  assignedWorkOrders       WorkOrder[]              @relation("WOAssignedTo")
+  notifications            Notification[]
+  passwordResetTokens      PasswordResetToken[]
+  assignedVideoRequests    VideoDownloadRequest[]
   uploadedVideoAttachments VideoAttachment[]
-  videoRequestEvents VideoRequestEvent[]
-  technicianShiftLogs TechnicianShiftLog[]
-  technicianSchedule TechnicianSchedule?
-  plannerWeekCalendars TechnicianWeekCalendar[] @relation("PlannerCalendar")
-  technicianWeekSlots TechnicianWeekSlot[] @relation("TechnicianSlots")
-  stsTicketsAssigned StsTicket[] @relation("StsTicketsAssigned")
-  stsTicketEvents StsTicketEvent[]
-  stsAuditLogs StsAuditLog[]
-  caseChatMessages CaseChatMessage[]
-  directChatMessages DirectChatMessage[]
-  directChatParticipants DirectChatParticipant[]
-  directChatThreadsCreated DirectChatThread[] @relation("DirectChatCreatedBy")
+  videoRequestEvents       VideoRequestEvent[]
+  technicianShiftLogs      TechnicianShiftLog[]
+  technicianSchedule       TechnicianSchedule?
+  plannerWeekCalendars     TechnicianWeekCalendar[] @relation("PlannerCalendar")
+  technicianWeekSlots      TechnicianWeekSlot[]     @relation("TechnicianSlots")
+  stsTicketsAssigned       StsTicket[]              @relation("StsTicketsAssigned")
+  stsTicketEvents          StsTicketEvent[]
+  stsAuditLogs             StsAuditLog[]
+  caseChatMessages         CaseChatMessage[]
+  directChatMessages       DirectChatMessage[]
+  directChatParticipants   DirectChatParticipant[]
+  directChatThreadsCreated DirectChatThread[]       @relation("DirectChatCreatedBy")
 
   @@index([tenantId, role])
   @@index([tenantId, active])
 }
 
 model TechnicianShiftLog {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  startedAt DateTime
-  endedAt   DateTime?
+  startedAt DateTime  @db.Timestamptz(3)
+  endedAt   DateTime? @db.Timestamptz(3)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([tenantId, startedAt])
   @@index([userId, startedAt])
@@ -264,51 +264,51 @@ model TechnicianSchedule {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  userId   String @unique
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   shiftType TechnicianShiftType
-  restDay   TechnicianRestDay @default(NONE)
-  timezone  String @default("America/Bogota")
+  restDay   TechnicianRestDay   @default(NONE)
+  timezone  String              @default("America/Bogota")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([tenantId])
 }
 
 model TechnicianWeekCalendar {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  weekStart DateTime
+  weekStart   DateTime @db.Timestamptz(3)
   createdById String?
-  createdBy   User? @relation("PlannerCalendar", fields: [createdById], references: [id])
+  createdBy   User?    @relation("PlannerCalendar", fields: [createdById], references: [id])
 
-  slots     TechnicianWeekSlot[]
+  slots TechnicianWeekSlot[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, weekStart])
   @@index([tenantId, weekStart])
 }
 
 model TechnicianWeekSlot {
-  id           String   @id @default(cuid())
-  calendarId   String
-  calendar     TechnicianWeekCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  id         String                 @id @default(cuid())
+  calendarId String
+  calendar   TechnicianWeekCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   technicianId String
-  technician   User @relation("TechnicianSlots", fields: [technicianId], references: [id], onDelete: Cascade)
+  technician   User   @relation("TechnicianSlots", fields: [technicianId], references: [id], onDelete: Cascade)
 
-  startAt DateTime
-  endAt   DateTime
+  startAt DateTime         @db.Timestamptz(3)
+  endAt   DateTime         @db.Timestamptz(3)
   kind    CalendarSlotKind
   note    String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([calendarId])
   @@index([technicianId, startAt])
@@ -323,14 +323,14 @@ model StsComponent {
   name   String
   active Boolean @default(true)
 
-  tickets     StsTicket[]
-  slaPolicies StsSlaPolicy[]
-  kpiPolicies StsKpiPolicy[]
-  kpiMeasurements StsKpiMeasurement[]
+  tickets            StsTicket[]
+  slaPolicies        StsSlaPolicy[]
+  kpiPolicies        StsKpiPolicy[]
+  kpiMeasurements    StsKpiMeasurement[]
   maintenanceWindows StsMaintenanceWindow[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, code])
   @@index([tenantId, active])
@@ -342,33 +342,33 @@ model StsTicket {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   caseId String? @unique
-  case   Case? @relation(fields: [caseId], references: [id])
+  case   Case?   @relation(fields: [caseId], references: [id])
 
   componentId String
   component   StsComponent @relation(fields: [componentId], references: [id])
 
   severity StsTicketSeverity
-  status   StsTicketStatus @default(OPEN)
+  status   StsTicketStatus   @default(OPEN)
   channel  StsTicketChannel
 
   description String
   vendorId    String?
 
-  openedAt        DateTime
-  firstResponseAt DateTime?
-  resolvedAt      DateTime?
-  closedAt        DateTime?
+  openedAt        DateTime  @db.Timestamptz(3)
+  firstResponseAt DateTime? @db.Timestamptz(3)
+  resolvedAt      DateTime? @db.Timestamptz(3)
+  closedAt        DateTime? @db.Timestamptz(3)
 
   assignedToId String?
-  assignedTo   User? @relation("StsTicketsAssigned", fields: [assignedToId], references: [id])
+  assignedTo   User?   @relation("StsTicketsAssigned", fields: [assignedToId], references: [id])
 
   breachResponse   Boolean @default(false)
   breachResolution Boolean @default(false)
 
   events StsTicketEvent[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([tenantId, openedAt])
   @@index([tenantId, status])
@@ -377,19 +377,19 @@ model StsTicket {
 }
 
 model StsTicketEvent {
-  id       String @id @default(cuid())
+  id       String    @id @default(cuid())
   ticketId String
   ticket   StsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  type      StsTicketEventType
-  status    StsTicketStatus?
-  message   String?
-  meta      Json?
+  type    StsTicketEventType
+  status  StsTicketStatus?
+  message String?
+  meta    Json?
 
   createdById String?
-  createdBy   User? @relation(fields: [createdById], references: [id])
+  createdBy   User?   @relation(fields: [createdById], references: [id])
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([ticketId, createdAt])
 }
@@ -402,13 +402,13 @@ model StsSlaPolicy {
   componentId String
   component   StsComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
 
-  severity StsTicketSeverity
+  severity          StsTicketSeverity
   responseMinutes   Int
   resolutionMinutes Int
-  pauseStatuses Json?
+  pauseStatuses     Json?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, componentId, severity])
   @@index([tenantId, severity])
@@ -423,11 +423,11 @@ model StsKpiPolicy {
   component   StsComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
 
   metric      StsKpiMetric
-  threshold   Decimal @db.Decimal(5, 2)
+  threshold   Decimal           @db.Decimal(5, 2)
   periodicity StsKpiPeriodicity
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, componentId, metric, periodicity])
 }
@@ -442,12 +442,12 @@ model StsKpiMeasurement {
 
   metric      StsKpiMetric
   periodicity StsKpiPeriodicity
-  periodStart DateTime
-  periodEnd   DateTime
-  value       Decimal @db.Decimal(6, 2)
+  periodStart DateTime          @db.Timestamptz(3)
+  periodEnd   DateTime          @db.Timestamptz(3)
+  value       Decimal           @db.Decimal(6, 2)
   source      String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([tenantId, metric, periodicity, periodStart])
 }
@@ -458,12 +458,12 @@ model StsTelemetryEntry {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   kind           StsTelemetryKind
-  periodStart    DateTime?
-  periodEnd      DateTime?
+  periodStart    DateTime?        @db.Timestamptz(3)
+  periodEnd      DateTime?        @db.Timestamptz(3)
   payload        Json
   sourceFilename String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([tenantId, kind, createdAt])
 }
@@ -476,12 +476,12 @@ model StsMaintenanceWindow {
   componentId String?
   component   StsComponent? @relation(fields: [componentId], references: [id], onDelete: Cascade)
 
-  startAt DateTime
-  endAt   DateTime
+  startAt DateTime @db.Timestamptz(3)
+  endAt   DateTime @db.Timestamptz(3)
   reason  String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([tenantId, startAt])
 }
@@ -492,14 +492,14 @@ model StsAuditLog {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   actorId String?
-  actor   User? @relation(fields: [actorId], references: [id])
+  actor   User?   @relation(fields: [actorId], references: [id])
 
   action     String
   entityType String
   entityId   String?
   meta       Json?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([tenantId, createdAt])
 }
@@ -509,8 +509,8 @@ model IntegrationInboundEvent {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  busId String?
-  bus   Bus? @relation(fields: [busId], references: [id], onDelete: SetNull)
+  busId   String?
+  bus     Bus?    @relation(fields: [busId], references: [id], onDelete: SetNull)
   busCode String
 
   source      String
@@ -519,12 +519,12 @@ model IntegrationInboundEvent {
   eventType   String
   severity    String?
   message     String?
-  eventAt     DateTime?
+  eventAt     DateTime?                @db.Timestamptz(3)
   payload     Json
-  receivedAt  DateTime @default(now())
-  processedAt DateTime?
+  receivedAt  DateTime                 @default(now()) @db.Timestamptz(3)
+  processedAt DateTime?                @db.Timestamptz(3)
   status      IntegrationInboundStatus @default(RECEIVED)
-  retries     Int @default(0)
+  retries     Int                      @default(0)
   error       String?
   requestMeta Json?
 
@@ -536,20 +536,20 @@ model IntegrationInboundEvent {
 
 model BusTelemetryState {
   busId String @id
-  bus   Bus @relation(fields: [busId], references: [id], onDelete: Cascade)
+  bus   Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  lastSeenAt    DateTime?
-  lastEventAt   DateTime?
+  lastSeenAt    DateTime? @db.Timestamptz(3)
+  lastEventAt   DateTime? @db.Timestamptz(3)
   lastEventType String?
   lastSeverity  String?
   lastMessage   String?
   lastPayload   Json?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([tenantId, lastSeenAt])
 }
@@ -561,51 +561,51 @@ model ThemeSettings {
 
   mode String @default("light")
 
-  background       String
-  foreground       String
-  card             String
-  cardForeground   String
-  primary          String
+  background        String
+  foreground        String
+  card              String
+  cardForeground    String
+  primary           String
   primaryForeground String
-  border           String
-  muted            String
-  mutedForeground  String
-  radius           String
+  border            String
+  muted             String
+  mutedForeground   String
+  radius            String
 
   stsBg      String
   stsAccent  String
   stsAccent2 String
 
-  backgroundDark       String @default("222.2 84% 4.9%")
-  foregroundDark       String @default("210 40% 98%")
-  cardDark             String @default("222.2 84% 4.9%")
-  cardForegroundDark   String @default("210 40% 98%")
-  primaryDark          String @default("210 40% 98%")
+  backgroundDark        String @default("222.2 84% 4.9%")
+  foregroundDark        String @default("210 40% 98%")
+  cardDark              String @default("222.2 84% 4.9%")
+  cardForegroundDark    String @default("210 40% 98%")
+  primaryDark           String @default("210 40% 98%")
   primaryForegroundDark String @default("222.2 47.4% 11.2%")
-  borderDark           String @default("217.2 32.6% 17.5%")
-  mutedDark            String @default("217.2 32.6% 17.5%")
-  mutedForegroundDark  String @default("215 20.2% 65.1%")
-  stsBgDark      String @default("222 40% 12%")
-  stsAccentDark  String @default("171 66% 36%")
-  stsAccent2Dark String @default("207 73% 45%")
+  borderDark            String @default("217.2 32.6% 17.5%")
+  mutedDark             String @default("217.2 32.6% 17.5%")
+  mutedForegroundDark   String @default("215 20.2% 65.1%")
+  stsBgDark             String @default("222 40% 12%")
+  stsAccentDark         String @default("171 66% 36%")
+  stsAccent2Dark        String @default("207 73% 45%")
 
   fontSans    String
   fontDisplay String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  expiresAt DateTime
-  usedAt    DateTime?
+  id        String    @id @default(cuid())
+  token     String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
 
   userId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([userId, expiresAt])
 }
@@ -615,25 +615,25 @@ model Bus {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  code   String
-  plate  String?
+  code            String
+  plate           String?
   linkSmartHelios String?
   ipSimcard       String?
-  active Boolean @default(true)
+  active          Boolean @default(true)
 
-  createdAt  DateTime @default(now())
-  equipments BusEquipment[]
-  cases      Case[]
-  lifecycle  BusLifecycleEvent[]
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
+  equipments     BusEquipment[]
+  cases          Case[]
+  lifecycle      BusLifecycleEvent[]
   telemetryState BusTelemetryState?
-  inboundEvents IntegrationInboundEvent[]
+  inboundEvents  IntegrationInboundEvent[]
 
   @@unique([tenantId, code])
 }
 
 model EquipmentType {
-  id            String @id @default(cuid())
-  name          String @unique
+  id            String         @id @default(cuid())
+  name          String         @unique
   busEquipments BusEquipment[]
 }
 
@@ -645,17 +645,17 @@ model BusEquipment {
   equipmentTypeId String
   equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
 
-  brand    String?
-  model    String?
-  serial   String?
+  brand      String?
+  model      String?
+  serial     String?
   deviceCode String?
-  ipAddress String?
-  location String?
-  active   Boolean @default(true)
+  ipAddress  String?
+  location   String?
+  active     Boolean @default(true)
 
-  cases     Case[]
+  cases          Case[]
   caseEquipments CaseEquipment[]
-  lifecycle BusLifecycleEvent[]
+  lifecycle      BusLifecycleEvent[]
 }
 
 model Case {
@@ -664,7 +664,7 @@ model Case {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   // ✅ opcional mientras existan filas viejas; luego lo vuelves required
-  caseNo   Int?
+  caseNo Int?
 
   busId String
   bus   Bus    @relation(fields: [busId], references: [id])
@@ -679,16 +679,16 @@ model Case {
   title       String
   description String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   workOrder WorkOrder?
   events    CaseEvent[]
   stsTicket StsTicket?
 
   videoDownloadRequest VideoDownloadRequest?
-  caseEquipments        CaseEquipment[]
-  chatMessages CaseChatMessage[]
+  caseEquipments       CaseEquipment[]
+  chatMessages         CaseChatMessage[]
   interventionReceipts InterventionReceipt[]
 
   @@unique([tenantId, caseNo])
@@ -699,12 +699,12 @@ model Case {
 
 model CaseEquipment {
   caseId String
-  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   busEquipmentId String
   busEquipment   BusEquipment @relation(fields: [busEquipmentId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@id([caseId, busEquipmentId])
   @@index([busEquipmentId])
@@ -719,7 +719,7 @@ model CaseEvent {
   message String?
   meta    Json?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([caseId, createdAt])
 }
@@ -730,14 +730,14 @@ model CaseChatMessage {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   caseId String
-  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   senderId String
-  sender   User @relation(fields: [senderId], references: [id])
+  sender   User   @relation(fields: [senderId], references: [id])
 
   message   String
   meta      Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([caseId, createdAt])
   @@index([tenantId, createdAt])
@@ -749,27 +749,27 @@ model DirectChatThread {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   createdById String?
-  createdBy   User? @relation("DirectChatCreatedBy", fields: [createdById], references: [id])
+  createdBy   User?   @relation("DirectChatCreatedBy", fields: [createdById], references: [id])
 
   participants DirectChatParticipant[]
   messages     DirectChatMessage[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([tenantId, updatedAt])
 }
 
 model DirectChatParticipant {
-  id       String @id @default(cuid())
+  id       String           @id @default(cuid())
   threadId String
   thread   DirectChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  joinedAt   DateTime @default(now())
-  lastReadAt DateTime?
+  joinedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  lastReadAt DateTime? @db.Timestamptz(3)
 
   @@unique([threadId, userId])
   @@index([userId])
@@ -784,11 +784,11 @@ model DirectChatMessage {
   thread   DirectChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   senderId String
-  sender   User @relation(fields: [senderId], references: [id])
+  sender   User   @relation(fields: [senderId], references: [id])
 
   message   String
   meta      Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([threadId, createdAt])
   @@index([tenantId, createdAt])
@@ -805,27 +805,27 @@ model WorkOrder {
   caseId String @unique
   case   Case   @relation(fields: [caseId], references: [id])
 
-  status        WorkOrderStatus @default(CREADA)
-  assignedToId  String?
-  assignedTo    User? @relation("WOAssignedTo", fields: [assignedToId], references: [id])
-  assignedAt    DateTime?
-  scheduledAt   DateTime?
-  scheduledTo   DateTime?
+  status       WorkOrderStatus @default(CREADA)
+  assignedToId String?
+  assignedTo   User?           @relation("WOAssignedTo", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?       @db.Timestamptz(3)
+  scheduledAt  DateTime?       @db.Timestamptz(3)
+  scheduledTo  DateTime?       @db.Timestamptz(3)
 
-  startedAt  DateTime?
-  finishedAt DateTime?
-  orderFilePath String?
-  orderFileName String?
-  orderFileMimeType String?
-  orderFileSize Int?
-  orderFileUpdatedAt DateTime?
-  createdAt  DateTime @default(now())
+  startedAt          DateTime? @db.Timestamptz(3)
+  finishedAt         DateTime? @db.Timestamptz(3)
+  orderFilePath      String?
+  orderFileName      String?
+  orderFileMimeType  String?
+  orderFileSize      Int?
+  orderFileUpdatedAt DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
 
   steps WorkOrderStep[]
 
-  correctiveReport CorrectiveReport?
-  preventiveReport PreventiveReport?
-  renewalTechReport RenewalTechReport?
+  correctiveReport    CorrectiveReport?
+  preventiveReport    PreventiveReport?
+  renewalTechReport   RenewalTechReport?
   interventionReceipt InterventionReceipt?
 
   @@unique([tenantId, workOrderNo])
@@ -836,24 +836,24 @@ model WorkOrder {
 }
 
 model InterventionReceipt {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  workOrderId String  @unique
+  workOrderId String    @unique
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
-  caseId   String
-  case     Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  ticketNo String
-  tmStartedAt DateTime
-  tmEndedAt   DateTime
+  ticketNo    String
+  tmStartedAt DateTime @db.Timestamptz(3)
+  tmEndedAt   DateTime @db.Timestamptz(3)
 
   internalStart String?
   internalEnd   String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@unique([tenantId, ticketNo])
   @@index([tenantId, createdAt])
@@ -866,7 +866,7 @@ model WorkOrderStep {
 
   stepType  String
   notes     String
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   media WorkOrderMedia[]
 }
@@ -878,7 +878,7 @@ model WorkOrderMedia {
 
   kind      MediaKind
   filePath  String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
 }
 
 model BusLifecycleEvent {
@@ -894,7 +894,7 @@ model BusLifecycleEvent {
 
   eventType  String
   summary    String
-  occurredAt DateTime @default(now())
+  occurredAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([busId, occurredAt])
   @@index([busEquipmentId, occurredAt])
@@ -936,8 +936,8 @@ model CorrectiveReport {
   ticketNumber    String?
   workOrderNumber String?
 
-  busCode      String?
-  plate        String?
+  busCode String?
+  plate   String?
 
   deviceType String?
   brand      String?
@@ -950,8 +950,8 @@ model CorrectiveReport {
   location      DeviceLocation?
   locationOther String?
 
-  dateDismount     DateTime?
-  dateDelivered    DateTime?
+  dateDismount  DateTime? @db.Timestamptz(3)
+  dateDelivered DateTime? @db.Timestamptz(3)
 
   accessoriesSupplied Boolean @default(false)
   accessoriesWhich    String?
@@ -967,7 +967,7 @@ model CorrectiveReport {
   timeStart String?
   timeEnd   String?
 
-  installDate DateTime?
+  installDate DateTime? @db.Timestamptz(3)
   newBrand    String?
   newModel    String?
   newSerial   String?
@@ -979,8 +979,8 @@ model CorrectiveReport {
   photoSerialCurrent String?
   photoSerialNew     String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 model PreventiveReport {
@@ -997,12 +997,12 @@ model PreventiveReport {
   mileage        String?
   plate          String?
 
-  scheduledAt   DateTime?
-  executedAt    DateTime?
-  rescheduledAt DateTime?
+  scheduledAt   DateTime? @db.Timestamptz(3)
+  executedAt    DateTime? @db.Timestamptz(3)
+  rescheduledAt DateTime? @db.Timestamptz(3)
 
   // devicesInstalled eliminado
-  activities      Json?
+  activities Json?
 
   // voltajes por campos separados removidos (se registran en actividades)
 
@@ -1012,8 +1012,8 @@ model PreventiveReport {
   responsibleUpk        String?
   responsibleCapitalBus String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 model RenewalTechReport {
@@ -1025,25 +1025,25 @@ model RenewalTechReport {
   ticketNumber    String?
   workOrderNumber String?
 
-  busCode          String?
-  plate            String?
-  linkSmartHelios  String?
-  ipSimcard        String?
+  busCode         String?
+  plate           String?
+  linkSmartHelios String?
+  ipSimcard       String?
 
   removedChecklist Json?
   newInstallation  Json?
   finalChecklist   Json?
 
-  timeStart String?
-  timeEnd   String?
+  timeStart    String?
+  timeEnd      String?
   observations String?
 
   photosOld       Json?
   photosNew       Json?
   photosChecklist Json?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 enum VideoReqOrigin {
@@ -1086,80 +1086,80 @@ enum VideoRequestEventType {
 }
 
 model VideoDownloadRequest {
-  id     String @id @default(cuid())
+  id String @id @default(cuid())
 
   caseId String @unique
   case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  status         VideoCaseStatus    @default(EN_ESPERA)
+  status         VideoCaseStatus     @default(EN_ESPERA)
   downloadStatus VideoDownloadStatus @default(PENDIENTE)
 
   origin      VideoReqOrigin
   requestType String?
 
   tmsaRadicado          String?
-  tmsaFiledAt           DateTime?
-  concessionaireFiledAt DateTime?
+  tmsaFiledAt           DateTime? @db.Timestamptz(3)
+  concessionaireFiledAt DateTime? @db.Timestamptz(3)
 
-  requesterName  String?
-  requesterId    String?
-  requesterRole  String?
-  requesterPhone String?
-  requesterEmail String?
+  requesterName   String?
+  requesterId     String?
+  requesterRole   String?
+  requesterPhone  String?
+  requesterEmail  String?
   requesterEmails Json?
 
   vehicleId String?
 
-  eventStart DateTime?
-  eventEnd   DateTime?
+  eventStart DateTime? @db.Timestamptz(3)
+  eventEnd   DateTime? @db.Timestamptz(3)
 
   camerasRequested String?
   deliveryMethod   VideoDeliveryMethod?
 
-  descriptionNovedad String?
-  finSolicitud       Json?
+  descriptionNovedad     String?
+  finSolicitud           Json?
   observationsTechnician String?
 
   assignedToId String?
-  assignedTo   User? @relation(fields: [assignedToId], references: [id])
+  assignedTo   User?   @relation(fields: [assignedToId], references: [id])
 
-  notifPendingSentAt         DateTime?
-  notifInProgressSentAt      DateTime?
-  notifDeliverySentAt        DateTime?
-  notifFailedSentAt          DateTime?
-  notifInternalDeliverySentAt DateTime?
+  notifPendingSentAt          DateTime? @db.Timestamptz(3)
+  notifInProgressSentAt       DateTime? @db.Timestamptz(3)
+  notifDeliverySentAt         DateTime? @db.Timestamptz(3)
+  notifFailedSentAt           DateTime? @db.Timestamptz(3)
+  notifInternalDeliverySentAt DateTime? @db.Timestamptz(3)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   attachments VideoAttachment[]
   events      VideoRequestEvent[]
 }
 
 model VideoAttachment {
-  id        String @id @default(cuid())
+  id        String               @id @default(cuid())
   requestId String
   request   VideoDownloadRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  kind        VideoAttachmentKind
-  filePath    String
+  kind         VideoAttachmentKind
+  filePath     String
   originalName String?
-  size        Int?
-  mimeType    String?
-  active      Boolean @default(true)
+  size         Int?
+  mimeType     String?
+  active       Boolean             @default(true)
 
   uploadedById String?
-  uploadedBy   User? @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
 
-  tokens    VideoDownloadToken[]
+  tokens VideoDownloadToken[]
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([requestId, kind])
 }
 
 model VideoRequestEvent {
-  id        String @id @default(cuid())
+  id        String               @id @default(cuid())
   requestId String
   request   VideoDownloadRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
@@ -1168,23 +1168,23 @@ model VideoRequestEvent {
   meta    Json?
 
   actorUserId String?
-  actorUser   User? @relation(fields: [actorUserId], references: [id])
+  actorUser   User?   @relation(fields: [actorUserId], references: [id])
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([requestId, createdAt])
 }
 
 model VideoDownloadToken {
-  id           String @id @default(cuid())
-  token        String @unique
+  id           String          @id @default(cuid())
+  token        String          @unique
   attachmentId String
   attachment   VideoAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
 
-  expiresAt DateTime
-  usedAt    DateTime?
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([attachmentId, expiresAt])
 }
@@ -1203,20 +1203,20 @@ enum NotificationType {
 }
 
 model Notification {
-  id        String @id @default(cuid())
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  userId    String
-  user      User   @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  type      NotificationType
-  title     String
-  body      String?
-  meta      Json?
+  type  NotificationType
+  title String
+  body  String?
+  meta  Json?
 
-  readAt    DateTime?
-  createdAt DateTime @default(now())
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
 
   @@index([userId, readAt])
   @@index([tenantId, createdAt])
