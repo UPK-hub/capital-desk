@@ -17,6 +17,7 @@ import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { ChevronRight } from "lucide-react";
+import { ScrollReveal } from "@/components/animations/ScrollReveal";
 
 function toStr(v: any) {
   const s = String(v ?? "").trim();
@@ -89,10 +90,10 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6 lg:py-0">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-start gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6 lg:py-0">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight lg:text-3xl">Casos</h1>
-            <p className="text-sm text-muted-foreground">Bandeja Backoffice</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 lg:text-4xl">Casos</h1>
+            <p className="text-base text-slate-600">Bandeja Backoffice</p>
           </div>
           <Link
             className="sts-btn-ghost inline-flex h-10 items-center justify-center self-start px-4 text-sm"
@@ -103,60 +104,62 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
         </div>
       </header>
 
-      <div className="mobile-page-content max-w-6xl lg:px-6">
-        <div className="mobile-section-card mobile-section-card__body">
-          <form className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap" method="get">
-            <input
-              name="q"
-              placeholder="Buscar por busCode o placa"
-              className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[18rem]"
-              defaultValue={searchParams?.q ?? ""}
-            />
-            <Select name="status" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.status ?? ""}>
-              <option value="">Estado (todos)</option>
-              <option value="NUEVO">{caseStatusLabels.NUEVO}</option>
-              <option value="OT_ASIGNADA">{caseStatusLabels.OT_ASIGNADA}</option>
-              <option value="EN_EJECUCION">{caseStatusLabels.EN_EJECUCION}</option>
-              <option value="RESUELTO">{caseStatusLabels.RESUELTO}</option>
-              <option value="CERRADO">{caseStatusLabels.CERRADO}</option>
-            </Select>
+      <div className="mobile-page-content max-w-[1600px] lg:px-6">
+        <ScrollReveal>
+          <div className="mobile-section-card mobile-section-card__body">
+            <form className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap" method="get">
+              <input
+                name="q"
+                placeholder="Buscar por busCode o placa"
+                className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[18rem]"
+                defaultValue={searchParams?.q ?? ""}
+              />
+              <Select name="status" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.status ?? ""}>
+                <option value="">Estado (todos)</option>
+                <option value="NUEVO">{caseStatusLabels.NUEVO}</option>
+                <option value="OT_ASIGNADA">{caseStatusLabels.OT_ASIGNADA}</option>
+                <option value="EN_EJECUCION">{caseStatusLabels.EN_EJECUCION}</option>
+                <option value="RESUELTO">{caseStatusLabels.RESUELTO}</option>
+                <option value="CERRADO">{caseStatusLabels.CERRADO}</option>
+              </Select>
 
-            <Select name="type" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.type ?? ""}>
-              <option value="">Tipo (todos)</option>
-              <option value="NOVEDAD">{caseTypeLabels.NOVEDAD}</option>
-              <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
-              <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
-              <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
-              <option value="MEJORA_PRODUCTO">{caseTypeLabels.MEJORA_PRODUCTO}</option>
-              <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
-            </Select>
+              <Select name="type" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.type ?? ""}>
+                <option value="">Tipo (todos)</option>
+                <option value="NOVEDAD">{caseTypeLabels.NOVEDAD}</option>
+                <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
+                <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
+                <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
+                <option value="MEJORA_PRODUCTO">{caseTypeLabels.MEJORA_PRODUCTO}</option>
+                <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
+              </Select>
 
-            <Select name="priority" className="h-10 w-full sm:min-w-36 sm:w-auto" defaultValue={searchParams?.priority ?? ""}>
-              <option value="">Prioridad</option>
-              <option value="1">1 (Alta)</option>
-              <option value="2">2</option>
-              <option value="3">3 (Normal)</option>
-              <option value="4">4</option>
-              <option value="5">5 (Baja)</option>
-            </Select>
+              <Select name="priority" className="h-10 w-full sm:min-w-36 sm:w-auto" defaultValue={searchParams?.priority ?? ""}>
+                <option value="">Prioridad</option>
+                <option value="1">1 (Alta)</option>
+                <option value="2">2</option>
+                <option value="3">3 (Normal)</option>
+                <option value="4">4</option>
+                <option value="5">5 (Baja)</option>
+              </Select>
 
-            <div className="flex w-full items-center gap-2 sm:w-auto">
-              <button className="sts-btn-primary h-10 flex-1 px-4 text-sm sm:flex-none">Filtrar</button>
-              <Link
-                className="sts-btn-ghost inline-flex h-10 flex-1 items-center justify-center px-4 text-sm sm:flex-none"
-                href="/cases"
-              >
-                Limpiar
-              </Link>
-            </div>
-          </form>
-        </div>
+              <div className="flex w-full items-center gap-2 sm:w-auto">
+                <button className="sts-btn-primary h-10 flex-1 px-4 text-sm sm:flex-none">Filtrar</button>
+                <Link
+                  className="sts-btn-ghost inline-flex h-10 flex-1 items-center justify-center px-4 text-sm sm:flex-none"
+                  href="/cases"
+                >
+                  Limpiar
+                </Link>
+              </div>
+            </form>
+          </div>
+        </ScrollReveal>
 
         {cases.length === 0 ? (
           <div className="mobile-section-card mobile-section-card__body text-sm text-muted-foreground">No hay casos.</div>
         ) : (
           <>
-            <div className="lg:hidden">
+            <ScrollReveal className="lg:hidden">
               <div className="mobile-list-stack">
                 {cases.map((c) => (
                   <article key={c.id} className="mobile-section-card">
@@ -190,9 +193,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                   </article>
                 ))}
               </div>
-            </div>
+            </ScrollReveal>
 
-            <div className="hidden lg:block">
+            <ScrollReveal className="hidden lg:block" delay={0.05}>
               <DataTable>
                 <DataTableHeader>
                   <DataTableRow>
@@ -242,7 +245,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                   ))}
                 </DataTableBody>
               </DataTable>
-            </div>
+            </ScrollReveal>
           </>
         )}
       </div>

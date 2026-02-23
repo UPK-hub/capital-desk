@@ -2,10 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LogOut } from "lucide-react";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import {
+  BarChart3,
+  Briefcase,
+  BusFront,
+  CalendarDays,
+  Clock3,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  TrendingUp,
+  UserCircle,
+  UserCog,
+  Video,
+  Wrench,
+} from "lucide-react";
 import { useSidebar } from "@/contexts/sidebar-context";
+import { fadeInRight, listItem, staggerContainer } from "@/lib/animations";
 
 export type SidebarIconKey =
+  | "home"
   | "grid"
   | "case"
   | "bus"
@@ -16,188 +35,205 @@ export type SidebarIconKey =
   | "sts"
   | "tm"
   | "settings"
+  | "admin"
   | "user";
 
 export type SidebarNavItem = {
   label: string;
   href: string;
   icon: SidebarIconKey;
+  section?: "main" | "reports" | "admin";
+  color?: string;
+  subtitle?: string;
+  badge?: number;
 };
 
-function Icon({ name, className = "h-5 w-5" }: { name: SidebarIconKey; className?: string }) {
+function iconFor(name: SidebarIconKey) {
   switch (name) {
+    case "home":
+      return Home;
     case "grid":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
-        </svg>
-      );
+      return LayoutDashboard;
     case "case":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M4 7h16M4 12h16M4 17h10" />
-        </svg>
-      );
+      return Briefcase;
     case "bus":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M5 16h14V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v9Z" />
-          <path d="M7 16v2m10-2v2M7 11h10" />
-        </svg>
-      );
+      return BusFront;
     case "video":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect x="3" y="6" width="13" height="12" rx="2" />
-          <path d="M16 10l5-3v10l-5-3z" />
-        </svg>
-      );
+      return Video;
     case "planner":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect x="4" y="5" width="16" height="15" rx="2" />
-          <path d="M8 3v4M16 3v4M4 10h16" />
-        </svg>
-      );
+      return CalendarDays;
     case "work":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M4 7h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
-          <path d="M9 7V5a3 3 0 0 1 6 0v2" />
-        </svg>
-      );
+      return Wrench;
     case "clock":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="12" cy="12" r="8" />
-          <path d="M12 7v5l3 2" />
-        </svg>
-      );
+      return Clock3;
     case "sts":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M12 3v6l4 2" />
-          <circle cx="12" cy="12" r="8" />
-        </svg>
-      );
+      return BarChart3;
     case "tm":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M3 3h18v6H3z" />
-          <path d="M6 21V9m6 12V9m6 12V9" />
-        </svg>
-      );
+      return TrendingUp;
     case "settings":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.65 2.87-1.1-.32a1.65 1.65 0 0 0-1.8.4l-.82.82-2.87-1.65.06-.06A1.65 1.65 0 0 0 9 19.4l-.32 1.1H5.32l-.32-1.1a1.65 1.65 0 0 0-1.82-.33l-.06.06L1.47 16.3l.06-.06a1.65 1.65 0 0 0 .4-1.8l-.82-.82L2.76 10l1.1.32a1.65 1.65 0 0 0 1.8-.4l.82-.82L9.35 5.5l-.06.06A1.65 1.65 0 0 0 10.6 3.6l.32-1.1h3.36l.32 1.1a1.65 1.65 0 0 0 1.82.33l.06-.06L18.53 7l-.06.06a1.65 1.65 0 0 0-.4 1.8l.82.82L21.24 14l-1.1-.32a1.65 1.65 0 0 0-1.8.4l-.82.82Z" />
-        </svg>
-      );
+      return Settings;
+    case "admin":
+      return UserCog;
     case "user":
-      return (
-        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 20c1.8-3.5 13.2-3.5 16 0" />
-        </svg>
-      );
+      return UserCircle;
     default:
-      return null;
+      return LayoutDashboard;
   }
 }
+
+function initials(name: string) {
+  const parts = String(name || "U")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "");
+  return parts.join("") || "U";
+}
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+const SECTION_LABELS: Record<NonNullable<SidebarNavItem["section"]>, string | null> = {
+  main: null,
+  reports: "Reportes",
+  admin: "Administración",
+};
 
 export function SidebarContent({
   navItems,
   userName,
+  userRoleLabel,
   onNavigate,
   collapsed = false,
 }: {
   navItems: SidebarNavItem[];
   userName: string;
+  userRoleLabel?: string;
   onNavigate?: () => void;
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
+  const roleLabel = userRoleLabel || "Backoffice";
+  const sections = (["main", "reports", "admin"] as const)
+    .map((section) => ({
+      section,
+      label: SECTION_LABELS[section],
+      items: navItems.filter((item) => (item.section ?? "main") === section),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
-    <div className={`flex min-h-full flex-col py-5 ${collapsed ? "px-2" : "px-4 lg:px-6 lg:py-6"}`}>
-      <div
-        className={`app-sidebar-brand flex items-center transition-all duration-300 ${
-          collapsed ? "justify-center px-0" : "gap-3 px-1"
-        }`}
+    <div className={`flex min-h-full min-w-0 flex-col overflow-hidden ${collapsed ? "px-2 py-3" : "px-3 py-4"}`}>
+      <motion.div
+        variants={fadeInRight}
+        initial="initial"
+        animate="animate"
+        className={`app-sidebar-profile min-w-0 ${collapsed ? "justify-center" : ""}`}
       >
-        <div
-          className={`app-sidebar-brand__badge flex items-center justify-center text-lg font-semibold ${
-            collapsed ? "h-12 w-12 rounded-xl p-0" : "h-11 w-11 rounded-2xl"
-          }`}
-        >
-          <Building2 className="h-5 w-5 flex-shrink-0" />
-        </div>
-        <div
-          className={`overflow-hidden transition-[max-width,opacity] duration-200 ${
-            collapsed ? "max-w-0 opacity-0" : "max-w-[14rem] opacity-100"
-          }`}
-        >
-          <p className="app-sidebar-brand__meta whitespace-nowrap text-xs uppercase tracking-wide">Capital Desk</p>
-          <p className="whitespace-nowrap text-sm font-semibold">{userName}</p>
-        </div>
-      </div>
+        <div className="app-sidebar-profile__avatar">{initials(userName)}</div>
+        {!collapsed ? (
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold leading-tight text-white">{userName}</p>
+            <p className="truncate text-xs text-white/65">
+              {roleLabel} - CapitalBus
+            </p>
+          </div>
+        ) : null}
+      </motion.div>
 
-      <nav className="app-sidebar-nav mt-6 flex-1 space-y-2 lg:mt-8">
-        {navItems.map((item) => {
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => onNavigate?.()}
-              className={`app-nav-link ${active ? "app-nav-link--active" : ""} ${
-                collapsed
-                  ? "mx-auto h-12 w-12 items-center justify-center gap-0 rounded-xl p-0"
-                  : "h-10 gap-3 px-3 py-2.5 justify-start"
-              }`}
-              title={collapsed ? item.label : undefined}
-            >
-              {collapsed ? (
-                <Icon name={item.icon} className="h-5 w-5 flex-shrink-0" />
-              ) : (
-                <span className="app-nav-link__icon h-9 w-9">
-                  <Icon name={item.icon} className="h-5 w-5" />
-                </span>
-              )}
-              {!collapsed ? (
-                <span className="ml-0.5 max-w-[12rem] overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-200 opacity-100">
-                  {item.label}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </nav>
+      <motion.nav
+        className="app-sidebar-nav mt-4 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-0.5"
+        variants={staggerContainer(0.035, 0.01)}
+        initial="initial"
+        animate="animate"
+      >
+        {sections.map((group) => (
+          <div key={group.section} className="mb-3">
+            {group.label && !collapsed ? (
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/45">
+                {group.label}
+              </p>
+            ) : null}
 
-      <div className="app-sidebar-footer mt-auto space-y-2 pt-6 text-sm">
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const active = isActivePath(pathname, item.href);
+                const Icon = iconFor(item.icon);
+                const iconColor = item.color || "var(--color-primary)";
+                const isTmItem = item.icon === "tm" || item.label.toLowerCase() === "tm";
+                return (
+                  <motion.div
+                    key={`${group.section}-${item.href}-${item.label}`}
+                    variants={listItem}
+                    whileHover={{ x: collapsed ? 0 : 3 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Link
+                      href={item.href}
+                      onClick={() => onNavigate?.()}
+                      className={`app-nav-link ${active ? "app-nav-link--active" : ""} ${
+                        collapsed
+                          ? "mx-auto h-11 w-11 items-center justify-center gap-0 rounded-xl p-0"
+                          : "h-auto min-w-0 gap-3 rounded-xl px-3 py-2.5"
+                      }`}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <span
+                        className={`app-nav-link__icon ${active ? "app-nav-link__icon--active" : ""}`}
+                        style={{
+                          color: iconColor,
+                          backgroundColor: `color-mix(in srgb, ${iconColor} 22%, transparent)`,
+                        }}
+                      >
+                        {isTmItem ? (
+                          <Image
+                            src="/resources/TM_Logo.png"
+                            alt="TM"
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 object-contain"
+                          />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
+                      </span>
+
+                      {!collapsed ? (
+                        <span className="min-w-0 flex-1 overflow-hidden">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-medium">{item.label}</span>
+                            {typeof item.badge === "number" && item.badge > 0 ? (
+                              <span className="app-nav-link__badge">{item.badge}</span>
+                            ) : null}
+                          </span>
+                          {item.subtitle ? (
+                            <span className="mt-0.5 block truncate text-[11px] text-white/55">{item.subtitle}</span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </motion.nav>
+
+      <div className="app-sidebar-footer mt-auto pt-2">
         <Link
-          className={`app-nav-link ${
-            collapsed
-              ? "mx-auto h-12 w-12 items-center justify-center gap-0 rounded-xl p-0"
-              : "h-10 gap-3 px-3 py-2.5 justify-start"
-          }`}
+          className={`app-nav-link ${collapsed ? "mx-auto h-11 w-11 items-center justify-center gap-0 rounded-xl p-0" : "h-11 gap-3 rounded-xl px-3 py-2.5"}`}
           href="/api/auth/signout?callbackUrl=/login"
           onClick={() => onNavigate?.()}
           title={collapsed ? "Salir" : undefined}
         >
-          {collapsed ? (
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-          ) : (
-            <span className="app-nav-link__icon h-9 w-9">
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-            </span>
-          )}
-          {!collapsed ? (
-            <span className="ml-0.5 max-w-[12rem] overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-200 opacity-100">
-              Salir
-            </span>
-          ) : null}
+          <span className="app-nav-link__icon" style={{ color: "#c7d2fe" }}>
+            <LogOut className="h-4 w-4" />
+          </span>
+          {!collapsed ? <span className="text-sm font-medium">Salir</span> : null}
         </Link>
       </div>
     </div>
@@ -207,19 +243,29 @@ export function SidebarContent({
 export default function Sidebar({
   navItems,
   userName,
+  userRoleLabel,
 }: {
   navItems: SidebarNavItem[];
   userName: string;
+  userRoleLabel?: string;
 }) {
   const { isOpen } = useSidebar();
 
   return (
-    <aside
+    <motion.aside
       className={`app-sidebar sidebar-scroll app-sidebar--desktop hidden h-screen flex-shrink-0 border-r transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:flex lg:flex-col ${
-        isOpen ? "w-[262px]" : "w-[78px] app-sidebar--collapsed"
+        isOpen ? "w-[252px]" : "w-[84px]"
       }`}
+      initial={{ x: -30, opacity: 0 }}
+      animate={{ x: 0, opacity: 1, width: isOpen ? 252 : 84 }}
+      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
     >
-      <SidebarContent navItems={navItems} userName={userName} collapsed={!isOpen} />
-    </aside>
+      <SidebarContent
+        navItems={navItems}
+        userName={userName}
+        userRoleLabel={userRoleLabel}
+        collapsed={!isOpen}
+      />
+    </motion.aside>
   );
 }

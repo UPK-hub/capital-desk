@@ -3,8 +3,13 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ProcedureType, Role } from "@prisma/client";
+import { CaseType, ProcedureType, Role } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
+import {
+  loadNovedadCatalog,
+  parseMinimalEvidenceRequirements,
+  parseQuickCheckSteps,
+} from "@/lib/novedad-catalog";
 
 import StartWorkOrderCard from "./ui/StartWorkOrderCard";
 import FinishWorkOrderCard from "./ui/FinishWorkOrderCard";
@@ -25,6 +30,68 @@ function fmtDate(d: Date) {
 function isImageFilePath(filePath: string | null | undefined) {
   const value = String(filePath ?? "").toLowerCase();
   return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
+}
+
+type NovedadStateSnapshot = {
+  catalogCode: string;
+  affectedEquipment: string;
+  reportedNovelty: string;
+};
+
+type QuickVerificationSnapshot = {
+  result: "CONFIRMADA" | "DESCARTADA" | "REQUIERE_REVISION" | "";
+  notes: string;
+};
+
+type QuickVerificationPreset = {
+  required: boolean;
+  catalogCode: string;
+  affectedEquipment: string;
+  reportedNovelty: string;
+  quickCheck: string;
+  minimalEvidence: string;
+  impact: string;
+  quickSteps: Array<{ id: string; label: string }>;
+  requiredEvidence: Array<{ id: string; label: string; required: boolean }>;
+};
+
+function extractLatestNovedadState(events: Array<{ meta: unknown }>): NovedadStateSnapshot | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const state = (events[i].meta as any)?.noveltyState;
+    if (state && typeof state === "object") {
+      return {
+        catalogCode: String(state.catalogCode ?? "").trim(),
+        affectedEquipment: String(state.affectedEquipment ?? "").trim(),
+        reportedNovelty: String(state.reportedNovelty ?? "").trim(),
+      };
+    }
+  }
+  return null;
+}
+
+function extractSourceCaseId(events: Array<{ meta: unknown }>): string | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const sourceCaseId = String((events[i].meta as any)?.sourceCaseId ?? "").trim();
+    if (sourceCaseId) return sourceCaseId;
+  }
+  return null;
+}
+
+function extractLatestQuickVerification(
+  events: Array<{ meta: unknown }>
+): QuickVerificationSnapshot | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const quick = (events[i].meta as any)?.quickVerification;
+    if (quick && typeof quick === "object") {
+      const result = String(quick.result ?? "").trim().toUpperCase();
+      if (!["CONFIRMADA", "DESCARTADA", "REQUIERE_REVISION"].includes(result)) continue;
+      return {
+        result: result as QuickVerificationSnapshot["result"],
+        notes: String(quick.notes ?? "").trim(),
+      };
+    }
+  }
+  return null;
 }
 
 type PageProps = { params: { id: string } };
@@ -92,6 +159,11 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               },
             },
           },
+          events: {
+            orderBy: { createdAt: "asc" },
+            select: { meta: true },
+            take: 120,
+          },
         },
       },
       steps: {
@@ -143,8 +215,50 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
     .map((part) => part.trim())
     .filter(Boolean);
 
+  const noveltyStateFromCorrectiveCase =
+    wo.case.type === "CORRECTIVO" ? extractLatestNovedadState(wo.case.events ?? []) : null;
+  const sourceNovedadCaseId =
+    wo.case.type === "CORRECTIVO" ? extractSourceCaseId(wo.case.events ?? []) : null;
+
+  let noveltyStateFromSourceCase: NovedadStateSnapshot | null = null;
+  if (wo.case.type === "CORRECTIVO" && sourceNovedadCaseId) {
+    const sourceCase = await prisma.case.findFirst({
+      where: { id: sourceNovedadCaseId, tenantId, type: CaseType.NOVEDAD },
+      select: {
+        events: { orderBy: { createdAt: "asc" }, select: { meta: true }, take: 200 },
+      },
+    });
+    noveltyStateFromSourceCase = extractLatestNovedadState(sourceCase?.events ?? []);
+  }
+
+  const noveltyState = noveltyStateFromSourceCase ?? noveltyStateFromCorrectiveCase;
+  const latestQuickVerification =
+    wo.case.type === "CORRECTIVO" ? extractLatestQuickVerification(wo.case.events ?? []) : null;
+  const quickResolved = latestQuickVerification?.result === "CONFIRMADA";
+
+  let quickVerificationPreset: QuickVerificationPreset | null = null;
+  if (wo.case.type === "CORRECTIVO" && noveltyState) {
+    const catalog = await loadNovedadCatalog();
+    const match = noveltyState.catalogCode
+      ? catalog.find((item) => item.code === noveltyState.catalogCode)
+      : undefined;
+    quickVerificationPreset = {
+      required: true,
+      catalogCode: noveltyState.catalogCode || match?.code || "",
+      affectedEquipment:
+        noveltyState.affectedEquipment || match?.equipmentLabel || "No especificado",
+      reportedNovelty: noveltyState.reportedNovelty || match?.novelty || wo.case.title,
+      quickCheck: match?.quickCheck || "",
+      minimalEvidence: match?.minimalEvidence || "",
+      impact: match?.impact || "",
+      quickSteps: parseQuickCheckSteps(match?.quickCheck || ""),
+      requiredEvidence: parseMinimalEvidenceRequirements(match?.minimalEvidence || ""),
+    };
+  }
+
   // Reglas finalizar por formulario (según registry)
-  const requiresFinishForm = Boolean(cfg?.finishRequiresForm);
+  const requiresFinishForm =
+    Boolean(cfg?.finishRequiresForm) && !(wo.case.type === "CORRECTIVO" && quickResolved);
 
   const completion =
     cfg?.formKind === "CORRECTIVE"
@@ -371,6 +485,14 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               <h2 className="text-base font-semibold">Formularios</h2>
 
               <div className="mt-3 space-y-4">
+                {wo.case.type === "CORRECTIVO" && quickResolved ? (
+                  <div className="sts-card border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-medium text-emerald-700">
+                      Verificación rápida confirmada: puedes finalizar sin diligenciar el formulario correctivo.
+                    </p>
+                  </div>
+                ) : null}
+
                 {!requiresFinishForm ? (
                   <div className="sts-card p-4">
                     <p className="text-sm text-muted-foreground">Este tipo de OT no requiere formulario para finalizar.</p>
@@ -511,6 +633,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   disabled={startDone || finishDone}
                   startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
                   embedded
+                  quickVerificationPreset={quickVerificationPreset}
                   watermarkContext={{
                     equipmentLabel,
                     busCode: wo.case.bus.code,
@@ -573,6 +696,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               workOrderId={wo.id}
               disabled={startDone || finishDone}
               startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
+              quickVerificationPreset={quickVerificationPreset}
               watermarkContext={{
                 equipmentLabel,
                 busCode: wo.case.bus.code,

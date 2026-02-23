@@ -6,13 +6,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, CaseStatus, NotificationType, Role, StsTicketChannel, StsTicketSeverity, VideoRequestEventType } from "@prisma/client";
+import {
+  CaseEventType,
+  CaseStatus,
+  NotificationType,
+  Role,
+  StsTicketChannel,
+  StsTicketEventType,
+  StsTicketSeverity,
+  VideoRequestEventType,
+  WorkOrderStatus,
+} from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { ensureTenantSequence } from "@/lib/tenant-sequence";
 import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
+import { saveUpload } from "@/lib/uploads";
 
 function normalizePriority(input: any): number | undefined {
   if (input === null || input === undefined || input === "") return undefined;
@@ -26,6 +37,95 @@ function normalizePriority(input: any): number | undefined {
   return undefined;
 }
 
+function severityFromPriority(priority: number): StsTicketSeverity {
+  if (priority <= 2) return StsTicketSeverity.HIGH;
+  if (priority >= 4) return StsTicketSeverity.LOW;
+  return StsTicketSeverity.MEDIUM;
+}
+
+type RawNovedadItem = {
+  localKey?: unknown;
+  busId?: unknown;
+  busCode?: unknown;
+  busPlate?: unknown;
+  busEquipmentIds?: unknown;
+  catalogCode?: unknown;
+  affectedEquipment?: unknown;
+  priority?: unknown;
+  reportedNovelty?: unknown;
+  affectation?: unknown;
+  observations?: unknown;
+};
+
+type NovedadItem = {
+  localKey: string;
+  busId: string;
+  busCode: string | null;
+  busPlate: string | null;
+  busEquipmentIds: string[];
+  catalogCode: string;
+  affectedEquipment: string;
+  priority: number;
+  reportedNovelty: string;
+  affectation: string;
+  observations: string;
+};
+
+async function ensureAndTakeNumbers(
+  tx: any,
+  tenantId: string,
+  counts: { caseCount: number; workOrderCount: number }
+) {
+  await ensureTenantSequence(tx as any, tenantId);
+  await tx.$queryRaw`SELECT "tenantId" FROM "TenantSequence" WHERE "tenantId" = ${tenantId} FOR UPDATE`;
+
+  let seq = await tx.tenantSequence.findUnique({
+    where: { tenantId },
+    select: { nextCaseNo: true, nextWorkOrderNo: true },
+  });
+  if (!seq) throw new Error("TenantSequence missing after upsert");
+
+  const maxCase = await tx.case.aggregate({ where: { tenantId }, _max: { caseNo: true } });
+  const maxCaseNo = maxCase._max.caseNo ?? 0;
+  if (seq.nextCaseNo <= maxCaseNo) {
+    await tx.tenantSequence.update({
+      where: { tenantId },
+      data: { nextCaseNo: maxCaseNo + 1 },
+    });
+    seq = { ...seq, nextCaseNo: maxCaseNo + 1 };
+  }
+
+  if (counts.workOrderCount > 0) {
+    const maxWo = await tx.workOrder.aggregate({ where: { tenantId }, _max: { workOrderNo: true } });
+    const maxWoNo = maxWo._max.workOrderNo ?? 0;
+    if (seq.nextWorkOrderNo <= maxWoNo) {
+      await tx.tenantSequence.update({
+        where: { tenantId },
+        data: { nextWorkOrderNo: maxWoNo + 1 },
+      });
+      seq = { ...seq, nextWorkOrderNo: maxWoNo + 1 };
+    }
+  }
+
+  const caseNos = Array.from({ length: counts.caseCount }, (_, i) => seq.nextCaseNo + i);
+  const workOrderNos = Array.from(
+    { length: counts.workOrderCount },
+    (_, i) => seq.nextWorkOrderNo + i
+  );
+
+  await tx.tenantSequence.update({
+    where: { tenantId },
+    data: {
+      ...(counts.caseCount > 0 ? { nextCaseNo: { increment: counts.caseCount } } : {}),
+      ...(counts.workOrderCount > 0
+        ? { nextWorkOrderNo: { increment: counts.workOrderCount } }
+        : {}),
+    },
+  });
+
+  return { caseNos, workOrderNos };
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,11 +133,474 @@ export async function POST(req: NextRequest) {
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
 
-  const body = await req.json().catch(() => ({}));
+  const contentType = req.headers.get("content-type") ?? "";
+  let body: any = {};
+  let multipart: FormData | null = null;
+  if (contentType.includes("multipart/form-data")) {
+    multipart = await req.formData().catch(() => null);
+    const rawPayload = multipart?.get("payload");
+    const payloadText = typeof rawPayload === "string" ? rawPayload : "{}";
+    try {
+      body = JSON.parse(payloadText || "{}");
+    } catch {
+      return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
+    }
+  } else {
+    body = await req.json().catch(() => ({}));
+  }
 
   const type = body.type as keyof typeof CASE_TYPE_REGISTRY;
   const cfg = CASE_TYPE_REGISTRY[type];
   if (!cfg) return NextResponse.json({ error: "Tipo de caso inválido" }, { status: 400 });
+
+  if (cfg.type === "NOVEDAD" && Array.isArray(body.novedadItems)) {
+    const rows = (body.novedadItems as RawNovedadItem[]).map((row) => {
+      const busId = String(row?.busId ?? "").trim();
+      const busCode = row?.busCode ? String(row.busCode).trim() : null;
+      const busPlate = row?.busPlate ? String(row.busPlate).trim() : null;
+      const localKey = String(row?.localKey ?? "").trim() || `nvd-${busId}`;
+      const catalogCode = String(row?.catalogCode ?? "").trim();
+      const affectedEquipment = String(row?.affectedEquipment ?? "").trim();
+      const reportedNovelty = String(row?.reportedNovelty ?? "").trim();
+      const affectation = String(row?.affectation ?? "").trim();
+      const observations = String(row?.observations ?? "").trim();
+      const rawEqIds = Array.isArray(row?.busEquipmentIds) ? row.busEquipmentIds : [];
+      const busEquipmentIds = Array.from(
+        new Set(rawEqIds.map((id) => String(id ?? "").trim()).filter(Boolean))
+      );
+      const priority = normalizePriority(row?.priority) ?? 3;
+
+      return {
+        localKey,
+        busId,
+        busCode,
+        busPlate,
+        busEquipmentIds,
+        catalogCode,
+        affectedEquipment,
+        priority,
+        reportedNovelty,
+        affectation,
+        observations,
+      } as NovedadItem;
+    });
+
+    if (!rows.length) {
+      return NextResponse.json(
+        { error: "Debes reportar al menos una novedad con bus." },
+        { status: 400 }
+      );
+    }
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (!row.busId) {
+        return NextResponse.json(
+          { error: `Bus requerido en la novedad #${i + 1}.` },
+          { status: 400 }
+        );
+      }
+      if (!row.affectedEquipment) {
+        return NextResponse.json(
+          { error: `Equipo afectado requerido en la novedad #${i + 1}.` },
+          { status: 400 }
+        );
+      }
+      if (!row.reportedNovelty || row.reportedNovelty.length < 3) {
+        return NextResponse.json(
+          { error: `Novedad reportada inválida en la novedad #${i + 1}.` },
+          { status: 400 }
+        );
+      }
+      if (!row.affectation || row.affectation.length < 5) {
+        return NextResponse.json(
+          { error: `Afectación muy corta en la novedad #${i + 1}.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const uniqueBusIds = Array.from(new Set(rows.map((row) => row.busId)));
+    const buses = await prisma.bus.findMany({
+      where: { tenantId, id: { in: uniqueBusIds } },
+      select: { id: true, code: true, plate: true },
+    });
+    const busById = new Map(buses.map((bus) => [bus.id, bus]));
+
+    const missingBusIds = uniqueBusIds.filter((id) => !busById.has(id));
+    if (missingBusIds.length) {
+      return NextResponse.json(
+        { error: "Uno o más buses de la novedad no existen en el tenant actual." },
+        { status: 400 }
+      );
+    }
+
+    const uniqueEquipmentIds = Array.from(new Set(rows.flatMap((row) => row.busEquipmentIds)));
+    const equipments = await prisma.busEquipment.findMany({
+      where: {
+        id: { in: uniqueEquipmentIds },
+        busId: { in: uniqueBusIds },
+      },
+      select: { id: true, busId: true },
+    });
+    const equipmentById = new Map(equipments.map((eq) => [eq.id, eq]));
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      const invalidEq = row.busEquipmentIds.find((equipmentId) => {
+        const equipment = equipmentById.get(equipmentId);
+        return !equipment || equipment.busId !== row.busId;
+      });
+      if (invalidEq) {
+        return NextResponse.json(
+          { error: `Equipo inválido (${invalidEq}) en la novedad #${i + 1}.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const correctiveCfg = CASE_TYPE_REGISTRY.CORRECTIVO;
+    let stsComponentId: string | null = null;
+    if (correctiveCfg.stsComponentCode) {
+      const component = await prisma.stsComponent.findFirst({
+        where: { tenantId, code: correctiveCfg.stsComponentCode },
+        select: { id: true },
+      });
+      if (!component) {
+        return NextResponse.json(
+          { error: "Componente STS no configurado para generar tickets de correctivo." },
+          { status: 400 }
+        );
+      }
+      stsComponentId = component.id;
+    }
+
+    const uploadBatchKey = `novedades-${tenantId}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    const evidenceByLocalKey = new Map<
+      string,
+      { filePath: string; fileName: string; mimeType: string; size: number }
+    >();
+
+    for (const row of rows) {
+      const file = multipart?.get(`evidence:${row.localKey}`);
+      if (!(file instanceof File) || file.size <= 0) continue;
+      const bus = busById.get(row.busId)!;
+      const filePath = await saveUpload(file, `novedades/${uploadBatchKey}/${bus.code}`);
+      evidenceByLocalKey.set(row.localKey, {
+        filePath,
+        fileName: file.name || "evidencia",
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+    }
+
+    try {
+      const created = await prisma.$transaction(
+        async (tx) => {
+          let batchRef: string | null = null;
+          const out: Array<{
+            batchRef: string;
+            busCode: string;
+            noveltyCaseId: string;
+            noveltyCaseNo: number | null;
+            correctiveCaseId: string;
+            correctiveCaseNo: number | null;
+            workOrderId: string;
+            workOrderNo: number | null;
+            stsTicketId: string | null;
+            evidencePath: string | null;
+          }> = [];
+
+          for (const row of rows) {
+            const bus = busById.get(row.busId)!;
+            const evidence = evidenceByLocalKey.get(row.localKey) ?? null;
+
+            const noveltyNumbers = await ensureAndTakeNumbers(tx as any, tenantId, {
+              caseCount: 1,
+              workOrderCount: 0,
+            });
+            const noveltyCase = await tx.case.create({
+              data: {
+                tenantId,
+                caseNo: noveltyNumbers.caseNos[0],
+                type: "NOVEDAD",
+                status: CaseStatus.NUEVO,
+                priority: row.priority,
+                title: `Novedad ${bus.code} - ${row.reportedNovelty}`,
+                description: [
+                  row.catalogCode ? `Código novedad: ${row.catalogCode}` : null,
+                  `Equipo afectado: ${row.affectedEquipment}`,
+                  `Novedad reportada: ${row.reportedNovelty}`,
+                  `Afectación: ${row.affectation}`,
+                  row.observations ? `Observaciones: ${row.observations}` : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+                busId: bus.id,
+              },
+            });
+
+            if (!batchRef) {
+              batchRef = `NVD-${String(noveltyCase.caseNo ?? 0).padStart(4, "0")}`;
+            }
+
+            const noveltyState = {
+              batchRef,
+              sourceCaseNo: noveltyCase.caseNo ?? null,
+              catalogCode: row.catalogCode || null,
+              affectedEquipment: row.affectedEquipment,
+              reportedNovelty: row.reportedNovelty,
+              affectation: row.affectation,
+              observations: row.observations || null,
+              evidence,
+            };
+
+            if (row.busEquipmentIds.length) {
+              await tx.caseEquipment.createMany({
+                data: row.busEquipmentIds.map((busEquipmentId) => ({
+                  caseId: noveltyCase.id,
+                  busEquipmentId,
+                })),
+                skipDuplicates: true,
+              });
+            }
+
+            await tx.caseEvent.createMany({
+              data: [
+                {
+                  caseId: noveltyCase.id,
+                  type: CaseEventType.CREATED,
+                  message: "Novedad reportada",
+                  meta: { userId, noveltyState },
+                },
+                {
+                  caseId: noveltyCase.id,
+                  type: CaseEventType.COMMENT,
+                  message:
+                    "Hemos recibido su novedad y está pendiente su asignación de tickets.",
+                  meta: { userId, automated: true, batchRef },
+                },
+                ...(evidence
+                  ? [
+                      {
+                        caseId: noveltyCase.id,
+                        type: CaseEventType.COMMENT,
+                        message: "Evidencia de novedad cargada.",
+                        meta: { userId, batchRef, evidence },
+                      },
+                    ]
+                  : []),
+              ],
+            });
+
+            const correctiveNumbers = await ensureAndTakeNumbers(tx as any, tenantId, {
+              caseCount: 1,
+              workOrderCount: 1,
+            });
+            const correctiveDescription = [
+              row.catalogCode ? `Código novedad: ${row.catalogCode}` : null,
+              `Equipo afectado: ${row.affectedEquipment}`,
+              `Novedad reportada: ${row.reportedNovelty}`,
+              `Afectación: ${row.affectation}`,
+              row.observations ? `Observaciones: ${row.observations}` : null,
+              `Generado automáticamente por novedad CASO-${noveltyCase.caseNo}.`,
+            ]
+              .filter(Boolean)
+              .join("\n");
+
+            const correctiveCase = await tx.case.create({
+              data: {
+                tenantId,
+                caseNo: correctiveNumbers.caseNos[0],
+                type: "CORRECTIVO",
+                status: CaseStatus.OT_ASIGNADA,
+                priority: row.priority,
+                title: `Correctivo generado por novedad CASO-${noveltyCase.caseNo} (${bus.code})`,
+                description: correctiveDescription,
+                busId: bus.id,
+                busEquipmentId: row.busEquipmentIds[0] ?? null,
+              },
+            });
+
+            if (row.busEquipmentIds.length) {
+              await tx.caseEquipment.createMany({
+                data: row.busEquipmentIds.map((busEquipmentId) => ({
+                  caseId: correctiveCase.id,
+                  busEquipmentId,
+                })),
+                skipDuplicates: true,
+              });
+            }
+
+            const workOrder = await tx.workOrder.create({
+              data: {
+                tenantId,
+                workOrderNo: correctiveNumbers.workOrderNos[0],
+                caseId: correctiveCase.id,
+                status: WorkOrderStatus.EN_VALIDACION,
+              },
+            });
+
+            await tx.caseEvent.createMany({
+              data: [
+                {
+                  caseId: correctiveCase.id,
+                  type: CaseEventType.CREATED,
+                  message: `Correctivo generado por novedad CASO-${noveltyCase.caseNo}.`,
+                  meta: {
+                    userId,
+                    sourceCaseId: noveltyCase.id,
+                    sourceCaseNo: noveltyCase.caseNo,
+                    noveltyState,
+                  },
+                },
+                {
+                  caseId: correctiveCase.id,
+                  type: CaseEventType.STATUS_CHANGE,
+                  message: "OT generada automáticamente en estado por validar coordinador.",
+                  meta: { userId, workOrderId: workOrder.id, batchRef },
+                },
+                ...(evidence
+                  ? [
+                      {
+                        caseId: correctiveCase.id,
+                        type: CaseEventType.COMMENT,
+                        message: "Evidencia de novedad asociada al correctivo.",
+                        meta: { userId, batchRef, evidence },
+                      },
+                    ]
+                  : []),
+              ],
+            });
+
+            let stsTicketId: string | null = null;
+            if (stsComponentId) {
+              const stsTicket = await tx.stsTicket.create({
+                data: {
+                  tenantId,
+                  caseId: correctiveCase.id,
+                  componentId: stsComponentId,
+                  severity: severityFromPriority(row.priority),
+                  status: "OPEN",
+                  channel: StsTicketChannel.OTHER,
+                  description: correctiveCase.description,
+                  openedAt: new Date(),
+                },
+              });
+              stsTicketId = stsTicket.id;
+
+              await tx.stsTicketEvent.create({
+                data: {
+                  ticketId: stsTicket.id,
+                  type: StsTicketEventType.STATUS_CHANGE,
+                  status: "OPEN",
+                  message: "Ticket generado automáticamente desde novedad reportada.",
+                  createdById: userId,
+                },
+              });
+
+              await tx.caseEvent.create({
+                data: {
+                  caseId: correctiveCase.id,
+                  type: CaseEventType.COMMENT,
+                  message: "Ticket STS generado automáticamente.",
+                  meta: { userId, stsTicketId: stsTicket.id, batchRef },
+                },
+              });
+            }
+
+            await tx.caseEvent.create({
+              data: {
+                caseId: noveltyCase.id,
+                type: CaseEventType.COMMENT,
+                message: `Su ticket ha sido generado: CASO-${correctiveCase.caseNo} / OT-${workOrder.workOrderNo}.`,
+                meta: {
+                  userId,
+                  batchRef,
+                  generatedCaseId: correctiveCase.id,
+                  generatedWorkOrderId: workOrder.id,
+                  stsTicketId,
+                },
+              },
+            });
+
+            out.push({
+              batchRef,
+              busCode: bus.code,
+              noveltyCaseId: noveltyCase.id,
+              noveltyCaseNo: noveltyCase.caseNo ?? null,
+              correctiveCaseId: correctiveCase.id,
+              correctiveCaseNo: correctiveCase.caseNo ?? null,
+              workOrderId: workOrder.id,
+              workOrderNo: workOrder.workOrderNo ?? null,
+              stsTicketId,
+              evidencePath: evidence?.filePath ?? null,
+            });
+          }
+
+          return { batchRef: batchRef ?? "NVD-SIN-REF", items: out };
+        },
+        { maxWait: 10000, timeout: 30000 }
+      );
+
+      await notifyTenantUsers({
+        tenantId,
+        userIds: [userId],
+        type: NotificationType.CASE_CREATED,
+        title: `Hemos recibido su novedad (${created.batchRef})`,
+        body: "Su novedad está pendiente de asignación de tickets.",
+        meta: { kind: "NOVEDAD_BATCH", batchRef: created.batchRef, count: created.items.length },
+        sendEmail: false,
+      });
+
+      await Promise.all(
+        created.items.map((item) =>
+          notifyTenantUsers({
+            tenantId,
+            userIds: [userId],
+            type: NotificationType.CASE_ASSIGNED,
+            title: `Su ticket ha sido generado (${item.busCode})`,
+            body: `Lote ${created.batchRef} | Novedad CASO-${item.noveltyCaseNo} -> Correctivo CASO-${item.correctiveCaseNo} / OT-${item.workOrderNo}.`,
+            meta: {
+              batchRef: created.batchRef,
+              noveltyCaseId: item.noveltyCaseId,
+              correctiveCaseId: item.correctiveCaseId,
+              workOrderId: item.workOrderId,
+              stsTicketId: item.stsTicketId,
+              evidencePath: item.evidencePath,
+            },
+            sendEmail: false,
+          })
+        )
+      );
+
+      await notifyTenantUsers({
+        tenantId,
+        roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+        type: NotificationType.CASE_CREATED,
+        title: `Novedades reportadas (${created.batchRef})`,
+        body: `ID ${created.batchRef}: ${created.items.length} buses reportados y ${created.items.length} tickets correctivos en validación.`,
+        meta: { kind: "NOVEDAD_BATCH", batchRef: created.batchRef, count: created.items.length },
+        sendEmail: false,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        batchRef: created.batchRef,
+        received: rows.length,
+        createdNovedades: created.items.length,
+        createdCorrectivos: created.items.length,
+        items: created.items,
+      });
+    } catch (e: any) {
+      return NextResponse.json(
+        { error: "No se pudo registrar la novedad masiva", detail: e?.message ?? String(e) },
+        { status: 400 }
+      );
+    }
+  }
 
   const busId = String(body.busId ?? "").trim();
   if (!busId) return NextResponse.json({ error: "Selecciona un bus" }, { status: 400 });
@@ -187,7 +750,7 @@ export async function POST(req: NextRequest) {
           }
         } else if (effectiveEquipmentIds.length) {
           await tx.caseEquipment.createMany({
-            data: effectiveEquipmentIds.map((id) => ({ caseId: c.id, busEquipmentId: id })),
+            data: effectiveEquipmentIds.map((id: string) => ({ caseId: c.id, busEquipmentId: id })),
             skipDuplicates: true,
           });
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
 import { withPhotoWatermark } from "@/lib/photo-watermark-client";
@@ -10,6 +10,17 @@ type Props = {
   disabled: boolean;
   startedAt: string | null;
   embedded?: boolean;
+  quickVerificationPreset?: {
+    required: boolean;
+    catalogCode: string;
+    affectedEquipment: string;
+    reportedNovelty: string;
+    quickCheck: string;
+    minimalEvidence: string;
+    impact: string;
+    quickSteps: Array<{ id: string; label: string }>;
+    requiredEvidence: Array<{ id: string; label: string; required: boolean }>;
+  } | null;
   watermarkContext?: {
     equipmentLabel?: string | null;
     busCode?: string | null;
@@ -22,6 +33,7 @@ export default function StartWorkOrderCard({
   disabled,
   startedAt,
   embedded = false,
+  quickVerificationPreset = null,
   watermarkContext,
 }: Props) {
   const router = useRouter();
@@ -30,7 +42,73 @@ export default function StartWorkOrderCard({
   const [fileName, setFileName] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickResult, setQuickResult] = useState<"" | "CONFIRMADA" | "DESCARTADA" | "REQUIERE_REVISION">("");
+  const [quickNotes, setQuickNotes] = useState("");
+  const [quickAction, setQuickAction] = useState("");
+  const [quickChecklist, setQuickChecklist] = useState<Array<{ id: string; label: string; done: boolean }>>(
+    () =>
+      (quickVerificationPreset?.quickSteps ?? []).map((step) => ({
+        id: step.id,
+        label: step.label,
+        done: false,
+      }))
+  );
+  const [quickEvidence, setQuickEvidence] = useState<
+    Array<{
+      key: string;
+      label: string;
+      required: boolean;
+      mode: "photo" | "file";
+      file: File | null;
+      fileName: string;
+    }>
+  >(
+    () =>
+      (quickVerificationPreset?.requiredEvidence ?? []).map((item) => ({
+        key: item.id,
+        label: item.label,
+        required: Boolean(item.required),
+        mode: "photo",
+        file: null,
+        fileName: "",
+      }))
+  );
   const inputId = useId();
+
+  useEffect(() => {
+    setQuickChecklist(
+      (quickVerificationPreset?.quickSteps ?? []).map((step) => ({
+        id: step.id,
+        label: step.label,
+        done: false,
+      }))
+    );
+    setQuickEvidence(
+      (quickVerificationPreset?.requiredEvidence ?? []).map((item) => ({
+        key: item.id,
+        label: item.label,
+        required: Boolean(item.required),
+        mode: "photo" as const,
+        file: null,
+        fileName: "",
+      }))
+    );
+  }, [quickVerificationPreset]);
+
+  const requiresQuickVerification = Boolean(quickVerificationPreset?.required);
+  const missingQuickSteps = quickChecklist.filter((step) => !step.done);
+  const missingQuickEvidence = quickEvidence.filter((item) => item.required && !item.file);
+  const hasAnyQuickInput =
+    quickResult !== "" ||
+    quickNotes.trim().length > 0 ||
+    quickAction.trim().length > 0 ||
+    quickChecklist.some((step) => step.done) ||
+    quickEvidence.some((item) => Boolean(item.file));
+  const quickVerificationPayloadReady =
+    quickResult !== "" &&
+    quickNotes.trim().length >= 5 &&
+    missingQuickSteps.length === 0 &&
+    missingQuickEvidence.length === 0;
 
   async function submit() {
     setSaving(true);
@@ -39,13 +117,54 @@ export default function StartWorkOrderCard({
     try {
       const fd = new FormData();
       fd.set("notes", notes);
+      if (quickVerificationPreset && quickVerificationPayloadReady) {
+        const quickChecklistPayload = quickChecklist.map((step) => ({
+          id: step.id,
+          label: step.label,
+          done: Boolean(step.done),
+        }));
+        const quickEvidencePayload = quickEvidence.map((item) => ({
+          key: item.key,
+          label: item.label,
+          required: Boolean(item.required),
+        }));
+
+        fd.set(
+          "quickVerification",
+          JSON.stringify({
+            result: quickResult || null,
+            notes: quickNotes.trim(),
+            suggestedAction: quickAction.trim(),
+            catalogCode: quickVerificationPreset.catalogCode || null,
+            affectedEquipment: quickVerificationPreset.affectedEquipment || null,
+            reportedNovelty: quickVerificationPreset.reportedNovelty || null,
+            checklist: quickChecklistPayload,
+            evidenceItems: quickEvidencePayload,
+          })
+        );
+
+        for (const item of quickEvidence) {
+          if (!item.file) continue;
+          let fileToUpload = item.file;
+          if (item.file.type.startsWith("image/")) {
+            fileToUpload = await withPhotoWatermark(item.file, {
+              equipmentLabel: item.label,
+              busCode: watermarkContext?.busCode || null,
+              caseRef: watermarkContext?.caseRef || null,
+            });
+          }
+          fd.set(`quickEvidence:${item.key}`, fileToUpload);
+        }
+      }
       if (photo) {
-        const photoWithWatermark = await withPhotoWatermark(photo, {
-          equipmentLabel: watermarkContext?.equipmentLabel || "Evidencia de inicio OT",
-          busCode: watermarkContext?.busCode || null,
-          caseRef: watermarkContext?.caseRef || null,
-        });
-        fd.set("photo", photoWithWatermark);
+        const startEvidence = photo.type.startsWith("image/")
+          ? await withPhotoWatermark(photo, {
+              equipmentLabel: watermarkContext?.equipmentLabel || "Evidencia de inicio OT",
+              busCode: watermarkContext?.busCode || null,
+              caseRef: watermarkContext?.caseRef || null,
+            })
+          : photo;
+        fd.set("photo", startEvidence);
       }
 
       const res = await fetch(`/api/work-orders/${workOrderId}/start`, {
@@ -61,6 +180,26 @@ export default function StartWorkOrderCard({
       setNotes("");
       setPhoto(null);
       setFileName("");
+      setQuickResult("");
+      setQuickNotes("");
+      setQuickAction("");
+      setQuickChecklist(
+        (quickVerificationPreset?.quickSteps ?? []).map((step) => ({
+          id: step.id,
+          label: step.label,
+          done: false,
+        }))
+      );
+      setQuickEvidence(
+        (quickVerificationPreset?.requiredEvidence ?? []).map((item) => ({
+          key: item.id,
+          label: item.label,
+          required: Boolean(item.required),
+          mode: "photo" as const,
+          file: null,
+          fileName: "",
+        }))
+      );
       router.refresh();
     } catch (e: any) {
       setError(e?.message ?? "Error iniciando OT");
@@ -98,6 +237,226 @@ export default function StartWorkOrderCard({
       ) : null}
 
       <div className="mt-4 grid gap-3">
+        {quickVerificationPreset ? (
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pre-formulario: verificación rápida
+              </p>
+              <p className="text-sm font-medium">
+                {quickVerificationPreset.reportedNovelty || "Novedad"}{" "}
+                {quickVerificationPreset.catalogCode ? `(${quickVerificationPreset.catalogCode})` : ""}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Equipo afectado: {quickVerificationPreset.affectedEquipment || "No especificado"}
+              </p>
+              {quickVerificationPreset.quickCheck ? (
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                  Verificación sugerida: {quickVerificationPreset.quickCheck}
+                </p>
+              ) : null}
+              {quickVerificationPreset.minimalEvidence ? (
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                  Evidencia mínima: {quickVerificationPreset.minimalEvidence}
+                </p>
+              ) : null}
+              {quickVerificationPreset.impact ? (
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                  Impacto sugerido: {quickVerificationPreset.impact}
+                </p>
+              ) : null}
+            </div>
+
+            {quickChecklist.length ? (
+              <div className="mt-3 rounded-lg border border-border/60 bg-background/70 p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Paso a paso (según catálogo)
+                </p>
+                <div className="mt-2 space-y-2">
+                  {quickChecklist.map((step) => (
+                    <label
+                      key={step.id}
+                      className="flex items-start gap-2 rounded-md border border-border/50 px-2 py-2 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={step.done}
+                        onChange={(e) =>
+                          setQuickChecklist((prev) =>
+                            prev.map((item) =>
+                              item.id === step.id ? { ...item, done: e.target.checked } : item
+                            )
+                          )
+                        }
+                        disabled={disabled || saving}
+                        className="mt-0.5"
+                      />
+                      <span className="leading-relaxed text-foreground">{step.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {quickEvidence.length ? (
+              <div className="mt-3 rounded-lg border border-border/60 bg-background/70 p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Evidencias de verificación rápida
+                </p>
+                <div className="mt-2 space-y-2">
+                  {quickEvidence.map((item) => {
+                    const fileInputId = `${inputId}-quick-${item.key}`;
+                    return (
+                      <div key={item.key} className="rounded-lg border border-border/50 px-2 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-medium leading-relaxed">{item.label}</p>
+                          {item.required ? (
+                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                              Obligatoria
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-2 inline-flex rounded-md border border-border/60 bg-muted/30 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setQuickEvidence((prev) =>
+                                prev.map((entry) =>
+                                  entry.key === item.key ? { ...entry, mode: "photo" } : entry
+                                )
+                              )
+                            }
+                            disabled={disabled || saving}
+                            className={`rounded px-2 py-1 text-[11px] ${
+                              item.mode === "photo"
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            Cargar foto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setQuickEvidence((prev) =>
+                                prev.map((entry) =>
+                                  entry.key === item.key ? { ...entry, mode: "file" } : entry
+                                )
+                              )
+                            }
+                            disabled={disabled || saving}
+                            className={`rounded px-2 py-1 text-[11px] ${
+                              item.mode === "file"
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            Cargar archivo
+                          </button>
+                        </div>
+
+                        <label
+                          htmlFor={fileInputId}
+                          className={`mt-2 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-primary/35 bg-primary/5 px-2 py-2 text-xs font-medium text-primary ${disabled || saving ? "pointer-events-none opacity-60" : ""}`}
+                        >
+                          {item.mode === "photo" ? "Tomar/cargar foto" : "Seleccionar archivo"}
+                        </label>
+                        <input
+                          id={fileInputId}
+                          type="file"
+                          accept={
+                            item.mode === "photo"
+                              ? "image/*"
+                              : "image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                          }
+                          capture={item.mode === "photo" ? "environment" : undefined}
+                          className="sr-only"
+                          onChange={(e) => {
+                            const selectedFile = e.target.files?.[0] ?? null;
+                            setQuickEvidence((prev) =>
+                              prev.map((entry) =>
+                                entry.key === item.key
+                                  ? {
+                                      ...entry,
+                                      file: selectedFile,
+                                      fileName: selectedFile?.name ?? "",
+                                    }
+                                  : entry
+                              )
+                            );
+                          }}
+                          disabled={disabled || saving}
+                        />
+
+                        {item.fileName ? (
+                          <p className="mt-1 flex items-center gap-1 break-all text-[11px] text-muted-foreground">
+                            <FileText className="h-3.5 w-3.5" />
+                            {item.fileName}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-muted-foreground">Sin archivo.</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-3 grid gap-3">
+              <label className="text-xs text-muted-foreground">
+                Resultado verificación rápida {requiresQuickVerification ? "(obligatorio)" : "(opcional)"}
+              </label>
+              <select
+                className="app-field-control h-10 w-full rounded-xl border px-3 text-sm"
+                value={quickResult}
+                onChange={(e) => setQuickResult(e.target.value as any)}
+                disabled={disabled || saving}
+              >
+                <option value="">Seleccionar resultado</option>
+                <option value="CONFIRMADA">Confirmada</option>
+                <option value="DESCARTADA">Descartada</option>
+                <option value="REQUIERE_REVISION">Requiere revisión adicional</option>
+              </select>
+
+              <textarea
+                className="app-field-control min-h-[72px] w-full rounded-xl border p-3 text-sm focus-visible:outline-none"
+                placeholder="Observaciones de verificación rápida (mínimo 5 caracteres)"
+                value={quickNotes}
+                onChange={(e) => setQuickNotes(e.target.value)}
+                disabled={disabled || saving}
+              />
+
+              <input
+                className="app-field-control h-10 w-full rounded-xl border px-3 text-sm"
+                placeholder="Acción sugerida (opcional)"
+                value={quickAction}
+                onChange={(e) => setQuickAction(e.target.value)}
+                disabled={disabled || saving}
+              />
+
+              {requiresQuickVerification && missingQuickSteps.length > 0 ? (
+                <p className="text-xs text-amber-700">
+                  Si deseas guardar la verificación rápida, completa todos los pasos.
+                </p>
+              ) : null}
+
+              {requiresQuickVerification && missingQuickEvidence.length > 0 ? (
+                <p className="text-xs text-amber-700">
+                  Si deseas guardar la verificación rápida, adjunta las evidencias obligatorias.
+                </p>
+              ) : null}
+
+              {quickVerificationPreset && !hasAnyQuickInput ? (
+                <p className="text-xs text-muted-foreground">
+                  Puedes iniciar la OT sin este pre-formulario y continuar con el flujo correctivo normal.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <textarea
           className="app-field-control min-h-[88px] w-full rounded-xl border p-3 text-sm focus-visible:outline-none"
           placeholder="Notas de inicio..."

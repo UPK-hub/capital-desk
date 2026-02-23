@@ -18,33 +18,47 @@ const SIZE: Record<NonNullable<TypeBadgeProps["size"]>, string> = {
 function classesForType(type: string) {
   const key = String(type ?? "").trim().toUpperCase();
   if (key === "CORRECTIVO") {
-    return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800";
+    return "bg-[var(--color-correctivo)] text-[var(--color-correctivo-text)] border-red-200/90";
   }
   if (key === "PREVENTIVO") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800";
+    return "bg-[var(--color-preventivo)] text-[var(--color-preventivo-text)] border-emerald-200/90";
   }
   if (key === "RENOVACION_TECNOLOGICA") {
-    return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-400 dark:border-indigo-800";
+    return "bg-[var(--color-renovacion)] text-[var(--color-renovacion-text)] border-indigo-200/90";
   }
   if (key === "NOVEDAD") {
-    return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-400 dark:border-sky-800";
+    return "bg-blue-100 text-blue-700 border-blue-200/90";
   }
   if (key === "SOLICITUD_DESCARGA_VIDEO") {
-    return "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-400 dark:border-violet-800";
+    return "bg-violet-100 text-violet-700 border-violet-200/90";
   }
   if (key === "MEJORA_PRODUCTO") {
-    return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800";
+    return "bg-amber-100 text-amber-700 border-amber-200/90";
   }
-  return "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-900/60 dark:text-zinc-300 dark:border-zinc-700";
+  return "bg-zinc-100 text-zinc-700 border-zinc-300/90";
 }
 
 export function TypeBadge({ type, label, size = "md" }: TypeBadgeProps) {
-  const renderLabel = label ?? String(type ?? "").replaceAll("_", " ");
+  const normalized = String(type ?? "").trim().toUpperCase();
+  const fallbackLabelMap: Record<string, string> = {
+    CORRECTIVO: "Correctivo",
+    PREVENTIVO: "Preventivo",
+    RENOVACION_TECNOLOGICA: "Renovación tecnológica",
+    NOVEDAD: "Novedad",
+    SOLICITUD_DESCARGA_VIDEO: "Solicitud video",
+    MEJORA_PRODUCTO: "Mejora producto",
+  };
+  const renderLabel =
+    label ??
+    fallbackLabelMap[normalized] ??
+    String(type ?? "")
+      .replaceAll("_", " ")
+      .trim();
 
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full border font-medium",
+        "inline-flex items-center rounded-[var(--radius-pill)] border font-medium",
         SIZE[size],
         classesForType(type)
       )}

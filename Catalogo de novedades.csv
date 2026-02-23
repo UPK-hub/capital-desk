@@ -1,0 +1,170 @@
+Código;Categoría;Equipo;Novedad;Síntomas / Evidencia en sitio;Posibles causas;Verificación rápida (primeros 5 min);Evidencia mínima para ticket;Impacto sugerido;Prioridad;Tipo de intervención
+NVD-001;Energía / Encendido;NVR / PoE ;NVR no enciende;"Sin LEDs; no boot; no responde";Fusible, DC-DC, cable suelto, batería baja;"Medir voltaje entrada; revisar fusibles/borneras; verificar conector";Foto LEDs + medición VDC + foto conexiones;Total;Crítica;Correctivo
+NVD-002;Energía / Encendido;NVR / PoE ;NVR reinicia solo;"Reinicios aleatorios; se cae en ruta";Microcortes, falso contacto, DC-DC, sobretemp, HDD;"Revisar voltaje estable; conectores; temperatura; estado HDD";Hora exacta + captura eventos + foto instalación;Intermitente;Alta;Correctivo
+NVD-003;Energía / Encendido;NVR / PoE ;NVR enciende pero no inicia (boot loop);"Logo aparece y reinicia; no entra a menú";Firmware corrupto, disco en corto, alimentación;"Probar sin HDD; revisar firmware; medir voltaje";Video del ciclo + log si existe;Total;Crítica;Correctivo
+NVD-004;Energía / Encendido;NVR / PoE ;Fuente DC-DC sin salida / fluctuante;Voltaje cae al acelerar/arrancar;DC-DC dañada, conexión masa, alternador;"Medir V en reposo y arranque; revisar masa";Tabla mediciones + foto punto masa;Intermitente;Alta;Correctivo
+NVD-005;Energía / Encendido;NVR / PoE ;Switch/PoE sin energía;"LEDs apagados; cámaras no encienden";Alimentación, fusible, daño switch;"Verificar VDC entrada; revisar fusible; probar otro punto";Foto LEDs + medición;Parcial/Total;Alta;Correctivo
+NVD-006;Energía / Encendido;NVR / PoE ;Modulo no transmite;"Router apagado; sin datos";Fusible, cableado, DC-DC;"Medir V; revisar fusible; reconectar";Foto LEDs + medición;Total (reporte);Alta;Correctivo
+NVD-007;Energía / Encendido;NVR / PoE ;Consumo anómalo / calentamiento fuente;"Olor a quemado; fuente caliente";Sobrecarga, corto en cámara/cable;"Desconectar cargas por tramos; medir consumo";Foto + reporte de consumo;Riesgo;Crítica;Correctivo
+NVD-008;Energía / Encendido;NVR / PoE ;Protección por bajo voltaje;Equipo se apaga cuando enciende bus;Batería débil, alternador;"Medir caída en arranque; validar umbrales";Mediciones + hora;Intermitente;Media;Correctivo
+NVD-009;Energía / Encendido;NVR / PoE ;Protección por alto voltaje;"Apagado tras picos; alarmas";Regulador alternador, DC-DC sin protección;"Medir picos; revisar regulador";Mediciones + evento;Intermitente;Alta;Correctivo
+NVD-010;Energía / Encendido;NVR / PoE ;Falso contacto en bornera;Cae con vibración;Tornillo flojo, terminal fatigado;"Ajuste torque; inspección terminal";Foto antes/después;Intermitente;Media;Correctivo
+NVD-011;Energía / Encendido;NVR / PoE ;Batería RTC agotada;Hora se resetea;Batería interna agotada;Verificar hora tras apagar/encender;Captura hora antes/después;Parcial;Baja;Preventivo
+NVD-012;Energía / Encendido;NVR / PoE ;Ventilador NVR no opera;"Temperatura alta; ruido";Ventilador dañado, polvo;"Inspección; limpieza; prueba";Foto/vid;Riesgo;Media;Correctivo
+NVD-013;Energía / Encendido;NVR / PoE ;Filtro/ventilación obstruida;"Calor; polvo acumulado";Mantenimiento deficiente;"Limpieza; revisar flujo";Foto;Riesgo;Baja;Preventivo
+NVD-014;Energía / Encendido;NVR / PoE ;Conector energía invertido;"No enciende; posible daño";Instalación incorrecta;Verificar polaridad;Medición + foto;Total;Crítica;Correctivo
+NVD-015;Energía / Encendido;NVR / PoE ;Cable energía pellizcado;Se apaga en baches;Ruta de cable mal;"Inspeccionar ruta; continuidad";Foto daño;Intermitente;Alta;Correctivo
+NVD-016;Energía / Encendido;NVR / PoE ;Fusible abierto;Equipo muerto;Sobrecarga, corto;"Revisar fusible; causa raíz";Foto fusible + valor;Total;Alta;Correctivo
+NVD-017;Energía / Encendido;NVR / PoE ;Caída de tensión por accesorios;Falla cuando prende aire/luces;Compartición de línea sin dimensionar;"Medir tensión con carga; separar circuito";Mediciones;Intermitente;Media;Correctivo
+NVD-018;Energía / Encendido;NVR / PoE ;Gabinete sin puesta a tierra;Ruido, fallas intermitentes;Masa deficiente;Revisar continuidad a chasis;Foto punto masa + medición;Intermitente;Media;Correctivo
+NVD-019;Energía / Encendido;NVR / PoE ;Interferencia eléctrica (EMI);Pixelación/caídas coinciden con motor;Cableado sin apantallar;"Reubicar; apantallar; ferritas";Registro correlación;Intermitente;Media;Correctivo
+NVD-100;Grabación / Almacenamiento;NVR / HDD / SD;No graba ningún canal;Live ok pero playback vacío;Grabación deshabilitada, storage no montado;"Ver estado grabación; revisar calendario; storage";Captura config + estado grabación;Total;Crítica;Correctivo
+NVD-101;Grabación / Almacenamiento;NVR / HDD / SD;Graba pero con huecos;Faltan minutos/horas;Reinicios, disco lento, bitrate alto;"Revisar eventos reinicio; salud HDD; logs";Listado huecos + log;Parcial;Alta;Correctivo
+NVD-102;Grabación / Almacenamiento;NVR / HDD / SD;Disco no detectado;HDD missing;SATA suelto, energía, HDD dañado;"Revisar conexiones; probar HDD";Captura estado + foto conexiones;Total;Crítica;Correctivo
+NVD-103;Grabación / Almacenamiento;NVR / HDD / SD;Disco con sectores dañados;"Errores lectura; congelamientos";HDD deteriorado por vibración;"Revisar SMART; test rápido";SMART/log + captura;Intermitente;Alta;Correctivo
+NVD-104;Grabación / Almacenamiento;NVR / HDD / SD;Almacenamiento lleno;"100% uso; no graba";"Retención mal; bitrate alto";"Revisar parámetros stream; política overwrite";Captura uso + config;Total;Alta;Correctivo
+NVD-105;Grabación / Almacenamiento;NVR / HDD / SD;Retención menor a la esperada;Solo 1-2 días;FPS/bitrate altos, más canales;"Recalcular bitrate; ajustar substream";Reporte retención + config;Parcial;Media;Correctivo
+NVD-106;Grabación / Almacenamiento;NVR / HDD / SD;Overwrite deshabilitado;Se detiene al llenar;Configuración;"Habilitar overwrite; verificar";Captura;Total;Alta;Correctivo
+NVD-107;Grabación / Almacenamiento;NVR / HDD / SD;Grabación en baja calidad;Playback pixelado;Substream grabando, bitrate bajo;Ver parámetros por canal;Captura parámetros;Parcial;Media;Correctivo
+NVD-108;Grabación / Almacenamiento;NVR / HDD / SD;Timestamp no coincide;Hora desfasada;NTP, RTC;"Config NTP; verificar zona horaria";Captura NTP + hora;Parcial;Media;Correctivo
+NVD-109;Grabación / Almacenamiento;NVR / HDD / SD;Sin audio en grabaciones;Video ok, audio mudo;Mic dañado, canal sin audio;"Ver config audio; probar mic";Captura config + prueba;Parcial;Baja;Correctivo
+NVD-110;Grabación / Almacenamiento;NVR / HDD / SD;Exportación falla;No descarga evidencia;Permisos, storage, app;"Probar otro rango; revisar espacio";Error exacto + captura;Parcial;Media;Correctivo
+NVD-111;Grabación / Almacenamiento;NVR / HDD / SD;Archivos corruptos;"No abre; cortes";Apagados bruscos, HDD;"Revisar reinicios; health HDD";Archivo + log;Parcial;Alta;Correctivo
+NVD-112;Grabación / Almacenamiento;NVR / HDD / SD;Event recording no dispara;No marca eventos;Sensores no integrados, config;Revisar reglas eventos;Captura reglas;Baja;Baja;Correctivo
+NVD-113;Grabación / Almacenamiento;NVR / HDD / SD;Bitrate excesivo saturando disco;"Congelamientos; drop frames";Config alta;"Bajar bitrate/FPS; H.265";Captura parámetros;Intermitente;Media;Correctivo
+NVD-114;Grabación / Almacenamiento;NVR / HDD / SD;Cámara sin grabación pero live ok;Canal en vivo, sin playback;Horario/canal excluido;Ver calendar por canal;Captura calendario;Parcial;Media;Correctivo
+NVD-115;Grabación / Almacenamiento;NVR / HDD / SD;Disco suelto por vibración;Se desconecta en marcha;Soporte flojo;"Revisar bandeja/soporte; fijación";Foto soporte;Intermitente;Alta;Correctivo
+NVD-116;Grabación / Almacenamiento;NVR / HDD / SD;Alerta SMART/temperatura HDD;Eventos de salud;Mala ventilación;"Limpieza; verificar temp";Log + foto;Riesgo;Media;Preventivo
+NVD-117;Grabación / Almacenamiento;NVR / HDD / SD;Tarjeta SD llena/no detectada (si aplica);Logs/eventos no guardan;SD dañada;"Reinsertar; probar otra";Foto + estado;Baja;Baja;Correctivo
+NVD-118;Grabación / Almacenamiento;NVR / HDD / SD;Cifrado/clave perdida (si aplica);No se puede reproducir/exportar;Gestión de claves;"Validar key; soporte fabricante";Error + versión;Total;Crítica;Correctivo
+NVD-200;Comunicaciones / Reporte;Router / GPS / CMS;Bus no reporta al Centro de Gestión;"Equipo offline en CMS; sin telemetría";SIM sin datos, APN, antena, router caído, cobertura;"Revisar LEDs router; señal; SIM; reinicio controlado";Captura offline + foto LEDs + zona/hora;Total;Alta;Correctivo
+NVD-201;Comunicaciones / Reporte;Router / GPS / CMS;Reporte intermitente;Online/offline frecuente;Señal débil, antena floja, microcortes energía;"Revisar fijación antena; RSSI/RSRP; voltaje";Ventana horaria + zonas;Intermitente;Media;Correctivo
+NVD-202;Comunicaciones / Reporte;Router / GPS / CMS;Sin datos móviles (SIM) / plan agotado;"No navega; sin IP";Plan sin saldo, SIM bloqueada;"Probar SIM; consultar operador";Captura estado SIM;Total;Alta;Correctivo
+NVD-203;Comunicaciones / Reporte;Router / GPS / CMS;APN incorrecto;Registra señal pero sin internet;Config APN;"Validar APN; reiniciar";Captura config;Total;Alta;Correctivo
+NVD-204;Comunicaciones / Reporte;Router / GPS / CMS;Antena LTE dañada/desconectada;Señal muy baja;Conector suelto, cable cortado;"Revisar conectores; continuidad";Foto antena + lectura señal;Intermitente;Media;Correctivo
+NVD-205;Comunicaciones / Reporte;Router / GPS / CMS;Router sin IP / DHCP fallando;No entrega red al NVR;Router colgado;"Reiniciar; revisar config LAN";Captura config;Total;Alta;Correctivo
+NVD-206;Comunicaciones / Reporte;Router / GPS / CMS;VPN caída / túnel no levanta;CMS no accede pero internet ok;Certificados, servidor VPN;"Ver estado VPN; logs";Captura estado VPN;Total;Alta;Correctivo
+NVD-207;Comunicaciones / Reporte;Router / GPS / CMS;Puertos bloqueados / NAT;No abre live/playback;Firewall, NAT incorrecto;"Validar puertos; reglas";Mensaje error + config;Parcial;Media;Correctivo
+NVD-208;Comunicaciones / Reporte;Router / GPS / CMS;Latencia alta;Video remoto se congela;Congestión, cobertura;"Bajar bitrate substream; test ping";Registro ping + captura;Parcial;Media;Correctivo
+NVD-209;Comunicaciones / Reporte;Router / GPS / CMS;Sin GPS;"Ubicación nula; sin satélites";Antena GPS, cielo bloqueado;"Revisar antena; ubicación módulo";Captura GPS + foto antena;Parcial;Media;Correctivo
+NVD-210;Comunicaciones / Reporte;Router / GPS / CMS;GPS desviado / saltos;Ubicación errática;Multipath, antena;"Reubicar antena; revisar cable";Captura mapa;Parcial;Baja;Correctivo
+NVD-211;Comunicaciones / Reporte;Router / GPS / CMS;Sin sincronía NTP;Hora incorrecta;Sin acceso NTP por red;"Config NTP alterno; validar DNS";Captura NTP;Parcial;Baja;Correctivo
+NVD-212;Comunicaciones / Reporte;Router / GPS / CMS;DNS incorrecto;Servicios no resuelven;DNS mal;"Cambiar DNS; validar";Captura config;Parcial;Baja;Correctivo
+NVD-213;Comunicaciones / Reporte;Router / GPS / CMS;Módulo 4G en modo 3G/2G;Baja velocidad;Configuración banda;"Forzar LTE; revisar bandas";Captura estado radio;Parcial;Baja;Correctivo
+NVD-214;Comunicaciones / Reporte;Router / GPS / CMS;Roaming no permitido;Sin datos fuera de ciudad;Política operador;"Verificar roaming; plan";Zona/hora;Intermitente;Baja;Correctivo
+NVD-215;Comunicaciones / Reporte;Router / GPS / CMS;Bloqueo por IMEI;Sin servicio;Lista negra;Validar IMEI con operador;IMEI + reporte operador;Total;Alta;Correctivo
+NVD-216;Comunicaciones / Reporte;Router / GPS / CMS;Consumo de datos anómalo;Plan se agota rápido;Streaming alto, configuración;"Revisar substream; horarios";Reporte consumo;Parcial;Baja;Preventivo
+NVD-217;Comunicaciones / Reporte;Router / GPS / CMS;Wi?Fi interno (si aplica) caído;Sin SSID;AP apagado;"Revisar AP; reinicio";Foto LEDs;Baja;Baja;Correctivo
+NVD-300;Cámaras (Video/Audio);Cámaras;Cámara sin imagen (negro);"Canal negro; 'No signal'";Cámara dañada, PoE sin energía, cable;"Revisar PoE/link; probar puerto; revisar conector";Captura canal + foto puerto PoE;Parcial;Alta;Correctivo
+NVD-301;Cámaras (Video/Audio);Cámaras;Cámara con imagen fija (congelada);Frame no cambia;Cámara colgada, red;"Reiniciar canal/PoE; revisar logs";Video del congelamiento + hora;Parcial;Media;Correctivo
+NVD-302;Cámaras (Video/Audio);Cámaras;Imagen borrosa;Desenfoque general;Lente sucio, foco, vibración;"Limpiar lente/domo; revisar soporte";Captura antes/después;Parcial;Media;Correctivo
+NVD-303;Cámaras (Video/Audio);Cámaras;Cámara con mancha;Mancha fija / halo;Domo sucio, humedad interna;"Limpieza; revisar sello";Captura mancha + foto domo;Parcial;Media;Correctivo
+NVD-304;Cámaras (Video/Audio);Cámaras;Empañamiento/condensación;Neblina interna;Sello comprometido;"Secado; cambiar domo; revisar empaques";Foto/captura;Parcial;Media;Correctivo
+NVD-305;Cámaras (Video/Audio);Cámaras;Reflejo/contraluz;"Brillos; flare";Orientación, IR rebotando;"Reorientar; limpiar; ajustar WDR";Captura;Parcial;Baja;Correctivo
+NVD-306;Cámaras (Video/Audio);Cámaras;IR no funciona;Noche en negro;IR dañado, config;"Ver modo día/noche; alimentación";Captura noche + config;Parcial;Media;Correctivo
+NVD-307;Cámaras (Video/Audio);Cámaras;IR quemando imagen;Exceso de blanco de noche;Domo sucio, IR refleja;"Limpiar domo; ajustar IR";Captura;Parcial;Baja;Correctivo
+NVD-308;Cámaras (Video/Audio);Cámaras;Imagen pixelada / macroblock;Cuadros grandes;Bitrate bajo, pérdida paquetes;"Subir bitrate; revisar red/cable";Captura + parámetros;Parcial;Baja;Correctivo
+NVD-309;Cámaras (Video/Audio);Cámaras;Líneas en imagen / interferencia;Barras horizontales;EMI, masa deficiente;"Revisar tierra; ruta cable";Captura + medición tierra;Intermitente;Baja;Correctivo
+NVD-310;Cámaras (Video/Audio);Cámaras;Color incorrecto;Imagen verdosa/rojiza;Balance blancos, IR-cut;"Ajustar WB; revisar IR-cut";Captura;Baja;Baja;Correctivo
+NVD-311;Cámaras (Video/Audio);Cámaras;Imagen muy oscura;Subexpuesta;Config, lente sucio;"Ajustar exposición; limpiar";Captura;Parcial;Baja;Correctivo
+NVD-312;Cámaras (Video/Audio);Cámaras;Imagen muy clara;Sobreexpuesta;Exposición, WDR;Ajustar;Captura;Parcial;Baja;Correctivo
+NVD-313;Cámaras (Video/Audio);Cámaras;Cámara desalineada;Apunta al techo/piso;Golpe, vibración;"Reorientar; fijar";Foto montaje + captura;Parcial;Media;Correctivo
+NVD-314;Cámaras (Video/Audio);Cámaras;Vibración excesiva;Temblor en marcha;Soporte flojo;"Ajustar soporte; antivibración";Video en ruta;Parcial;Media;Correctivo
+NVD-315;Cámaras (Video/Audio);Cámaras;Obstrucción de lente;Sticker/cinta/objeto;Vandalismo;"Retirar obstrucción; reporte";Foto;Parcial;Alta;Correctivo
+NVD-316;Cámaras (Video/Audio);Cámaras;Domo rayado;Velos/halos;Limpieza incorrecta, impacto;Reemplazar domo;Foto domo;Parcial;Baja;Correctivo
+NVD-317;Cámaras (Video/Audio);Cámaras;Cámara se reinicia;Se cae y vuelve;PoE insuficiente, cámara dañada;"Probar otro puerto; medir consumo";Registro eventos;Intermitente;Media;Correctivo
+NVD-318;Cámaras (Video/Audio);Cámaras;Audio con ruido;Zumbido;Masa, mic;"Revisar tierra; cable audio";Audio muestra;Baja;Baja;Correctivo
+NVD-319;Cámaras (Video/Audio);Cámaras;Sin audio;Mudo;Mic dañado, canal sin audio;"Habilitar audio; prueba mic";Captura config;Baja;Baja;Correctivo
+NVD-320;Cámaras (Video/Audio);Cámaras;Cámara frontal con reflejo parabrisas;Reflejo vidrio;Mala ubicación/ángulo;Reubicar/ajustar;Captura;Baja;Baja;Correctivo
+NVD-321;Cámaras (Video/Audio);Cámaras;Cámara puerta no cubre área;Zona ciega;Ángulo incorrecto;Reorientar;Captura;Baja;Baja;Correctivo
+NVD-322;Cámaras (Video/Audio);Cámaras;Cámara interior con baja luz;Noche oscura interior;IR insuficiente, ubicación;"Revisar IR; sumar iluminador";Captura;Parcial;Baja;Correctivo
+NVD-323;Cámaras (Video/Audio);Cámaras;Cámara exterior con lluvia en lente;Gotas;Sin visera, sello;"Limpiar; instalar visera";Captura;Baja;Baja;Preventivo
+NVD-324;Cámaras (Video/Audio);Cámaras;Pérdida de frames;Saltos;Disco/red saturada;"Bajar FPS; revisar HDD";Captura;Parcial;Baja;Correctivo
+NVD-325;Cámaras (Video/Audio);Cámaras;Resolución cambió;Calidad baja repentina;Config alterada;Validar perfiles;Captura config;Parcial;Baja;Correctivo
+NVD-326;Cámaras (Video/Audio);Cámaras;Canal deshabilitado;No aparece;Config;Habilitar canal;Captura;Parcial;Baja;Correctivo
+NVD-327;Cámaras (Video/Audio);Cámaras;Firmware cámara incompatible;No levanta stream;Versiones;Actualizar/rollback;Versiones;Parcial;Media;Correctivo
+NVD-328;Cámaras (Video/Audio);Cámaras;Cámara no soporta H.265;Pantalla negra;Codec no compatible;Cambiar a H.264;Captura codec;Parcial;Baja;Correctivo
+NVD-400;Cableado / Red interna;Cableado / Switch;Conector M12 flojo;Falla con vibración;Mala fijación;"Ajustar/asegurar; aplicar traba";Foto conector;Intermitente;Media;Correctivo
+NVD-401;Cableado / Red interna;Cableado / Switch;M12 sin pines / suelto;Pérdida link;Conector dañado;Recrimpar/cambiar patch;Foto;Intermitente;Media;Correctivo
+NVD-402;Cableado / Red interna;Cableado / Switch;Cable UTP pellizcado;Link intermitente;Ruta cable deficiente;"Reubicar; reemplazar";Foto daño;Intermitente;Media;Correctivo
+NVD-403;Cableado / Red interna;Cableado / Switch;Cable PoE cortado;Cámara apagada;Corte físico;"Continuidad; reemplazo";Foto;Parcial;Alta;Correctivo
+NVD-404;Cableado / Red interna;Cableado / Switch;Pérdida de link en switch;LED link apagado;Puerto dañado;"Probar otro puerto; revisar switch";Foto LEDs;Parcial;Media;Correctivo
+NVD-405;Cableado / Red interna;Cableado / Switch;Switch reinicia;Cae todo el sistema;Alimentación o falla switch;"Medir V; reemplazar switch";Video LEDs;Total;Alta;Correctivo
+NVD-406;Cableado / Red interna;Cableado / Switch;Loop de red (si aplica);Tormenta broadcast;Conexión incorrecta;"Revisar topología; aislar puertos";Registro;Total;Alta;Correctivo
+NVD-407;Cableado / Red interna;Cableado / Switch;IP conflictiva;Cámaras no aparecen;DHCP/estático duplicado;"Escanear IP; corregir";Listado IPs;Parcial;Media;Correctivo
+NVD-408;Cableado / Red interna;Cableado / Switch;DHCP interno fallando;Equipos sin IP;Servidor DHCP caído;"Asignar estático temporal; revisar router";Captura;Parcial;Media;Correctivo
+NVD-409;Cableado / Red interna;Cableado / Switch;Velocidad negociada baja;Video se congela;Cable/puerto;"Ver link 10/100/1000; cambiar cable";Captura link;Parcial;Baja;Correctivo
+NVD-410;Cableado / Red interna;Cableado / Switch;PoE presupuesto insuficiente;Varias cámaras reinician;Switch subdimensionado;"Distribuir cargas; cambiar switch";Inventario PoE;Parcial;Media;Correctivo
+NVD-411;Cableado / Red interna;Cableado / Switch;Conector oxidado;Intermitencia;Humedad;"Limpiar; reemplazar";Foto;Intermitente;Baja;Correctivo
+NVD-412;Cableado / Red interna;Cableado / Switch;Cableado sin sujeción;Se mueve/roza;Instalación;"Asegurar con bridas; canaleta";Foto;Riesgo;Baja;Preventivo
+NVD-413;Cableado / Red interna;Cableado / Switch;Canaleta rota;Cable expuesto;Vibración/impacto;Reparar canaleta;Foto;Riesgo;Baja;Correctivo
+NVD-414;Cableado / Red interna;Cableado / Switch;Ruteo por zona caliente;Degradación cable;Proximidad motor/escape;Reubicar;Foto;Riesgo;Baja;Preventivo
+NVD-415;Cableado / Red interna;Cableado / Switch;Conector incorrecto (no IP67);Entrada humedad;Mala selección;Cambiar conector;Foto;Riesgo;Baja;Correctivo
+NVD-416;Cableado / Red interna;Cableado / Switch;Sin etiqueta de cable;Difícil diagnóstico;Falta de estandar;Etiquetar;Foto;Baja;Baja;Preventivo
+NVD-417;Cableado / Red interna;Cableado / Switch;Puerto NVR sin link;No ve cámaras;NIC dañada;"Probar otro puerto; diagnóstico";Captura;Parcial;Alta;Correctivo
+NVD-418;Cableado / Red interna;Cableado / Switch;Interferencia por cables potencia;Artefactos;UTP junto a potencia;Separar rutas;Foto ruta;Intermitente;Baja;Preventivo
+NVD-500;Software / Configuración;NVR / Cámaras / CMS;Credenciales inválidas en CMS;No autentica;Contraseña cambiada, desincronía;"Validar credenciales; reset seguro";Error exacto;Parcial;Media;Correctivo
+NVD-501;Software / Configuración;NVR / Cámaras / CMS;NVR sin licencia / licencia vencida (si aplica);Funciones bloqueadas;Licencia expirada;Ver estado licencia;Captura licencia;Parcial;Media;Correctivo
+NVD-502;Software / Configuración;NVR / Cámaras / CMS;Firmware NVR desactualizado;Bugs conocidos;Sin plan actualización;"Revisar versión; planificar update";Versión;Baja;Baja;Preventivo
+NVD-503;Software / Configuración;NVR / Cámaras / CMS;Actualización fallida;Equipo inestable;Corte energía, paquete corrupto;"Reintentar con fuente estable; rollback";Logs;Total;Alta;Correctivo
+NVD-504;Software / Configuración;NVR / Cámaras / CMS;Servicios de grabación caídos;Live ok, sin grabación;Proceso colgado;Reiniciar servicio/equipo;Log servicios;Total;Alta;Correctivo
+NVD-505;Software / Configuración;NVR / Cámaras / CMS;Configuración alterada;Cambio de calidad/horarios;Intervención no controlada;"Comparar con plantilla; restaurar";Captura cambios;Parcial;Media;Correctivo
+NVD-506;Software / Configuración;NVR / Cámaras / CMS;Parámetros de stream incorrectos;No abre video;Codec/resolución;"Ajustar H.264; baseline";Captura;Parcial;Baja;Correctivo
+NVD-507;Software / Configuración;NVR / Cámaras / CMS;WDR/Exposición mal configurada;Contraluz;Config;Ajustar perfiles día/noche;Captura;Baja;Baja;Correctivo
+NVD-508;Software / Configuración;NVR / Cámaras / CMS;Detección de movimiento mal calibrada;Falsos eventos;Sensibilidad alta;Ajustar máscaras;Captura reglas;Baja;Baja;Preventivo
+NVD-509;Software / Configuración;NVR / Cámaras / CMS;Alarma de pérdida de video deshabilitada;No notifica fallas;Config;Habilitar alarmas;Captura;Baja;Baja;Preventivo
+NVD-510;Software / Configuración;NVR / Cámaras / CMS;Perfiles día/noche invertidos;Noche blanco o negro;IR-cut;Ajustar modo;Captura;Parcial;Baja;Correctivo
+NVD-511;Software / Configuración;NVR / Cámaras / CMS;Logs llenos;Rendimiento bajo;Sin rotación;Limpiar/rotar logs;Captura;Baja;Baja;Preventivo
+NVD-512;Software / Configuración;NVR / Cámaras / CMS;Idioma/plantilla incorrecta;Operación confusa;Config;Restaurar template;Captura;Baja;Baja;Correctivo
+NVD-513;Software / Configuración;NVR / Cámaras / CMS;NVR no acepta configuración remota;Timeout;Permisos, firewall;"Validar roles; puertos";Error;Parcial;Baja;Correctivo
+NVD-514;Software / Configuración;NVR / Cámaras / CMS;Sin sincronización de usuarios;Usuarios no aparecen;Integración;Revisar sync;Captura;Baja;Baja;Correctivo
+NVD-515;Software / Configuración;NVR / Cámaras / CMS;Política de privacidad/retención no cumple;Retención distinta;Config;Ajustar retención;Captura;Riesgo;Media;Correctivo
+NVD-516;Software / Configuración;NVR / Cámaras / CMS;Watermark deshabilitado (si aplica);Evidencia sin sello;Config;Habilitar;Captura export;Riesgo;Media;Correctivo
+NVD-517;Software / Configuración;NVR / Cámaras / CMS;Sistema de archivos en modo solo lectura;No graba;Disco dañado;"Revisar storage; reemplazo";Log;Total;Alta;Correctivo
+NVD-518;Software / Configuración;NVR / Cámaras / CMS;Perfil de substream no configurado;Remoto pesado;Config;Crear substream;Captura;Parcial;Baja;Preventivo
+NVD-600;Físico / Seguridad;Instalación;Gabinete abierto / sello roto;"Tornillos faltantes; precinto roto";Manipulación;"Asegurar; registrar; inspección interna";Fotos múltiples;Riesgo;Alta;Correctivo
+NVD-601;Físico / Seguridad;Instalación;Evidencia de vandalismo en cámara;Cámara girada o tapada;Vandalismo;"Reorientar; cambiar domo; reporte";Foto + captura;Parcial;Alta;Correctivo
+NVD-602;Físico / Seguridad;Instalación;Domo roto / carcasa fracturada;"Imagen con velos; daño visible";Impacto;Reemplazo domo/cámara;Foto;Parcial;Media;Correctivo
+NVD-603;Físico / Seguridad;Instalación;Ingreso de agua en gabinete;Humedad/corrosión;Sellos, ubicación;"Secado; limpieza; revisar sellos";Foto;Riesgo;Crítica;Correctivo
+NVD-604;Físico / Seguridad;Instalación;Corrosión en conectores;Intermitencia;Humedad;"Limpieza; reemplazo";Foto macro;Intermitente;Media;Correctivo
+NVD-605;Físico / Seguridad;Instalación;Olor a quemado / componente chamuscado;Humo/olor;Corto, sobrevoltaje;"Desenergizar; aislamiento; reemplazo";Foto;Riesgo;Crítica;Correctivo
+NVD-606;Físico / Seguridad;Instalación;Montaje flojo del NVR;Golpes/vibración;Tornillería;"Ajustar; fijación antivibración";Foto;Riesgo;Media;Correctivo
+NVD-607;Físico / Seguridad;Instalación;Soporte de cámara flojo;Vibración;Tornillos;Ajustar;Foto;Baja;Baja;Correctivo
+NVD-608;Físico / Seguridad;Instalación;Cable expuesto al usuario;Riesgo manipulación;Canaleta rota;Asegurar canaleta;Foto;Riesgo;Media;Correctivo
+NVD-609;Físico / Seguridad;Instalación;Etiquetas/serial ilegibles;No identifica equipo;Desgaste;Re-etiquetar;Foto;Baja;Baja;Preventivo
+NVD-610;Físico / Seguridad;Instalación;Polvo excesivo sucio;"Calor; fallas";Falta limpieza;Limpieza programada;Foto;Riesgo;Baja;Preventivo
+NVD-611;Físico / Seguridad;Instalación;Ventana/lente sucia por operación;Borroso;Suciedad;Limpieza;Captura antes/después;Baja;Baja;Preventivo
+NVD-612;Físico / Seguridad;Instalación;Daño por químicos (limpiadores);Domo opaco;Uso de químicos agresivos;"Reemplazo domo; capacitación";Foto;Baja;Baja;Correctivo
+NVD-613;Físico / Seguridad;Instalación;Insectos dentro de cámara;Manchas móviles/sombras;Sello deficiente;"Limpieza; sellado";Captura;Baja;Baja;Correctivo
+NVD-614;Físico / Seguridad;Instalación;Condensación recurrente post-lavado;Empañamiento;Procedimiento lavado;"Revisar sellos; protocolo";Registro;Baja;Baja;Preventivo
+NVD-615;Físico / Seguridad;Instalación;Robo de componente;Faltante;Hurto;"Reporte seguridad; reposición";Foto faltante;Total/Parcial;Crítica;Correctivo
+NVD-700;Centro de Gestión (CMS);CMS / Servidores;CMS sin acceso (caído);Usuarios no ingresan;Servidor caído, red;"Validar alcance; escalar TI";Captura error + hora;Total;Crítica;Correctivo
+NVD-701;Centro de Gestión (CMS);CMS / Servidores;CMS lento;Carga demorada;Alta demanda, BD;"Revisar métricas; ventanas";Hora + pantallazo;Parcial;Media;Correctivo
+NVD-702;Centro de Gestión (CMS);CMS / Servidores;Bus duplicado en CMS;Dos activos para mismo bus;Alta errónea;"Validar inventario; unificar";Captura activos;Parcial;Baja;Correctivo
+NVD-703;Centro de Gestión (CMS);CMS / Servidores;Cámaras mal asociadas;Canal 1 muestra otra vista;Mapeo incorrecto;Revisar plantilla canales;Captura canal vs ubicación;Parcial;Media;Correctivo
+NVD-704;Centro de Gestión (CMS);CMS / Servidores;Sin permisos de usuario;No ve buses/cámaras;Rol mal asignado;Ajustar roles;Captura rol;Baja;Baja;Correctivo
+NVD-705;Centro de Gestión (CMS);CMS / Servidores;Alarmas masivas falsas;Muchos 'video loss';Flapping, config;"Revisar energía/red; umbrales";Export eventos;Parcial;Media;Correctivo
+NVD-706;Centro de Gestión (CMS);CMS / Servidores;No llega notificación de alarma;Eventos no alertan;Correo/SMS, config;"Probar canal; revisar config";Evidencia prueba;Baja;Baja;Correctivo
+NVD-707;Centro de Gestión (CMS);CMS / Servidores;Falla de exportación desde CMS;Descarga no inicia;Permisos, storage;"Probar otro navegador; revisar logs";Error;Parcial;Media;Correctivo
+NVD-708;Centro de Gestión (CMS);CMS / Servidores;Marca de agua ausente en export;Evidencia cuestionable;Config;Habilitar watermark;Archivo export;Riesgo;Media;Correctivo
+NVD-709;Centro de Gestión (CMS);CMS / Servidores;Desfase hora CMS vs NVR;Eventos no coinciden;Zona horaria;"Alinear TZ; NTP";Capturas comparativas;Parcial;Baja;Correctivo
+NVD-710;Centro de Gestión (CMS);CMS / Servidores;No se muestran mapas;Mapa en blanco;API mapas, llave;Escalar TI;Captura;Parcial;Baja;Correctivo
+NVD-711;Centro de Gestión (CMS);CMS / Servidores;Integración GPS caída;Buses sin ruta;Servicio GPS;Ver estado servicio;Captura;Parcial;Media;Correctivo
+NVD-712;Centro de Gestión (CMS);CMS / Servidores;Integración telemetría caída;Sin sensores;Servicio;Escalar;Captura;Parcial;Media;Correctivo
+NVD-713;Centro de Gestión (CMS);CMS / Servidores;Licencias CMS agotadas;No deja registrar;Licenciamiento;Revisar licencias;Captura;Riesgo;Media;Correctivo
+NVD-714;Centro de Gestión (CMS);CMS / Servidores;Registro de auditoría incompleto;No hay trazabilidad;Logs;Habilitar audit logs;Captura;Riesgo;Media;Preventivo
+NVD-800;Periféricos / Sensores;IO / Sensores;Botón de pánico no funciona (si aplica);No genera evento;Cableado, entrada digital;"Probar continuidad; revisar reglas";Captura evento + foto botón;Riesgo;Alta;Correctivo
+NVD-801;Periféricos / Sensores;IO / Sensores;Botón de pánico genera falsos;Eventos sin pulsación;Rebote, humedad;"Revisar contacto; debounce";Registro eventos;Riesgo;Media;Correctivo
+NVD-802;Periféricos / Sensores;IO / Sensores;Micrófono no funciona;Sin audio;Mic dañado, entrada;"Probar mic; revisar config";Prueba audio;Baja;Baja;Correctivo
+NVD-803;Periféricos / Sensores;IO / Sensores;Altavoz/PA no funciona (si aplica);No se oye;Amplificador, cable;"Prueba; revisar energía";Video prueba;Baja;Baja;Correctivo
+NVD-804;Periféricos / Sensores;IO / Sensores;Pantalla/monitor de cabina sin señal;Negro;Cable HDMI, monitor;"Revisar cable; probar monitor";Foto;Baja;Baja;Correctivo
+NVD-805;Periféricos / Sensores;IO / Sensores;Monitor muestra canales erróneos;No coincide;Config;Reconfig layout;Foto;Baja;Baja;Correctivo
+NVD-806;Periféricos / Sensores;IO / Sensores;UPS/Batería backup no sostiene (si aplica);Se apaga al cortar;Batería degradada;Prueba corte controlado;Resultado prueba;Riesgo;Media;Correctivo
+NVD-807;Periféricos / Sensores;IO / Sensores;Sensor de puerta no reporta (si aplica);Sin eventos;Cableado, regla;Probar entrada digital;Captura;Baja;Baja;Correctivo
+NVD-809;Periféricos / Sensores;IO / Sensores;Cámara cabina no cubre conductor;Ángulo;Montaje;Reorientar;Captura;Baja;Baja;Correctivo
+NVD-810;Periféricos / Sensores;IO / Sensores;Sirena/alarma audible no suena (si aplica);No activa;Salida digital;Probar salida;Video prueba;Baja;Baja;Correctivo
+NVD-811;Periféricos / Sensores;IO / Sensores;Puerto USB dañado;No reconoce;Uso indebido;"Probar otro puerto; reemplazo";Foto;Baja;Baja;Correctivo
+NVD-812;Periféricos / Sensores;IO / Sensores;SD para evidencias no lee;No exporta;SD dañada;Probar otra SD;Foto;Baja;Baja;Correctivo
+NVD-813;Periféricos / Sensores;IO / Sensores;Intercomunicador no funciona (si aplica);Sin comunicación;Equipo/cable;Prueba;Video;Baja;Baja;Correctivo
+NVD-814;Periféricos / Sensores;IO / Sensores;Lector de eventos CAN no reporta (si aplica);Sin telemetría motor;Conexión CAN;"Revisar conexión; servicio";Captura;Parcial;Media;Correctivo
+NVD-815;Periféricos / Sensores;IO / Sensores;Sensor de impacto no reporta;Sin eventos;Config;Revisar reglas;Captura;Baja;Baja;Correctivo

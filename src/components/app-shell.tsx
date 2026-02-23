@@ -10,7 +10,18 @@ import { ScrollToTop } from "@/components/ui/scroll-to-top";
 import { SidebarProvider } from "@/contexts/sidebar-context";
 import type { SidebarIconKey } from "@/components/layout/Sidebar";
 
-type NavItem = { label: string; href: string; icon: SidebarIconKey; roles?: Role[]; capabilities?: string[] };
+type NavSection = "main" | "reports" | "admin";
+type NavItem = {
+  label: string;
+  href: string;
+  icon: SidebarIconKey;
+  section: NavSection;
+  color?: string;
+  subtitle?: string;
+  badge?: number;
+  roles?: Role[];
+  capabilities?: string[];
+};
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -25,19 +36,108 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const role = session?.user?.role as Role | undefined;
   const capabilities = ((session?.user as any)?.capabilities as string[]) ?? [];
   const userName = ((session?.user as any)?.name as string | undefined) ?? "Usuario";
+  const roleLabelMap: Partial<Record<Role, string>> = {
+    ADMIN: "Administración",
+    BACKOFFICE: "Backoffice",
+    TECHNICIAN: "Técnico",
+    PLANNER: "Planner",
+    SUPERVISOR: "Supervisor",
+    HELPDESK: "Helpdesk",
+  };
+  const roleLabel = role ? roleLabelMap[role] ?? String(role) : "Usuario";
 
   const navItems: NavItem[] = [
-    { label: "Resumen", href: "/", icon: "grid" },
-    { label: "Casos", href: "/cases", icon: "case", roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR] },
-    { label: "Buses", href: "/buses", icon: "bus", roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR] },
-    { label: "Videos", href: "/video-requests", icon: "video", roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR] },
-    { label: "Planner", href: "/planner", icon: "planner", capabilities: ["PLANNER"] },
-    { label: "OTs", href: "/work-orders", icon: "work", roles: [Role.TECHNICIAN] },
-    { label: "Turnos", href: "/technicians/shifts", icon: "clock", roles: [Role.ADMIN, Role.BACKOFFICE] },
-    { label: "STS", href: "/sts", icon: "sts", capabilities: ["STS_READ", "STS_ADMIN", "STS_WRITE"] },
-    { label: "TM", href: "/tm", icon: "tm", capabilities: ["TM_READ"] },
-    { label: "Admin", href: "/admin", icon: "settings", roles: [Role.ADMIN] },
-    { label: "Perfil", href: "/profile", icon: "user" },
+    { label: "Inicio", href: "/", icon: "home", section: "main", color: "var(--color-primary)" },
+    {
+      label: "Casos",
+      href: "/cases",
+      icon: "case",
+      section: "main",
+      color: "var(--color-sts)",
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+    },
+    {
+      label: "Novedades",
+      href: "/novedades",
+      icon: "case",
+      section: "main",
+      color: "var(--color-backoffice)",
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER],
+    },
+    {
+      label: "Buses",
+      href: "/buses",
+      icon: "bus",
+      section: "main",
+      color: "var(--color-planner)",
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+    },
+    {
+      label: "Videos",
+      href: "/video-requests",
+      icon: "video",
+      section: "main",
+      color: "var(--color-videos)",
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+    },
+    {
+      label: "Planner",
+      href: "/planner",
+      icon: "planner",
+      section: "main",
+      color: "var(--color-planner)",
+      subtitle: "Planeación semanal",
+      capabilities: ["PLANNER"],
+    },
+    {
+      label: "OTs",
+      href: "/work-orders",
+      icon: "work",
+      section: "main",
+      color: "var(--color-tecnico)",
+      roles: [Role.TECHNICIAN],
+    },
+    {
+      label: "Turnos",
+      href: "/technicians/shifts",
+      icon: "clock",
+      section: "main",
+      color: "var(--color-tm)",
+      roles: [Role.ADMIN, Role.BACKOFFICE],
+    },
+    {
+      label: "STS",
+      href: "/sts",
+      icon: "sts",
+      section: "reports",
+      color: "var(--color-sts)",
+      capabilities: ["STS_READ", "STS_ADMIN", "STS_WRITE"],
+    },
+    {
+      label: "TM",
+      href: "/tm",
+      icon: "tm",
+      section: "reports",
+      color: "var(--color-tm)",
+      capabilities: ["TM_READ"],
+    },
+    {
+      label: "Administración",
+      href: "/admin",
+      icon: "settings",
+      section: "admin",
+      color: "var(--color-admin)",
+      roles: [Role.ADMIN],
+    },
+    {
+      label: "Admin",
+      href: "/admin/users",
+      icon: "admin",
+      section: "admin",
+      color: "var(--color-admin)",
+      roles: [Role.ADMIN],
+    },
+    { label: "Perfil", href: "/profile", icon: "user", section: "admin", color: "var(--color-admin)" },
   ];
 
   const filteredNav = navItems.filter((item) => {
@@ -97,14 +197,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>
       ) : (
         <SidebarProvider>
-          <div className="app-layout__body flex h-screen flex-col overflow-hidden lg:flex-row">
-            <Sidebar navItems={filteredNav} userName={userName} />
+          <div className="app-layout__body flex min-h-[100dvh] h-[100dvh] flex-col overflow-hidden lg:h-screen lg:flex-row">
+            <Sidebar navItems={filteredNav} userName={userName} userRoleLabel={roleLabel} />
 
             <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-              <TopBar userName={userName} navItems={filteredNav} />
+              <TopBar userName={userName} userRoleLabel={roleLabel} navItems={filteredNav} />
 
-              <main className="main-scroll flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-[1600px] px-4 py-5 md:px-6 md:py-6 app-main">
+              <main className="main-scroll flex-1 overflow-x-hidden overflow-y-auto">
+                <div className="app-main mx-auto max-w-[1600px] px-4 py-6 md:px-6 lg:px-8">
                   <RouteTransition>{children}</RouteTransition>
                 </div>
               </main>

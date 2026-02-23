@@ -32,6 +32,20 @@ function formatInternalTime(d?: Date | null) {
   }).format(d);
 }
 
+function extractLatestQuickVerification(events: Array<{ meta: unknown }>) {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const quick = (events[i].meta as any)?.quickVerification;
+    if (!quick || typeof quick !== "object") continue;
+    const result = String(quick.result ?? "").trim().toUpperCase();
+    if (!["CONFIRMADA", "DESCARTADA", "REQUIERE_REVISION"].includes(result)) continue;
+    return {
+      result: result as "CONFIRMADA" | "DESCARTADA" | "REQUIERE_REVISION",
+      notes: String(quick.notes ?? "").trim(),
+    };
+  }
+  return null;
+}
+
 
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
@@ -70,9 +84,9 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           bus: true,
           caseEquipments: true,
           events: {
-            where: { type: CaseEventType.CREATED },
             orderBy: { createdAt: "asc" },
-            take: 1,
+            select: { type: true, meta: true, createdAt: true },
+            take: 200,
           },
         },
       },
@@ -89,10 +103,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const cfg = CASE_TYPE_REGISTRY[wo.case.type];
+  const latestQuickVerification =
+    wo.case.type === CaseType.CORRECTIVO
+      ? extractLatestQuickVerification(wo.case.events ?? [])
+      : null;
+  const quickSolvedInPreCheck = latestQuickVerification?.result === "CONFIRMADA";
 
   // Validación de formularios requeridos para finalizar
   if (cfg?.finishRequiresForm) {
-    if (cfg.formKind === "CORRECTIVE" && !wo.correctiveReport) {
+    if (cfg.formKind === "CORRECTIVE" && !wo.correctiveReport && !quickSolvedInPreCheck) {
       return NextResponse.json({ error: "Debes completar el Formato Correctivo antes de finalizar." }, { status: 400 });
     }
     if (cfg.formKind === "PREVENTIVE" && !wo.preventiveReport) {
@@ -143,8 +162,10 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const tmStartedAt = new Date(tmEndedAt.getTime() - tmMinutes * 60 * 1000);
   const pendingValidationStatus = "EN_VALIDACION" as any;
   const needsCoordinatorValidation =
-    wo.case.type === CaseType.CORRECTIVO || wo.case.type === CaseType.PREVENTIVO;
-  const createdMeta = (wo.case.events?.[0]?.meta ?? null) as Record<string, any> | null;
+    (wo.case.type === CaseType.CORRECTIVO && !quickSolvedInPreCheck) ||
+    wo.case.type === CaseType.PREVENTIVO;
+  const createdEvent = wo.case.events.find((event) => event.type === CaseEventType.CREATED) ?? null;
+  const createdMeta = (createdEvent?.meta ?? null) as Record<string, any> | null;
   const splitGroupKey = typeof createdMeta?.splitGroupKey === "string" ? createdMeta.splitGroupKey : null;
 
   await prisma.$transaction(async (tx) => {
@@ -428,6 +449,9 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         });
       }
     }
+  }, {
+    maxWait: 10_000,
+    timeout: 30_000,
   });
 
   await notifyTenantUsers({

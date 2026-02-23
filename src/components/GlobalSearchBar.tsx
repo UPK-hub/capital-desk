@@ -64,7 +64,7 @@ export default function GlobalSearchBar() {
   const hasResults = items.length > 0;
   const showPanel = open && (hasResults || loading || error);
 
-  const placeholder = useMemo(() => "Buscar casos, buses, OTs, STS, usuarios…", []);
+  const placeholder = useMemo(() => "Buscar caso, bus, video...", []);
 
   function handleSelect(item: SearchItem) {
     setOpen(false);

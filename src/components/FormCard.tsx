@@ -10,16 +10,16 @@ type Props = {
 export function FormCard({ title, description, footer, children }: Props) {
   return (
     <section className="sts-card">
-      <div className="border-b border-[var(--border-subtle)] bg-muted/30 p-5">
+      <div className="border-b border-border/60 bg-white p-6">
         <div className="space-y-1">
-          <h2 className="text-base font-semibold">{title}</h2>
-          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+          <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
+          {description ? <p className="text-sm text-slate-600">{description}</p> : null}
         </div>
       </div>
 
-      <div className="space-y-4 p-5">{children}</div>
+      <div className="space-y-5 p-6">{children}</div>
 
-      {footer ? <div className="border-t border-[var(--border-subtle)] bg-muted/20 p-5">{footer}</div> : null}
+      {footer ? <div className="border-t border-border/55 bg-slate-50/55 p-6">{footer}</div> : null}
     </section>
   );
 }

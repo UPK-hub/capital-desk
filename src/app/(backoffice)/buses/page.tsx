@@ -25,72 +25,77 @@ export default function BusesPage() {
       const data = res.ok ? ((await res.json()) as BusRow[]) : [];
       setItems(data);
       setLoading(false);
-    }, 250);
+    }, 280);
     return () => clearTimeout(t);
   }, [q]);
 
   return (
-    <div className="mobile-page-shell">
-      <header className="mobile-page-header">
-        <div className="mx-auto w-full max-w-6xl px-4 py-4 lg:px-6 lg:py-0">
-          <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Buses</h1>
-          <p className="mt-1 text-xs text-muted-foreground lg:text-sm">
-            Consulta por código/placa y abre la hoja de vida con su contexto operativo.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-5xl font-semibold tracking-tight text-slate-900">Buses</h1>
+        <p className="text-lg text-slate-600">
+          Consulta por código/placa y abre la hoja de vida con su contexto operativo.
+        </p>
       </header>
 
-      <div className="mobile-page-content max-w-6xl lg:px-6">
-        <div className="mobile-section-card mobile-section-card__body space-y-3">
-          <Input placeholder="Buscar por código o placa…" value={q} onChange={(e) => setQ(e.target.value)} />
-          {loading ? <p className="text-sm text-muted-foreground">Buscando…</p> : null}
+      <section className="sts-card p-4">
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <Input
+            placeholder="Buscar por código o placa..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-12 flex-1"
+          />
+          <button type="button" className="sts-btn-primary h-12 min-w-[150px] px-6 text-lg">
+            Buscar
+          </button>
         </div>
+        {loading ? <p className="mt-2 text-sm text-muted-foreground">Buscando...</p> : null}
+      </section>
 
-        {items.length === 0 ? (
-          <div className="mobile-section-card mobile-section-card__body text-sm text-muted-foreground">Sin resultados.</div>
-        ) : (
-          <div className="mobile-list-stack">
-            {items.map((b) => (
-              <article key={b.id} className="mobile-section-card mobile-section-card__body">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start gap-3">
-                      <div className="min-w-0">
-                        <p className="text-base font-semibold lg:text-lg">{b.code}</p>
-                        <p className="text-xs text-muted-foreground lg:text-sm">{b.plate ?? "Sin placa"}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-3 gap-2 lg:max-w-xl">
-                      <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Equipos</p>
-                        <p className="text-sm font-semibold">{b.equipmentCount}</p>
-                      </div>
-                      <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Casos</p>
-                        <p className="text-sm font-semibold">{b.caseCount}</p>
-                      </div>
-                      <div className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">OT</p>
-                        <p className="text-sm font-semibold">{b.otCount}</p>
-                      </div>
-                    </div>
+      {items.length === 0 ? (
+        <section className="sts-card p-6 text-sm text-muted-foreground">Sin resultados.</section>
+      ) : (
+        <section className="space-y-4">
+          {items.map((b) => (
+            <article key={b.id} className="sts-card p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-3xl font-bold leading-none text-slate-900">{b.code}</p>
+                    <p className="text-lg text-slate-500">{b.plate ?? "Sin placa"}</p>
                   </div>
+                  <p className="mt-1 text-base text-slate-600">{b.plate ?? "Sin placa registrada"}</p>
 
-                  <div className="w-full lg:w-auto">
-                    <Link
-                      className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center px-4 text-sm lg:h-11 lg:min-w-[180px]"
-                      href={`/buses/${b.id}`}
-                    >
-                      Ver hoja de vida
-                    </Link>
+                  <div className="mt-4 grid max-w-2xl grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-blue-100 bg-blue-50/75 p-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Equipos</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{b.equipmentCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Casos</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{b.caseCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">OT</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{b.otCount}</p>
+                    </div>
                   </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
+
+                <div className="w-full lg:w-auto">
+                  <Link
+                    className="sts-btn-ghost inline-flex h-12 w-full min-w-[200px] items-center justify-center px-6 text-base"
+                    href={`/buses/${b.id}`}
+                  >
+                    Ver hoja de vida
+                  </Link>
+                </div>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

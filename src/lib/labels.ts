@@ -26,7 +26,7 @@ export const workOrderStatusLabels: Record<string, string> = {
   CREADA: "Creada",
   ASIGNADA: "Asignada",
   EN_CAMPO: "En campo",
-  EN_VALIDACION: "En validacion",
+  EN_VALIDACION: "Por validar coordinador",
   FINALIZADA: "Finalizada",
 };
 

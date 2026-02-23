@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
+import { SmoothScrollProvider } from "@/components/animations/SmoothScrollProvider";
 import { Manrope, Sora } from "next/font/google";
 
 const manrope = Manrope({
@@ -24,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={`${manrope.variable} ${sora.variable}`}>
-        <AppShell>{children}</AppShell>
+        <SmoothScrollProvider>
+          <AppShell>{children}</AppShell>
+        </SmoothScrollProvider>
       </body>
     </html>
   );

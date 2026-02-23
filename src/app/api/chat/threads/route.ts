@@ -38,10 +38,12 @@ export async function GET(_req: NextRequest) {
           createdAt: lastReadAt ? { gt: lastReadAt } : undefined,
         },
       });
+      const peer = thread.participants.find((p) => p.userId !== userId)?.user ?? null;
 
       return {
         id: thread.id,
         participants: thread.participants.map((p) => p.user),
+        peer,
         lastMessage: lastMessage
           ? {
               id: lastMessage.id,

@@ -57,6 +57,21 @@ export default function FloatingMessenger({
     Promise.all([loadThreads(), loadContacts()]).finally(() => setLoading(false));
   }, [open]);
 
+  useEffect(() => {
+    function onOpenExternal(event: Event) {
+      const detail = (event as CustomEvent<{ threadId?: string }>).detail;
+      setOpen(true);
+      if (detail?.threadId) {
+        setActiveThreadId(detail.threadId);
+      }
+    }
+
+    window.addEventListener("capitaldesk:open-chat", onOpenExternal as EventListener);
+    return () => {
+      window.removeEventListener("capitaldesk:open-chat", onOpenExternal as EventListener);
+    };
+  }, []);
+
   const totalUnread = useMemo(
     () => threads.reduce((acc, t) => acc + (t.unreadCount ?? 0), 0),
     [threads],

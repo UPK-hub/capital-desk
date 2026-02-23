@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import * as React from "react";
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
+import { motion } from "framer-motion";
 
 export interface ModuleCardProps {
   title: string;
@@ -11,6 +15,64 @@ export interface ModuleCardProps {
     href: string;
   };
   variant?: "default" | "featured";
+  tone?: "backoffice" | "tecnico" | "videos" | "planner" | "sts" | "tm" | "admin";
+  count?: number;
+  subtitle?: string;
+}
+
+function toneStyles(tone: NonNullable<ModuleCardProps["tone"]>) {
+  switch (tone) {
+    case "backoffice":
+      return {
+        iconBg: "bg-red-100",
+        iconColor: "text-red-500",
+        panelBg: "bg-red-50/40",
+        button: "from-[#2f5bc9] to-[#2fa4f4]",
+      };
+    case "tecnico":
+      return {
+        iconBg: "bg-violet-100",
+        iconColor: "text-violet-600",
+        panelBg: "bg-violet-50/50",
+        button: "from-[#5963d5] to-[#6f7cf6]",
+      };
+    case "videos":
+      return {
+        iconBg: "bg-purple-100",
+        iconColor: "text-purple-600",
+        panelBg: "bg-purple-50/50",
+        button: "from-[#5963d5] to-[#6f7cf6]",
+      };
+    case "planner":
+      return {
+        iconBg: "bg-cyan-100",
+        iconColor: "text-cyan-600",
+        panelBg: "bg-cyan-50/50",
+        button: "from-[#1da4c8] to-[#33c5da]",
+      };
+    case "sts":
+      return {
+        iconBg: "bg-orange-100",
+        iconColor: "text-orange-500",
+        panelBg: "bg-orange-50/40",
+        button: "from-[#f18b5d] to-[#f3a15d]",
+      };
+    case "tm":
+      return {
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+        panelBg: "bg-blue-50/45",
+        button: "from-[#2f5bc9] to-[#2f8ce8]",
+      };
+    case "admin":
+    default:
+      return {
+        iconBg: "bg-indigo-100",
+        iconColor: "text-indigo-600",
+        panelBg: "bg-indigo-50/45",
+        button: "from-[#5963d5] to-[#6f7cf6]",
+      };
+  }
 }
 
 export function ModuleCard({
@@ -19,40 +81,62 @@ export function ModuleCard({
   icon,
   action,
   variant = "default",
+  tone = "admin",
+  count,
+  subtitle,
 }: ModuleCardProps) {
-  const isFeatured = variant === "featured";
+  const styles = toneStyles(tone);
+  const featured = variant === "featured";
+  const isTm = tone === "tm";
 
   return (
-    <Link
-      href={action.href}
+    <motion.article
       className={[
-        "group relative block h-full overflow-hidden rounded-[var(--radius-lg)] border border-border/50 bg-card p-6",
-        "shadow-[var(--shadow-sm)] transition-all duration-200 ease-out",
-        "hover:-translate-y-1 hover:border-primary/30 hover:shadow-[var(--shadow-lg)] hover:ring-1 hover:ring-primary/10",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-        isFeatured ? "border-primary/20 ring-1 ring-primary/10" : "",
+        "group relative h-full overflow-hidden rounded-2xl border border-border/60 p-6",
+        "bg-white shadow-[var(--shadow-card)] transition-all duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]",
+        styles.panelBg,
+        featured ? "ring-1 ring-primary/15" : "",
       ].join(" ")}
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-      />
-
-      <div className="relative z-[1] flex h-full flex-col gap-4">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-all duration-200 group-hover:scale-110 group-hover:bg-primary/15">
-          {icon}
+      <div className="relative z-[1] flex h-full flex-col">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${styles.iconBg} ${styles.iconColor}`}>
+            {isTm ? (
+              <Image
+                src="/resources/TM_Logo.png"
+                alt="TM"
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
+              />
+            ) : (
+              icon
+            )}
+          </div>
+          {typeof count === "number" ? (
+            <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-white">{count}</span>
+          ) : null}
         </div>
 
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">{title}</h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
-        </div>
+        <h3 className="text-[1.9rem] font-bold leading-tight text-slate-900">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-slate-700">{description}</p>
+        {subtitle ? <p className="mt-1 text-sm font-semibold text-slate-700">{subtitle}</p> : null}
 
-        <div className="mt-auto inline-flex items-center gap-2 text-sm font-medium text-primary transition-[gap] duration-200 group-hover:gap-3">
-          <span>{action.label}</span>
-          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+        <div className="mt-5 border-t border-border/55 pt-3">
+          <motion.div whileTap={{ scale: 0.98 }}>
+            <Link
+              href={action.href}
+              className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${styles.button} text-base font-semibold text-white shadow-sm transition-all duration-200 hover:brightness-105`}
+            >
+              {action.label}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
         </div>
       </div>
-    </Link>
+    </motion.article>
   );
 }

@@ -35,18 +35,10 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
   const role = (session.user as any).role as Role;
-  if (![Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR].includes(role)) {
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.SUPERVISOR) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
-  let closeCaseAndTicket = true;
-  try {
-    const body = await _.json();
-    if (typeof body?.closeCaseAndTicket === "boolean") {
-      closeCaseAndTicket = body.closeCaseAndTicket;
-    }
-  } catch {
-    // Sin body: mantiene comportamiento por defecto (cerrar caso + ticket)
-  }
+  const closeCaseAndTicket = true;
 
   const pendingValidationStatus = "EN_VALIDACION" as any;
   const wo = await prisma.workOrder.findFirst({
@@ -255,6 +247,9 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
         }
       }
     }
+  }, {
+    maxWait: 10_000,
+    timeout: 30_000,
   });
 
   return NextResponse.json({ ok: true });

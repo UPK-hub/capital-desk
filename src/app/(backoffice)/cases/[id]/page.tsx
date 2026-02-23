@@ -8,27 +8,11 @@ import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels }
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
+import NovedadTraceCard from "./ui/NovedadTraceCard";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { TypeBadge } from "@/components/ui/TypeBadge";
 import { CheckCircle2, FileText } from "lucide-react";
-
-function badgeClass(kind: "status" | "type" | "priority", value: string | number) {
-  const base = "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium";
-  if (kind === "status") {
-    const v = String(value);
-    if (v === "NUEVO") return `${base} bg-blue-50 text-blue-700 border-blue-200`;
-    if (v === "OT_ASIGNADA") return `${base} bg-amber-50 text-amber-800 border-amber-200`;
-    if (v === "EN_EJECUCION") return `${base} bg-purple-50 text-purple-800 border-purple-200`;
-    if (v === "RESUELTO") return `${base} bg-green-50 text-green-700 border-green-200`;
-    if (v === "CERRADO") return `${base} bg-zinc-50 text-zinc-700 border-zinc-200`;
-    return `${base} bg-zinc-50 text-zinc-700 border-zinc-200`;
-  }
-  if (kind === "priority") {
-    const p = Number(value);
-    if (p <= 2) return `${base} bg-red-50 text-red-700 border-red-200`;
-    if (p === 3) return `${base} bg-amber-50 text-amber-800 border-amber-200`;
-    return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`;
-  }
-  return `${base} bg-zinc-50 text-zinc-700 border-zinc-200`;
-}
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -44,6 +28,13 @@ function fmtWoNo(n?: number | null) {
   return `OT-${String(n).padStart(3, "0")}`;
 }
 
+function mapCaseStatusForPill(status: string) {
+  if (status === "NUEVO") return "nuevo" as const;
+  if (status === "OT_ASIGNADA" || status === "EN_EJECUCION") return "en_ejecucion" as const;
+  if (status === "RESUELTO" || status === "CERRADO") return "completado" as const;
+  return "nuevo" as const;
+}
+
 const CASE_EVENT_LABELS: Record<CaseEventType, string> = {
   CREATED: "Caso creado",
   ASSIGNED: "Asignacion",
@@ -53,6 +44,54 @@ const CASE_EVENT_LABELS: Record<CaseEventType, string> = {
 };
 
 const DAYS_21_MS = 21 * 24 * 60 * 60 * 1000;
+
+type NovedadStateSnapshot = {
+  batchRef: string | null;
+  catalogCode: string;
+  affectedEquipment: string;
+  reportedNovelty: string;
+  affectation: string;
+  observations: string;
+  evidencePath: string | null;
+  evidenceName: string | null;
+};
+
+function getNovedadStateSnapshot(c: {
+  type: CaseType;
+  title: string;
+  description: string;
+  events: Array<{ meta: unknown }>;
+}): NovedadStateSnapshot | null {
+  for (let i = c.events.length - 1; i >= 0; i -= 1) {
+    const meta = (c.events[i].meta ?? {}) as any;
+    const state = meta?.noveltyState;
+    if (state && typeof state === "object") {
+      return {
+        batchRef: state.batchRef ? String(state.batchRef) : null,
+        catalogCode: String(state.catalogCode ?? ""),
+        affectedEquipment: String(state.affectedEquipment ?? ""),
+        reportedNovelty: String(state.reportedNovelty ?? ""),
+        affectation: String(state.affectation ?? state.reportedDescription ?? ""),
+        observations: String(state.observations ?? ""),
+        evidencePath: state?.evidence?.filePath ? String(state.evidence.filePath) : null,
+        evidenceName: state?.evidence?.fileName ? String(state.evidence.fileName) : null,
+      };
+    }
+  }
+
+  const titleParts = c.title.split(" - ");
+  const fallbackReportedNovelty = titleParts.length > 1 ? titleParts.slice(1).join(" - ").trim() : c.title;
+  return {
+    batchRef: null,
+    catalogCode: "",
+    affectedEquipment: "",
+    reportedNovelty: fallbackReportedNovelty,
+    affectation: c.description,
+    observations: "",
+    evidencePath: null,
+    evidenceName: null,
+  };
+}
 
 type PageProps = { params: { id: string }; searchParams?: { debug?: string } };
 
@@ -72,7 +111,12 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   }
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.PLANNER) {
+  if (
+    role !== Role.ADMIN &&
+    role !== Role.BACKOFFICE &&
+    role !== Role.PLANNER &&
+    role !== Role.SUPERVISOR
+  ) {
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="sts-card p-4">
@@ -226,6 +270,36 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const caps = (session.user as any).capabilities as string[] | undefined;
   const canAssign =
     role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("CASE_ASSIGN"));
+  const canEditNovedad =
+    role === Role.ADMIN ||
+    role === Role.BACKOFFICE ||
+    role === Role.PLANNER ||
+    role === Role.SUPERVISOR;
+  const hasNovedadMeta = c.events.some((event) => {
+    const meta = (event.meta ?? {}) as any;
+    return Boolean(meta?.noveltyState);
+  });
+  const showNovedadCard = c.type === CaseType.NOVEDAD || hasNovedadMeta;
+  const novedadSnapshot = showNovedadCard ? getNovedadStateSnapshot(c) : null;
+  const linkedCorrectiveForNovedad =
+    showNovedadCard && c.type === CaseType.NOVEDAD
+      ? await prisma.case.findFirst({
+          where: {
+            tenantId,
+            type: CaseType.CORRECTIVO,
+            events: {
+              some: {
+                meta: { path: ["sourceCaseId"], equals: c.id },
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            workOrder: { select: { id: true } },
+          },
+        })
+      : null;
 
   const shouldShowNextPreventive =
     Boolean(c.workOrder?.finishedAt) &&
@@ -304,23 +378,28 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header sticky top-16 lg:static lg:top-auto">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
           <div className="min-w-0 space-y-2">
-            <h1 className="text-base font-semibold leading-tight break-words lg:text-3xl">{c.title}</h1>
-            <p className="text-xs leading-tight text-muted-foreground break-all lg:text-sm lg:break-normal">
+            <h1 className="break-words text-2xl font-semibold leading-tight text-slate-900 lg:text-[2.2rem]">
+              {c.title}
+            </h1>
+            <p className="truncate text-xs leading-tight text-muted-foreground lg:text-sm">
               {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className={badgeClass("type", c.type)}>{labelFromMap(c.type, caseTypeLabels)}</span>
-            <span className={badgeClass("status", c.status)}>{labelFromMap(c.status, caseStatusLabels)}</span>
-            <span className={badgeClass("priority", c.priority)}>Prioridad {c.priority}</span>
+            <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} />
+            <StatusPill
+              status={mapCaseStatusForPill(c.status)}
+              label={labelFromMap(c.status, caseStatusLabels)}
+            />
+            <PriorityBadge priority={c.priority} />
           </div>
         </div>
       </header>
 
-      <div className="mobile-page-content max-w-6xl lg:px-6">
+      <div className="mobile-page-content max-w-[1600px] lg:px-6">
         <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4 lg:space-y-6">
           <section className="sts-card overflow-hidden">
@@ -455,12 +534,24 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             <div className="hidden space-y-3 p-5 lg:block">
               {timeline.map((it, idx) => (
                 <div key={`${it.kind}-${idx}`} className="flex gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-zinc-400" />
-                  <div className="flex-1 sts-card p-4">
+                  <div
+                    className={`mt-1 inline-flex h-9 w-9 items-center justify-center rounded-xl ${
+                      it.kind === "CASE" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+                    }`}
+                  >
+                    {it.kind === "CASE" ? <FileText className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                  </div>
+                  <div className="flex-1 rounded-2xl border border-border/65 bg-white p-4 shadow-[var(--shadow-card)]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <span
+                            className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium ${
+                              it.kind === "CASE"
+                                ? "border-blue-200/90 bg-blue-50 text-blue-700"
+                                : "border-emerald-200/90 bg-emerald-50 text-emerald-700"
+                            }`}
+                          >
                             {it.kind}
                           </span>
                           <p className="text-sm font-semibold">{it.title}</p>
@@ -503,10 +594,12 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
         <div className="space-y-6">
           {isVideoCase ? (
-            <section className="sts-card p-5">
-              <h2 className="text-base font-semibold">Gestion de video</h2>
+            <section className="sts-card overflow-hidden">
+              <div className="border-b border-border/50 bg-muted/20 p-5">
+                <h2 className="text-base font-semibold">Gestión de video</h2>
+              </div>
 
-              <div className="mt-3 space-y-2">
+              <div className="space-y-2 p-5">
                 <div className="sts-card p-3">
                   <p className="text-xs text-muted-foreground">Estado solicitud</p>
                   <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.status ?? "-"}</p>
@@ -531,10 +624,12 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </section>
           ) : (
             <>
-              <section className="sts-card p-5">
-                <h2 className="text-base font-semibold">Orden de trabajo</h2>
+              <section className="sts-card overflow-hidden">
+                <div className="border-b border-border/50 bg-muted/20 p-5">
+                  <h2 className="text-xl font-semibold">Orden de trabajo</h2>
+                </div>
 
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2 p-5">
                   <div className="sts-card p-3">
                     <p className="text-xs text-muted-foreground">OT</p>
                     <p className="mt-1 text-sm font-medium">
@@ -628,7 +723,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       </Link>
                       {c.workOrder?.interventionReceipt ? (
                         <a
-                          className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
                           href={`/api/work-orders/${c.workOrder!.id}/receipt-pdf`}
                           target="_blank"
                           rel="noreferrer"
@@ -642,7 +737,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                           className={
                             isProductImprovement
                               ? "inline-flex w-full items-center justify-center sts-btn-primary text-sm"
-                              : "inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                              : "inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
                           }
                           href={`/api/work-orders/${c.workOrder!.id}/renewal-acta`}
                           target="_blank"
@@ -655,7 +750,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       c.workOrder?.status === "FINALIZADA" &&
                       c.workOrder.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE ? (
                         <a
-                          className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                          className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
                           href={`/api/work-orders/${c.workOrder!.id}/corrective-acta`}
                           target="_blank"
                           rel="noreferrer"
@@ -678,10 +773,36 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                 </div>
               </section>
 
+              {showNovedadCard && novedadSnapshot ? (
+                <NovedadTraceCard
+                  caseId={c.id}
+                  canEdit={canEditNovedad}
+                  batchRef={novedadSnapshot.batchRef}
+                  initialPriority={c.priority}
+                  catalogCode={novedadSnapshot.catalogCode}
+                  affectedEquipment={novedadSnapshot.affectedEquipment}
+                  reportedNovelty={novedadSnapshot.reportedNovelty}
+                  affectation={novedadSnapshot.affectation}
+                  observations={novedadSnapshot.observations}
+                  evidencePath={novedadSnapshot.evidencePath}
+                  evidenceName={novedadSnapshot.evidenceName}
+                  relatedCorrectiveCaseId={
+                    c.type === CaseType.CORRECTIVO ? c.id : linkedCorrectiveForNovedad?.id ?? null
+                  }
+                  relatedWorkOrderId={
+                    c.type === CaseType.CORRECTIVO
+                      ? c.workOrder?.id ?? null
+                      : linkedCorrectiveForNovedad?.workOrder?.id ?? null
+                  }
+                />
+              ) : null}
+
               {c.stsTicket ? (
-                <section className="sts-card p-5">
-                  <h2 className="text-base font-semibold">Ticket STS</h2>
-                  <div className="mt-3 space-y-2">
+                <section className="sts-card overflow-hidden">
+                  <div className="border-b border-border/50 bg-muted/20 p-5">
+                    <h2 className="text-xl font-semibold">Ticket STS</h2>
+                  </div>
+                  <div className="space-y-2 p-5">
                     <div className="sts-card p-3">
                       <p className="text-xs text-muted-foreground">Estado</p>
                       <p className="mt-1 text-sm font-medium">{c.stsTicket.status}</p>
@@ -692,7 +813,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                     </div>
                     <Link
                       href={`/sts/tickets/${c.stsTicket.id}`}
-                      className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                      className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
                     >
                       Ver ticket STS
                     </Link>
@@ -701,9 +822,11 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               ) : null}
 
               {c.stsTicket?.events?.length ? (
-                <section className="sts-card p-5">
-                  <h2 className="text-base font-semibold">Timeline STS</h2>
-                  <div className="mt-3 space-y-2">
+                <section className="sts-card overflow-hidden">
+                  <div className="border-b border-border/50 bg-muted/20 p-5">
+                    <h2 className="text-base font-semibold">Timeline STS</h2>
+                  </div>
+                  <div className="space-y-2 p-5">
                     {c.stsTicket.events.map((e) => (
                       <div key={e.id} className="sts-card p-3">
                         <p className="text-xs text-muted-foreground">
@@ -726,9 +849,13 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   technicians={technicians}
                 />
               ) : (
-                <section className="sts-card p-5">
-                  <h2 className="text-base font-semibold">Asignacion</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">Solo planner o admin pueden asignar tecnicos.</p>
+                <section className="sts-card overflow-hidden">
+                  <div className="border-b border-border/50 bg-muted/20 p-5">
+                    <h2 className="text-base font-semibold">Asignación</h2>
+                  </div>
+                  <div className="p-5">
+                    <p className="text-sm text-muted-foreground">Solo planner o admin pueden asignar técnicos.</p>
+                  </div>
                 </section>
               )}
 
@@ -740,18 +867,20 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </>
           )}
 
-          <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Acciones</h2>
-            <div className="mt-3 space-y-2">
+          <section className="sts-card overflow-hidden">
+            <div className="border-b border-border/50 bg-muted/20 p-5">
+              <h2 className="text-base font-semibold">Acciones</h2>
+            </div>
+            <div className="space-y-2 p-5">
               <Link
                 href="/cases"
-                className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
               >
                 Volver a bandeja
               </Link>
               <Link
                 href={`/cases/new`}
-                className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
+                className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
               >
                 Crear otro caso
               </Link>

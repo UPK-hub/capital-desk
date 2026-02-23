@@ -19,7 +19,8 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={cx(
-        "rounded-lg border-2 border-border/60 bg-card text-card-foreground shadow-sm",
+        "rounded-[16px] border border-border/70 bg-card text-card-foreground shadow-[var(--shadow-card)]",
+        "transition-shadow duration-200 ease-out hover:shadow-[var(--shadow-card-hover)]",
         className
       )}
       {...props}
@@ -34,7 +35,7 @@ export const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(func
   return (
     <div
       ref={ref}
-      className={cx("flex flex-col space-y-1.5 border-b border-border/50 bg-muted/30 p-6", className)}
+      className={cx("flex flex-col space-y-1.5 border-b border-border/55 bg-card p-6", className)}
       {...props}
     />
   );
@@ -66,4 +67,3 @@ export const CardDescription = React.forwardRef<HTMLParagraphElement, CardDescri
     return <p ref={ref} className={cx("text-sm text-muted-foreground", className)} {...props} />;
   }
 );
-

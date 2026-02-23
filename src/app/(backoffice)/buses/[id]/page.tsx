@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ProcedureType, Role } from "@prisma/client";
-import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import { CaseType, ProcedureType, Role } from "@prisma/client";
+import { caseStatusLabels, caseTypeLabels, labelFromMap, stsStatusLabels, workOrderStatusLabels } from "@/lib/labels";
 import {
   DataTable,
   DataTableBody,
@@ -92,6 +92,44 @@ function isImageFilePath(filePath: string | null | undefined): boolean {
   return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
 }
 
+type NovedadStateSnapshot = {
+  batchRef: string | null;
+  catalogCode: string;
+  affectedEquipment: string;
+  reportedNovelty: string;
+  affectation: string;
+};
+
+function extractSourceCaseIdFromMeta(meta: unknown): string | null {
+  const sourceCaseId = (meta as any)?.sourceCaseId;
+  if (!sourceCaseId) return null;
+  const normalized = String(sourceCaseId).trim();
+  return normalized || null;
+}
+
+function extractLatestNovedadState(events: Array<{ meta: unknown }>, fallbackTitle: string): NovedadStateSnapshot {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const state = (events[i].meta as any)?.noveltyState;
+    if (state && typeof state === "object") {
+      return {
+        batchRef: state.batchRef ? String(state.batchRef) : null,
+        catalogCode: String(state.catalogCode ?? ""),
+        affectedEquipment: String(state.affectedEquipment ?? ""),
+        reportedNovelty: String(state.reportedNovelty ?? ""),
+        affectation: String(state.affectation ?? state.reportedDescription ?? ""),
+      };
+    }
+  }
+
+  return {
+    batchRef: null,
+    catalogCode: "",
+    affectedEquipment: "",
+    reportedNovelty: fallbackTitle.replace(/^Novedad\s+[^\-]+-\s*/i, "").trim(),
+    affectation: "",
+  };
+}
+
 type PageProps = { params: { id: string } };
 
 export default async function BusLifePage({ params }: PageProps) {
@@ -176,6 +214,12 @@ export default async function BusLifePage({ params }: PageProps) {
               assignedTo: { select: { id: true, name: true, email: true } },
             },
           },
+          stsTicket: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
         },
       },
       lifecycle: {
@@ -239,12 +283,47 @@ export default async function BusLifePage({ params }: PageProps) {
 
   const caseTitleById = new Map<string, string>();
   for (const c of bus.cases) caseTitleById.set(c.id, c.title);
+  const caseEventsByCaseId = new Map<string, typeof caseEvents>();
+  for (const event of caseEvents) {
+    const list = caseEventsByCaseId.get(event.caseId) ?? [];
+    list.push(event);
+    caseEventsByCaseId.set(event.caseId, list);
+  }
 
   type WO = NonNullable<(typeof bus.cases)[number]["workOrder"]>;
   const woById = new Map<string, WO>();
   for (const c of bus.cases) {
     if (c.workOrder?.id) woById.set(c.workOrder.id, c.workOrder as WO);
   }
+  type BusCase = (typeof bus.cases)[number];
+  const correctiveBySourceCaseId = new Map<string, BusCase>();
+  for (const c of bus.cases) {
+    if (c.type !== CaseType.CORRECTIVO) continue;
+    const events = caseEventsByCaseId.get(c.id) ?? [];
+    for (const event of events) {
+      const sourceCaseId = extractSourceCaseIdFromMeta(event.meta);
+      if (sourceCaseId && !correctiveBySourceCaseId.has(sourceCaseId)) {
+        correctiveBySourceCaseId.set(sourceCaseId, c);
+      }
+    }
+  }
+
+  const novedadRows = bus.cases
+    .filter((c) => c.type === CaseType.NOVEDAD)
+    .map((novedadCase) => {
+      const events = caseEventsByCaseId.get(novedadCase.id) ?? [];
+      const state = extractLatestNovedadState(events, novedadCase.title);
+      const linkedCorrective = correctiveBySourceCaseId.get(novedadCase.id) ?? null;
+      const fallbackBatchRef = `NVD-${String(novedadCase.caseNo ?? 0).padStart(4, "0")}`;
+      return {
+        noveltyCase: novedadCase,
+        batchRef: state.batchRef || fallbackBatchRef,
+        reportedNovelty: state.reportedNovelty || novedadCase.title,
+        affectedEquipment: state.affectedEquipment || "No especificado",
+        catalogCode: state.catalogCode || "",
+        linkedCorrective,
+      };
+    });
 
   const timeline: Array<{
     at: Date;
@@ -687,6 +766,168 @@ export default async function BusLifePage({ params }: PageProps) {
                               {c.workOrder?.id ? (
                                 <Link className="ml-2 sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/work-orders/${c.workOrder.id}`}>
                                   Abrir OT
+                                </Link>
+                              ) : null}
+                            </DataTableCell>
+                          </DataTableRow>
+                        ))}
+                      </DataTableBody>
+                    </DataTable>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          <section className="sts-card p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Novedades presentadas</h2>
+              <p className="text-xs text-muted-foreground">{novedadRows.length} registros</p>
+            </div>
+
+            <div className="mt-4">
+              {novedadRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay novedades registradas para este bus.</p>
+              ) : (
+                <>
+                  <div className="lg:hidden">
+                    <div className="mobile-list-stack">
+                      {novedadRows.map((item) => (
+                        <article key={item.noveltyCase.id} className="rounded-xl border border-border/60 bg-card p-4">
+                          <p className="text-xs text-muted-foreground">
+                            {item.batchRef} · {fmtDate(item.noveltyCase.createdAt)}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold break-words">{item.reportedNovelty}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {item.affectedEquipment}
+                            {item.catalogCode ? ` · ${item.catalogCode}` : ""}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <StatusPill
+                              status={mapCaseStatus(item.noveltyCase.status)}
+                              label={labelFromMap(item.noveltyCase.status, caseStatusLabels)}
+                              size="sm"
+                            />
+                            {item.linkedCorrective ? (
+                              <StatusPill
+                                status={mapCaseStatus(item.linkedCorrective.status)}
+                                label={`Correctivo: ${labelFromMap(item.linkedCorrective.status, caseStatusLabels)}`}
+                                size="sm"
+                              />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sin correctivo asociado</span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {item.linkedCorrective?.workOrder ? (
+                              <StatusPill
+                                status={mapWorkOrderStatus(item.linkedCorrective.workOrder.status)}
+                                label={`OT: ${labelFromMap(item.linkedCorrective.workOrder.status, workOrderStatusLabels)}`}
+                                size="sm"
+                              />
+                            ) : null}
+                            {item.linkedCorrective?.stsTicket ? (
+                              <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                                Ticket: {labelFromMap(item.linkedCorrective.stsTicket.status, stsStatusLabels)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${item.noveltyCase.id}`}>
+                              Abrir novedad
+                            </Link>
+                            {item.linkedCorrective ? (
+                              <Link className="sts-btn-ghost inline-flex h-10 w-full items-center justify-center text-sm" href={`/cases/${item.linkedCorrective.id}`}>
+                                Abrir correctivo
+                              </Link>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="hidden lg:block">
+                    <DataTable>
+                      <DataTableHeader>
+                        <DataTableRow>
+                          <DataTableHead>Lote</DataTableHead>
+                          <DataTableHead>Novedad reportada</DataTableHead>
+                          <DataTableHead>Caso novedad</DataTableHead>
+                          <DataTableHead>Correctivo</DataTableHead>
+                          <DataTableHead>OT / Ticket</DataTableHead>
+                          <DataTableHead className="text-right">Acción</DataTableHead>
+                        </DataTableRow>
+                      </DataTableHeader>
+                      <DataTableBody>
+                        {novedadRows.map((item) => (
+                          <DataTableRow key={item.noveltyCase.id}>
+                            <DataTableCell>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs font-medium">{item.batchRef}</span>
+                                <span className="text-xs text-muted-foreground">{fmtDate(item.noveltyCase.createdAt)}</span>
+                              </div>
+                            </DataTableCell>
+                            <DataTableCell>
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium break-words">{item.reportedNovelty}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.affectedEquipment}
+                                  {item.catalogCode ? ` · ${item.catalogCode}` : ""}
+                                </p>
+                              </div>
+                            </DataTableCell>
+                            <DataTableCell>
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">{fmtCaseNo(item.noveltyCase.caseNo)}</p>
+                                <StatusPill
+                                  status={mapCaseStatus(item.noveltyCase.status)}
+                                  label={labelFromMap(item.noveltyCase.status, caseStatusLabels)}
+                                  size="sm"
+                                />
+                              </div>
+                            </DataTableCell>
+                            <DataTableCell>
+                              {item.linkedCorrective ? (
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground">{fmtCaseNo(item.linkedCorrective.caseNo)}</p>
+                                  <StatusPill
+                                    status={mapCaseStatus(item.linkedCorrective.status)}
+                                    label={labelFromMap(item.linkedCorrective.status, caseStatusLabels)}
+                                    size="sm"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Pendiente</span>
+                              )}
+                            </DataTableCell>
+                            <DataTableCell>
+                              <div className="space-y-1">
+                                {item.linkedCorrective?.workOrder ? (
+                                  <StatusPill
+                                    status={mapWorkOrderStatus(item.linkedCorrective.workOrder.status)}
+                                    label={labelFromMap(item.linkedCorrective.workOrder.status, workOrderStatusLabels)}
+                                    size="sm"
+                                  />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">Sin OT</span>
+                                )}
+                                {item.linkedCorrective?.stsTicket ? (
+                                  <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                                    {labelFromMap(item.linkedCorrective.stsTicket.status, stsStatusLabels)}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">Sin ticket</span>
+                                )}
+                              </div>
+                            </DataTableCell>
+                            <DataTableCell className="text-right whitespace-nowrap">
+                              <Link className="sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/cases/${item.noveltyCase.id}`}>
+                                Abrir novedad
+                              </Link>
+                              {item.linkedCorrective ? (
+                                <Link className="ml-2 sts-btn-ghost h-8 px-3 text-xs data-table-row-action" href={`/cases/${item.linkedCorrective.id}`}>
+                                  Abrir correctivo
                                 </Link>
                               ) : null}
                             </DataTableCell>

@@ -2,42 +2,61 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 
-export default function AvatarMenu({ name }: { name: string }) {
+function initials(name: string) {
+  const parts = String(name || "U")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "");
+  return parts.join("") || "U";
+}
+
+export default function AvatarMenu({
+  name,
+  roleLabel,
+}: {
+  name: string;
+  roleLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (!ref.current) return;
-      if (!ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const initial = name?.[0]?.toUpperCase() ?? "U";
+  const userRole = roleLabel || "Backoffice";
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 app-pill px-3 py-1.5"
+        className="app-avatar-trigger max-w-full"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          {initial}
+        <span className="app-avatar-trigger__avatar">{initials(name)}</span>
+        <span className="hidden min-w-0 text-left lg:block">
+          <span className="block truncate text-base font-semibold leading-tight text-foreground">{name}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {userRole} - CapitalBus
+          </span>
         </span>
-        <span className="hidden text-sm font-medium md:block">{name}</span>
-        <svg viewBox="0 0 24 24" className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <ChevronDown className="hidden h-4 w-4 text-muted-foreground sm:block" />
       </button>
 
       {open ? (
-        <div className="absolute right-0 mt-2 w-52 sts-card p-2 text-sm shadow-xl z-50">
+        <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-border/70 bg-card p-2 shadow-[var(--shadow-lg)]">
+          <Link href="/profile" className="app-menu-item">
+            Perfil
+          </Link>
           <Link href="/admin" className="app-menu-item">
             Administración
           </Link>

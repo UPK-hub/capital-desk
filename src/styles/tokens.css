@@ -4,27 +4,72 @@
 ======================================== */
 
 :root {
-  /* Semantic color tokens (high-contrast forms) */
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 98%;
-  --card-foreground: 222 47% 11%;
+  /* CapitalDesk Production Replica */
+  --color-bg-primary: #f5f6fa;
+  --color-bg-card: #ffffff;
+  --color-bg-sidebar: #1e3a5f;
+  --color-bg-sidebar-hover: #2a4a6f;
+
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #dbeafe;
+
+  --color-backoffice: #ef4444;
+  --color-tecnico: #8b5cf6;
+  --color-videos: #7c3aed;
+  --color-planner: #06b6d4;
+  --color-sts: #f59e0b;
+  --color-tm: #3b82f6;
+  --color-admin: #6366f1;
+
+  --color-status-nuevo: #dbeafe;
+  --color-status-nuevo-text: #1e40af;
+  --color-status-ejecucion: #fef3c7;
+  --color-status-ejecucion-text: #92400e;
+  --color-status-resuelto: #d1fae5;
+  --color-status-resuelto-text: #065f46;
+
+  --color-preventivo: #dcfce7;
+  --color-preventivo-text: #166534;
+  --color-correctivo: #fee2e2;
+  --color-correctivo-text: #991b1b;
+  --color-renovacion: #e0e7ff;
+  --color-renovacion-text: #3730a3;
+
+  --color-priority-alta: #fee2e2;
+  --color-priority-media: #fef3c7;
+  --color-priority-baja: #f3f4f6;
+
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-pill: 20px;
+  --radius-input: 12px;
+
+  /* Semantic color tokens (Tailwind HSL bridge) */
+  --background: 220 29% 97%;
+  --foreground: 224 41% 16%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 41% 16%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --primary: 222 47% 50%;
+  --popover-foreground: 224 41% 16%;
+  --primary: 218 83% 54%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 222 47% 14%;
-  --muted: 0 0% 96%;
+  --secondary: 220 24% 95%;
+  --secondary-foreground: 224 41% 16%;
+  --muted: 220 24% 95%;
   --muted-foreground: 220 10% 42%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 222 47% 14%;
+  --accent: 220 24% 95%;
+  --accent-foreground: 224 41% 16%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 214 28% 86%;
-  --input: 0 0% 95%;
-  --ring: 222 47% 50%;
-  --radius: 0.75rem;
+  --border: 219 33% 87%;
+  --input: 220 24% 94%;
+  --ring: 218 83% 54%;
+  --radius: 1rem;
 
   /* Spacing scale (4px grid) */
   --space-1: 0.25rem;  /* 4px */
@@ -40,8 +85,8 @@
 
   /* Radius */
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-xl: 16px;
 
   /* Borders */

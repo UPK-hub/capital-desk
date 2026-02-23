@@ -23,25 +23,23 @@ const SIZE: Record<NonNullable<PriorityBadgeProps["size"]>, string> = {
 const MAP = {
   1: {
     label: "P1 Alta",
-    classes: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800",
+    classes: "bg-[var(--color-priority-alta)] text-red-700 border-red-200/90",
   },
   2: {
     label: "P2",
-    classes:
-      "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-800",
+    classes: "bg-orange-100 text-orange-700 border-orange-200/90",
   },
   3: {
     label: "P3 Media",
-    classes:
-      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800",
+    classes: "bg-[var(--color-priority-media)] text-amber-800 border-amber-200/90",
   },
   4: {
     label: "P4",
-    classes: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800",
+    classes: "bg-blue-100 text-blue-700 border-blue-200/90",
   },
   5: {
     label: "P5 Baja",
-    classes: "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-900/60 dark:text-zinc-300 dark:border-zinc-700",
+    classes: "bg-[var(--color-priority-baja)] text-zinc-700 border-zinc-300/90",
   },
 } as const;
 
@@ -52,7 +50,7 @@ export function PriorityBadge({ priority, size = "md" }: PriorityBadgeProps) {
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full border font-medium",
+        "inline-flex items-center rounded-[var(--radius-pill)] border font-medium",
         SIZE[size],
         meta.classes
       )}
