@@ -185,7 +185,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (!photo) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
     if (!activityKey) return NextResponse.json({ error: "activityKey requerido" }, { status: 400 });
 
-    const relPath = await saveUpload(photo, `work-orders/${wo.id}/preventive-report/${activityKey}`);
+    const relPath = await saveUpload(photo, `work-orders/${wo.id}/preventive-report/${activityKey}`, {
+      fileNamePrefix: wo.case.bus.code,
+    });
     const currentActivities = normalizeActivities(wo.preventiveReport?.activities);
     const idx = currentActivities.findIndex((x) => String(x?.key ?? "") === activityKey);
     if (idx < 0) {

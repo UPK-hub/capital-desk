@@ -282,12 +282,8 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
     finishDone &&
     !isPendingValidation &&
     wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE;
-  const isProductImprovement = wo.case.type === "MEJORA_PRODUCTO";
   const isRenewalFlow = cfg?.formKind === "RENEWAL";
-  const renewalActaLabel =
-    isProductImprovement
-      ? "Descargar acta de mejora de producto (Word)"
-      : "Descargar acta de cambios (plantilla)";
+  const renewalActaLabel = "Descargar acta de cambios (plantilla)";
   const onlyStartFlow = !startDone && !finishDone;
 
   const suggestedTicketNumber =
@@ -307,11 +303,6 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               <span className="font-medium">{wo.case.bus.code}</span>
               {wo.case.bus.plate ? ` • ${wo.case.bus.plate}` : ""}
             </p>
-            {isProductImprovement ? (
-              <span className="inline-flex items-center rounded-full border border-sky-300 bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
-                Modo mejora de producto
-              </span>
-            ) : null}
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -763,11 +754,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               ) : null}
               {canDownloadRenewalActa ? (
                 <a
-                  className={
-                    isProductImprovement
-                      ? "inline-flex w-full items-center justify-center sts-btn-primary text-sm"
-                      : "inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
-                  }
+                  className="inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm"
                   href={`/api/work-orders/${wo.id}/renewal-acta`}
                   target="_blank"
                   rel="noreferrer"

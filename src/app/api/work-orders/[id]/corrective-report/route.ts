@@ -144,14 +144,16 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
     const wo = await prisma.workOrder.findFirst({
       where: { id: ctx.params.id, tenantId },
-      include: { correctiveReport: true },
+      include: { correctiveReport: true, case: { select: { bus: { select: { code: true } } } } },
     });
     if (!wo) return NextResponse.json({ error: "OT no encontrada" }, { status: 404 });
     if (role !== Role.ADMIN && wo.assignedToId !== userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const relPath = await saveUpload(photo, `work-orders/${wo.id}/corrective-report`);
+    const relPath = await saveUpload(photo, `work-orders/${wo.id}/corrective-report`, {
+      fileNamePrefix: wo.case.bus.code,
+    });
     await prisma.correctiveReport.upsert({
       where: { workOrderId: wo.id },
       create: {

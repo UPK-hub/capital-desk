@@ -40,7 +40,6 @@ type NovedadItem = {
   affectedEquipment: AffectedEquipmentType | "";
   priority: PriorityOption;
   reportedNovelty: string;
-  affectation: string;
   observations: string;
   evidenceFile: File | null;
 };
@@ -96,8 +95,7 @@ export default function NewCasePage() {
   const [type, setType] = useState<keyof typeof CASE_TYPE_REGISTRY>(initialType);
   const config = CASE_TYPE_REGISTRY[type];
   const isRenewalTecnologica = type === "RENOVACION_TECNOLOGICA";
-  const usesMultiEquipment =
-    type === "PREVENTIVO" || type === "CORRECTIVO" || type === "MEJORA_PRODUCTO";
+  const usesMultiEquipment = type === "PREVENTIVO" || type === "CORRECTIVO";
 
   const [bus, setBus] = useState<BusOption | null>(null);
   const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
@@ -123,7 +121,6 @@ export default function NewCasePage() {
       affectedEquipment: "",
       priority: "MEDIA",
       reportedNovelty: "",
-      affectation: "",
       observations: "",
       evidenceFile: null,
     },
@@ -257,7 +254,6 @@ export default function NewCasePage() {
             affectedEquipment: item.affectedEquipment || null,
             priority: resolvedPriority,
             reportedNovelty: resolvedReportedNovelty,
-            affectation: item.affectation.trim(),
             observations: item.observations.trim(),
           };
         });
@@ -271,8 +267,7 @@ export default function NewCasePage() {
             !item.busId ||
             !item.affectedEquipment ||
             !item.priority ||
-            !item.reportedNovelty ||
-            item.affectation.length < 5
+            !item.reportedNovelty
           );
         });
         if (invalidIdx >= 0) {
@@ -282,7 +277,6 @@ export default function NewCasePage() {
           if (!bad.affectedEquipment) missing.push("equipo afectado");
           if (!bad.priority) missing.push("prioridad");
           if (!bad.reportedNovelty) missing.push("novedad (catálogo)");
-          if (bad.affectation.length < 5) missing.push("afectación (mínimo 5 caracteres)");
 
           throw new Error(
             `Registro #${invalidIdx + 1}: completa ${missing.join(", ")}.`
@@ -371,7 +365,6 @@ export default function NewCasePage() {
         affectedEquipment: "",
         priority: "MEDIA",
         reportedNovelty: "",
-        affectation: "",
         observations: "",
         evidenceFile: null,
       },
@@ -439,11 +432,13 @@ export default function NewCasePage() {
                 }
               }}
             >
-              {Object.values(CASE_TYPE_REGISTRY).map((c) => (
+              {Object.values(CASE_TYPE_REGISTRY)
+                .filter((c) => c.type !== "MEJORA_PRODUCTO")
+                .map((c) => (
                 <option key={c.type} value={c.type}>
                   {c.label}
                 </option>
-              ))}
+                ))}
             </Select>
           </Field>
 
@@ -684,16 +679,6 @@ export default function NewCasePage() {
                           </p>
                         </div>
                       ) : null}
-                      <Field label="Afectación">
-                        <Textarea
-                          rows={3}
-                          value={item.affectation}
-                          onChange={(e) =>
-                            updateNovedadItem(item.key, { affectation: e.target.value })
-                          }
-                          placeholder="Describe el impacto operativo de la novedad (obligatorio)."
-                        />
-                      </Field>
                       <Field label="Observaciones (opcional)">
                         <Textarea
                           rows={2}

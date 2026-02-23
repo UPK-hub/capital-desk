@@ -13,6 +13,14 @@ import {
   resolveRenewalActaTemplatePath,
 } from "@/lib/renewal-acta-docx";
 
+function safeToken(value: string | null | undefined, fallback = "BUS") {
+  const clean = String(value ?? "")
+    .trim()
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return clean || fallback;
+}
+
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
@@ -34,7 +42,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   });
   if (!wo) return new Response("WorkOrder not found", { status: 404 });
   if (wo.case.type !== CaseType.RENOVACION_TECNOLOGICA && wo.case.type !== CaseType.MEJORA_PRODUCTO) {
-    return new Response("Solo aplica para renovacion/mejora de producto", { status: 400 });
+    return new Response("Solo aplica para renovacion tecnológica", { status: 400 });
   }
   if (wo.status !== WorkOrderStatus.FINALIZADA) {
     return new Response("OT pendiente de cierre/validacion", { status: 409 });
@@ -66,11 +74,9 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   });
 
   const docx = await generateRenewalActaDocxBuffer(templatePath, placeholders);
-  const ticketNo = String(report.ticketNumber ?? wo.workOrderNo ?? workOrderId).replace(/[^\w.-]+/g, "_");
-  const fileName =
-    wo.case.type === CaseType.MEJORA_PRODUCTO
-      ? `ACTA-MEJORA-PRODUCTO-${ticketNo}.docx`
-      : `ACTA-RENOVACION-${ticketNo}.docx`;
+  const ticketNo = safeToken(String(report.ticketNumber ?? wo.workOrderNo ?? workOrderId), "OT");
+  const busToken = safeToken(report.busCode ?? wo.case.bus.code, "BUS");
+  const fileName = `ACTA-RENOVACION-${busToken}-${ticketNo}.docx`;
 
   return new Response(Buffer.from(docx), {
     status: 200,

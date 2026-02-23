@@ -83,12 +83,12 @@ export const CASE_TYPE_REGISTRY: Record<CaseType, CaseTypeConfig> = {
 
   MEJORA_PRODUCTO: {
     type: "MEJORA_PRODUCTO",
-    label: "Mejora de producto",
+    label: "Renovación tecnológica",
     requiresWorkOrder: true,
     requiresEquipment: true,
-    defaultTitle: (busCode) => `Mejora de producto ${busCode ? `- ${busCode}` : ""}`.trim(),
+    defaultTitle: (busCode) => `Renovación tecnológica ${busCode ? `- ${busCode}` : ""}`.trim(),
     defaultDescription: (busCode) =>
-      `Mejora de producto${busCode ? ` en el bus ${busCode}` : ""}. Registra serial antiguo/nuevo, evidencia fotográfica y equipos intervenidos.`,
+      `Renovación tecnológica${busCode ? ` en el bus ${busCode}` : ""}. Registra serial antiguo/nuevo, evidencia fotográfica y equipos intervenidos.`,
     finishRequiresForm: true,
     formKind: "RENEWAL",
     stsComponentCode: "CENTRAL_DEVICE",

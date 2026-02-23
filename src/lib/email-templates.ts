@@ -56,11 +56,13 @@ export function buildEmail(params: {
   title: string;
   body?: string | null;
   href?: string | null;
+  bodyHtml?: string | null;
+  textOverride?: string | null;
 }) {
   const baseUrl = process.env.NEXTAUTH_URL || "";
   const link = params.href ? `${baseUrl}${params.href}` : null;
 
-  const body = params.body ? renderBodyAsList(params.body) : "";
+  const body = params.bodyHtml ?? (params.body ? renderBodyAsList(params.body) : "");
 
   const cta = link
     ? `
@@ -77,11 +79,9 @@ export function buildEmail(params: {
 
   const html = layout(params.title, `${body}${cta}`);
 
-  const text = [
-    params.title,
-    params.body ?? "",
-    link ? `Abrir: ${link}` : ""
-  ].filter(Boolean).join("\n");
+  const text =
+    params.textOverride ??
+    [params.title, params.body ?? "", link ? `Abrir: ${link}` : ""].filter(Boolean).join("\n");
 
   return { subject: params.title, html, text };
 }

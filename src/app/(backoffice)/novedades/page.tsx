@@ -17,7 +17,6 @@ type NovedadState = {
   catalogCode?: string | null;
   affectedEquipment?: string | null;
   reportedNovelty?: string | null;
-  affectation?: string | null;
   observations?: string | null;
 };
 
@@ -122,7 +121,6 @@ type NovedadRow = {
         catalogCode: string;
         affectedEquipment: string;
         reportedNovelty: string;
-        affectation: string;
       };
   traceability: {
     edits: number;
@@ -259,7 +257,6 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
         reportedNovelty:
           String(state?.reportedNovelty ?? "") ||
           noveltyCase.title.replace(/^Novedad\s+[^\-]+-\s*/i, "").trim(),
-        affectation: String(state?.affectation ?? ""),
       },
       traceability: {
         edits: traceability.count,

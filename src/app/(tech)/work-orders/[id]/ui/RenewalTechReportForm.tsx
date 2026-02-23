@@ -564,7 +564,7 @@ export default function RenewalTechReportForm(props: Props) {
           return diff !== 0 ? diff : a.type.localeCompare(b.type, "es");
         });
 
-      if (!isProductImprovement && !rows.some((row) => isCollectorType(row.type))) {
+      if (!isProductImprovement && !rows.some((row: EquipmentRow) => isCollectorType(row.type))) {
         const persistedCollector = persistedUpdates.find((row: any) =>
           isCollectorType(String(row?.type ?? ""))
         );
@@ -876,7 +876,7 @@ export default function RenewalTechReportForm(props: Props) {
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {isProductImprovement
-              ? "En mejora de producto, la foto de serial antiguo es obligatoria por equipo."
+              ? "En este modo, la foto de serial antiguo es obligatoria por equipo."
               : "La foto se solicita solo en los equipos que la plantilla del acta requiere."}
           </p>
             <StepProgress label="Avance desmonte" completed={oldCompletedCount} total={oldStepTotal} />
@@ -1048,7 +1048,7 @@ export default function RenewalTechReportForm(props: Props) {
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {isProductImprovement
-              ? "En mejora de producto, la foto de serial nuevo es obligatoria por equipo."
+              ? "En este modo, la foto de serial nuevo es obligatoria por equipo."
               : "La foto se solicita solo donde la plantilla del acta tiene campo de foto nuevo."}
           </p>
             <StepProgress label="Avance instalación" completed={newCompletedCount} total={newStepEntries.length} />

@@ -26,7 +26,6 @@ type NovedadState = {
   affectedEquipment?: string | null;
   priority?: PriorityOption | null;
   reportedNovelty?: string | null;
-  affectation?: string | null;
   reportedDescription?: string | null;
   observations?: string | null;
   evidence?: {
@@ -123,7 +122,6 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
       affectedEquipment: form.get("affectedEquipment"),
       priority: form.get("priority"),
       reportedNovelty: form.get("reportedNovelty"),
-      affectation: form.get("affectation"),
       observations: form.get("observations"),
       batchRef: form.get("batchRef"),
       activateCorrectiveOt: form.get("activateCorrectiveOt"),
@@ -141,7 +139,6 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const hasAffectedEquipment = payload?.affectedEquipment !== undefined && payload?.affectedEquipment !== null;
   const hasPriority = payload?.priority !== undefined && payload?.priority !== null;
   const hasReportedNovelty = payload?.reportedNovelty !== undefined && payload?.reportedNovelty !== null;
-  const hasAffectation = payload?.affectation !== undefined && payload?.affectation !== null;
   const hasObservations = payload?.observations !== undefined && payload?.observations !== null;
 
   const catalogCode = normalizeText(payload?.catalogCode);
@@ -151,9 +148,6 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const reportedNovelty = hasReportedNovelty
     ? normalizeText(payload?.reportedNovelty)
     : normalizeText(previousState?.reportedNovelty);
-  const affectation = hasAffectation
-    ? normalizeText(payload?.affectation)
-    : normalizeText(previousState?.affectation) || normalizeText(previousState?.reportedDescription);
   const observations = hasObservations
     ? normalizeText(payload?.observations)
     : normalizeText(previousState?.observations);
@@ -170,9 +164,6 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   if (reportedNovelty.length < 3) {
     return NextResponse.json({ error: "Novedad reportada inválida." }, { status: 400 });
   }
-  if (affectation.length < 5) {
-    return NextResponse.json({ error: "Afectación muy corta." }, { status: 400 });
-  }
 
   const batchRef =
     forcedBatchRef ||
@@ -182,7 +173,9 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
   let evidence = previousState?.evidence ?? null;
   if (evidenceFile) {
-    const filePath = await saveUpload(evidenceFile, `novedades/updates/${found.id}`);
+    const filePath = await saveUpload(evidenceFile, `novedades/updates/${found.id}`, {
+      fileNamePrefix: found.bus.code,
+    });
     evidence = {
       filePath,
       fileName: evidenceFile.name || "evidencia",
@@ -198,7 +191,6 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     affectedEquipment,
     priority: priorityOption || null,
     reportedNovelty,
-    affectation,
     observations: observations || null,
     evidence,
   };
@@ -217,7 +209,6 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     `Equipo afectado: ${affectedEquipment}`,
     priorityOption ? `Prioridad: ${priorityOption}` : null,
     `Novedad reportada: ${reportedNovelty}`,
-    `Afectación: ${affectation}`,
     observations ? `Observaciones: ${observations}` : null,
   ]
     .filter(Boolean)

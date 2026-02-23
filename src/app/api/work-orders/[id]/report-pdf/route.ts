@@ -13,6 +13,14 @@ import { resolveUploadPath } from "@/lib/uploads";
 
 type MediaInfo = { kind: string; filePath: string };
 
+function safeToken(value: string | null | undefined, fallback = "BUS") {
+  const clean = String(value ?? "")
+    .trim()
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return clean || fallback;
+}
+
 function isImageFile(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   return ext === ".png" || ext === ".jpg" || ext === ".jpeg";
@@ -302,8 +310,6 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
         ? "Preventivo"
         : kind === "CORRECTIVE"
         ? "Correctivo"
-        : wo.case.type === "MEJORA_PRODUCTO"
-        ? "Mejora de producto"
         : "Renovación tecnológica"
     }`,
     true
@@ -376,11 +382,16 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   for (const p of renewalChecklistPhotos) await addImagePage("Evidencia checklist final", String(p));
 
   const bytes = await pdf.save();
+  const busToken = safeToken(wo.case.bus.code, "BUS");
+  const kindToken =
+    kind === "PREVENTIVE" ? "PREVENTIVO" : kind === "CORRECTIVE" ? "CORRECTIVO" : "RENOVACION";
+  const otToken = safeToken(String(wo.workOrderNo ?? wo.id), "OT");
+  const filename = `FORMATO-${kindToken}-${busToken}-${otToken}.pdf`;
   return new Response(Buffer.from(bytes), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=work-order-${wo.id}.pdf`,
+      "Content-Disposition": `inline; filename="${filename}"`,
     },
   });
 }

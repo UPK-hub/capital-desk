@@ -210,7 +210,9 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       })
     : null;
 
-  const relPath = await saveUpload(file, `work-orders/${wo.id}/start`);
+  const relPath = await saveUpload(file, `work-orders/${wo.id}/start`, {
+    fileNamePrefix: wo.case.bus.code,
+  });
   const quickEvidence = [] as Array<{
     key: string;
     label: string;
@@ -226,7 +228,8 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       if (!evidenceFile) continue;
       const evidencePath = await saveUpload(
         evidenceFile,
-        `work-orders/${wo.id}/start/quick-verification`
+        `work-orders/${wo.id}/start/quick-verification`,
+        { fileNamePrefix: wo.case.bus.code }
       );
       quickEvidence.push({
         key: item.key,

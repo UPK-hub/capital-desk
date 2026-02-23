@@ -154,7 +154,9 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
   const relPaths: string[] = [];
   for (const file of files) {
-    const relPath = await saveUpload(file, `work-orders/${wo.id}/finish`);
+    const relPath = await saveUpload(file, `work-orders/${wo.id}/finish`, {
+      fileNamePrefix: wo.case.bus.code,
+    });
     relPaths.push(relPath);
   }
   const tmMinutes = cfg?.tmDurationMinutes ?? 60;

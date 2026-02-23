@@ -8,6 +8,14 @@ import { prisma } from "@/lib/prisma";
 import { Role, WorkOrderStatus } from "@prisma/client";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
+function safeToken(value: string | null | undefined, fallback = "BUS") {
+  const clean = String(value ?? "")
+    .trim()
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return clean || fallback;
+}
+
 function fmtDateTime(d: Date | null) {
   if (!d) return "";
   return new Intl.DateTimeFormat("es-CO", {
@@ -110,11 +118,14 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   drawLine(`Hora de descarga: ${fmtDateTime(downloadedAt)}`);
 
   const bytes = await pdf.save();
+  const busToken = safeToken(wo.case.bus.code, "BUS");
+  const ticketToken = safeToken(r.ticketNo, "TICKET");
+  const filename = `RECIBO-SLA-${busToken}-${ticketToken}.pdf`;
   return new Response(Buffer.from(bytes), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=recibo-sla-${r.ticketNo}.pdf`,
+      "Content-Disposition": `inline; filename="${filename}"`,
     },
   });
 }

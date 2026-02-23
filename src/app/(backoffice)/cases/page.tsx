@@ -129,7 +129,6 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                 <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
                 <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
                 <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
-                <option value="MEJORA_PRODUCTO">{caseTypeLabels.MEJORA_PRODUCTO}</option>
                 <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
               </Select>
 

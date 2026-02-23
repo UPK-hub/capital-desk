@@ -61,7 +61,6 @@ type Props = {
   catalogCode: string;
   affectedEquipment: string;
   reportedNovelty: string;
-  affectation: string;
   observations: string;
   evidencePath: string | null;
   evidenceName: string | null;
@@ -83,7 +82,6 @@ export default function NovedadTraceCard(props: Props) {
     mapCatalogPriorityToOption(Number(props.initialPriority ?? 3) || 3)
   );
   const [reportedNovelty, setReportedNovelty] = useState(props.reportedNovelty);
-  const [affectation, setAffectation] = useState(props.affectation);
   const [observations, setObservations] = useState(props.observations);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [novedadCatalog, setNovedadCatalog] = useState<NovedadCatalogOption[]>([]);
@@ -146,7 +144,6 @@ export default function NovedadTraceCard(props: Props) {
       fd.set("affectedEquipment", affectedEquipment);
       fd.set("priority", priority);
       fd.set("reportedNovelty", reportedNovelty);
-      fd.set("affectation", affectation);
       fd.set("observations", observations);
       const shouldActivate = options?.activateCorrectiveOt ?? activateCorrectiveOt;
       fd.set("activateCorrectiveOt", shouldActivate ? "1" : "0");
@@ -304,17 +301,7 @@ export default function NovedadTraceCard(props: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Afectación</label>
-              <textarea
-                value={affectation}
-                onChange={(e) => setAffectation(e.target.value)}
-                rows={3}
-                className="app-field-control mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground">Observaciones</label>
+              <label className="text-xs text-muted-foreground">Observaciones (opcional)</label>
               <textarea
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
@@ -381,10 +368,6 @@ export default function NovedadTraceCard(props: Props) {
             <div className="sts-card p-3">
               <p className="text-xs text-muted-foreground">Novedad reportada</p>
               <p className="mt-1 text-sm font-medium">{reportedNovelty || "-"}</p>
-            </div>
-            <div className="sts-card p-3">
-              <p className="text-xs text-muted-foreground">Afectación</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm">{affectation || "-"}</p>
             </div>
             <div className="sts-card p-3">
               <p className="text-xs text-muted-foreground">Observaciones</p>

@@ -18,7 +18,7 @@ export const caseTypeLabels: Record<string, string> = {
   CORRECTIVO: "Correctivo",
   PREVENTIVO: "Preventivo",
   RENOVACION_TECNOLOGICA: "Renovación tecnológica",
-  MEJORA_PRODUCTO: "Mejora de producto",
+  MEJORA_PRODUCTO: "Renovación tecnológica",
   SOLICITUD_DESCARGA_VIDEO: "Solicitud descarga video",
 };
 

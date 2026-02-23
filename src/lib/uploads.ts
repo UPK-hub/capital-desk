@@ -29,11 +29,18 @@ function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-export async function saveUpload(file: File, subdir: string): Promise<string> {
+type SaveUploadOptions = {
+  fileNamePrefix?: string | null;
+};
+
+export async function saveUpload(file: File, subdir: string, options?: SaveUploadOptions): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const filename = `${Date.now()}_${safeName(file.name || "upload.bin")}`;
+  const prefixRaw = String(options?.fileNamePrefix ?? "").trim();
+  const prefix = safeName(prefixRaw).replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+  const baseName = safeName(file.name || "upload.bin");
+  const filename = `${Date.now()}_${prefix ? `${prefix}_` : ""}${baseName}`;
   const relDir = subdir.replace(/^\/+/, "").replace(/\\/g, "/");
   const relPath = `${relDir}/${filename}`;
 

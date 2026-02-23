@@ -97,7 +97,6 @@ type NovedadStateSnapshot = {
   catalogCode: string;
   affectedEquipment: string;
   reportedNovelty: string;
-  affectation: string;
 };
 
 function extractSourceCaseIdFromMeta(meta: unknown): string | null {
@@ -116,7 +115,6 @@ function extractLatestNovedadState(events: Array<{ meta: unknown }>, fallbackTit
         catalogCode: String(state.catalogCode ?? ""),
         affectedEquipment: String(state.affectedEquipment ?? ""),
         reportedNovelty: String(state.reportedNovelty ?? ""),
-        affectation: String(state.affectation ?? state.reportedDescription ?? ""),
       };
     }
   }
@@ -126,7 +124,6 @@ function extractLatestNovedadState(events: Array<{ meta: unknown }>, fallbackTit
     catalogCode: "",
     affectedEquipment: "",
     reportedNovelty: fallbackTitle.replace(/^Novedad\s+[^\-]+-\s*/i, "").trim(),
-    affectation: "",
   };
 }
 
@@ -437,7 +434,7 @@ export default async function BusLifePage({ params }: PageProps) {
 
     if (wo?.id && finalizada && (c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO")) {
       attachments.push({
-        label: c.type === "MEJORA_PRODUCTO" ? "Acta mejora de producto (Word)" : "Acta de cambios (Word)",
+        label: "Acta de cambios (Word)",
         href: `/api/work-orders/${wo.id}/renewal-acta`,
         at: wo.finishedAt ?? null,
       });

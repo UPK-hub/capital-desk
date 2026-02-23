@@ -167,7 +167,9 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       return NextResponse.json({ error: "Bucket inválido" }, { status: 400 });
     }
 
-    const relPath = await saveUpload(photo, `work-orders/${wo.id}/renewal-report/${bucket}`);
+    const relPath = await saveUpload(photo, `work-orders/${wo.id}/renewal-report/${bucket}`, {
+      fileNamePrefix: wo.case.bus.code,
+    });
     const curr = (wo.renewalTechReport ?? null) as any;
     const currentOld = normalizeStringArray(curr?.photosOld);
     const currentNew = normalizeStringArray(curr?.photosNew);

@@ -26,14 +26,14 @@ function classesForType(type: string) {
   if (key === "RENOVACION_TECNOLOGICA") {
     return "bg-[var(--color-renovacion)] text-[var(--color-renovacion-text)] border-indigo-200/90";
   }
+  if (key === "MEJORA_PRODUCTO") {
+    return "bg-[var(--color-renovacion)] text-[var(--color-renovacion-text)] border-indigo-200/90";
+  }
   if (key === "NOVEDAD") {
     return "bg-blue-100 text-blue-700 border-blue-200/90";
   }
   if (key === "SOLICITUD_DESCARGA_VIDEO") {
     return "bg-violet-100 text-violet-700 border-violet-200/90";
-  }
-  if (key === "MEJORA_PRODUCTO") {
-    return "bg-amber-100 text-amber-700 border-amber-200/90";
   }
   return "bg-zinc-100 text-zinc-700 border-zinc-300/90";
 }
@@ -44,9 +44,9 @@ export function TypeBadge({ type, label, size = "md" }: TypeBadgeProps) {
     CORRECTIVO: "Correctivo",
     PREVENTIVO: "Preventivo",
     RENOVACION_TECNOLOGICA: "Renovación tecnológica",
+    MEJORA_PRODUCTO: "Renovación tecnológica",
     NOVEDAD: "Novedad",
     SOLICITUD_DESCARGA_VIDEO: "Solicitud video",
-    MEJORA_PRODUCTO: "Mejora producto",
   };
   const renderLabel =
     label ??

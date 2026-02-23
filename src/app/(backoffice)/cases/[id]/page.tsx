@@ -9,6 +9,7 @@ import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
+import CaseCommentsCard from "./ui/CaseCommentsCard";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
@@ -43,14 +44,11 @@ const CASE_EVENT_LABELS: Record<CaseEventType, string> = {
   COMMENT: "Comentario",
 };
 
-const DAYS_21_MS = 21 * 24 * 60 * 60 * 1000;
-
 type NovedadStateSnapshot = {
   batchRef: string | null;
   catalogCode: string;
   affectedEquipment: string;
   reportedNovelty: string;
-  affectation: string;
   observations: string;
   evidencePath: string | null;
   evidenceName: string | null;
@@ -71,7 +69,6 @@ function getNovedadStateSnapshot(c: {
         catalogCode: String(state.catalogCode ?? ""),
         affectedEquipment: String(state.affectedEquipment ?? ""),
         reportedNovelty: String(state.reportedNovelty ?? ""),
-        affectation: String(state.affectation ?? state.reportedDescription ?? ""),
         observations: String(state.observations ?? ""),
         evidencePath: state?.evidence?.filePath ? String(state.evidence.filePath) : null,
         evidenceName: state?.evidence?.fileName ? String(state.evidence.fileName) : null,
@@ -86,7 +83,6 @@ function getNovedadStateSnapshot(c: {
     catalogCode: "",
     affectedEquipment: "",
     reportedNovelty: fallbackReportedNovelty,
-    affectation: c.description,
     observations: "",
     evidencePath: null,
     evidenceName: null,
@@ -191,6 +187,25 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     select: { id: true, name: true, role: true, email: true },
   });
   const userById = new Map(users.map((u) => [u.id, u]));
+  const caseComments = c.events
+    .filter((event) => {
+      if (event.type !== CaseEventType.COMMENT) return false;
+      const meta = (event.meta ?? {}) as any;
+      return Boolean(meta?.manualComment);
+    })
+    .slice()
+    .reverse()
+    .map((event) => {
+      const meta = (event.meta ?? {}) as any;
+      const actorId = String(meta.userId ?? meta.by ?? "").trim();
+      const actor = actorId ? userById.get(actorId) : null;
+      return {
+        id: event.id,
+        message: event.message ?? "",
+        createdAt: event.createdAt.toISOString(),
+        author: actor ? actor.name : null,
+      };
+    });
 
   const equipmentList = c.caseEquipments?.length
     ? c.caseEquipments.map((item) => item.busEquipment)
@@ -212,9 +227,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const contextBoxClass = "rounded-lg border-2 border-border/60 bg-muted/30 p-4";
 
   const refs = `${fmtCaseNo(c.caseNo)}${c.workOrder?.workOrderNo ? ` | ${fmtWoNo(c.workOrder.workOrderNo)}` : ""}`;
-  const isProductImprovement = c.type === "MEJORA_PRODUCTO";
-  const renewalActaLabel =
-    isProductImprovement ? "Descargar acta de mejora de producto" : "Descargar acta de cambios";
+  const renewalActaLabel = "Descargar acta de cambios";
   const equipmentItems = equipmentLabel
     .split("|")
     .map((part) => part.trim())
@@ -300,80 +313,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           },
         })
       : null;
-
-  const shouldShowNextPreventive =
-    Boolean(c.workOrder?.finishedAt) &&
-    (c.type === CaseType.PREVENTIVO || c.type === CaseType.RENOVACION_TECNOLOGICA);
-
-  const nextPreventiveFromRule =
-    c.workOrder?.finishedAt && c.type === CaseType.RENOVACION_TECNOLOGICA
-      ? new Date(c.workOrder.finishedAt.getTime() + DAYS_21_MS)
-      : c.workOrder?.finishedAt && c.type === CaseType.PREVENTIVO
-      ? new Date(c.workOrder.finishedAt.getTime() + DAYS_21_MS)
-      : null;
-
-  let nextPreventiveScheduled: {
-    scheduledAt: Date | null;
-    status: string;
-    id: string;
-    workOrderNo: number | null;
-    case: { id: string; caseNo: number | null; status: string; title: string };
-  } | null = null;
-
-  let nextPreventiveCasePending: {
-    id: string;
-    caseNo: number | null;
-    status: string;
-    title: string;
-    workOrder: { id: string; workOrderNo: number | null; status: string; scheduledAt: Date | null } | null;
-  } | null = null;
-
-  if (shouldShowNextPreventive && c.workOrder?.finishedAt) {
-    const referenceDate = c.workOrder.finishedAt;
-
-    nextPreventiveScheduled = await prisma.workOrder.findFirst({
-      where: {
-        tenantId,
-        id: { not: c.workOrder.id },
-        scheduledAt: { not: null, gte: referenceDate },
-        case: {
-          busId: c.busId,
-          type: CaseType.PREVENTIVO,
-          ...(c.type === CaseType.PREVENTIVO ? { id: { not: c.id } } : {}),
-        },
-      },
-      orderBy: { scheduledAt: "asc" },
-      select: {
-        id: true,
-        workOrderNo: true,
-        status: true,
-        scheduledAt: true,
-        case: { select: { id: true, caseNo: true, status: true, title: true } },
-      },
-    });
-
-    if (!nextPreventiveScheduled) {
-      nextPreventiveCasePending = await prisma.case.findFirst({
-        where: {
-          tenantId,
-          busId: c.busId,
-          type: CaseType.PREVENTIVO,
-          id: { not: c.id },
-          createdAt: { gte: referenceDate },
-        },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          caseNo: true,
-          status: true,
-          title: true,
-          workOrder: {
-            select: { id: true, workOrderNo: true, status: true, scheduledAt: true },
-          },
-        },
-      });
-    }
-  }
 
   return (
     <div className="mobile-page-shell">
@@ -654,65 +593,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                     ) : null}
                   </div>
 
-                  {shouldShowNextPreventive ? (
-                    <div className="sts-card p-3">
-                      <p className="text-xs text-muted-foreground">
-                        {c.type === CaseType.RENOVACION_TECNOLOGICA
-                          ? "Próximo preventivo post renovación"
-                          : "Próximo preventivo"}
-                      </p>
-
-                      {nextPreventiveScheduled?.scheduledAt ? (
-                        <>
-                          <p className="mt-1 text-sm font-medium">
-                            Programado para: {fmtDate(nextPreventiveScheduled.scheduledAt)}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {fmtCaseNo(nextPreventiveScheduled.case.caseNo)} ·{" "}
-                            {nextPreventiveScheduled.workOrderNo
-                              ? fmtWoNo(nextPreventiveScheduled.workOrderNo)
-                              : "OT por generar"}{" "}
-                            · {labelFromMap(nextPreventiveScheduled.status, workOrderStatusLabels)}
-                          </p>
-                          <Link
-                            href={`/cases/${nextPreventiveScheduled.case.id}`}
-                            className="mt-2 inline-flex text-xs underline"
-                          >
-                            Abrir caso preventivo programado
-                          </Link>
-                        </>
-                      ) : nextPreventiveCasePending ? (
-                        <>
-                          <p className="mt-1 text-sm font-medium">
-                            Caso preventivo creado, pendiente de programación.
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {fmtCaseNo(nextPreventiveCasePending.caseNo)} ·{" "}
-                            {labelFromMap(nextPreventiveCasePending.status, caseStatusLabels)}
-                            {nextPreventiveCasePending.workOrder?.workOrderNo
-                              ? ` · ${fmtWoNo(nextPreventiveCasePending.workOrder.workOrderNo)}`
-                              : ""}
-                          </p>
-                          <Link
-                            href={`/cases/${nextPreventiveCasePending.id}`}
-                            className="mt-2 inline-flex text-xs underline"
-                          >
-                            Abrir caso preventivo pendiente
-                          </Link>
-                        </>
-                      ) : nextPreventiveFromRule ? (
-                        <>
-                          <p className="mt-1 text-sm font-medium">Aún no hay preventivo programado.</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Fecha objetivo sugerida: {fmtDate(nextPreventiveFromRule)}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="mt-1 text-sm font-medium">Aún no hay preventivo programado.</p>
-                      )}
-                    </div>
-                  ) : null}
-
                   {hasWo ? (
                     <div className="space-y-2">
                       <Link
@@ -734,11 +614,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       {(c.type === "RENOVACION_TECNOLOGICA" || c.type === "MEJORA_PRODUCTO") &&
                       c.workOrder?.status === "FINALIZADA" ? (
                         <a
-                          className={
-                            isProductImprovement
-                              ? "inline-flex w-full items-center justify-center sts-btn-primary text-sm"
-                              : "inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
-                          }
+                          className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
                           href={`/api/work-orders/${c.workOrder!.id}/renewal-acta`}
                           target="_blank"
                           rel="noreferrer"
@@ -782,7 +658,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   catalogCode={novedadSnapshot.catalogCode}
                   affectedEquipment={novedadSnapshot.affectedEquipment}
                   reportedNovelty={novedadSnapshot.reportedNovelty}
-                  affectation={novedadSnapshot.affectation}
                   observations={novedadSnapshot.observations}
                   evidencePath={novedadSnapshot.evidencePath}
                   evidenceName={novedadSnapshot.evidenceName}
@@ -866,6 +741,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               ) : null}
             </>
           )}
+
+          <CaseCommentsCard caseId={c.id} comments={caseComments} />
 
           <section className="sts-card overflow-hidden">
             <div className="border-b border-border/50 bg-muted/20 p-5">

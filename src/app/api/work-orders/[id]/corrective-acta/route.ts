@@ -13,6 +13,14 @@ import {
   resolveRenewalActaTemplatePath,
 } from "@/lib/renewal-acta-docx";
 
+function safeToken(value: string | null | undefined, fallback = "BUS") {
+  const clean = String(value ?? "")
+    .trim()
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return clean || fallback;
+}
+
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
@@ -84,8 +92,9 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   });
 
   const docx = await generateRenewalActaDocxBuffer(templatePath, placeholders);
-  const ticketNo = String(report.ticketNumber ?? wo.workOrderNo ?? workOrderId).replace(/[^\w.-]+/g, "_");
-  const fileName = `ACTA-CAMBIO-COMPONENTE-${ticketNo}.docx`;
+  const ticketNo = safeToken(String(report.ticketNumber ?? wo.workOrderNo ?? workOrderId), "OT");
+  const busToken = safeToken(report.busCode ?? wo.case.bus.code, "BUS");
+  const fileName = `ACTA-CAMBIO-COMPONENTE-${busToken}-${ticketNo}.docx`;
 
   return new Response(Buffer.from(docx), {
     status: 200,
@@ -96,4 +105,3 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     },
   });
 }
-

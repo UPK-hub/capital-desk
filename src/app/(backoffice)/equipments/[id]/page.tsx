@@ -142,68 +142,29 @@ export default async function EquipmentLifePage({ params }: PageProps) {
 
   const cases = Array.from(caseMap.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const caseIds = cases.map((c) => c.id);
   const woIds = cases.map((c) => c.workOrder?.id).filter(Boolean) as string[];
 
-  const [caseEvents, woSteps, lifecycle] = await Promise.all([
-    caseIds.length
-      ? prisma.caseEvent.findMany({
-          where: { caseId: { in: caseIds } },
-          orderBy: { createdAt: "asc" },
-          take: 300,
-          select: {
-            id: true,
-            caseId: true,
-            type: true,
-            message: true,
-            meta: true,
-            createdAt: true,
-          },
-        })
-      : Promise.resolve([]),
-    woIds.length
-      ? prisma.workOrderStep.findMany({
-          where: { workOrderId: { in: woIds } },
-          orderBy: { createdAt: "asc" },
-          take: 200,
-          select: {
-            id: true,
-            workOrderId: true,
-            stepType: true,
-            notes: true,
-            createdAt: true,
-            media: { select: { id: true, kind: true, filePath: true, createdAt: true } },
-          },
-        })
-      : Promise.resolve([]),
-    prisma.busLifecycleEvent.findMany({
-      where: { busEquipmentId: equipmentId },
-      orderBy: { occurredAt: "asc" },
-      take: 200,
-      select: {
-        id: true,
-        eventType: true,
-        summary: true,
-        occurredAt: true,
-        caseId: true,
-        workOrderId: true,
-        busEquipmentId: true,
-      },
-    }),
-  ]);
+  const lifecycle = await prisma.busLifecycleEvent.findMany({
+    where: { busEquipmentId: equipmentId },
+    orderBy: { occurredAt: "asc" },
+    take: 200,
+    select: {
+      id: true,
+      eventType: true,
+      summary: true,
+      occurredAt: true,
+      caseId: true,
+      workOrderId: true,
+      busEquipmentId: true,
+    },
+  });
 
   const caseTitleById = new Map<string, string>();
   for (const c of cases) caseTitleById.set(c.id, c.title);
 
-  type WO = NonNullable<(typeof cases)[number]["workOrder"]>;
-  const woById = new Map<string, WO>();
-  for (const c of cases) {
-    if (c.workOrder?.id) woById.set(c.workOrder.id, c.workOrder as WO);
-  }
-
   const timeline: Array<{
     at: Date;
-    kind: "EQUIPMENT" | "CASE" | "WO_STEP";
+    kind: "EQUIPMENT";
     title: string;
     message?: string;
     meta?: any;
@@ -218,32 +179,6 @@ export default async function EquipmentLifePage({ params }: PageProps) {
       message: e.summary,
       meta: { caseId: e.caseId, workOrderId: e.workOrderId, busEquipmentId: e.busEquipmentId },
       href: e.workOrderId ? `/work-orders/${e.workOrderId}` : e.caseId ? `/cases/${e.caseId}` : null,
-    });
-  }
-
-  for (const e of caseEvents) {
-    timeline.push({
-      at: e.createdAt,
-      kind: "CASE",
-      title: `CASE:${e.type}`,
-      message: e.message ?? "",
-      meta: { caseId: e.caseId, ...(typeof e.meta === "object" && e.meta ? (e.meta as any) : {}) },
-      href: `/cases/${e.caseId}`,
-    });
-  }
-
-  for (const s of woSteps) {
-    const wo = woById.get(s.workOrderId);
-    timeline.push({
-      at: s.createdAt,
-      kind: "WO_STEP",
-      title: `OT:${s.stepType}`,
-      message: s.notes,
-      meta: {
-        workOrderId: s.workOrderId,
-        media: s.media?.map((m) => ({ kind: m.kind, filePath: m.filePath })) ?? [],
-      },
-      href: wo?.id ? `/work-orders/${wo.id}` : `/work-orders/${s.workOrderId}`,
     });
   }
 
@@ -289,7 +224,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
         <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Eventos timeline</p>
           <p className="mt-1 text-lg font-semibold">{timeline.length}</p>
-          <p className="text-xs text-muted-foreground">equipo + casos + OT</p>
+          <p className="text-xs text-muted-foreground">solo trazabilidad del equipo</p>
         </div>
         <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Ubicación</p>
@@ -396,9 +331,7 @@ export default async function EquipmentLifePage({ params }: PageProps) {
           <section className="sts-card p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Trazabilidad (timeline)</h2>
-              <p className="text-xs text-muted-foreground">
-                {lifecycle.length} eventos equipo · {caseEvents.length} eventos caso · {woSteps.length} pasos OT
-              </p>
+              <p className="text-xs text-muted-foreground">{lifecycle.length} eventos de equipo</p>
             </div>
 
             <div className="mt-4 space-y-3">
@@ -438,19 +371,6 @@ export default async function EquipmentLifePage({ params }: PageProps) {
                           ) : null}
                         </div>
                       </div>
-
-                      {it.meta?.media?.length ? (
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          {it.meta.media.map((m: any, idx: number) => (
-                            <img
-                              key={`${m.filePath}-${idx}`}
-                              src={`/api/uploads/${m.filePath}`}
-                              alt={m.kind ?? "Evidencia"}
-                              className="h-40 w-full rounded-md border object-cover"
-                            />
-                          ))}
-                        </div>
-                      ) : null}
 
                       {it.meta ? (
                         <details className="mt-2">

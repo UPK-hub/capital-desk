@@ -53,7 +53,6 @@ type RawNovedadItem = {
   affectedEquipment?: unknown;
   priority?: unknown;
   reportedNovelty?: unknown;
-  affectation?: unknown;
   observations?: unknown;
 };
 
@@ -67,7 +66,6 @@ type NovedadItem = {
   affectedEquipment: string;
   priority: number;
   reportedNovelty: string;
-  affectation: string;
   observations: string;
 };
 
@@ -162,7 +160,6 @@ export async function POST(req: NextRequest) {
       const catalogCode = String(row?.catalogCode ?? "").trim();
       const affectedEquipment = String(row?.affectedEquipment ?? "").trim();
       const reportedNovelty = String(row?.reportedNovelty ?? "").trim();
-      const affectation = String(row?.affectation ?? "").trim();
       const observations = String(row?.observations ?? "").trim();
       const rawEqIds = Array.isArray(row?.busEquipmentIds) ? row.busEquipmentIds : [];
       const busEquipmentIds = Array.from(
@@ -180,7 +177,6 @@ export async function POST(req: NextRequest) {
         affectedEquipment,
         priority,
         reportedNovelty,
-        affectation,
         observations,
       } as NovedadItem;
     });
@@ -209,12 +205,6 @@ export async function POST(req: NextRequest) {
       if (!row.reportedNovelty || row.reportedNovelty.length < 3) {
         return NextResponse.json(
           { error: `Novedad reportada inválida en la novedad #${i + 1}.` },
-          { status: 400 }
-        );
-      }
-      if (!row.affectation || row.affectation.length < 5) {
-        return NextResponse.json(
-          { error: `Afectación muy corta en la novedad #${i + 1}.` },
           { status: 400 }
         );
       }
@@ -287,7 +277,9 @@ export async function POST(req: NextRequest) {
       const file = multipart?.get(`evidence:${row.localKey}`);
       if (!(file instanceof File) || file.size <= 0) continue;
       const bus = busById.get(row.busId)!;
-      const filePath = await saveUpload(file, `novedades/${uploadBatchKey}/${bus.code}`);
+      const filePath = await saveUpload(file, `novedades/${uploadBatchKey}/${bus.code}`, {
+        fileNamePrefix: bus.code,
+      });
       evidenceByLocalKey.set(row.localKey, {
         filePath,
         fileName: file.name || "evidencia",
@@ -303,13 +295,20 @@ export async function POST(req: NextRequest) {
           const out: Array<{
             batchRef: string;
             busCode: string;
+            busPlate: string | null;
+            reportedNovelty: string;
+            affectedEquipment: string;
             noveltyCaseId: string;
             noveltyCaseNo: number | null;
+            noveltyStatus: CaseStatus;
             correctiveCaseId: string;
             correctiveCaseNo: number | null;
+            correctiveStatus: CaseStatus;
             workOrderId: string;
             workOrderNo: number | null;
+            workOrderStatus: WorkOrderStatus;
             stsTicketId: string | null;
+            stsTicketStatus: "OPEN" | null;
             evidencePath: string | null;
           }> = [];
 
@@ -333,7 +332,6 @@ export async function POST(req: NextRequest) {
                   row.catalogCode ? `Código novedad: ${row.catalogCode}` : null,
                   `Equipo afectado: ${row.affectedEquipment}`,
                   `Novedad reportada: ${row.reportedNovelty}`,
-                  `Afectación: ${row.affectation}`,
                   row.observations ? `Observaciones: ${row.observations}` : null,
                 ]
                   .filter(Boolean)
@@ -352,7 +350,6 @@ export async function POST(req: NextRequest) {
               catalogCode: row.catalogCode || null,
               affectedEquipment: row.affectedEquipment,
               reportedNovelty: row.reportedNovelty,
-              affectation: row.affectation,
               observations: row.observations || null,
               evidence,
             };
@@ -403,7 +400,6 @@ export async function POST(req: NextRequest) {
               row.catalogCode ? `Código novedad: ${row.catalogCode}` : null,
               `Equipo afectado: ${row.affectedEquipment}`,
               `Novedad reportada: ${row.reportedNovelty}`,
-              `Afectación: ${row.affectation}`,
               row.observations ? `Observaciones: ${row.observations}` : null,
               `Generado automáticamente por novedad CASO-${noveltyCase.caseNo}.`,
             ]
@@ -529,13 +525,20 @@ export async function POST(req: NextRequest) {
             out.push({
               batchRef,
               busCode: bus.code,
+              busPlate: bus.plate ?? null,
+              reportedNovelty: row.reportedNovelty,
+              affectedEquipment: row.affectedEquipment,
               noveltyCaseId: noveltyCase.id,
               noveltyCaseNo: noveltyCase.caseNo ?? null,
+              noveltyStatus: noveltyCase.status,
               correctiveCaseId: correctiveCase.id,
               correctiveCaseNo: correctiveCase.caseNo ?? null,
+              correctiveStatus: correctiveCase.status,
               workOrderId: workOrder.id,
               workOrderNo: workOrder.workOrderNo ?? null,
+              workOrderStatus: workOrder.status,
               stsTicketId,
+              stsTicketStatus: stsTicketId ? "OPEN" : null,
               evidencePath: evidence?.filePath ?? null,
             });
           }
@@ -554,6 +557,60 @@ export async function POST(req: NextRequest) {
         meta: { kind: "NOVEDAD_BATCH", batchRef: created.batchRef, count: created.items.length },
         sendEmail: false,
       });
+
+      const escapeHtml = (value: string) =>
+        String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+
+      const lotRowsHtml = created.items
+        .map((item) => {
+          const busLabel = `${item.busCode}${item.busPlate ? ` (${item.busPlate})` : ""}`;
+          const ticketLabel = item.stsTicketStatus ?? "Sin ticket";
+          return `
+            <tr>
+              <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;">${escapeHtml(busLabel)}</td>
+              <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;">${escapeHtml(item.reportedNovelty)}</td>
+              <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;">CASO-${String(item.noveltyCaseNo ?? "").padStart(3, "0")} · ${escapeHtml(item.noveltyStatus)}</td>
+              <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;">CASO-${String(item.correctiveCaseNo ?? "").padStart(3, "0")} · ${escapeHtml(item.correctiveStatus)}</td>
+              <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;">OT-${String(item.workOrderNo ?? "").padStart(3, "0")} · ${escapeHtml(item.workOrderStatus)}</td>
+              <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;">${escapeHtml(ticketLabel)}</td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      const lotTableHtml = `
+        <p style="margin:0 0 10px;font-size:14px;color:#374151;">
+          ID ${escapeHtml(created.batchRef)}: ${created.items.length} buses reportados y ${created.items.length} tickets correctivos en validación.
+        </p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#111827;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Bus</th>
+              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Novedad reportada</th>
+              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Caso novedad</th>
+              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Correctivo</th>
+              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">OT</th>
+              <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Ticket STS</th>
+            </tr>
+          </thead>
+          <tbody>${lotRowsHtml}</tbody>
+        </table>
+      `;
+
+      const lotTableText = [
+        `Novedades reportadas (${created.batchRef})`,
+        `ID ${created.batchRef}: ${created.items.length} buses reportados y ${created.items.length} tickets correctivos en validación.`,
+        ...created.items.map((item) => {
+          const busLabel = `${item.busCode}${item.busPlate ? ` (${item.busPlate})` : ""}`;
+          const ticketLabel = item.stsTicketStatus ?? "Sin ticket";
+          return `${busLabel} | ${item.reportedNovelty} | Novedad CASO-${String(item.noveltyCaseNo ?? "").padStart(3, "0")} (${item.noveltyStatus}) | Correctivo CASO-${String(item.correctiveCaseNo ?? "").padStart(3, "0")} (${item.correctiveStatus}) | OT-${String(item.workOrderNo ?? "").padStart(3, "0")} (${item.workOrderStatus}) | ${ticketLabel}`;
+        }),
+      ].join("\n");
 
       await Promise.all(
         created.items.map((item) =>
@@ -583,7 +640,9 @@ export async function POST(req: NextRequest) {
         title: `Novedades reportadas (${created.batchRef})`,
         body: `ID ${created.batchRef}: ${created.items.length} buses reportados y ${created.items.length} tickets correctivos en validación.`,
         meta: { kind: "NOVEDAD_BATCH", batchRef: created.batchRef, count: created.items.length },
-        sendEmail: false,
+        sendEmail: true,
+        emailBodyHtml: lotTableHtml,
+        emailBodyText: lotTableText,
       });
 
       return NextResponse.json({

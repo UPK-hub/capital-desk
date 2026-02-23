@@ -13,6 +13,8 @@ type NotifyParams = {
   body?: string | null;
   href?: string | null;
   meta?: any;
+  emailBodyHtml?: string | null;
+  emailBodyText?: string | null;
 
   // Control fino
   sendEmail?: boolean; // default true
@@ -72,7 +74,14 @@ export async function notifyTenantUsers(params: NotifyParams) {
       : [];
 
   if (queuedEmails.length) {
-    const { subject, html, text } = buildEmail({ type, title, body, href });
+    const { subject, html, text } = buildEmail({
+      type,
+      title,
+      body,
+      href,
+      bodyHtml: params.emailBodyHtml ?? null,
+      textOverride: params.emailBodyText ?? null,
+    });
 
     // Enviar correos en background para no bloquear requests criticos.
     void (async () => {

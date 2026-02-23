@@ -63,7 +63,6 @@ export default function BusesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-3xl font-bold leading-none text-slate-900">{b.code}</p>
-                    <p className="text-lg text-slate-500">{b.plate ?? "Sin placa"}</p>
                   </div>
                   <p className="mt-1 text-base text-slate-600">{b.plate ?? "Sin placa registrada"}</p>
 
