@@ -144,6 +144,7 @@ function FileUploadField({
   const firstName = count > 0 ? String(files?.item(0)?.name ?? "") : "";
   const persisted = Number(savedCount ?? 0);
   const hasPersisted = persisted > 0;
+  const [zoomOrigin, setZoomOrigin] = React.useState("50% 50%");
   const persistedPreview = uploadPreviewUrl(savedPreviewPath ?? "");
   const persistedPreviewIsImage = isImageUploadPath(savedPreviewPath ?? "");
   const localImagePreview = React.useMemo(() => {
@@ -156,6 +157,42 @@ function FileUploadField({
     return () => URL.revokeObjectURL(localImagePreview);
   }, [localImagePreview]);
   const previewUrl = localImagePreview || (persistedPreviewIsImage ? persistedPreview : "");
+  const handleZoomMove = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const safeX = Math.max(0, Math.min(100, x));
+    const safeY = Math.max(0, Math.min(100, y));
+    setZoomOrigin(`${safeX}% ${safeY}%`);
+  }, []);
+
+  const previewControl = previewUrl ? (
+    <span className="group/preview relative inline-flex select-none text-[11px] font-medium text-primary">
+      <span className="cursor-zoom-in rounded-md px-1 py-0.5 hover:bg-primary/10">
+        Vista previa
+      </span>
+      <span className="invisible absolute left-0 top-full z-50 mt-2 h-72 w-72 overflow-hidden rounded-xl border border-border/80 bg-card opacity-0 shadow-2xl transition-all duration-150 group-hover/preview:visible group-hover/preview:opacity-100">
+        <div
+          className="h-full w-full cursor-zoom-in overflow-hidden"
+          onMouseMove={handleZoomMove}
+          onMouseLeave={() => setZoomOrigin("50% 50%")}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewUrl}
+            alt="Vista previa"
+            className="h-full w-full object-cover transition-transform duration-150 group-hover/preview:scale-[2.1]"
+            style={{ transformOrigin: zoomOrigin }}
+          />
+        </div>
+        <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/65 px-2 py-1 text-[10px] font-semibold text-white">
+          Zoom
+        </span>
+      </span>
+    </span>
+  ) : null;
+
   return (
     <div className="space-y-1.5">
       <input
@@ -202,31 +239,22 @@ function FileUploadField({
         </span>
       </label>
       {count > 0 ? (
-        <button
-          type="button"
-          className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          onClick={onClear}
-        >
-          Quitar selección
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            onClick={onClear}
+          >
+            Quitar selección
+          </button>
+          {previewControl}
+        </div>
       ) : (
         <div className="flex items-center gap-2">
           <p className="text-[11px] text-muted-foreground">
             {hasPersisted ? "Guardado en servidor." : "Ninguna foto o archivo seleccionado"}
           </p>
-          {previewUrl ? (
-            <span className="group/preview relative cursor-default text-[11px] font-medium text-primary">
-              Vista previa
-              <span className="pointer-events-none invisible absolute bottom-full left-0 z-40 mb-2 rounded-lg border border-border/70 bg-card p-1 opacity-0 shadow-xl transition-all duration-150 group-hover/preview:visible group-hover/preview:opacity-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Vista previa"
-                  className="h-24 w-24 rounded-md object-cover"
-                />
-              </span>
-            </span>
-          ) : null}
+          {previewControl}
         </div>
       )}
     </div>
