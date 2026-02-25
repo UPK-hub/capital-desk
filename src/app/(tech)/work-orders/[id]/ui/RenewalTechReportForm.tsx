@@ -304,11 +304,19 @@ function equipmentSortIndex(type: string) {
 }
 
 function requiresOldPhoto(type: string) {
-  return OLD_PHOTO_REQUIRED_TYPES.has(canonicalTypeKey(type));
+  // Renovación: también solicitar foto en discos duros antiguos.
+  return OLD_PHOTO_REQUIRED_TYPES.has(canonicalTypeKey(type)) || isDiskType(type);
 }
 
 function requiresNewPhoto(type: string) {
-  return NEW_PHOTO_REQUIRED_TYPES.has(canonicalTypeKey(type));
+  // Renovación: foto en discos nuevos, baterías, controlador de carga y módulo.
+  return (
+    NEW_PHOTO_REQUIRED_TYPES.has(canonicalTypeKey(type)) ||
+    isDiskType(type) ||
+    isBatteryType(type) ||
+    isChargeControllerType(type) ||
+    isTelecomModuleType(type)
+  );
 }
 
 const DISK_TYPE_KEYS = new Set([
@@ -334,6 +342,25 @@ function usesIpField(rawType: string) {
   if (key === "4G" || key.endsWith("_4G")) return false;
   if (key === "5G" || key.endsWith("_5G")) return false;
   return true;
+}
+
+function isBatteryType(rawType: string) {
+  return canonicalTypeKey(rawType).includes("BATERIA");
+}
+
+function isChargeControllerType(rawType: string) {
+  const key = canonicalTypeKey(rawType);
+  return key.includes("CONTROLADOR") && key.includes("CARGA");
+}
+
+function isTelecomModuleType(rawType: string) {
+  const key = canonicalTypeKey(rawType);
+  if (!key) return false;
+  if (key.includes("MODULO") && (key.includes("4G") || key.includes("5G"))) return true;
+  if (key.includes("MODEM") && (key.includes("4G") || key.includes("5G"))) return true;
+  if (key === "4G" || key.endsWith("_4G")) return true;
+  if (key === "5G" || key.endsWith("_5G")) return true;
+  return false;
 }
 
 function splitSerialPair(value: string | null | undefined): [string, string] {
@@ -551,11 +578,12 @@ export default function RenewalTechReportForm(props: Props) {
           return {
             busEquipmentId: String(eq.id),
             type: String(eq.equipmentType?.name ?? ""),
-            ipAddress: String(persisted?.ipAddress ?? eq.ipAddress ?? ""),
-            brand: String(persisted?.brand ?? eq.brand ?? ""),
-            model: String(persisted?.model ?? eq.model ?? ""),
+            // Paso 3 (instalación nueva) inicia en blanco cuando no hay guardado previo.
+            ipAddress: String(persisted?.ipAddress ?? ""),
+            brand: String(persisted?.brand ?? ""),
+            model: String(persisted?.model ?? ""),
             oldSerial: String(persisted?.oldSerial ?? fallbackSerial),
-            newSerial: String(persisted?.newSerial ?? persisted?.serial ?? fallbackSerial),
+            newSerial: String(persisted?.newSerial ?? persisted?.serial ?? ""),
             oldOnly: Boolean(persisted?.oldOnly ?? false),
           } as EquipmentRow;
         })
@@ -568,7 +596,12 @@ export default function RenewalTechReportForm(props: Props) {
         const persistedCollector = persistedUpdates.find((row: any) =>
           isCollectorType(String(row?.type ?? ""))
         );
-        const fallbackCollectorSerial = String(persistedCollector?.oldSerial ?? "");
+        const fallbackCollectorSerial = String(
+          persistedCollector?.oldSerial ??
+            persistedCollector?.serial ??
+            persistedCollector?.newSerial ??
+            ""
+        );
         rows.push({
           busEquipmentId: VIRTUAL_COLLECTOR_ID,
           type: "COLECTOR",
@@ -1055,11 +1088,11 @@ export default function RenewalTechReportForm(props: Props) {
           </div>
           <div className="p-0">
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full table-fixed lg:min-w-[1120px] xl:min-w-0">
+            <table className="w-full min-w-[1240px] table-fixed">
               <colgroup>
                 <col className="w-24" />
-                <col />
-                <col className="w-[14rem]" />
+                <col className="w-[16rem]" />
+                <col className="w-[20rem]" />
                 {!isProductImprovement ? <col className="w-[10rem]" /> : null}
                 {!isProductImprovement ? <col className="w-[11rem]" /> : null}
                 {!isProductImprovement ? <col className="w-[11rem]" /> : null}

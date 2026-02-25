@@ -11,12 +11,30 @@ type BusRow = {
   equipmentCount: number;
   caseCount: number;
   otCount: number;
+  preventiveCount: number;
+  correctiveCount: number;
+  noveltyCount: number;
 };
 
 export default function BusesPage() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<BusRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const res = await fetch("/api/profile", { cache: "no-store" });
+      const data = res.ok ? await res.json().catch(() => ({})) : {};
+      if (!mounted) return;
+      const role = String(data?.user?.role ?? "").toUpperCase();
+      setIsAdmin(role === "ADMIN");
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -31,11 +49,33 @@ export default function BusesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-5xl font-semibold tracking-tight text-slate-900">Buses</h1>
-        <p className="text-lg text-slate-600">
-          Consulta por código/placa y abre la hoja de vida con su contexto operativo.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-5xl font-semibold tracking-tight text-slate-900">Buses</h1>
+          <p className="text-lg text-slate-600">
+            Consulta por código/placa y abre la hoja de vida con su contexto operativo.
+          </p>
+        </div>
+        {isAdmin ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <a
+              className="sts-btn-primary inline-flex h-11 items-center justify-center px-5 text-sm"
+              href="/api/buses/qr-labels?mode=desmonte"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Descargar QR desmonte (todos)
+            </a>
+            <a
+              className="sts-btn-ghost inline-flex h-11 items-center justify-center px-5 text-sm"
+              href="/api/buses/qr-labels?mode=instalacion"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Descargar QR instalación (todos)
+            </a>
+          </div>
+        ) : null}
       </header>
 
       <section className="sts-card p-4">
@@ -66,7 +106,7 @@ export default function BusesPage() {
                   </div>
                   <p className="mt-1 text-base text-slate-600">{b.plate ?? "Sin placa registrada"}</p>
 
-                  <div className="mt-4 grid max-w-2xl grid-cols-3 gap-3">
+                  <div className="mt-4 grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                     <div className="rounded-xl border border-blue-100 bg-blue-50/75 p-3 text-center">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Equipos</p>
                       <p className="mt-1 text-2xl font-bold text-slate-900">{b.equipmentCount}</p>
@@ -79,16 +119,48 @@ export default function BusesPage() {
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">OT</p>
                       <p className="mt-1 text-2xl font-bold text-slate-900">{b.otCount}</p>
                     </div>
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Preventivos</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{b.preventiveCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-rose-100 bg-rose-50/70 p-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Correctivos</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{b.correctiveCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-3 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Novedades</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{b.noveltyCount}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="w-full lg:w-auto">
+                <div className="flex w-full flex-col gap-2 lg:w-auto">
                   <Link
                     className="sts-btn-ghost inline-flex h-12 w-full min-w-[200px] items-center justify-center px-6 text-base"
                     href={`/buses/${b.id}`}
                   >
                     Ver hoja de vida
                   </Link>
+                  {isAdmin ? (
+                    <div className="flex w-full flex-col gap-2">
+                      <a
+                        className="sts-btn-primary inline-flex h-11 w-full min-w-[200px] items-center justify-center px-4 text-sm"
+                        href={`/api/buses/qr-labels?mode=desmonte&busId=${encodeURIComponent(b.id)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Descargar QR desmonte
+                      </a>
+                      <a
+                        className="sts-btn-ghost inline-flex h-11 w-full min-w-[200px] items-center justify-center px-4 text-sm"
+                        href={`/api/buses/qr-labels?mode=instalacion&busId=${encodeURIComponent(b.id)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Descargar QR instalación
+                      </a>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </article>

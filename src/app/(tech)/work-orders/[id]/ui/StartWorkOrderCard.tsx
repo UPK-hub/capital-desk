@@ -37,7 +37,10 @@ export default function StartWorkOrderCard({
   watermarkContext,
 }: Props) {
   const router = useRouter();
-  const [notes, setNotes] = useState("");
+  const defaultStartNote = `Inicio de ${String(watermarkContext?.caseRef ?? "").trim() || "caso"} del ID bus (${String(
+    watermarkContext?.busCode ?? ""
+  ).trim() || "sin bus"})`;
+  const [notes, setNotes] = useState(defaultStartNote);
   const [photo, setPhoto] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -94,6 +97,10 @@ export default function StartWorkOrderCard({
       }))
     );
   }, [quickVerificationPreset]);
+
+  useEffect(() => {
+    setNotes((prev) => (prev.trim() ? prev : defaultStartNote));
+  }, [defaultStartNote]);
 
   const requiresQuickVerification = Boolean(quickVerificationPreset?.required);
   const missingQuickSteps = quickChecklist.filter((step) => !step.done);
@@ -177,7 +184,7 @@ export default function StartWorkOrderCard({
         throw new Error(txt || `${res.status} ${res.statusText}`);
       }
 
-      setNotes("");
+      setNotes(defaultStartNote);
       setPhoto(null);
       setFileName("");
       setQuickResult("");

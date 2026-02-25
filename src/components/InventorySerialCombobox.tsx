@@ -115,7 +115,7 @@ export function InventorySerialCombobox({
   }, [open, items.length, loading]);
 
   return (
-    <div className="relative" ref={wrapRef}>
+    <div className="relative w-full" ref={wrapRef}>
       <input
         ref={inputRef}
         value={value}
