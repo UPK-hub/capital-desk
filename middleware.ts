@@ -1,6 +1,7 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import { RBAC } from "@/lib/rbac";
+import { CAPABILITIES } from "@/lib/capabilities";
 
 export default withAuth(
   function middleware(req) {
@@ -9,14 +10,35 @@ export default withAuth(
     const path = req.nextUrl.pathname;
 
     const deny = () => NextResponse.redirect(new URL("/", req.url));
+    const isBackoffice = role === "BACKOFFICE";
+    const isRestrictedBackoffice =
+      isBackoffice && capabilities?.includes(CAPABILITIES.BACKOFFICE_RESTRICTED);
+    const isVideosOnly =
+      isBackoffice && capabilities?.includes(CAPABILITIES.VIDEOS_ONLY);
 
-    if (path.startsWith("/cases") && !RBAC.backofficeRoutes.includes(role as any)) return deny();
+    if (path.startsWith("/cases")) {
+      if (!RBAC.backofficeRoutes.includes(role as any)) return deny();
+      // Videos-only can create/request video cases, but cannot browse full case module.
+      if (isVideosOnly && path !== "/cases/new") return deny();
+    }
+    if (path.startsWith("/novedades")) {
+      if (!RBAC.backofficeRoutes.includes(role as any)) return deny();
+      if (isVideosOnly) return deny();
+    }
+    if (path.startsWith("/video-requests")) {
+      const canVideo = role === "ADMIN" || role === "BACKOFFICE" || role === "TECHNICIAN";
+      if (!canVideo) return deny();
+    }
     if (path.startsWith("/work-orders") && !RBAC.techRoutes.includes(role as any)) return deny();
     if (path.startsWith("/buses") && !RBAC.busesRoutes.includes(role as any)) return deny();
-    if (path.startsWith("/technicians/shifts") && !RBAC.shiftRoutes.includes(role as any)) return deny();
+    if (path.startsWith("/technicians/shifts")) {
+      if (!RBAC.shiftRoutes.includes(role as any)) return deny();
+      if (isRestrictedBackoffice) return deny();
+    }
     if (path.startsWith("/planner")) {
       const ok = RBAC.plannerRoutes.includes(role as any) || capabilities?.includes("PLANNER");
       if (!ok) return deny();
+      if (isRestrictedBackoffice) return deny();
     }
     if (path.startsWith("/sts")) {
       const ok =
@@ -24,6 +46,12 @@ export default withAuth(
         capabilities?.includes("STS_READ") ||
         capabilities?.includes("STS_WRITE") ||
         capabilities?.includes("STS_ADMIN");
+      if (!ok) return deny();
+    }
+    if (path.startsWith("/tm")) {
+      const ok =
+        role === "ADMIN" ||
+        (role === "BACKOFFICE" && capabilities?.includes(CAPABILITIES.TM_READ));
       if (!ok) return deny();
     }
 
@@ -44,10 +72,13 @@ export default withAuth(
 export const config = {
   matcher: [
     "/cases/:path*",
+    "/novedades/:path*",
+    "/video-requests/:path*",
     "/work-orders/:path*",
     "/buses/:path*",
     "/technicians/shifts/:path*",
     "/planner/:path*",
     "/sts/:path*",
+    "/tm/:path*",
   ],
 };

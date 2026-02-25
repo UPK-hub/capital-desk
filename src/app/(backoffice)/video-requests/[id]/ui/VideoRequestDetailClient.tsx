@@ -53,7 +53,13 @@ function inputCls() {
   return "h-10 w-full rounded-md border px-3 text-sm focus-visible:outline-none";
 }
 
-export default function VideoRequestDetailClient({ initialItem }: { initialItem: Item }) {
+export default function VideoRequestDetailClient({
+  initialItem,
+  canManage = true,
+}: {
+  initialItem: Item;
+  canManage?: boolean;
+}) {
   const [item, setItem] = React.useState<Item>(initialItem);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
@@ -68,6 +74,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
   const [fileKind, setFileKind] = React.useState<VideoAttachmentKind>(VideoAttachmentKind.VIDEO);
 
   React.useEffect(() => {
+    if (!canManage) return;
     let alive = true;
     (async () => {
       const res = await fetch("/api/technicians");
@@ -79,7 +86,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
     return () => {
       alive = false;
     };
-  }, []);
+  }, [canManage]);
 
   async function refresh() {
     const res = await fetch(`/api/video-requests/${item.id}`);
@@ -218,7 +225,12 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Estado caso</label>
-                <Select className={inputCls()} value={status} onChange={(e) => setStatus(e.target.value as VideoCaseStatus)}>
+                <Select
+                  className={inputCls()}
+                  value={status}
+                  disabled={!canManage}
+                  onChange={(e) => setStatus(e.target.value as VideoCaseStatus)}
+                >
                   <option value={VideoCaseStatus.EN_ESPERA}>{videoCaseStatusLabels.EN_ESPERA}</option>
                   <option value={VideoCaseStatus.EN_CURSO}>{videoCaseStatusLabels.EN_CURSO}</option>
                   <option value={VideoCaseStatus.COMPLETADO}>{videoCaseStatusLabels.COMPLETADO}</option>
@@ -229,6 +241,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
                 <Select
                   className={inputCls()}
                   value={downloadStatus}
+                  disabled={!canManage}
                   onChange={(e) => setDownloadStatus(e.target.value as VideoDownloadStatus)}
                 >
                   <option value={VideoDownloadStatus.PENDIENTE}>{videoDownloadStatusLabels.PENDIENTE}</option>
@@ -239,7 +252,12 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Tecnico asignado</label>
-                <Select className={inputCls()} value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
+                <Select
+                  className={inputCls()}
+                  value={assignedToId}
+                  disabled={!canManage}
+                  onChange={(e) => setAssignedToId(e.target.value)}
+                >
                   <option value="">Sin asignar</option>
                   {techs.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -253,6 +271,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
                 <textarea
                   className="min-h-[88px] w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none"
                   value={observations}
+                  disabled={!canManage}
                   onChange={(e) => setObservations(e.target.value)}
                 />
               </div>
@@ -262,7 +281,7 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
               <button
                 type="button"
                 onClick={save}
-                disabled={saving}
+                disabled={saving || !canManage}
                 className="sts-btn-primary text-sm disabled:opacity-60"
               >
                 {saving ? "Guardando..." : "Guardar cambios"}
@@ -275,21 +294,31 @@ export default function VideoRequestDetailClient({ initialItem }: { initialItem:
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Tipo</label>
-                <Select className={inputCls()} value={fileKind} onChange={(e) => setFileKind(e.target.value as VideoAttachmentKind)}>
+                <Select
+                  className={inputCls()}
+                  value={fileKind}
+                  disabled={!canManage}
+                  onChange={(e) => setFileKind(e.target.value as VideoAttachmentKind)}
+                >
                   <option value={VideoAttachmentKind.VIDEO}>{videoAttachmentLabels.VIDEO}</option>
                   <option value={VideoAttachmentKind.OTRO}>{videoAttachmentLabels.OTRO}</option>
                 </Select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Archivo</label>
-                <input className={inputCls()} type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                <input
+                  className={inputCls()}
+                  type="file"
+                  disabled={!canManage}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
               </div>
             </div>
             <div className="mt-3">
               <button
                 type="button"
                 onClick={upload}
-                disabled={saving}
+                disabled={saving || !canManage}
                 className="rounded-md border px-4 py-2 text-sm disabled:opacity-60"
               >
                 Subir archivo

@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { NotificationType, Role } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { buildCaseAccessWhere } from "@/lib/access-control";
 
 function toDate(v: unknown): Date | null {
   if (!v) return null;
@@ -20,10 +21,23 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  const role = (session.user as any).role as Role;
+  if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
 
   const c = await prisma.case.findFirst({
-    where: { id: ctx.params.id, tenantId },
+    where: buildCaseAccessWhere({
+      caseId: String(ctx.params.id),
+      tenantId,
+      role,
+      capabilities,
+      userId,
+    }),
     include: { videoDownloadRequest: true },
   });
   if (!c) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -35,7 +49,14 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  const role = (session.user as any).role as Role;
+  if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
   const caseId = String(ctx.params.id);
 
   const body = await req.json().catch(() => ({}));
@@ -48,7 +69,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const c = await prisma.case.findFirst({
-    where: { id: caseId, tenantId },
+    where: buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
     include: { bus: true },
   });
   if (!c) return NextResponse.json({ error: "No encontrado" }, { status: 404 });

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { buildVideoRequestCaseScope } from "@/lib/access-control";
 import { labelFromMap, videoCaseStatusLabels, videoDownloadStatusLabels } from "@/lib/labels";
 import {
   DataTable,
@@ -59,9 +60,12 @@ export default async function VideoRequestsPage() {
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
 
   const items = await prisma.videoDownloadRequest.findMany({
-    where: { case: { tenantId } },
+    where: { case: { tenantId, ...caseScope } },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {

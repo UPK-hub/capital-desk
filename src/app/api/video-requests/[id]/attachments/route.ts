@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/uploads";
 import { Role, VideoAttachmentKind, VideoDownloadStatus, VideoRequestEventType } from "@prisma/client";
+import { buildVideoRequestCaseScope, isBackofficeRestricted, isVideosOnlyBackoffice } from "@/lib/access-control";
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -16,13 +17,18 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  if (role === Role.BACKOFFICE && (isBackofficeRestricted(role, capabilities) || isVideosOnlyBackoffice(role, capabilities))) {
+    return NextResponse.json({ error: "No tienes permisos para cargar archivos." }, { status: 403 });
+  }
 
   const tenantId = (session.user as any).tenantId as string;
   const actorUserId = (session.user as any).id as string;
+  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId: actorUserId });
   const requestId = String(ctx.params.id);
 
   const request = await prisma.videoDownloadRequest.findFirst({
-    where: { id: requestId, case: { tenantId } },
+    where: { id: requestId, case: { tenantId, ...caseScope } },
   });
   if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

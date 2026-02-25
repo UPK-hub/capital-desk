@@ -6,17 +6,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { isOwnCasesOnlyBackoffice, isVideosOnlyBackoffice, ownCasesWhere } from "@/lib/access-control";
 
 function canAccessModules(role: Role, caps: string[] | undefined) {
-  const canBackoffice = role === Role.ADMIN || role === Role.BACKOFFICE;
+  const videosOnly = isVideosOnlyBackoffice(role, caps);
+  const canBackoffice = role === Role.ADMIN || (role === Role.BACKOFFICE && !videosOnly);
   const canTech = role === Role.ADMIN || role === Role.TECHNICIAN;
   const canVideo = role === Role.ADMIN || role === Role.BACKOFFICE;
   const canSts =
     role === Role.ADMIN ||
     (role === Role.BACKOFFICE &&
       (caps?.includes("STS_READ") || caps?.includes("STS_WRITE") || caps?.includes("STS_ADMIN")));
+  const canTm = role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.TM_READ));
   const isAdmin = role === Role.ADMIN;
-  return { canBackoffice, canTech, canVideo, canSts, isAdmin };
+  return { canBackoffice, canTech, canVideo, canSts, canTm, isAdmin };
 }
 
 export async function GET(req: NextRequest) {
@@ -27,9 +31,11 @@ export async function GET(req: NextRequest) {
   if (term.length < 2) return NextResponse.json({ items: [] });
 
   const tenantId = (session.user as any).tenantId as string;
+  const userId = String((session.user as any).id ?? "");
   const role = session.user.role as Role;
   const caps = (session.user as any).capabilities as string[] | undefined;
-  const { canBackoffice, canTech, canVideo, canSts, isAdmin } = canAccessModules(role, caps);
+  const ownOnly = isOwnCasesOnlyBackoffice(role, caps);
+  const { canBackoffice, canTech, canVideo, canSts, canTm, isAdmin } = canAccessModules(role, caps);
   const isNumeric = /^\d+$/.test(term);
   const numericValue = isNumeric ? Number(term) : null;
 
@@ -39,6 +45,7 @@ export async function GET(req: NextRequest) {
     const cases = await prisma.case.findMany({
       where: {
         tenantId,
+        ...(ownOnly ? ownCasesWhere(userId) : {}),
         OR: [
           { title: { contains: term, mode: "insensitive" } },
           { description: { contains: term, mode: "insensitive" } },
@@ -65,6 +72,7 @@ export async function GET(req: NextRequest) {
     const workOrders = await prisma.workOrder.findMany({
       where: {
         tenantId,
+        ...(ownOnly ? { case: ownCasesWhere(userId) } : {}),
         OR: [
           ...(numericValue ? [{ workOrderNo: numericValue }] : []),
           { case: { is: { title: { contains: term, mode: "insensitive" } } } },
@@ -134,10 +142,11 @@ export async function GET(req: NextRequest) {
   if (canVideo) {
     const videos = await prisma.videoDownloadRequest.findMany({
       where: {
+        case: { tenantId, ...(ownOnly ? ownCasesWhere(userId) : {}) },
         OR: [
-          { case: { is: { tenantId, title: { contains: term, mode: "insensitive" } } } },
-          { case: { is: { tenantId, bus: { is: { code: { contains: term, mode: "insensitive" } } } } } },
-          { case: { is: { tenantId, bus: { is: { plate: { contains: term, mode: "insensitive" } } } } } },
+          { case: { is: { title: { contains: term, mode: "insensitive" } } } },
+          { case: { is: { bus: { is: { code: { contains: term, mode: "insensitive" } } } } } },
+          { case: { is: { bus: { is: { plate: { contains: term, mode: "insensitive" } } } } } },
           { requesterName: { contains: term, mode: "insensitive" } },
         ],
       },
@@ -175,6 +184,15 @@ export async function GET(req: NextRequest) {
         href: `/admin/users`,
       })),
     );
+  }
+
+  if (canTm) {
+    results.push({
+      type: "TM",
+      title: "Reporte TM",
+      subtitle: "Abrir dashboard TM",
+      href: "/tm",
+    });
   }
 
   return NextResponse.json({ items: results.slice(0, 20) });

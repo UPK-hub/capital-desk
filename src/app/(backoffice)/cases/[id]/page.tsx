@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseType, ProcedureType, Role } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { buildCaseAccessWhere } from "@/lib/access-control";
 import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
@@ -107,11 +109,18 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   }
 
   const role = (session.user as any).role as Role;
+  const caps = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const isVideosOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.VIDEOS_ONLY);
+  const canAssign =
+    role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.CASE_ASSIGN));
+
   if (
-    role !== Role.ADMIN &&
-    role !== Role.BACKOFFICE &&
-    role !== Role.PLANNER &&
-    role !== Role.SUPERVISOR
+    isVideosOnly ||
+    (role !== Role.ADMIN &&
+      role !== Role.BACKOFFICE &&
+      role !== Role.PLANNER &&
+      role !== Role.SUPERVISOR)
   ) {
     return (
       <div className="mx-auto max-w-5xl p-6">
@@ -126,7 +135,13 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const debug = String(searchParams?.debug ?? "") === "1";
 
   const c = await prisma.case.findFirst({
-    where: { id: params.id, tenantId },
+    where: buildCaseAccessWhere({
+      caseId: params.id,
+      tenantId,
+      role,
+      capabilities: caps,
+      userId,
+    }),
     include: {
       bus: { select: { id: true, code: true, plate: true } },
       busEquipment: {
@@ -176,11 +191,13 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     take: 200,
   });
 
-  const technicians = await prisma.user.findMany({
-    where: { tenantId, active: true, role: Role.TECHNICIAN },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, email: true },
-  });
+  const technicians = canAssign
+    ? await prisma.user.findMany({
+        where: { tenantId, active: true, role: Role.TECHNICIAN },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, email: true },
+      })
+    : [];
 
   const users = await prisma.user.findMany({
     where: { tenantId, active: true },
@@ -280,9 +297,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     }),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
-  const caps = (session.user as any).capabilities as string[] | undefined;
-  const canAssign =
-    role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("CASE_ASSIGN"));
   const canEditNovedad =
     role === Role.ADMIN ||
     role === Role.BACKOFFICE ||
@@ -634,6 +648,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                           Descargar acta de cambio de equipo
                         </a>
                       ) : null}
+                      {c.type === "CORRECTIVO" &&
+                      c.workOrder?.status === "FINALIZADA" ? (
+                        <a
+                          className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
+                          href={`/api/work-orders/${c.workOrder!.id}/corrective-docx`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Descargar correctivo (Word STS)
+                        </a>
+                      ) : null}
 
                       <WorkOrderFileUploadCard
                         workOrderId={c.workOrder!.id}
@@ -669,6 +694,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       ? c.workOrder?.id ?? null
                       : linkedCorrectiveForNovedad?.workOrder?.id ?? null
                   }
+                  busCode={c.bus?.code ?? null}
+                  busPlate={c.bus?.plate ?? null}
                 />
               ) : null}
 

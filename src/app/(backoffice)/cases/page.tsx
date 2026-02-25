@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, Role } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { ownCasesWhere } from "@/lib/access-control";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import { Select } from "@/components/Field";
 import {
@@ -47,7 +49,10 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   }
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
+  const caps = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const isVideosOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.VIDEOS_ONLY);
+  if ((role !== Role.ADMIN && role !== Role.BACKOFFICE) || isVideosOnly) {
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="sts-card p-4">
@@ -58,6 +63,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const ownOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
 
   const q = toStr(searchParams?.q);
   const status = toStr(searchParams?.status) as CaseStatus | null;
@@ -68,6 +74,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   const cases = await prisma.case.findMany({
     where: {
       tenantId,
+      ...(ownOnly ? ownCasesWhere(userId) : {}),
       ...(status ? { status } : {}),
       ...(type ? { type } : {}),
       ...(priorityInt ? { priority: priorityInt } : {}),

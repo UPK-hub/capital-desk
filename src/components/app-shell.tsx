@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
 import FloatingMessenger from "@/components/FloatingMessenger";
 import RouteTransition from "@/components/RouteTransition";
 import Sidebar from "@/components/layout/Sidebar";
@@ -21,6 +22,7 @@ type NavItem = {
   badge?: number;
   roles?: Role[];
   capabilities?: string[];
+  hiddenForCapabilities?: string[];
 };
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
@@ -55,6 +57,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       section: "main",
       color: "var(--color-sts)",
       roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+      hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
     },
     {
       label: "Novedades",
@@ -63,6 +66,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       section: "main",
       color: "var(--color-backoffice)",
       roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER],
+      hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
     },
     {
       label: "Buses",
@@ -104,6 +108,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       section: "main",
       color: "var(--color-tm)",
       roles: [Role.ADMIN, Role.BACKOFFICE],
+      hiddenForCapabilities: [CAPABILITIES.BACKOFFICE_RESTRICTED, CAPABILITIES.VIDEOS_ONLY],
     },
     {
       label: "STS",
@@ -119,7 +124,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       icon: "tm",
       section: "reports",
       color: "var(--color-tm)",
-      capabilities: ["TM_READ"],
+      capabilities: [CAPABILITIES.TM_READ],
     },
     {
       label: "Administración",
@@ -143,6 +148,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const filteredNav = navItems.filter((item) => {
     if (!session?.user) return false;
     if (role === Role.ADMIN) return true;
+    if (item.hiddenForCapabilities?.some((cap) => capabilities.includes(cap))) return false;
     const allowRole = item.roles ? (role ? item.roles.includes(role) : false) : true;
     const allowCap = item.capabilities
       ? role === Role.BACKOFFICE && item.capabilities.some((c) => capabilities.includes(c))

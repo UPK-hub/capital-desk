@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, Role } from "@prisma/client";
+import { buildCaseAccessWhere } from "@/lib/access-control";
 
 const ALLOWED = new Set<Role>([
   Role.ADMIN,
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   if (!ALLOWED.has(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
   const userId = String((session.user as any).id ?? "");
   const caseId = String(ctx.params.id ?? "");
 
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const found = await prisma.case.findFirst({
-    where: { id: caseId, tenantId },
+    where: buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
     select: { id: true },
   });
   if (!found) return NextResponse.json({ error: "Caso no encontrado." }, { status: 404 });
@@ -50,4 +52,3 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
   return NextResponse.json({ ok: true, comment: event });
 }
-

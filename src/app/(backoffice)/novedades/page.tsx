@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, Role, StsTicketStatus, WorkOrderStatus } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { ownCasesWhere } from "@/lib/access-control";
 import {
   caseStatusLabels,
   labelFromMap,
@@ -154,7 +156,11 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   }
 
   const role = (session.user as any).role as Role;
+  const caps = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const isVideosOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.VIDEOS_ONLY);
   if (
+    isVideosOnly ||
     role !== Role.ADMIN &&
     role !== Role.BACKOFFICE &&
     role !== Role.SUPERVISOR &&
@@ -170,6 +176,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const ownOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
   const q = toStr(searchParams?.q);
   const batchRefFilter = toStr(searchParams?.batchRef);
 
@@ -179,6 +186,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
     where: {
       tenantId,
       type: CaseType.NOVEDAD,
+      ...(ownOnly ? ownCasesWhere(userId) : {}),
       ...(q
         ? {
             OR: [

@@ -10,6 +10,8 @@ import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { ownCasesWhere } from "@/lib/access-control";
 
 function normalizePriority(input: any): number | undefined {
   if (input === null || input === undefined || input === "") return undefined;
@@ -34,10 +36,18 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const role = (session.user as any).role as Role;
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const caps = ((session.user as any).capabilities as string[] | undefined) ?? [];
+  const userId = String((session.user as any).id ?? "");
   const tenantId = (session.user as any).tenantId as string;
+  const ownOnly = role === Role.BACKOFFICE && caps.includes(CAPABILITIES.OWN_CASES_ONLY);
 
   const items = await prisma.case.findMany({
-    where: { tenantId },
+    where: { tenantId, ...(ownOnly ? ownCasesWhere(userId) : {}) },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {
@@ -53,6 +63,15 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const role = (session.user as any).role as Role;
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const capabilities = ((session.user as any).capabilities as string[] | undefined) ?? [];
+  const videosOnly =
+    role === Role.BACKOFFICE && capabilities.includes(CAPABILITIES.VIDEOS_ONLY);
+
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
 
@@ -61,6 +80,12 @@ export async function POST(req: NextRequest) {
   const type = body.type as keyof typeof CASE_TYPE_REGISTRY;
   const cfg = CASE_TYPE_REGISTRY[type];
   if (!cfg) return NextResponse.json({ error: "Tipo de caso inválido" }, { status: 400 });
+  if (videosOnly && cfg.type !== "SOLICITUD_DESCARGA_VIDEO") {
+    return NextResponse.json(
+      { error: "Tu perfil solo puede crear solicitudes de descarga de video." },
+      { status: 403 }
+    );
+  }
 
   const busId = String(body.busId ?? "").trim();
   if (!busId) return NextResponse.json({ error: "Selecciona un bus" }, { status: 400 });

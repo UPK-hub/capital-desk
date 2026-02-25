@@ -7,6 +7,8 @@ import { Role, StsTicketStatus, VideoCaseStatus } from "@prisma/client";
 import { BriefcaseBusiness, CalendarDays, ClipboardList, Film, ShieldCheck, Truck, Wrench } from "lucide-react";
 import Image from "next/image";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { isVideosOnlyBackoffice } from "@/lib/access-control";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -18,8 +20,9 @@ export default async function HomePage() {
   const role = session.user.role;
   const tenantId = (session.user as any).tenantId as string;
   const caps = (session.user as any).capabilities as string[] | undefined;
+  const videosOnly = isVideosOnlyBackoffice(role, caps);
 
-  const canBackoffice = role === Role.ADMIN || role === Role.BACKOFFICE;
+  const canBackoffice = role === Role.ADMIN || (role === Role.BACKOFFICE && !videosOnly);
   const canTech = role === Role.ADMIN || role === Role.TECHNICIAN;
   const canVideo = role === Role.ADMIN || role === Role.BACKOFFICE;
   const canPlanner = role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("PLANNER"));
@@ -27,7 +30,7 @@ export default async function HomePage() {
     role === Role.ADMIN ||
     (role === Role.BACKOFFICE &&
       (caps?.includes("STS_READ") || caps?.includes("STS_WRITE") || caps?.includes("STS_ADMIN")));
-  const canTm = role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("TM_READ"));
+  const canTm = role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.TM_READ));
   const isAdmin = role === Role.ADMIN;
 
   const [openCases, pendingVideos, availableTechs, openStsTickets] = await Promise.all([

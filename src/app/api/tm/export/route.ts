@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { buildTmReport } from "@/lib/tm-report";
+import { CAPABILITIES } from "@/lib/capabilities";
 import { utils, write } from "xlsx";
 
 function parseDate(value?: string | null) {
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
 
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "BACKOFFICE") return new Response("Forbidden", { status: 403 });
+  const caps = (session.user as any).capabilities as string[] | undefined;
+  const canTm =
+    role === "ADMIN" || (role === "BACKOFFICE" && caps?.includes(CAPABILITIES.TM_READ));
+  if (!canTm) return new Response("Forbidden", { status: 403 });
 
   const tenantId = (session.user as any).tenantId as string;
   const { searchParams } = new URL(req.url);

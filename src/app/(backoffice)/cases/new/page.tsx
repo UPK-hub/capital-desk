@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
+import { CAPABILITIES } from "@/lib/capabilities";
 import { FormCard } from "@/components/FormCard";
 import { Field, Input, Select, Textarea } from "@/components/Field";
 import { DateTimeField } from "@/components/DateTimeField";
@@ -52,7 +53,34 @@ type NovedadCatalogOption = {
   priorityLabel: string;
   minimalEvidence: string;
   impact: string;
+  standardObservation: string;
 };
+
+function formatBogotaDateTime(date: Date) {
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(date);
+}
+
+function applyObservationTemplate(
+  template: string,
+  context: { bus: BusOption | null; catalogCode: string; reportedNovelty: string }
+) {
+  const text = String(template ?? "").trim();
+  if (!text) return "";
+  const busCode = context.bus?.code?.trim() || "No disponible";
+  const busPlate = context.bus?.plate?.trim() || "";
+  const busText = busPlate ? `${busCode} (${busPlate})` : busCode;
+  const dateTime = formatBogotaDateTime(new Date());
+
+  return text
+    .replace(/\{BUS\}/gi, busText)
+    .replace(/\{FECHA_HORA\}/gi, dateTime)
+    .replace(/\{CODIGO\}/gi, context.catalogCode || "N/A")
+    .replace(/\{NOVEDAD\}/gi, context.reportedNovelty || "N/A");
+}
 
 type VideoForm = {
   origin: "TRANSMILENIO_SA" | "INTERVENTORIA" | "CAPITAL_BUS" | "OTRO";
@@ -93,9 +121,47 @@ export default function NewCasePage() {
       : "CORRECTIVO";
 
   const [type, setType] = useState<keyof typeof CASE_TYPE_REGISTRY>(initialType);
+  const [isVideosOnlyUser, setIsVideosOnlyUser] = useState(false);
   const config = CASE_TYPE_REGISTRY[type];
   const isRenewalTecnologica = type === "RENOVACION_TECNOLOGICA";
   const usesMultiEquipment = type === "PREVENTIVO" || type === "CORRECTIVO";
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProfile() {
+      try {
+        const res = await fetch("/api/profile", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.user || cancelled) return;
+        const caps = Array.isArray(data.user.capabilities) ? data.user.capabilities : [];
+        const isVideosOnly =
+          data.user.role === "BACKOFFICE" && caps.includes(CAPABILITIES.VIDEOS_ONLY);
+        setIsVideosOnlyUser(isVideosOnly);
+      } catch {
+        // Best effort.
+      }
+    }
+    void loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isVideosOnlyUser && type !== "SOLICITUD_DESCARGA_VIDEO") {
+      setType("SOLICITUD_DESCARGA_VIDEO");
+    }
+  }, [isVideosOnlyUser, type]);
+
+  const typeOptions = useMemo(
+    () =>
+      Object.values(CASE_TYPE_REGISTRY).filter((c) => {
+        if (c.type === "MEJORA_PRODUCTO") return false;
+        if (!isVideosOnlyUser) return true;
+        return c.type === "SOLICITUD_DESCARGA_VIDEO";
+      }),
+    [isVideosOnlyUser]
+  );
 
   const [bus, setBus] = useState<BusOption | null>(null);
   const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
@@ -161,6 +227,7 @@ export default function NewCasePage() {
             priorityLabel: String(item.priorityLabel ?? ""),
             minimalEvidence: String(item.minimalEvidence ?? ""),
             impact: String(item.impact ?? ""),
+            standardObservation: String(item.standardObservation ?? ""),
           }))
         );
       } catch {
@@ -419,40 +486,28 @@ export default function NewCasePage() {
           </div>
         }
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Tipo de caso">
-            <Select
-              value={type}
-              onChange={(e) => {
-                const v = e.target.value as any;
-                setType(v);
-                setBusEquipmentIds([]);
-                if (v === "PREVENTIVO" && bus?.id) {
-                  void selectAllEquipments(bus.id);
-                }
-              }}
-            >
-              {Object.values(CASE_TYPE_REGISTRY)
-                .filter((c) => c.type !== "MEJORA_PRODUCTO")
-                .map((c) => (
-                <option key={c.type} value={c.type}>
-                  {c.label}
-                </option>
-                ))}
-            </Select>
-          </Field>
-
-          {type !== "NOVEDAD" ? (
-            <>
-              <Field label="Prioridad">
-                <Select value={priority} onChange={(e) => setPriority(e.target.value as any)}>
-                  <option value="BAJA">Baja</option>
-                  <option value="MEDIA">Media</option>
-                  <option value="ALTA">Alta</option>
+        {type !== "NOVEDAD" ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-4">
+              <Field label="Tipo de caso">
+                <Select
+                  value={type}
+                  onChange={(e) => {
+                    const v = e.target.value as any;
+                    setType(v);
+                    setBusEquipmentIds([]);
+                    if (v === "PREVENTIVO" && bus?.id) {
+                      void selectAllEquipments(bus.id);
+                    }
+                  }}
+                >
+                  {typeOptions.map((c) => (
+                    <option key={c.type} value={c.type}>
+                      {c.label}
+                    </option>
+                  ))}
                 </Select>
               </Field>
-
-              {/* Prioridad STS unificada con Prioridad */}
 
               <Field label="Bus (código o placa)">
                 <BusCombobox
@@ -468,6 +523,26 @@ export default function NewCasePage() {
                   }}
                 />
               </Field>
+
+              <Field label="Título" hint="Autollenado por tipo, editable">
+                <Input value={effectiveTitle} onChange={(e) => setTitle(e.target.value)} />
+              </Field>
+
+              <Field label="Descripción" hint="Autollenado por tipo, editable">
+                <Textarea rows={3} value={effectiveDescription} onChange={(e) => setDescription(e.target.value)} />
+              </Field>
+            </div>
+
+            <div className="space-y-4">
+              <Field label="Prioridad">
+                <Select value={priority} onChange={(e) => setPriority(e.target.value as any)}>
+                  <option value="BAJA">Baja</option>
+                  <option value="MEDIA">Media</option>
+                  <option value="ALTA">Alta</option>
+                </Select>
+              </Field>
+
+              {/* Prioridad STS unificada con Prioridad */}
 
               {isRenewalTecnologica ? (
                 <Field
@@ -508,8 +583,30 @@ export default function NewCasePage() {
                   )}
                 </Field>
               )}
-            </>
-          ) : (
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Tipo de caso">
+              <Select
+                value={type}
+                onChange={(e) => {
+                  const v = e.target.value as any;
+                  setType(v);
+                  setBusEquipmentIds([]);
+                  if (v === "PREVENTIVO" && bus?.id) {
+                    void selectAllEquipments(bus.id);
+                  }
+                }}
+              >
+                {typeOptions.map((c) => (
+                  <option key={c.type} value={c.type}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
             <div className="md:col-span-2">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium">Novedad masiva (múltiples buses)</p>
@@ -549,9 +646,20 @@ export default function NewCasePage() {
                         <Field label="Bus (código o placa)">
                           <BusCombobox
                             value={item.bus}
-                            onChange={(b) =>
-                              updateNovedadItem(item.key, { bus: b, busEquipmentIds: [] })
-                            }
+                            onChange={(b) => {
+                              const nextObservation = selectedCatalog?.standardObservation
+                                ? applyObservationTemplate(selectedCatalog.standardObservation, {
+                                    bus: b,
+                                    catalogCode: selectedCatalog.code,
+                                    reportedNovelty: selectedCatalog.novelty,
+                                  })
+                                : item.observations;
+                              updateNovedadItem(item.key, {
+                                bus: b,
+                                busEquipmentIds: [],
+                                observations: nextObservation,
+                              });
+                            }}
                           />
                         </Field>
 
@@ -615,10 +723,16 @@ export default function NewCasePage() {
                               if (equipmentCatalog.length) {
                                 const selected = equipmentCatalog.find((entry) => entry.code === value);
                                 if (selected) {
+                                  const nextObservation = applyObservationTemplate(selected.standardObservation, {
+                                    bus: item.bus,
+                                    catalogCode: selected.code,
+                                    reportedNovelty: selected.novelty,
+                                  });
                                   updateNovedadItem(item.key, {
                                     catalogCode: selected.code,
                                     reportedNovelty: selected.novelty,
                                     priority: mapCatalogPriorityToOption(selected.priorityValue),
+                                    observations: nextObservation || item.observations,
                                   });
                                   return;
                                 }
@@ -658,52 +772,59 @@ export default function NewCasePage() {
                           />
                         </Field>
 
-                        <Field label="Equipo(s) específico(s) del bus" hint="Opcional, para precisión de trazabilidad">
-                          <BusEquipmentMultiSelect
-                            busId={item.bus?.id ?? null}
-                            value={item.busEquipmentIds}
-                            onChange={(ids) => updateNovedadItem(item.key, { busEquipmentIds: ids })}
-                            disabled={!item.bus?.id}
-                          />
-                        </Field>
-                      </div>
-                      {selectedCatalog ? (
-                        <div className="mt-2 rounded-lg bg-muted/30 p-2 text-xs text-muted-foreground">
-                          <p>
-                            <span className="font-medium text-foreground">Impacto sugerido:</span>{" "}
-                            {selectedCatalog.impact || "No especificado"}
-                          </p>
-                          <p>
-                            <span className="font-medium text-foreground">Evidencia mínima:</span>{" "}
-                            {selectedCatalog.minimalEvidence || "No especificada"}
-                          </p>
+                        <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
+                          <Field label="Equipo(s) específico(s) del bus" hint="Opcional, para precisión de trazabilidad">
+                            <BusEquipmentMultiSelect
+                              busId={item.bus?.id ?? null}
+                              value={item.busEquipmentIds}
+                              onChange={(ids) => updateNovedadItem(item.key, { busEquipmentIds: ids })}
+                              disabled={!item.bus?.id}
+                            />
+                          </Field>
+
+                          <div className="space-y-3">
+                            {selectedCatalog ? (
+                              <div className="rounded-lg bg-muted/30 p-2 text-xs text-muted-foreground">
+                                <p>
+                                  <span className="font-medium text-foreground">Impacto sugerido:</span>{" "}
+                                  {selectedCatalog.impact || "No especificado"}
+                                </p>
+                                <p>
+                                  <span className="font-medium text-foreground">Evidencia mínima:</span>{" "}
+                                  {selectedCatalog.minimalEvidence || "No especificada"}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            <Field label="Observaciones (opcional)">
+                              <Textarea
+                                rows={2}
+                                value={item.observations}
+                                onChange={(e) => updateNovedadItem(item.key, { observations: e.target.value })}
+                                placeholder="Notas adicionales para coordinación o validación."
+                              />
+                            </Field>
+
+                            <Field label="Evidencia de la novedad (opcional)">
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className="block w-full text-xs"
+                                onChange={(e) =>
+                                  updateNovedadItem(item.key, {
+                                    evidenceFile: e.target.files?.[0] ?? null,
+                                  })
+                                }
+                              />
+                              {item.evidenceFile ? (
+                                <p className="mt-1 text-xs text-muted-foreground">{item.evidenceFile.name}</p>
+                              ) : (
+                                <p className="mt-1 text-xs text-muted-foreground">Sin evidencia adjunta.</p>
+                              )}
+                            </Field>
+                          </div>
                         </div>
-                      ) : null}
-                      <Field label="Observaciones (opcional)">
-                        <Textarea
-                          rows={2}
-                          value={item.observations}
-                          onChange={(e) => updateNovedadItem(item.key, { observations: e.target.value })}
-                          placeholder="Notas adicionales para coordinación o validación."
-                        />
-                      </Field>
-                      <Field label="Evidencia de la novedad (opcional)">
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="block w-full text-xs"
-                          onChange={(e) =>
-                            updateNovedadItem(item.key, {
-                              evidenceFile: e.target.files?.[0] ?? null,
-                            })
-                          }
-                        />
-                        {item.evidenceFile ? (
-                          <p className="mt-1 text-xs text-muted-foreground">{item.evidenceFile.name}</p>
-                        ) : (
-                          <p className="mt-1 text-xs text-muted-foreground">Sin evidencia adjunta.</p>
-                        )}
-                      </Field>
+                      </div>
                     </div>
                   );
                 })}
@@ -712,19 +833,8 @@ export default function NewCasePage() {
                 Al guardar: se registra histórico de novedades, se envía acuse automático y se genera correctivo por validar coordinador por cada novedad.
               </div>
             </div>
-          )}
-        </div>
-
-        {type !== "NOVEDAD" ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Título" hint="Autollenado por tipo, editable">
-              <Input value={effectiveTitle} onChange={(e) => setTitle(e.target.value)} />
-            </Field>
-            <Field label="Descripción" hint="Autollenado por tipo, editable">
-              <Textarea rows={3} value={effectiveDescription} onChange={(e) => setDescription(e.target.value)} />
-            </Field>
           </div>
-        ) : null}
+        )}
       </FormCard>
 
       {config.hasInlineCreateForm ? (

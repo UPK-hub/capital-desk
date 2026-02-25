@@ -12,6 +12,7 @@ import {
   VideoDownloadStatus,
   VideoRequestEventType,
 } from "@prisma/client";
+import { buildVideoRequestCaseScope, isBackofficeRestricted, isVideosOnlyBackoffice } from "@/lib/access-control";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
@@ -55,10 +56,13 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
   const requestId = String(ctx.params.id);
 
   const item = await prisma.videoDownloadRequest.findFirst({
-    where: { id: requestId, case: { tenantId } },
+    where: { id: requestId, case: { tenantId, ...caseScope } },
     include: {
       case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true, plate: true } } } },
       assignedTo: { select: { id: true, name: true, email: true } },
@@ -80,14 +84,22 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const restrictedBackoffice = isBackofficeRestricted(role, capabilities);
+  const videosOnlyBackoffice = isVideosOnlyBackoffice(role, capabilities);
+  if (role === Role.BACKOFFICE && (restrictedBackoffice || videosOnlyBackoffice)) {
+    return NextResponse.json({ error: "No tienes permisos para gestionar esta solicitud." }, { status: 403 });
+  }
+
   const tenantId = (session.user as any).tenantId as string;
   const actorUserId = (session.user as any).id as string;
   const requestId = String(ctx.params.id);
+  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId: actorUserId });
 
   const body = await req.json().catch(() => ({}));
 
   const current = await prisma.videoDownloadRequest.findFirst({
-    where: { id: requestId, case: { tenantId } },
+    where: { id: requestId, case: { tenantId, ...caseScope } },
     include: {
       case: { include: { bus: true } },
       attachments: true,

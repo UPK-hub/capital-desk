@@ -15,6 +15,8 @@ import {
   StsTicketStatus,
   WorkOrderStatus,
 } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { buildCaseAccessWhere } from "@/lib/access-control";
 import { saveUpload } from "@/lib/uploads";
 
 type PriorityOption = "BAJA" | "MEDIA" | "ALTA";
@@ -84,7 +86,11 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const isVideosOnly =
+    role === Role.BACKOFFICE && capabilities?.includes(CAPABILITIES.VIDEOS_ONLY);
   if (
+    isVideosOnly ||
     role !== Role.ADMIN &&
     role !== Role.BACKOFFICE &&
     role !== Role.PLANNER &&
@@ -97,7 +103,13 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const userId = (session.user as any).id as string;
 
   const found = await prisma.case.findFirst({
-    where: { id: ctx.params.id, tenantId },
+    where: buildCaseAccessWhere({
+      caseId: String(ctx.params.id),
+      tenantId,
+      role,
+      capabilities,
+      userId,
+    }),
     include: {
       bus: { select: { code: true } },
       events: { orderBy: { createdAt: "asc" }, select: { id: true, meta: true } },

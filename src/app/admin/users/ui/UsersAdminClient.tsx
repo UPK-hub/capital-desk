@@ -323,6 +323,9 @@ function UserCardItem({
         <p className="text-xs text-muted-foreground">Acciones habilitadas</p>
         <div className="grid gap-2 text-xs sm:grid-cols-2">
           {[
+            { cap: "BACKOFFICE_RESTRICTED", label: "Backoffice restringido" },
+            { cap: "OWN_CASES_ONLY", label: "Solo sus casos" },
+            { cap: "VIDEOS_ONLY", label: "Solo módulo Videos" },
             { cap: "PLANNER", label: "Planner" },
             { cap: "STS_ADMIN", label: "Supervisor STS" },
             { cap: "STS_WRITE", label: "Helpdesk STS" },

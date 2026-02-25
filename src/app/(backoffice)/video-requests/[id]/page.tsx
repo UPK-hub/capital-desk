@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import {
+  buildVideoRequestCaseScope,
+  isBackofficeRestricted,
+  isVideosOnlyBackoffice,
+} from "@/lib/access-control";
 import VideoRequestDetailClient from "./ui/VideoRequestDetailClient";
 
 export default async function VideoRequestDetailPage({ params }: { params: { id: string } }) {
@@ -33,10 +38,19 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
+  const canManage =
+    role === Role.ADMIN ||
+    role === Role.TECHNICIAN ||
+    (role === Role.BACKOFFICE &&
+      !isBackofficeRestricted(role, capabilities) &&
+      !isVideosOnlyBackoffice(role, capabilities));
   const requestId = String(params.id);
 
   const item = await prisma.videoDownloadRequest.findFirst({
-    where: { id: requestId, case: { tenantId } },
+    where: { id: requestId, case: { tenantId, ...caseScope } },
     include: {
       case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true, plate: true } } } },
       assignedTo: { select: { id: true, name: true, email: true } },
@@ -47,5 +61,5 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
 
   if (!item) return notFound();
 
-  return <VideoRequestDetailClient initialItem={item} />;
+  return <VideoRequestDetailClient initialItem={item} canManage={canManage} />;
 }

@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { buildCaseAccessWhere } from "@/lib/access-control";
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -17,10 +18,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
   const id = String(ctx.params.id);
 
   const c = await prisma.case.findFirst({
-    where: { id, tenantId },
+    where: buildCaseAccessWhere({ caseId: id, tenantId, role, capabilities, userId }),
     select: { id: true, busId: true, busEquipmentId: true },
   });
   if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });

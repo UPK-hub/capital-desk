@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { buildTmReport } from "@/lib/tm-report";
+import { prisma } from "@/lib/prisma";
+import { CAPABILITIES } from "@/lib/capabilities";
 import TmDashboard from "./ui/TmDashboard";
 import { StsTicketSeverity } from "@prisma/client";
 
@@ -30,7 +32,10 @@ export default async function TmPage({
   if (!session?.user) redirect("/login");
 
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "BACKOFFICE") redirect("/");
+  const caps = (session.user as any).capabilities as string[] | undefined;
+  const canTm =
+    role === "ADMIN" || (role === "BACKOFFICE" && caps?.includes(CAPABILITIES.TM_READ));
+  if (!canTm) redirect("/");
 
   const tenantId = (session.user as any).tenantId as string;
   const now = new Date();

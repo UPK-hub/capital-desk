@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { buildVideoRequestCaseScope } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -17,13 +18,16 @@ export async function GET(req: NextRequest) {
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const userId = String((session.user as any).id ?? "");
+  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const downloadStatus = url.searchParams.get("downloadStatus");
 
   const items = await prisma.videoDownloadRequest.findMany({
     where: {
-      case: { tenantId },
+      case: { tenantId, ...caseScope },
       ...(status ? { status: status as any } : {}),
       ...(downloadStatus ? { downloadStatus: downloadStatus as any } : {}),
     },
