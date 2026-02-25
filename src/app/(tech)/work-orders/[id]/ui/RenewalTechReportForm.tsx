@@ -16,6 +16,8 @@ type EquipmentRow = {
   model: string;
   oldSerial: string;
   newSerial: string;
+  photoSerialOld?: string[];
+  photoSerialNew?: string[];
   oldOnly?: boolean;
 };
 
@@ -95,6 +97,7 @@ function StepProgress({
 function FileUploadField({
   id,
   files,
+  savedCount,
   required,
   serialMode,
   onFiles,
@@ -102,6 +105,7 @@ function FileUploadField({
 }: {
   id: string;
   files: FileList | null | undefined;
+  savedCount?: number;
   required: boolean;
   serialMode?: boolean;
   onFiles: (files: FileList | null) => void;
@@ -109,6 +113,8 @@ function FileUploadField({
 }) {
   const count = files?.length ?? 0;
   const firstName = count > 0 ? String(files?.item(0)?.name ?? "") : "";
+  const persisted = Number(savedCount ?? 0);
+  const hasPersisted = persisted > 0;
   return (
     <div className="space-y-1.5">
       <input
@@ -139,11 +145,13 @@ function FileUploadField({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs font-medium">
-            {count > 0 ? firstName : "Cargar foto o archivo"}
+            {count > 0 ? firstName : hasPersisted ? "Evidencia guardada en servidor" : "Cargar foto o archivo"}
           </span>
           <span className="block text-[11px] text-muted-foreground">
             {count > 0
               ? `${count} archivo(s) seleccionado(s)`
+              : hasPersisted
+                ? `${persisted} archivo(s) guardado(s)`
               : required
                 ? "Imagen o archivo (obligatorio)"
                 : "Imagen o archivo (opcional)"}
@@ -159,7 +167,9 @@ function FileUploadField({
           Quitar selección
         </button>
       ) : (
-        <p className="text-[11px] text-muted-foreground">Ninguna foto o archivo seleccionado</p>
+        <p className="text-[11px] text-muted-foreground">
+          {hasPersisted ? "Guardado en servidor." : "Ninguna foto o archivo seleccionado"}
+        </p>
       )}
     </div>
   );
@@ -380,6 +390,11 @@ function joinSerialPair(first: string | null | undefined, second: string | null 
   return a || b || "";
 }
 
+function normalizeStringArray(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.map((x) => String(x ?? "").trim()).filter(Boolean);
+}
+
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -399,6 +414,8 @@ export default function RenewalTechReportForm(props: Props) {
   const [finalChecklist, setFinalChecklist] = React.useState<Record<string, boolean>>({});
   const [oldPhotosByEquipment, setOldPhotosByEquipment] = React.useState<Record<string, FileList | null>>({});
   const [newPhotosByEquipment, setNewPhotosByEquipment] = React.useState<Record<string, FileList | null>>({});
+  const [savedOldPhotosByEquipment, setSavedOldPhotosByEquipment] = React.useState<Record<string, number>>({});
+  const [savedNewPhotosByEquipment, setSavedNewPhotosByEquipment] = React.useState<Record<string, number>>({});
 
   const r = props.initialReport as any;
   const oldStepEntries = React.useMemo(() => {
@@ -578,6 +595,8 @@ export default function RenewalTechReportForm(props: Props) {
         .map((eq: any) => {
           const persisted = updatesById.get(String(eq.id));
           const fallbackSerial = String(eq.serial ?? "");
+          const persistedOldPhotos = normalizeStringArray(persisted?.photoSerialOld);
+          const persistedNewPhotos = normalizeStringArray(persisted?.photoSerialNew);
           return {
             busEquipmentId: String(eq.id),
             type: String(eq.equipmentType?.name ?? ""),
@@ -587,6 +606,8 @@ export default function RenewalTechReportForm(props: Props) {
             model: String(persisted?.model ?? ""),
             oldSerial: String(persisted?.oldSerial ?? fallbackSerial),
             newSerial: String(persisted?.newSerial ?? persisted?.serial ?? ""),
+            photoSerialOld: persistedOldPhotos,
+            photoSerialNew: persistedNewPhotos,
             oldOnly: Boolean(persisted?.oldOnly ?? false),
           } as EquipmentRow;
         })
@@ -621,6 +642,18 @@ export default function RenewalTechReportForm(props: Props) {
         });
       }
       setEquipmentRows(rows);
+      setSavedOldPhotosByEquipment(
+        rows.reduce((acc, row) => {
+          acc[row.busEquipmentId] = normalizeStringArray(row.photoSerialOld).length;
+          return acc;
+        }, {} as Record<string, number>)
+      );
+      setSavedNewPhotosByEquipment(
+        rows.reduce((acc, row) => {
+          acc[row.busEquipmentId] = normalizeStringArray(row.photoSerialNew).length;
+          return acc;
+        }, {} as Record<string, number>)
+      );
 
       const persistedRemoved = (data?.report?.removedChecklist ?? {}) as Record<string, boolean>;
       const persistedFinal = (data?.report?.finalChecklist ?? {}) as Record<string, boolean>;
@@ -722,6 +755,7 @@ export default function RenewalTechReportForm(props: Props) {
       equipmentLabel?: string
     ) => {
       if (!files?.length) return;
+      let latestReport: any = null;
       for (const file of Array.from(files)) {
         const stampedPhoto = await withPhotoWatermark(file, {
           equipmentLabel: equipmentLabel || "Serial de equipo",
@@ -740,7 +774,10 @@ export default function RenewalTechReportForm(props: Props) {
           const txt = await res.text();
           throw new Error(txt || `Error subiendo foto (${bucket})`);
         }
+        const data = await res.json().catch(() => ({}));
+        latestReport = data?.report ?? latestReport;
       }
+      return latestReport;
     },
     [props.busCode, props.caseRef, props.workOrderId, form]
   );
@@ -753,12 +790,54 @@ export default function RenewalTechReportForm(props: Props) {
 
       setUploadingPhoto(true);
       try {
-        await uploadPhotos(
+        const report = await uploadPhotos(
           bucket,
           files,
           row.busEquipmentId,
           `${row.type} · serial ${bucket === "old" ? "antiguo" : "nuevo"}`
         );
+        const reportUpdates = Array.isArray(report?.newInstallation?.equipmentUpdates)
+          ? (report.newInstallation.equipmentUpdates as any[])
+          : [];
+        const reportById = new Map<string, any>(
+          reportUpdates
+            .map((entry) => [String(entry?.busEquipmentId ?? ""), entry] as const)
+            .filter(([id]) => Boolean(id))
+        );
+        if (reportById.size > 0) {
+          setEquipmentRows((prev) =>
+            prev.map((entry) => {
+              const persisted = reportById.get(entry.busEquipmentId);
+              if (!persisted) return entry;
+              return {
+                ...entry,
+                photoSerialOld: normalizeStringArray(persisted?.photoSerialOld),
+                photoSerialNew: normalizeStringArray(persisted?.photoSerialNew),
+              };
+            })
+          );
+          setSavedOldPhotosByEquipment((prev) => ({
+            ...prev,
+            [row.busEquipmentId]: normalizeStringArray(reportById.get(row.busEquipmentId)?.photoSerialOld).length,
+          }));
+          setSavedNewPhotosByEquipment((prev) => ({
+            ...prev,
+            [row.busEquipmentId]: normalizeStringArray(reportById.get(row.busEquipmentId)?.photoSerialNew).length,
+          }));
+        } else {
+          const add = files.length;
+          if (bucket === "old") {
+            setSavedOldPhotosByEquipment((prev) => ({
+              ...prev,
+              [row.busEquipmentId]: (prev[row.busEquipmentId] ?? 0) + add,
+            }));
+          } else {
+            setSavedNewPhotosByEquipment((prev) => ({
+              ...prev,
+              [row.busEquipmentId]: (prev[row.busEquipmentId] ?? 0) + add,
+            }));
+          }
+        }
         setMap((prev) => ({ ...prev, [row.busEquipmentId]: null }));
         setMsg(`Evidencia ${bucket === "old" ? "antigua" : "nueva"} guardada para ${row.type}.`);
       } catch (e: any) {
@@ -1064,6 +1143,7 @@ export default function RenewalTechReportForm(props: Props) {
                           <FileUploadField
                             id={oldUploadId}
                             files={oldFiles}
+                            savedCount={savedOldPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialOld).length}
                             required={oldRequired}
                             serialMode
                             onFiles={(files) => {
@@ -1130,6 +1210,7 @@ export default function RenewalTechReportForm(props: Props) {
                       <FileUploadField
                         id={oldUploadId}
                         files={oldFiles}
+                        savedCount={savedOldPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialOld).length}
                         required={oldRequired}
                         serialMode
                         onFiles={(files) => {
@@ -1257,6 +1338,7 @@ export default function RenewalTechReportForm(props: Props) {
                           <FileUploadField
                             id={newUploadId}
                             files={newFiles}
+                            savedCount={savedNewPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialNew).length}
                             required={newRequired}
                             serialMode
                             onFiles={(files) => {
@@ -1378,6 +1460,7 @@ export default function RenewalTechReportForm(props: Props) {
                       <FileUploadField
                         id={newUploadId}
                         files={newFiles}
+                        savedCount={savedNewPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialNew).length}
                         required={newRequired}
                         serialMode
                         onFiles={(files) => {

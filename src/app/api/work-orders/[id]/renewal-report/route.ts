@@ -248,27 +248,62 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
   const v = parsed.data;
 
+  const curr = (wo.renewalTechReport ?? null) as any;
+  const currentOldPhotos = normalizeStringArray(curr?.photosOld);
+  const currentNewPhotos = normalizeStringArray(curr?.photosNew);
+  const currentChecklistPhotos = normalizeStringArray(curr?.photosChecklist);
+  const currentInstallation =
+    curr?.newInstallation && typeof curr.newInstallation === "object"
+      ? (curr.newInstallation as Record<string, any>)
+      : {};
+  const currentRows = Array.isArray(currentInstallation.equipmentUpdates)
+    ? (currentInstallation.equipmentUpdates as any[])
+    : [];
+  const currentRowsById = new Map<string, any>(
+    currentRows
+      .map((row) => [String(row?.busEquipmentId ?? "").trim(), row] as const)
+      .filter(([id]) => Boolean(id))
+  );
+
   const updatesFromBody = Array.isArray((v.newInstallation as any)?.equipmentUpdates)
     ? ((v.newInstallation as any).equipmentUpdates as any[])
     : [];
 
   const enrichedEquipmentUpdates: any[] = [];
+  const seenBusEquipmentIds = new Set<string>();
   for (const row of updatesFromBody) {
+    const busEquipmentId = String(row?.busEquipmentId ?? "").trim();
+    if (busEquipmentId) seenBusEquipmentIds.add(busEquipmentId);
+    const previous = busEquipmentId ? currentRowsById.get(busEquipmentId) : null;
     const serial = emptyToNull(row?.newSerial ?? row?.serial);
     const model = emptyToNull(row?.model) ?? (await findInventoryModelBySerial(tenantId, serial));
+    const nextOldPhotos = normalizeStringArray(row?.photoSerialOld);
+    const nextNewPhotos = normalizeStringArray(row?.photoSerialNew);
     enrichedEquipmentUpdates.push({
+      ...(previous && typeof previous === "object" ? previous : {}),
       ...row,
-      model: model ?? row?.model ?? "",
+      model: model ?? row?.model ?? previous?.model ?? "",
+      photoSerialOld: nextOldPhotos.length
+        ? nextOldPhotos
+        : normalizeStringArray(previous?.photoSerialOld),
+      photoSerialNew: nextNewPhotos.length
+        ? nextNewPhotos
+        : normalizeStringArray(previous?.photoSerialNew),
     });
+  }
+  for (const [busEquipmentId, row] of currentRowsById.entries()) {
+    if (seenBusEquipmentIds.has(busEquipmentId)) continue;
+    enrichedEquipmentUpdates.push(row);
   }
 
   const normalizedInstallation: any =
     v.newInstallation && typeof v.newInstallation === "object"
       ? {
+          ...currentInstallation,
           ...(v.newInstallation as Record<string, any>),
           equipmentUpdates: enrichedEquipmentUpdates,
         }
-      : null;
+      : currentInstallation;
 
   const normalized: any = {
     ticketNumber: emptyToNull(v.ticketNumber),
@@ -281,6 +316,9 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     removedChecklist: v.removedChecklist ?? null,
     newInstallation: normalizedInstallation,
     finalChecklist: v.finalChecklist ?? null,
+    photosOld: currentOldPhotos,
+    photosNew: currentNewPhotos,
+    photosChecklist: currentChecklistPhotos,
     timeStart: formatInternalTime(wo.startedAt),
     timeEnd: formatInternalTime(wo.finishedAt),
     observations: emptyToNull(v.observations),
