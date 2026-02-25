@@ -3,7 +3,11 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import ProfileClient from "./ui/ProfileClient";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams?: { forcePasswordChange?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return (
@@ -22,7 +26,11 @@ export default async function ProfilePage() {
     name: session.user.name ?? "Usuario",
     email: (session.user as any).email as string,
     role: session.user.role,
+    forcePasswordChange: Boolean((session.user as any).forcePasswordChange),
   };
 
-  return <ProfileClient user={user} />;
+  const forcePasswordChange =
+    searchParams?.forcePasswordChange === "1" || user.forcePasswordChange;
+
+  return <ProfileClient user={user} forcePasswordChange={forcePasswordChange} />;
 }

@@ -25,7 +25,22 @@ export default function LoginPage() {
       return;
     }
 
-    // Redirige al hub. El hub decide según rol.
+    try {
+      const profileRes = await fetch("/api/profile", { cache: "no-store" });
+      const profileData = await profileRes.json().catch(() => ({}));
+      const forcePasswordChange = Boolean(
+        (profileData?.user?.capabilities ?? []).includes("FORCE_PASSWORD_CHANGE")
+      );
+      if (forcePasswordChange) {
+        router.push("/profile?forcePasswordChange=1");
+        router.refresh();
+        return;
+      }
+    } catch {
+      // fallback al flujo normal
+    }
+
+    // Redirige al hub.
     router.push("/");
     router.refresh();
   }

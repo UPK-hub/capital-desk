@@ -7,6 +7,7 @@ export default withAuth(
   function middleware(req) {
     const role = (req.nextauth.token?.role as string | undefined) ?? "BACKOFFICE";
     const capabilities = (req.nextauth.token as any)?.capabilities as string[] | undefined;
+    const forcePasswordChange = Boolean((req.nextauth.token as any)?.forcePasswordChange);
     const path = req.nextUrl.pathname;
 
     const deny = () => NextResponse.redirect(new URL("/", req.url));
@@ -15,6 +16,17 @@ export default withAuth(
       isBackoffice && capabilities?.includes(CAPABILITIES.BACKOFFICE_RESTRICTED);
     const isVideosOnly =
       isBackoffice && capabilities?.includes(CAPABILITIES.VIDEOS_ONLY);
+
+    if (
+      forcePasswordChange &&
+      !path.startsWith("/profile") &&
+      !path.startsWith("/login") &&
+      !path.startsWith("/reset-password")
+    ) {
+      const url = new URL("/profile", req.url);
+      url.searchParams.set("forcePasswordChange", "1");
+      return NextResponse.redirect(url);
+    }
 
     if (path.startsWith("/cases")) {
       if (!RBAC.backofficeRoutes.includes(role as any)) return deny();
@@ -61,7 +73,11 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const path = req.nextUrl.pathname;
-        const isPublic = path === "/" || path.startsWith("/login") || path.startsWith("/api/auth");
+        const isPublic =
+          path === "/" ||
+          path.startsWith("/login") ||
+          path.startsWith("/reset-password") ||
+          path.startsWith("/api/auth");
         if (isPublic) return true;
         return !!token && !(token as any).revoked;
       },
@@ -70,15 +86,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: [
-    "/cases/:path*",
-    "/novedades/:path*",
-    "/video-requests/:path*",
-    "/work-orders/:path*",
-    "/buses/:path*",
-    "/technicians/shifts/:path*",
-    "/planner/:path*",
-    "/sts/:path*",
-    "/tm/:path*",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

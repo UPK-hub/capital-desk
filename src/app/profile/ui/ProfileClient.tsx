@@ -1,14 +1,19 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 type Props = {
-  user: { name: string; email: string; role: string };
+  user: { name: string; email: string; role: string; forcePasswordChange?: boolean };
+  forcePasswordChange?: boolean;
 };
 
-export default function ProfileClient({ user }: Props) {
-  const [section, setSection] = React.useState<"profile" | "appearance" | "security">("profile");
+export default function ProfileClient({ user, forcePasswordChange = false }: Props) {
+  const router = useRouter();
+  const [section, setSection] = React.useState<"profile" | "appearance" | "security">(
+    forcePasswordChange ? "profile" : "profile"
+  );
   const [email, setEmail] = React.useState(user.email);
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
@@ -43,6 +48,14 @@ export default function ProfileClient({ user }: Props) {
     setMsg("Perfil actualizado.");
     setCurrentPassword("");
     setNewPassword("");
+
+    if (forcePasswordChange) {
+      setMsg("Clave actualizada. Inicia sesión nuevamente con tu nueva clave.");
+      setTimeout(() => {
+        router.push("/login");
+        router.refresh();
+      }, 900);
+    }
   }
 
   return (
@@ -63,6 +76,7 @@ export default function ProfileClient({ user }: Props) {
           className={`sts-btn-ghost text-sm w-full justify-start ${section === "appearance" ? "border-zinc-400" : ""}`}
           onClick={() => setSection("appearance")}
           type="button"
+          disabled={forcePasswordChange}
         >
           Apariencia
         </button>
@@ -70,12 +84,19 @@ export default function ProfileClient({ user }: Props) {
           className={`sts-btn-ghost text-sm w-full justify-start ${section === "security" ? "border-zinc-400" : ""}`}
           onClick={() => setSection("security")}
           type="button"
+          disabled={forcePasswordChange}
         >
           Seguridad
         </button>
       </aside>
 
       <section className="space-y-4">
+        {forcePasswordChange ? (
+          <div className="sts-card p-4 text-sm border-amber-300 bg-amber-50">
+            Debes cambiar la contraseña temporal para continuar.
+          </div>
+        ) : null}
+
         <div className="sts-card p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-lg font-semibold text-zinc-600">
@@ -130,7 +151,7 @@ export default function ProfileClient({ user }: Props) {
             </div>
 
             <button className="sts-btn-primary text-sm" onClick={save} disabled={saving}>
-              {saving ? "Guardando..." : "Guardar cambios"}
+              {saving ? "Guardando..." : forcePasswordChange ? "Cambiar contraseña" : "Guardar cambios"}
             </button>
           </div>
         ) : null}

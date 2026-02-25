@@ -8,6 +8,7 @@ const CAPABILITIES = {
   BACKOFFICE_RESTRICTED: "BACKOFFICE_RESTRICTED",
   VIDEOS_ONLY: "VIDEOS_ONLY",
   OWN_CASES_ONLY: "OWN_CASES_ONLY",
+  FORCE_PASSWORD_CHANGE: "FORCE_PASSWORD_CHANGE",
 } as const;
 
 type ModuleScope = "TODOS" | "VIDEOS";
@@ -55,6 +56,7 @@ async function main() {
   const tenantCode = String(getArg("--tenant") ?? "CAPITALBUS").trim().toUpperCase();
   const passwordArg = getArg("--password");
   const apply = process.argv.includes("--apply");
+  const forcePassword = process.argv.includes("--force-password");
 
   const tenant = await prisma.tenant.findFirst({
     where: { code: { equals: tenantCode, mode: "insensitive" } },
@@ -75,7 +77,13 @@ async function main() {
 
   for (const row of USERS) {
     const email = row.email.trim().toLowerCase();
-    const caps = capabilitiesFor(row.modules);
+    const caps = Array.from(
+      new Set(
+        passwordHash
+          ? [...capabilitiesFor(row.modules), CAPABILITIES.FORCE_PASSWORD_CHANGE]
+          : capabilitiesFor(row.modules)
+      )
+    );
     const name = row.name.trim();
 
     const existing = await prisma.user.findUnique({
@@ -102,7 +110,7 @@ async function main() {
         active: true,
         capabilities: caps,
       };
-      if (!existing.passwordHash && passwordHash) {
+      if (passwordHash && (forcePassword || !existing.passwordHash)) {
         data.passwordHash = passwordHash;
       }
       await prisma.user.update({
@@ -131,6 +139,7 @@ async function main() {
   console.log("=== Resultado ===");
   console.log(`Tenant: ${tenant.code}`);
   console.log(`Modo apply: ${apply ? "SI" : "NO (dry-run)"}`);
+  console.log(`Modo force-password: ${forcePassword ? "SI" : "NO"}`);
   console.log(`Creados: ${created}`);
   console.log(`Actualizados: ${updated}`);
   console.log(`Saltados por tenant distinto: ${skippedTenantMismatch}`);

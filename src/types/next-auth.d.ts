@@ -10,6 +10,7 @@ declare module "next-auth" {
       tenantId: string;
       capabilities: string[];
       sessionVersion: number;
+      forcePasswordChange: boolean;
     } & DefaultSession["user"];
   }
 
@@ -19,6 +20,7 @@ declare module "next-auth" {
     tenantId: string;
     capabilities?: string[];
     sessionVersion?: number;
+    forcePasswordChange?: boolean;
   }
 }
 
@@ -29,6 +31,7 @@ declare module "next-auth/jwt" {
     tenantId?: string;
     capabilities?: string[];
     sessionVersion?: number;
+    forcePasswordChange?: boolean;
     revoked?: boolean;
   }
 }

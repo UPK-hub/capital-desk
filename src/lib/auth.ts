@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { CAPABILITIES } from "@/lib/capabilities";
 
 type AuthToken = {
   id?: string;
@@ -9,6 +10,7 @@ type AuthToken = {
   tenantId?: string;
   capabilities?: string[];
   sessionVersion?: number;
+  forcePasswordChange?: boolean;
   revoked?: boolean;
 };
 
@@ -74,6 +76,9 @@ export const authOptions: NextAuthOptions = {
         authToken.tenantId = (user as any).tenantId;
         authToken.capabilities = (user as any).capabilities ?? [];
         authToken.sessionVersion = Number((user as any).sessionVersion ?? 0);
+        authToken.forcePasswordChange = Boolean(
+          ((user as any).capabilities ?? []).includes(CAPABILITIES.FORCE_PASSWORD_CHANGE)
+        );
         authToken.revoked = false;
       }
 
@@ -111,6 +116,9 @@ export const authOptions: NextAuthOptions = {
       authToken.tenantId = dbUser.tenantId;
       authToken.capabilities = dbUser.capabilities ?? [];
       authToken.sessionVersion = dbUser.sessionVersion;
+      authToken.forcePasswordChange = Boolean(
+        (dbUser.capabilities ?? []).includes(CAPABILITIES.FORCE_PASSWORD_CHANGE)
+      );
 
       return token;
     },
@@ -127,6 +135,7 @@ export const authOptions: NextAuthOptions = {
       (session.user as any).tenantId = authToken.tenantId as string;
       (session.user as any).capabilities = authToken.capabilities ?? [];
       (session.user as any).sessionVersion = authToken.sessionVersion ?? 0;
+      (session.user as any).forcePasswordChange = Boolean(authToken.forcePasswordChange);
 
       return session;
     },
