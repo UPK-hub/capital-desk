@@ -485,6 +485,35 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const SMART_HELIOS_BASE_URL =
+  "https://portal-cdeg.transmilenio.gov.co/admin/dashboard/registry/tipo2/groups/capitalbusprod";
+
+function normalizeBusCodeForSmartHelios(value: string | null | undefined) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, "");
+}
+
+function buildSmartHeliosLink(busCode: string | null | undefined) {
+  const code = normalizeBusCodeForSmartHelios(busCode);
+  if (!code) return "";
+  return `${SMART_HELIOS_BASE_URL}/${encodeURIComponent(code)}/detalle`;
+}
+
+function extractSmartHeliosBusCode(link: string | null | undefined) {
+  const raw = String(link ?? "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const m = url.pathname.match(/\/groups\/capitalbusprod\/([^/]+)\/detalle\/?$/i);
+    if (!m?.[1]) return "";
+    return normalizeBusCodeForSmartHelios(decodeURIComponent(m[1]));
+  } catch {
+    return "";
+  }
+}
+
 export default function RenewalTechReportForm(props: Props) {
   const router = useRouter();
   const isProductImprovement = props.caseType === "MEJORA_PRODUCTO";
@@ -542,6 +571,10 @@ export default function RenewalTechReportForm(props: Props) {
   });
   const watchedValues = useWatch({ control: form.control });
   const observedNotes = form.watch("observations");
+  const observedBusCode = form.watch("busCode");
+  const observedSmartHelios = form.watch("linkSmartHelios");
+  const lastAutoSmartHeliosRef = React.useRef<string>("");
+  const previousBusCodeRef = React.useRef<string>("");
   const stepDefs = React.useMemo(() => {
     if (isProductImprovement) {
       return [
@@ -619,6 +652,35 @@ export default function RenewalTechReportForm(props: Props) {
       setCurrentStep(Math.max(1, stepDefs.length));
     }
   }, [currentStep, stepDefs.length]);
+
+  React.useEffect(() => {
+    if (isProductImprovement) return;
+
+    const busCode = normalizeBusCodeForSmartHelios(observedBusCode);
+    const currentLink = String(observedSmartHelios ?? "").trim();
+    const nextLink = buildSmartHeliosLink(busCode);
+    const previousBusCode = previousBusCodeRef.current;
+    const linkBusCode = extractSmartHeliosBusCode(currentLink);
+    const wasAutoManaged =
+      Boolean(currentLink) &&
+      (currentLink === lastAutoSmartHeliosRef.current ||
+        (Boolean(linkBusCode) && Boolean(previousBusCode) && linkBusCode === previousBusCode));
+
+    if (!nextLink) {
+      previousBusCodeRef.current = busCode;
+      return;
+    }
+    if (currentLink === nextLink) {
+      lastAutoSmartHeliosRef.current = nextLink;
+      previousBusCodeRef.current = busCode;
+      return;
+    }
+    if (!currentLink || wasAutoManaged) {
+      form.setValue("linkSmartHelios", nextLink, { shouldDirty: false });
+      lastAutoSmartHeliosRef.current = nextLink;
+    }
+    previousBusCodeRef.current = busCode;
+  }, [form, isProductImprovement, observedBusCode, observedSmartHelios]);
 
   const tryAutofillRowModel = React.useCallback(async (rowIndex: number, serialInput: string) => {
     const serialKey = normalizeSerialForLookup(serialInput);
@@ -1101,7 +1163,25 @@ export default function RenewalTechReportForm(props: Props) {
               <>
                 <div>
                   <label className="text-xs text-muted-foreground">Link SmartHelios</label>
-                  <input className={inputCls()} placeholder="https://..." {...form.register("linkSmartHelios")} />
+                  <div className="flex items-center gap-2">
+                    <input className={inputCls()} placeholder="https://..." {...form.register("linkSmartHelios")} />
+                    <button
+                      type="button"
+                      className="sts-btn-ghost h-9 px-3 text-xs whitespace-nowrap"
+                      onClick={() => {
+                        const next = buildSmartHeliosLink(form.getValues("busCode"));
+                        if (!next) return;
+                        form.setValue("linkSmartHelios", next, { shouldDirty: true });
+                        lastAutoSmartHeliosRef.current = next;
+                        previousBusCodeRef.current = normalizeBusCodeForSmartHelios(form.getValues("busCode"));
+                      }}
+                    >
+                      Autogenerar
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Formato: `{SMART_HELIOS_BASE_URL}/KXXXX/detalle`
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">IP de la SIMCARD</label>
