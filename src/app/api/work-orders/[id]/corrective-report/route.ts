@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/uploads";
 import {
+  Prisma,
   Role,
   CaseEventType,
   NotificationType,
@@ -23,6 +24,13 @@ import { findInventoryModelBySerial } from "@/lib/inventory-catalog";
 function emptyToNull(v: any): string | null {
   const s = String(v ?? "").trim();
   return s ? s : null;
+}
+
+function normalizeSerialKey(v?: string | null) {
+  return String(v ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
 }
 
 function parseDateOrNull(v: any): Date | null {
@@ -52,6 +60,61 @@ function toBool(v: any): boolean {
   const s = String(v).toLowerCase().trim();
   if (["true", "1", "on", "yes", "si", "sí"].includes(s)) return true;
   return false;
+}
+
+function cleanTemplateValue(v: unknown): string | null {
+  const s = String(v ?? "").trim();
+  return s.length ? s : null;
+}
+
+function sanitizeTemplateData(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const input = raw as Record<string, unknown>;
+  const keys = [
+    "reportDateTime",
+    "reportChannel",
+    "reportedBy",
+    "reportContact",
+    "productionSp",
+    "busType",
+    "yardLocation",
+    "routeService",
+    "interventionDateTime",
+    "interventionShift",
+    "affectedSystem",
+    "componentName",
+    "symptomNovelty",
+    "operationImpact",
+    "briefDescription",
+    "quickCheckResult",
+    "nextActionResponsible",
+    "requiresNightIntervention",
+    "nightBusStatus",
+    "diagnosticStartAt",
+    "diagnosticEndAt",
+    "supportTechnician",
+    "rootCause",
+    "materialsUsed",
+    "evidenceTicketRef",
+    "evidenceBeforeAfter",
+    "evidenceLogs",
+    "evidenceOther",
+    "evidenceBeforeAfterFile",
+    "evidenceLogsFile",
+    "evidenceOtherFile",
+    "finalStatus",
+    "closureDateTime",
+    "clientConformity",
+    "receiverNameRole",
+    "closureNotes",
+  ] as const;
+
+  const out: Record<string, string> = {};
+  for (const key of keys) {
+    const value = cleanTemplateValue(input[key]);
+    if (value) out[key] = value;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 function formatInternalTime(d?: Date | null): string | null {
@@ -131,6 +194,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
   const role = (session.user as any).role as Role;
+  const isDraft = req.nextUrl.searchParams.get("draft") === "1";
 
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("multipart/form-data")) {
@@ -138,7 +202,16 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     const photo = form.get("photo") as File | null;
     const photoKind = String(form.get("photoKind") ?? "").trim();
     if (!photo) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
-    if (!["current", "new"].includes(photoKind)) {
+    if (
+      ![
+        "current",
+        "new",
+        "bodywork",
+        "evidence_before_after",
+        "evidence_logs",
+        "evidence_other",
+      ].includes(photoKind)
+    ) {
       return NextResponse.json({ error: "photoKind inválido" }, { status: 400 });
     }
 
@@ -154,14 +227,46 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     const relPath = await saveUpload(photo, `work-orders/${wo.id}/corrective-report`, {
       fileNamePrefix: wo.case.bus.code,
     });
-    await prisma.correctiveReport.upsert({
-      where: { workOrderId: wo.id },
-      create: {
+    if (photoKind === "current" || photoKind === "new" || photoKind === "bodywork") {
+      const photoField =
+        photoKind === "current"
+          ? "photoSerialCurrent"
+          : photoKind === "new"
+            ? "photoSerialNew"
+            : "photoBodyworkDismount";
+      const createData: any = {
         workOrderId: wo.id,
-        ...(photoKind === "current" ? { photoSerialCurrent: relPath } : { photoSerialNew: relPath }),
-      },
-      update: photoKind === "current" ? { photoSerialCurrent: relPath } : { photoSerialNew: relPath },
-    });
+        [photoField]: relPath,
+      };
+      const updateData: any = { [photoField]: relPath };
+      await prisma.correctiveReport.upsert({
+        where: { workOrderId: wo.id },
+        create: createData,
+        update: updateData,
+      });
+    } else {
+      const templateDataKey =
+        photoKind === "evidence_before_after"
+          ? "evidenceBeforeAfterFile"
+          : photoKind === "evidence_logs"
+            ? "evidenceLogsFile"
+            : "evidenceOtherFile";
+      const currentTemplateData =
+        wo.correctiveReport?.templateData &&
+        typeof wo.correctiveReport.templateData === "object" &&
+        !Array.isArray(wo.correctiveReport.templateData)
+          ? (wo.correctiveReport.templateData as Record<string, unknown>)
+          : {};
+      const mergedTemplateData = {
+        ...currentTemplateData,
+        [templateDataKey]: relPath,
+      } as Prisma.InputJsonValue;
+      await prisma.correctiveReport.upsert({
+        where: { workOrderId: wo.id },
+        create: { workOrderId: wo.id, templateData: mergedTemplateData },
+        update: { templateData: mergedTemplateData },
+      });
+    }
 
     return NextResponse.json({ ok: true });
   }
@@ -208,6 +313,18 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   // Location: si hay locationOther => OTRO
   const locationOther = emptyToNull(body.locationOther);
   const location: DeviceLocation | null = locationOther ? DeviceLocation.OTRO : (locationRaw as any);
+  const bodyworkDismountRequested = toBool(body.bodyworkDismountRequested);
+  const bodyworkDismountNotes = bodyworkDismountRequested
+    ? emptyToNull(body.bodyworkDismountNotes)
+    : null;
+  const templateData = sanitizeTemplateData(body.templateData);
+  const templateDataInput = templateData ? (templateData as Prisma.InputJsonValue) : Prisma.JsonNull;
+  if (!isDraft && bodyworkDismountRequested && !bodyworkDismountNotes) {
+    return NextResponse.json(
+      { error: "Debes describir el desmonte cuando hay solicitud de carrocería." },
+      { status: 400 }
+    );
+  }
 
   // Aliases por si el front manda nombres distintos
   const diagnosisIn = body.diagnosisOther ?? body.diagnosis ?? body.diagnostic ?? body.diagnostico ?? body["diagnóstico"];
@@ -239,6 +356,9 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     dateDismount: parseDateOrNull(body.dateDismount),
     dateDelivered: parseDateOrNull(body.dateDelivered),
 
+    bodyworkDismountRequested,
+    bodyworkDismountNotes,
+
     accessoriesSupplied: toBool(body.accessoriesSupplied),
     accessoriesWhich: emptyToNull(body.accessoriesWhich),
 
@@ -258,6 +378,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     newBrand: emptyToNull(body.newBrand),
     newModel: emptyToNull(body.newModel) ?? inventoryModelNew,
     newSerial: serialNuevo,
+    templateData: templateDataInput,
 
   };
 
@@ -268,7 +389,16 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       update: payload,
     });
 
-    if (payload.procedureType === ProcedureType.CAMBIO_COMPONENTE && wo.case.busEquipmentId) {
+    if (!isDraft && payload.procedureType === ProcedureType.CAMBIO_COMPONENTE && wo.case.busEquipmentId) {
+      const currentEquipment = await tx.busEquipment.findUnique({
+        where: { id: wo.case.busEquipmentId },
+        select: {
+          id: true,
+          serial: true,
+          equipmentType: { select: { name: true } },
+        },
+      });
+
       await tx.busEquipment.update({
         where: { id: wo.case.busEquipmentId },
         data: {
@@ -277,29 +407,52 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
           serial: payload.newSerial ?? undefined,
         },
       });
+
+      if (
+        currentEquipment &&
+        payload.newSerial &&
+        normalizeSerialKey(payload.newSerial) !== normalizeSerialKey(currentEquipment.serial)
+      ) {
+        await tx.busLifecycleEvent.create({
+          data: {
+            busId: wo.case.busId,
+            busEquipmentId: currentEquipment.id,
+            caseId: wo.caseId,
+            workOrderId: wo.id,
+            eventType: "SERIAL_CHANGED",
+            summary: `${currentEquipment.equipmentType.name}: ${
+              currentEquipment.serial ?? "Sin serial"
+            } -> ${payload.newSerial}`,
+          },
+        });
+      }
     }
 
-    await tx.caseEvent.create({
-      data: {
-        caseId: wo.caseId,
-        type: CaseEventType.COMMENT,
-        message: "Formato Correctivo guardado",
-        meta: { workOrderId: wo.id, by: userId },
-      },
-    });
+    if (!isDraft) {
+      await tx.caseEvent.create({
+        data: {
+          caseId: wo.caseId,
+          type: CaseEventType.COMMENT,
+          message: "Formato Correctivo guardado",
+          meta: { workOrderId: wo.id, by: userId },
+        },
+      });
+    }
 
     return report;
   });
 
-  await notifyTenantUsers({
-    tenantId,
-    roles: [Role.ADMIN, Role.BACKOFFICE],
-    type: NotificationType.FORM_SAVED,
-    title: "Formato Correctivo guardado",
-    body: `OT-${String(wo.workOrderNo).padStart(3, "0")} | Bus: ${wo.case.bus.code}`,
-    href: `/work-orders/${wo.id}`,
-    meta: { workOrderId: wo.id, caseId: wo.caseId, form: "CORRECTIVE" },
-  });
+  if (!isDraft) {
+    await notifyTenantUsers({
+      tenantId,
+      roles: [Role.ADMIN, Role.BACKOFFICE],
+      type: NotificationType.FORM_SAVED,
+      title: "Formato Correctivo guardado",
+      body: `OT-${String(wo.workOrderNo).padStart(3, "0")} | Bus: ${wo.case.bus.code}`,
+      href: `/work-orders/${wo.id}`,
+      meta: { workOrderId: wo.id, caseId: wo.caseId, form: "CORRECTIVE" },
+    });
+  }
 
-  return NextResponse.json({ ok: true, report: saved });
+  return NextResponse.json({ ok: true, draft: isDraft, report: saved });
 }

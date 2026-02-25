@@ -34,6 +34,13 @@ function emptyToNull(v?: string | null) {
   return s ? s : null;
 }
 
+function normalizeSerialKey(v?: string | null) {
+  return String(v ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+}
+
 function formatInternalTime(d?: Date | null): string | null {
   if (!d) return null;
   return new Intl.DateTimeFormat("es-CO", {
@@ -157,6 +164,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const contentType = req.headers.get("content-type") ?? "";
+  const isDraft = req.nextUrl.searchParams.get("draft") === "1";
   if (contentType.includes("multipart/form-data")) {
     const form = await req.formData();
     const photo = form.get("photo") as File | null;
@@ -278,6 +286,15 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     observations: emptyToNull(v.observations),
   };
 
+  if (isDraft) {
+    const report = await prisma.renewalTechReport.upsert({
+      where: { workOrderId: wo.id },
+      create: { workOrderId: wo.id, ...normalized },
+      update: normalized,
+    });
+    return NextResponse.json({ ok: true, draft: true, report });
+  }
+
   const report = await prisma.$transaction(async (tx) => {
     const saved = await tx.renewalTechReport.upsert({
       where: { workOrderId: wo.id },
@@ -300,8 +317,18 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       if (!busEquipmentId) continue;
       const serial = emptyToNull(row?.newSerial ?? row?.serial);
       const model = emptyToNull(row?.model) ?? (await findInventoryModelBySerial(tenantId, serial));
-      await tx.busEquipment.updateMany({
+      const current = await tx.busEquipment.findFirst({
         where: { id: busEquipmentId, bus: { tenantId, id: wo.case.busId } },
+        select: {
+          id: true,
+          serial: true,
+          equipmentType: { select: { name: true } },
+        },
+      });
+      if (!current) continue;
+
+      await tx.busEquipment.update({
+        where: { id: current.id },
         data: {
           ipAddress: emptyToNull(row?.ipAddress) ?? undefined,
           brand: emptyToNull(row?.brand) ?? undefined,
@@ -309,6 +336,19 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
           serial: serial ?? undefined,
         },
       });
+
+      if (serial && normalizeSerialKey(serial) !== normalizeSerialKey(current.serial)) {
+        await tx.busLifecycleEvent.create({
+          data: {
+            busId: wo.case.busId,
+            busEquipmentId: current.id,
+            caseId: wo.caseId,
+            workOrderId: wo.id,
+            eventType: "SERIAL_CHANGED",
+            summary: `${current.equipmentType.name}: ${current.serial ?? "Sin serial"} -> ${serial}`,
+          },
+        });
+      }
     }
 
     await tx.caseEvent.create({

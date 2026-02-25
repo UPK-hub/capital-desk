@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { RenewalTechReport } from "@prisma/client";
 import { lookupModelBySerial, normalizeSerialForLookup } from "@/lib/inventory-autofill-client";
 import { InventorySerialCombobox } from "@/components/InventorySerialCombobox";
@@ -390,7 +390,9 @@ export default function RenewalTechReportForm(props: Props) {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [saving, setSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [draftState, setDraftState] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const [equipmentRows, setEquipmentRows] = React.useState<EquipmentRow[]>([]);
   const [removedChecklist, setRemovedChecklist] = React.useState<Record<string, boolean>>({});
@@ -435,6 +437,7 @@ export default function RenewalTechReportForm(props: Props) {
       observations: r?.observations ?? "",
     },
   });
+  const watchedValues = useWatch({ control: form.control });
   const observedNotes = form.watch("observations");
   const stepDefs = React.useMemo(() => {
     if (isProductImprovement) {
@@ -637,65 +640,143 @@ export default function RenewalTechReportForm(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.workOrderId]);
 
-  async function uploadPhotos(
-    bucket: "old" | "new",
-    files: FileList | null,
-    busEquipmentId?: string,
-    equipmentLabel?: string
-  ) {
-    if (!files?.length) return;
-    for (const file of Array.from(files)) {
-      const stampedPhoto = await withPhotoWatermark(file, {
-        equipmentLabel: equipmentLabel || "Serial de equipo",
-        busCode: props.busCode || form.getValues("busCode") || null,
-        caseRef: props.caseRef || null,
-      });
-      const fd = new FormData();
-      fd.set("bucket", bucket);
-      if (busEquipmentId) fd.set("busEquipmentId", busEquipmentId);
-      fd.set("photo", stampedPhoto);
-      const res = await fetch(`/api/work-orders/${props.workOrderId}/renewal-report`, {
-        method: "PUT",
-        body: fd,
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || `Error subiendo foto (${bucket})`);
-      }
+  const buildPayload = React.useCallback(
+    (v: FormValues) => ({
+      ...v,
+      ticketNumber: v.ticketNumber.trim(),
+      workOrderNumber: v.workOrderNumber.trim(),
+      busCode: v.busCode.trim(),
+      plate: v.plate.trim(),
+      linkSmartHelios: v.linkSmartHelios.trim(),
+      ipSimcard: v.ipSimcard.trim(),
+      observations: v.observations.trim(),
+      removedChecklist,
+      finalChecklist,
+      newInstallation: {
+        verificationDate: v.verificationDate || null,
+        equipmentUpdates: equipmentRows.map((row) => ({
+          ...row,
+          ipAddress: usesIpField(row.type) ? row.ipAddress : "",
+        })),
+      },
+    }),
+    [equipmentRows, removedChecklist, finalChecklist]
+  );
+
+  const saveJsonReport = React.useCallback(
+    async (payload: ReturnType<typeof buildPayload>, draft = false) => {
+      const res = await fetch(
+        `/api/work-orders/${props.workOrderId}/renewal-report${draft ? "?draft=1" : ""}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar");
+      return data;
+    },
+    [props.workOrderId]
+  );
+
+  const autosaveFingerprint = React.useMemo(
+    () =>
+      JSON.stringify({
+        values: watchedValues,
+        equipmentRows,
+        removedChecklist,
+        finalChecklist,
+      }),
+    [watchedValues, equipmentRows, removedChecklist, finalChecklist]
+  );
+  const autosaveReadyRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (loading) return;
+    if (!autosaveReadyRef.current) {
+      autosaveReadyRef.current = true;
+      return;
     }
-  }
+
+    const timer = setTimeout(async () => {
+      if (saving || uploadingPhoto) return;
+      try {
+        setDraftState("saving");
+        const payload = buildPayload(form.getValues());
+        await saveJsonReport(payload, true);
+        setDraftState("saved");
+      } catch {
+        setDraftState("error");
+      }
+    }, 1400);
+
+    return () => clearTimeout(timer);
+  }, [autosaveFingerprint, buildPayload, form, loading, saveJsonReport, saving, uploadingPhoto]);
+
+  const uploadPhotos = React.useCallback(
+    async (
+      bucket: "old" | "new",
+      files: FileList | null,
+      busEquipmentId?: string,
+      equipmentLabel?: string
+    ) => {
+      if (!files?.length) return;
+      for (const file of Array.from(files)) {
+        const stampedPhoto = await withPhotoWatermark(file, {
+          equipmentLabel: equipmentLabel || "Serial de equipo",
+          busCode: props.busCode || form.getValues("busCode") || null,
+          caseRef: props.caseRef || null,
+        });
+        const fd = new FormData();
+        fd.set("bucket", bucket);
+        if (busEquipmentId) fd.set("busEquipmentId", busEquipmentId);
+        fd.set("photo", stampedPhoto);
+        const res = await fetch(`/api/work-orders/${props.workOrderId}/renewal-report`, {
+          method: "PUT",
+          body: fd,
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || `Error subiendo foto (${bucket})`);
+        }
+      }
+    },
+    [props.busCode, props.caseRef, props.workOrderId, form]
+  );
+
+  const handleEquipmentFilesSelected = React.useCallback(
+    async (bucket: "old" | "new", row: EquipmentRow, files: FileList | null) => {
+      const setMap = bucket === "old" ? setOldPhotosByEquipment : setNewPhotosByEquipment;
+      setMap((prev) => ({ ...prev, [row.busEquipmentId]: files }));
+      if (!files?.length) return;
+
+      setUploadingPhoto(true);
+      try {
+        await uploadPhotos(
+          bucket,
+          files,
+          row.busEquipmentId,
+          `${row.type} · serial ${bucket === "old" ? "antiguo" : "nuevo"}`
+        );
+        setMap((prev) => ({ ...prev, [row.busEquipmentId]: null }));
+        setMsg(`Evidencia ${bucket === "old" ? "antigua" : "nueva"} guardada para ${row.type}.`);
+      } catch (e: any) {
+        setMsg(e?.message ?? "No se pudo subir evidencia");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    },
+    [uploadPhotos]
+  );
 
   async function onSubmit(v: FormValues) {
     setSaving(true);
+    setDraftState("idle");
     setMsg(null);
     try {
-      const payload = {
-        ...v,
-        ticketNumber: v.ticketNumber.trim(),
-        workOrderNumber: v.workOrderNumber.trim(),
-        busCode: v.busCode.trim(),
-        plate: v.plate.trim(),
-        linkSmartHelios: v.linkSmartHelios.trim(),
-        ipSimcard: v.ipSimcard.trim(),
-        observations: v.observations.trim(),
-        removedChecklist,
-        finalChecklist,
-        newInstallation: {
-          verificationDate: v.verificationDate || null,
-          equipmentUpdates: equipmentRows.map((row) => ({
-            ...row,
-            ipAddress: usesIpField(row.type) ? row.ipAddress : "",
-          })),
-        },
-      };
-
-      const res = await fetch(`/api/work-orders/${props.workOrderId}/renewal-report`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar");
+      const payload = buildPayload(v);
+      await saveJsonReport(payload, false);
 
       for (const row of equipmentRows) {
         await uploadPhotos(
@@ -717,9 +798,11 @@ export default function RenewalTechReportForm(props: Props) {
       }
 
       setMsg("Guardado correctamente");
+      setDraftState("saved");
       router.refresh();
     } catch (e: any) {
       setMsg(e?.message ?? "No se pudo guardar");
+      setDraftState("error");
     } finally {
       setSaving(false);
     }
@@ -755,13 +838,22 @@ export default function RenewalTechReportForm(props: Props) {
           <button
             type="button"
             onClick={form.handleSubmit(onSubmit)}
-            disabled={saving || loading}
+            disabled={saving || loading || uploadingPhoto}
             className="sts-btn-primary w-full text-sm disabled:opacity-50 sm:w-auto"
           >
-            {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
+            {loading ? "Cargando..." : saving ? "Guardando..." : uploadingPhoto ? "Subiendo foto..." : "Guardar"}
           </button>
         </div>
         {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
+        {draftState !== "idle" ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {draftState === "saving"
+              ? "Guardando borrador..."
+              : draftState === "saved"
+                ? "Borrador guardado automáticamente."
+                : "No se pudo guardar el borrador automático."}
+          </p>
+        ) : null}
       </div>
 
       <section className="sts-card p-4 md:p-5 xl:p-6">
@@ -974,12 +1066,9 @@ export default function RenewalTechReportForm(props: Props) {
                             files={oldFiles}
                             required={oldRequired}
                             serialMode
-                            onFiles={(files) =>
-                              setOldPhotosByEquipment((prev) => ({
-                                ...prev,
-                                [row.busEquipmentId]: files,
-                              }))
-                            }
+                            onFiles={(files) => {
+                              void handleEquipmentFilesSelected("old", row, files);
+                            }}
                             onClear={() =>
                               setOldPhotosByEquipment((prev) => ({
                                 ...prev,
@@ -1043,12 +1132,9 @@ export default function RenewalTechReportForm(props: Props) {
                         files={oldFiles}
                         required={oldRequired}
                         serialMode
-                        onFiles={(files) =>
-                          setOldPhotosByEquipment((prev) => ({
-                            ...prev,
-                            [row.busEquipmentId]: files,
-                          }))
-                        }
+                        onFiles={(files) => {
+                          void handleEquipmentFilesSelected("old", row, files);
+                        }}
                         onClear={() =>
                           setOldPhotosByEquipment((prev) => ({
                             ...prev,
@@ -1173,12 +1259,9 @@ export default function RenewalTechReportForm(props: Props) {
                             files={newFiles}
                             required={newRequired}
                             serialMode
-                            onFiles={(files) =>
-                              setNewPhotosByEquipment((prev) => ({
-                                ...prev,
-                                [row.busEquipmentId]: files,
-                              }))
-                            }
+                            onFiles={(files) => {
+                              void handleEquipmentFilesSelected("new", row, files);
+                            }}
                             onClear={() =>
                               setNewPhotosByEquipment((prev) => ({
                                 ...prev,
@@ -1297,12 +1380,9 @@ export default function RenewalTechReportForm(props: Props) {
                         files={newFiles}
                         required={newRequired}
                         serialMode
-                        onFiles={(files) =>
-                          setNewPhotosByEquipment((prev) => ({
-                            ...prev,
-                            [row.busEquipmentId]: files,
-                          }))
-                        }
+                        onFiles={(files) => {
+                          void handleEquipmentFilesSelected("new", row, files);
+                        }}
                         onClear={() =>
                           setNewPhotosByEquipment((prev) => ({
                             ...prev,

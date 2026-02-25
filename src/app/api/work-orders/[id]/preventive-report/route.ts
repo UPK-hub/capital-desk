@@ -169,6 +169,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 
   const tenantId = (session.user as any).tenantId as string;
+  const isDraft = new URL(req.url).searchParams.get("draft") === "1";
 
   const wo = await prisma.workOrder.findFirst({
     where: { id: params.id, tenantId },
@@ -262,24 +263,26 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     update: normalized,
   });
 
-  await prisma.caseEvent.create({
-    data: {
-      caseId: wo.caseId,
-      type: CaseEventType.COMMENT,
-      message: "Formato PREVENTIVO guardado.",
-      meta: { workOrderId: wo.id },
-    },
-  });
+  if (!isDraft) {
+    await prisma.caseEvent.create({
+      data: {
+        caseId: wo.caseId,
+        type: CaseEventType.COMMENT,
+        message: "Formato PREVENTIVO guardado.",
+        meta: { workOrderId: wo.id },
+      },
+    });
 
-  await notifyTenantUsers({
-    tenantId,
-    roles: [Role.ADMIN, Role.BACKOFFICE],
-    type: NotificationType.FORM_SAVED,
-    title: "Formato preventivo guardado",
-    body: `OT-${String(wo.workOrderNo).padStart(3, "0")} · Bus ${wo.case.bus.code}`,
-    href: `/work-orders/${wo.id}`,
-    meta: { workOrderId: wo.id, caseId: wo.caseId, kind: "PREVENTIVE" },
-  });
+    await notifyTenantUsers({
+      tenantId,
+      roles: [Role.ADMIN, Role.BACKOFFICE],
+      type: NotificationType.FORM_SAVED,
+      title: "Formato preventivo guardado",
+      body: `OT-${String(wo.workOrderNo).padStart(3, "0")} · Bus ${wo.case.bus.code}`,
+      href: `/work-orders/${wo.id}`,
+      meta: { workOrderId: wo.id, caseId: wo.caseId, kind: "PREVENTIVE" },
+    });
+  }
 
-  return NextResponse.json({ ok: true, report });
+  return NextResponse.json({ ok: true, draft: isDraft, report });
 }

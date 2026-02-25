@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import type { PreventiveReport } from "@prisma/client";
 import { Select } from "@/components/Field";
 import { withPhotoWatermark } from "@/lib/photo-watermark-client";
@@ -280,6 +280,7 @@ const REQUIRED_PHOTO_KEYS = new Set([
 ]);
 const REQUIRED_NUMBER_KEYS = new Set(["nvr_conteo_dias_grabacion"]);
 const BATTERY_VOLTAGE_OPTIONS = Array.from({ length: 301 }, (_, i) => `${(0 + i * 0.1).toFixed(1)} V`);
+const RECORDING_DAYS_OPTIONS = Array.from({ length: 61 }, (_, i) => String(i));
 
 function isVoltageRow(activityKey: string, activityLabel: string) {
   return activityKey === "bateria_voltaje" || /voltaje/i.test(activityLabel);
@@ -348,6 +349,8 @@ function PreventiveReportFormInner(props: Props) {
   const [saving, setSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
+  const [draftState, setDraftState] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const [autofill, setAutofill] = React.useState<Autofill>({
     biarticuladoNo: "",
@@ -430,6 +433,7 @@ function PreventiveReportFormInner(props: Props) {
 
   const activitiesFA = useFieldArray({ control: form.control, name: "activities" });
   const watchedActivities = form.watch("activities");
+  const watchedValues = useWatch({ control: form.control });
   const orderedActivityIndexes = React.useMemo(() => {
     return activitiesFA.fields
       .map((_, idx) => idx)
@@ -443,88 +447,162 @@ function PreventiveReportFormInner(props: Props) {
       });
   }, [activitiesFA.fields, watchedActivities]);
 
-  async function uploadActivityPhotos(activityKey: string, activityLabel: string, files: FileList | null) {
-    if (!files?.length) return 0;
-    let count = 0;
-    for (const file of Array.from(files)) {
-      const stampedPhoto = await withPhotoWatermark(file, {
-        equipmentLabel: activityLabel || activityKey,
-        busCode: props.busCode || null,
-        caseRef: props.caseRef || null,
-      });
-      const fd = new FormData();
-      fd.set("activityKey", activityKey);
-      fd.set("photo", stampedPhoto);
-      const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
-        method: "PUT",
-        body: fd,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error ?? "No se pudo subir evidencia");
+  const buildPayload = React.useCallback((v: FormValues) => {
+    return {
+      ...v,
+      ticketNumber: v.ticketNumber.trim(),
+      workOrderNumber: v.workOrderNumber.trim(),
+      biarticuladoNo: v.biarticuladoNo.trim(),
+      mileage: v.mileage.trim(),
+      plate: v.plate.trim(),
+      scheduledAt: v.scheduledAt || null,
+      executedAt: v.executedAt || null,
+      rescheduledAt: v.rescheduledAt || null,
+      activities: v.activities.map((row, idx) => {
+        const key = String(row.key ?? "").trim() || inferKey(row, idx);
+        const activityLabel = String(row.activity ?? "");
+        const batteryVoltageByArea = isBatteryArea((row as any).area) && /voltaje|bater/i.test(activityLabel);
+        const inferredValueRequired = isVoltageRow(key, activityLabel) || isNumberRow(key, activityLabel);
+        const valueRequired = Boolean((row.valueRequired ?? inferredValueRequired) || batteryVoltageByArea);
+        const photoRequired = isPhotoRequiredRow(key, row.photoRequired) || batteryVoltageByArea;
+        const rawValue = String(row.value ?? "");
+        const value = valueRequired
+          ? isNumberRow(key, activityLabel)
+            ? rawValue.replace(/[^\d]/g, "")
+            : rawValue
+          : "";
+        return {
+          ...row,
+          key,
+          value,
+          valueRequired,
+          photoRequired,
+        };
+      }),
+      observations: v.observations.trim(),
+      responsibleUpk: v.responsibleUpk.trim(),
+      responsibleCapitalBus: v.responsibleCapitalBus.trim(),
+    };
+  }, []);
+
+  const saveJsonReport = React.useCallback(
+    async (payload: ReturnType<typeof buildPayload>, draft = false) => {
+      const res = await fetch(
+        `/api/work-orders/${props.workOrderId}/preventive-report${draft ? "?draft=1" : ""}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar");
+      return data;
+    },
+    [buildPayload, props.workOrderId]
+  );
+
+  const autosaveFingerprint = React.useMemo(() => JSON.stringify({ values: watchedValues }), [watchedValues]);
+  const autosaveReadyRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (loading) return;
+    if (!autosaveReadyRef.current) {
+      autosaveReadyRef.current = true;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (saving || uploadingPhoto) return;
+      try {
+        setDraftState("saving");
+        const payload = buildPayload(form.getValues());
+        await saveJsonReport(payload, true);
+        setDraftState("saved");
+      } catch {
+        setDraftState("error");
       }
+    }, 1400);
+
+    return () => clearTimeout(timer);
+  }, [autosaveFingerprint, buildPayload, form, loading, saveJsonReport, saving, uploadingPhoto]);
+
+  const uploadActivityPhotos = React.useCallback(
+    async (activityKey: string, activityLabel: string, files: FileList | null) => {
+      if (!files?.length) return 0;
+      let count = 0;
+      for (const file of Array.from(files)) {
+        const stampedPhoto = await withPhotoWatermark(file, {
+          equipmentLabel: activityLabel || activityKey,
+          busCode: props.busCode || null,
+          caseRef: props.caseRef || null,
+        });
+        const fd = new FormData();
+        fd.set("activityKey", activityKey);
+        fd.set("photo", stampedPhoto);
+        const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
+          method: "PUT",
+          body: fd,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error ?? "No se pudo subir evidencia");
+        }
+        const nextActivities = Array.isArray(data?.report?.activities)
+          ? normalizeActivities(data.report.activities as ActivityRow[])
+          : null;
+        if (nextActivities) {
+          form.setValue("activities", nextActivities, { shouldDirty: true });
+        }
+        count += 1;
+      }
+      return count;
+    },
+    [form, props.busCode, props.caseRef, props.workOrderId]
+  );
+
+  const handleActivityFilesSelected = React.useCallback(
+    async (activityKey: string, activityLabel: string, files: FileList | null, idx: number) => {
+      const idxKey = `idx_${idx}`;
+      setPhotoFilesByKey((prev) => ({
+        ...prev,
+        [activityKey]: files,
+        [idxKey]: files,
+      }));
+      if (!files?.length) return;
+
+      setUploadingPhoto(true);
+      try {
+        const uploaded = await uploadActivityPhotos(activityKey, activityLabel, files);
+        if (uploaded > 0) {
+          setPhotoFilesByKey((prev) => ({
+            ...prev,
+            [activityKey]: null,
+            [idxKey]: null,
+          }));
+          setMsg(`Evidencia guardada para "${activityLabel}".`);
+        }
+      } catch (e: any) {
+        setMsg(e?.message ?? "No se pudo subir evidencia");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    },
+    [uploadActivityPhotos]
+  );
+
+  async function onSubmit(v: FormValues) {
+    setSaving(true);
+    setDraftState("idle");
+    setMsg(null);
+    try {
+      const payload = buildPayload(v);
+      const data = await saveJsonReport(payload, false);
       const nextActivities = Array.isArray(data?.report?.activities)
         ? normalizeActivities(data.report.activities as ActivityRow[])
         : null;
       if (nextActivities) {
         form.setValue("activities", nextActivities, { shouldDirty: true });
-      }
-      count += 1;
-    }
-    return count;
-  }
-
-  async function onSubmit(v: FormValues) {
-    setSaving(true);
-    setMsg(null);
-    try {
-      const payload = {
-        ...v,
-        ticketNumber: v.ticketNumber.trim(),
-        workOrderNumber: v.workOrderNumber.trim(),
-
-        biarticuladoNo: v.biarticuladoNo.trim(),
-        mileage: v.mileage.trim(),
-        plate: v.plate.trim(),
-
-        scheduledAt: v.scheduledAt || null,
-        executedAt: v.executedAt || null,
-        rescheduledAt: v.rescheduledAt || null,
-
-        activities: v.activities.map((row, idx) => {
-          const key = String(row.key ?? "").trim() || inferKey(row, idx);
-          const activityLabel = String(row.activity ?? "");
-          const batteryVoltageByArea = isBatteryArea((row as any).area) && /voltaje|bater/i.test(activityLabel);
-          const inferredValueRequired = isVoltageRow(key, activityLabel) || isNumberRow(key, activityLabel);
-          const valueRequired = Boolean(
-            (row.valueRequired ?? inferredValueRequired) || batteryVoltageByArea
-          );
-          const photoRequired = isPhotoRequiredRow(key, row.photoRequired) || batteryVoltageByArea;
-          const value = valueRequired ? String(row.value ?? "") : "";
-          return {
-            ...row,
-            key,
-            value,
-            valueRequired,
-            photoRequired,
-          };
-        }),
-
-        observations: v.observations.trim(),
-        responsibleUpk: v.responsibleUpk.trim(),
-        responsibleCapitalBus: v.responsibleCapitalBus.trim(),
-      };
-
-      const res = await fetch(`/api/work-orders/${props.workOrderId}/preventive-report`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMsg(data?.error ?? "No se pudo guardar");
-        return;
       }
 
       let uploadedCount = 0;
@@ -538,6 +616,7 @@ function PreventiveReportFormInner(props: Props) {
 
       setPhotoFilesByKey({});
       setMsg(uploadedCount > 0 ? `Guardado correctamente (${uploadedCount} foto(s) cargada(s)).` : "Guardado correctamente");
+      setDraftState("saved");
       try {
         router.refresh();
       } catch (err) {
@@ -545,6 +624,7 @@ function PreventiveReportFormInner(props: Props) {
       }
     } catch (e: any) {
       setMsg(e?.message ?? "No se pudo guardar");
+      setDraftState("error");
     } finally {
       setSaving(false);
     }
@@ -566,14 +646,23 @@ function PreventiveReportFormInner(props: Props) {
           <button
             type="button"
             onClick={form.handleSubmit(onSubmit)}
-            disabled={saving || loading}
+            disabled={saving || loading || uploadingPhoto}
             className="sts-btn-primary w-full text-sm disabled:opacity-50 sm:w-auto"
           >
-            {loading ? "Cargando..." : saving ? "Guardando..." : "Guardar"}
+            {loading ? "Cargando..." : saving ? "Guardando..." : uploadingPhoto ? "Subiendo foto..." : "Guardar"}
           </button>
         </div>
 
         {msg ? <div className="mt-3 rounded-md border p-3 text-sm">{msg}</div> : null}
+        {draftState !== "idle" ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {draftState === "saving"
+              ? "Guardando borrador..."
+              : draftState === "saved"
+                ? "Borrador guardado automáticamente."
+                : "No se pudo guardar el borrador automático."}
+          </p>
+        ) : null}
       </div>
 
       <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -732,11 +821,21 @@ function PreventiveReportFormInner(props: Props) {
                                   </option>
                                 ))}
                               </Select>
+                            ) : valueInputKind === "number" ? (
+                              <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.value`)}>
+                                <option value="">Seleccionar días</option>
+                                {value && !RECORDING_DAYS_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
+                                {RECORDING_DAYS_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </Select>
                             ) : (
                               <input
-                                type="number"
-                                min="0"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 className="app-field-control h-8 w-full rounded-lg border px-2 text-xs"
                                 placeholder="Ej: 7"
                                 {...form.register(`activities.${idx}.value`)}
@@ -757,11 +856,7 @@ function PreventiveReportFormInner(props: Props) {
                                   className="hidden"
                                   onChange={(e) => {
                                     const files = e.currentTarget.files;
-                                    setPhotoFilesByKey((prev) => ({
-                                      ...prev,
-                                      [filesStateKey]: files,
-                                      [`idx_${idx}`]: files,
-                                    }));
+                                    void handleActivityFilesSelected(activityKey, activityLabel, files, idx);
                                   }}
                                 />
                               </label>
@@ -870,11 +965,21 @@ function PreventiveReportFormInner(props: Props) {
                             </option>
                           ))}
                         </Select>
+                      ) : valueInputKind === "number" ? (
+                        <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.value`)}>
+                          <option value="">Seleccionar días</option>
+                          {value && !RECORDING_DAYS_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
+                          {RECORDING_DAYS_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </Select>
                       ) : (
                         <input
-                          type="number"
-                          min="0"
-                          step="1"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           className="app-field-control h-9 w-full rounded-xl border px-3 text-sm"
                           placeholder="Ej: 7"
                           {...form.register(`activities.${idx}.value`)}
@@ -894,11 +999,7 @@ function PreventiveReportFormInner(props: Props) {
                           className="hidden"
                           onChange={(e) => {
                             const files = e.currentTarget.files;
-                            setPhotoFilesByKey((prev) => ({
-                              ...prev,
-                              [filesStateKey]: files,
-                              [`idx_${idx}`]: files,
-                            }));
+                            void handleActivityFilesSelected(activityKey, activityLabel, files, idx);
                           }}
                         />
                       </label>
@@ -924,7 +1025,7 @@ function PreventiveReportFormInner(props: Props) {
           </div>
 
           <div className="border-t border-border/50 px-4 py-3 md:px-5">
-            <p className="text-[11px] text-muted-foreground">Las evidencias se cargan al guardar.</p>
+            <p className="text-[11px] text-muted-foreground">Las evidencias se guardan al seleccionarlas.</p>
           </div>
         </section>
 
