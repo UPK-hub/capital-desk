@@ -71,8 +71,8 @@ function normalizeStoredUploadPath(value: string | null | undefined) {
 }
 
 function firstPhotoPath(list: string[] | null | undefined) {
-  const first = Array.isArray(list) ? String(list[0] ?? "").trim() : "";
-  return normalizeStoredUploadPath(first);
+  const latest = Array.isArray(list) ? String(list[list.length - 1] ?? "").trim() : "";
+  return normalizeStoredUploadPath(latest);
 }
 
 function pickEq(rows: RenewalEqRow[], aliases: string[]) {

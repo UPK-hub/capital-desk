@@ -94,10 +94,38 @@ function StepProgress({
   );
 }
 
+function normalizeStoredUploadPath(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const marker = "/api/uploads/";
+  const markerIdx = raw.indexOf(marker);
+  if (markerIdx >= 0) return raw.slice(markerIdx + marker.length).replace(/^\/+/, "");
+  try {
+    const u = new URL(raw);
+    const pathname = String(u.pathname ?? "");
+    const idx = pathname.indexOf(marker);
+    if (idx >= 0) return pathname.slice(idx + marker.length).replace(/^\/+/, "");
+    return pathname.replace(/^\/+/, "");
+  } catch {
+    return raw.replace(/^\/+/, "");
+  }
+}
+
+function isImageUploadPath(value: string | null | undefined) {
+  const rel = normalizeStoredUploadPath(value).toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(rel);
+}
+
+function uploadPreviewUrl(value: string | null | undefined) {
+  const rel = normalizeStoredUploadPath(value);
+  return rel ? `/api/uploads/${rel}` : "";
+}
+
 function FileUploadField({
   id,
   files,
   savedCount,
+  savedPreviewPath,
   required,
   serialMode,
   onFiles,
@@ -106,6 +134,7 @@ function FileUploadField({
   id: string;
   files: FileList | null | undefined;
   savedCount?: number;
+  savedPreviewPath?: string;
   required: boolean;
   serialMode?: boolean;
   onFiles: (files: FileList | null) => void;
@@ -115,15 +144,29 @@ function FileUploadField({
   const firstName = count > 0 ? String(files?.item(0)?.name ?? "") : "";
   const persisted = Number(savedCount ?? 0);
   const hasPersisted = persisted > 0;
+  const persistedPreview = uploadPreviewUrl(savedPreviewPath ?? "");
+  const persistedPreviewIsImage = isImageUploadPath(savedPreviewPath ?? "");
+  const localImagePreview = React.useMemo(() => {
+    const first = files?.item(0);
+    if (!first || !String(first.type ?? "").toLowerCase().startsWith("image/")) return "";
+    return URL.createObjectURL(first);
+  }, [files]);
+  React.useEffect(() => {
+    if (!localImagePreview) return;
+    return () => URL.revokeObjectURL(localImagePreview);
+  }, [localImagePreview]);
+  const previewUrl = localImagePreview || (persistedPreviewIsImage ? persistedPreview : "");
   return (
     <div className="space-y-1.5">
       <input
         id={id}
         type="file"
         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
-        multiple
         className="hidden"
-        onChange={(e) => onFiles(e.currentTarget.files)}
+        onChange={(e) => {
+          onFiles(e.currentTarget.files);
+          e.currentTarget.value = "";
+        }}
       />
       <label
         htmlFor={id}
@@ -167,9 +210,24 @@ function FileUploadField({
           Quitar selección
         </button>
       ) : (
-        <p className="text-[11px] text-muted-foreground">
-          {hasPersisted ? "Guardado en servidor." : "Ninguna foto o archivo seleccionado"}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] text-muted-foreground">
+            {hasPersisted ? "Guardado en servidor." : "Ninguna foto o archivo seleccionado"}
+          </p>
+          {previewUrl ? (
+            <span className="group/preview relative cursor-default text-[11px] font-medium text-primary">
+              Vista previa
+              <span className="pointer-events-none invisible absolute bottom-full left-0 z-40 mb-2 rounded-lg border border-border/70 bg-card p-1 opacity-0 shadow-xl transition-all duration-150 group-hover/preview:visible group-hover/preview:opacity-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Vista previa"
+                  className="h-24 w-24 rounded-md object-cover"
+                />
+              </span>
+            </span>
+          ) : null}
+        </div>
       )}
     </div>
   );
@@ -839,7 +897,7 @@ export default function RenewalTechReportForm(props: Props) {
           }
         }
         setMap((prev) => ({ ...prev, [row.busEquipmentId]: null }));
-        setMsg(`Evidencia ${bucket === "old" ? "antigua" : "nueva"} guardada para ${row.type}.`);
+        setMsg(`Evidencia ${bucket === "old" ? "antigua" : "nueva"} actualizada para ${row.type}.`);
       } catch (e: any) {
         setMsg(e?.message ?? "No se pudo subir evidencia");
       } finally {
@@ -1144,6 +1202,7 @@ export default function RenewalTechReportForm(props: Props) {
                             id={oldUploadId}
                             files={oldFiles}
                             savedCount={savedOldPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialOld).length}
+                            savedPreviewPath={normalizeStringArray(row.photoSerialOld).slice(-1)[0] ?? ""}
                             required={oldRequired}
                             serialMode
                             onFiles={(files) => {
@@ -1211,6 +1270,7 @@ export default function RenewalTechReportForm(props: Props) {
                         id={oldUploadId}
                         files={oldFiles}
                         savedCount={savedOldPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialOld).length}
+                        savedPreviewPath={normalizeStringArray(row.photoSerialOld).slice(-1)[0] ?? ""}
                         required={oldRequired}
                         serialMode
                         onFiles={(files) => {
@@ -1339,6 +1399,7 @@ export default function RenewalTechReportForm(props: Props) {
                             id={newUploadId}
                             files={newFiles}
                             savedCount={savedNewPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialNew).length}
+                            savedPreviewPath={normalizeStringArray(row.photoSerialNew).slice(-1)[0] ?? ""}
                             required={newRequired}
                             serialMode
                             onFiles={(files) => {
@@ -1461,6 +1522,7 @@ export default function RenewalTechReportForm(props: Props) {
                         id={newUploadId}
                         files={newFiles}
                         savedCount={savedNewPhotosByEquipment[row.busEquipmentId] ?? normalizeStringArray(row.photoSerialNew).length}
+                        savedPreviewPath={normalizeStringArray(row.photoSerialNew).slice(-1)[0] ?? ""}
                         required={newRequired}
                         serialMode
                         onFiles={(files) => {

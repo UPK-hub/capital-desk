@@ -183,9 +183,13 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     const currentNew = normalizeStringArray(curr?.photosNew);
     const currentChecklist = normalizeStringArray(curr?.photosChecklist);
 
-    if (bucket === "old") currentOld.push(relPath);
-    if (bucket === "new") currentNew.push(relPath);
     if (bucket === "checklist") currentChecklist.push(relPath);
+    // En fotos por equipo (old/new + busEquipmentId) no acumulamos global:
+    // se guarda una sola vigente por campo/equipo para evitar confusión en actas.
+    if ((bucket === "old" || bucket === "new") && !busEquipmentId) {
+      if (bucket === "old") currentOld.push(relPath);
+      if (bucket === "new") currentNew.push(relPath);
+    }
 
     const currentInstallation =
       curr?.newInstallation && typeof curr.newInstallation === "object"
@@ -205,10 +209,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
           : { busEquipmentId, type: "", oldSerial: "", newSerial: "", ipAddress: "", brand: "", model: "" };
       const oldPhotos = normalizeStringArray(baseRow.photoSerialOld);
       const newPhotos = normalizeStringArray(baseRow.photoSerialNew);
-      if (bucket === "old") oldPhotos.push(relPath);
-      if (bucket === "new") newPhotos.push(relPath);
-      baseRow.photoSerialOld = oldPhotos;
-      baseRow.photoSerialNew = newPhotos;
+      baseRow.photoSerialOld = bucket === "old" ? [relPath] : oldPhotos;
+      baseRow.photoSerialNew = bucket === "new" ? [relPath] : newPhotos;
       if (idx >= 0) currentUpdates[idx] = baseRow;
       else currentUpdates.push(baseRow);
       currentInstallation.equipmentUpdates = currentUpdates;
