@@ -1,0 +1,2 @@
+-- Intencionalmente sin cambios de esquema.
+-- Esta migración correspondió a lógica de aplicación (capability FORCE_PASSWORD_CHANGE).

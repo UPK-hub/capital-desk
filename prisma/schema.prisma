@@ -169,6 +169,7 @@ model Tenant {
   inventorySerialCatalog   InventorySerialCatalog[]
   integrationInboundEvents IntegrationInboundEvent[]
   busTelemetryStates       BusTelemetryState[]
+  remoteVisualReviews      RemoteVisualReview[]
 
   sequence TenantSequence?
 }
@@ -237,6 +238,7 @@ model User {
   directChatMessages       DirectChatMessage[]
   directChatParticipants   DirectChatParticipant[]
   directChatThreadsCreated DirectChatThread[]       @relation("DirectChatCreatedBy")
+  remoteVisualReviews      RemoteVisualReview[]     @relation("RvrResponsible")
 
   @@index([tenantId, role])
   @@index([tenantId, active])
@@ -627,6 +629,7 @@ model Bus {
   lifecycle      BusLifecycleEvent[]
   telemetryState BusTelemetryState?
   inboundEvents  IntegrationInboundEvent[]
+  remoteChecks   RemoteVisualReviewBus[]
 
   @@unique([tenantId, code])
 }
@@ -881,6 +884,79 @@ model WorkOrderMedia {
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
 }
 
+enum RemoteVisualReviewStatus {
+  DRAFT
+  COMPLETED
+}
+
+model RemoteVisualReview {
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  reviewDate DateTime @db.Date
+
+  responsibleId String?
+  responsible   User?   @relation("RvrResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+
+  scheduleWindow     String?
+  busLimit           Int                      @default(8)
+  busCount           Int                      @default(0)
+  generalResult      String?
+  relevantFindings   String?
+  ticketUpk          String?
+  requiresCorrective Boolean                  @default(false)
+  capitalbusOt       String?
+  evidencesNotes     String?
+  status             RemoteVisualReviewStatus @default(DRAFT)
+
+  buses RemoteVisualReviewBus[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, reviewDate])
+  @@index([tenantId, reviewDate])
+  @@index([tenantId, status])
+}
+
+model RemoteVisualReviewBus {
+  id String @id @default(cuid())
+
+  reviewId String
+  review   RemoteVisualReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  busId String
+  bus   Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  busCode  String
+  busPlate String?
+  nvrIp    String?
+
+  reviewedAt DateTime? @db.Timestamptz(3)
+
+  generalResult      String?
+  relevantFindings   String?
+  ticketUpk          String?
+  requiresCorrective Boolean @default(false)
+  capitalbusOt       String?
+
+  checklist Json?
+  evidences Json?
+
+  correctiveCaseId      String?
+  correctiveCaseNo      Int?
+  correctiveWorkOrderId String?
+  correctiveWorkOrderNo Int?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([reviewId, busId])
+  @@index([busId, reviewedAt])
+}
+
 model BusLifecycleEvent {
   id    String @id @default(cuid())
   busId String
@@ -953,6 +1029,10 @@ model CorrectiveReport {
   dateDismount  DateTime? @db.Timestamptz(3)
   dateDelivered DateTime? @db.Timestamptz(3)
 
+  bodyworkDismountRequested Boolean @default(false)
+  bodyworkDismountNotes     String?
+  photoBodyworkDismount     String?
+
   accessoriesSupplied Boolean @default(false)
   accessoriesWhich    String?
 
@@ -978,6 +1058,7 @@ model CorrectiveReport {
 
   photoSerialCurrent String?
   photoSerialNew     String?
+  templateData       Json?
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
