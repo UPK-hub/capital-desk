@@ -4,7 +4,7 @@ import { ModuleCard } from "@/components/ui/module-card";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Role, StsTicketStatus, VideoCaseStatus } from "@prisma/client";
-import { BriefcaseBusiness, CalendarDays, ClipboardList, Film, ShieldCheck, Truck, Wrench } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, ClipboardList, Eye, Film, ShieldCheck, Truck, Wrench } from "lucide-react";
 import Image from "next/image";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { CAPABILITIES } from "@/lib/capabilities";
@@ -17,12 +17,13 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const role = session.user.role;
+  const role = (session.user as any).role as Role;
   const tenantId = (session.user as any).tenantId as string;
   const caps = (session.user as any).capabilities as string[] | undefined;
   const videosOnly = isVideosOnlyBackoffice(role, caps);
 
   const canBackoffice = role === Role.ADMIN || (role === Role.BACKOFFICE && !videosOnly);
+  const canRvr = role === Role.ADMIN || role === Role.SUPERVISOR || (role === Role.BACKOFFICE && !videosOnly);
   const canTech = role === Role.ADMIN || role === Role.TECHNICIAN;
   const canVideo = role === Role.ADMIN || role === Role.BACKOFFICE;
   const canPlanner = role === Role.ADMIN || (role === Role.BACKOFFICE && caps?.includes("PLANNER"));
@@ -81,6 +82,16 @@ export default async function HomePage() {
       icon: <Film className="h-5 w-5" />,
       tone: "videos" as const,
       count: pendingVideos > 0 ? pendingVideos : undefined,
+    },
+    {
+      key: "rvr",
+      title: "RVR",
+      description: "Revisión visual remota diaria (hasta 8 buses).",
+      href: "/rvr",
+      can: canRvr,
+      action: "Abrir",
+      icon: <Eye className="h-5 w-5" />,
+      tone: "planner" as const,
     },
     {
       key: "planner",

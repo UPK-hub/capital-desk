@@ -85,6 +85,16 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
     },
     {
+      label: "RVR",
+      href: "/rvr",
+      icon: "planner",
+      section: "main",
+      color: "var(--color-planner)",
+      subtitle: "Revisión visual remota",
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+      hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
+    },
+    {
       label: "Planner",
       href: "/planner",
       icon: "planner",
