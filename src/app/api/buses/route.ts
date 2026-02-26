@@ -46,19 +46,24 @@ export async function GET(req: NextRequest) {
         },
       },
       cases: {
-        where: { workOrder: { isNot: null } },
-        select: { id: true },
+        select: {
+          type: true,
+          workOrder: { select: { id: true } },
+        },
       },
     },
   });
 
   const data = buses.map((b) => ({
+    preventiveCount: b.cases.filter((c) => c.type === "PREVENTIVO").length,
+    correctiveCount: b.cases.filter((c) => c.type === "CORRECTIVO").length,
+    noveltyCount: b.cases.filter((c) => c.type === "NOVEDAD").length,
     id: b.id,
     code: b.code,
     plate: b.plate,
     equipmentCount: b._count.equipments,
     caseCount: b._count.cases,
-    otCount: b.cases.length,
+    otCount: b.cases.filter((c) => Boolean(c.workOrder)).length,
   }));
 
   return NextResponse.json(data);

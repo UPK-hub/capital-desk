@@ -17,6 +17,7 @@ import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import BusCommentsCard from "./ui/BusCommentsCard";
+import BusTimelineCaseFilter from "./ui/BusTimelineCaseFilter";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -127,9 +128,12 @@ function extractLatestNovedadState(events: Array<{ meta: unknown }>, fallbackTit
   };
 }
 
-type PageProps = { params: { id: string } };
+type PageProps = {
+  params: { id: string };
+  searchParams?: { caseId?: string | string[] };
+};
 
-export default async function BusLifePage({ params }: PageProps) {
+export default async function BusLifePage({ params, searchParams }: PageProps) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return (
@@ -184,7 +188,7 @@ export default async function BusLifePage({ params }: PageProps) {
       },
       cases: {
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: 5,
         select: {
           id: true,
           caseNo: true,
@@ -236,6 +240,14 @@ export default async function BusLifePage({ params }: PageProps) {
   });
 
   if (!bus) return notFound();
+
+  const requestedCaseIdRaw = Array.isArray(searchParams?.caseId)
+    ? searchParams?.caseId[0]
+    : searchParams?.caseId;
+  const selectedCaseId =
+    requestedCaseIdRaw && bus.cases.some((c) => c.id === requestedCaseIdRaw) ? requestedCaseIdRaw : null;
+  const selectedCase = selectedCaseId ? bus.cases.find((c) => c.id === selectedCaseId) ?? null : null;
+  const selectedWorkOrderId = selectedCase?.workOrder?.id ?? null;
 
   const caseIds = bus.cases.map((c) => c.id);
   const woIds = bus.cases.map((c) => c.workOrder?.id).filter(Boolean) as string[];
@@ -322,6 +334,20 @@ export default async function BusLifePage({ params }: PageProps) {
       };
     });
 
+  const timelineLifecycle = selectedCaseId
+    ? bus.lifecycle.filter(
+        (e) => e.caseId === selectedCaseId || (selectedWorkOrderId ? e.workOrderId === selectedWorkOrderId : false)
+      )
+    : bus.lifecycle;
+  const timelineCaseEvents = selectedCaseId
+    ? caseEvents.filter((e) => e.caseId === selectedCaseId)
+    : caseEvents;
+  const timelineWoSteps = selectedCaseId
+    ? selectedWorkOrderId
+      ? woSteps.filter((s) => s.workOrderId === selectedWorkOrderId)
+      : []
+    : woSteps;
+
   const timeline: Array<{
     at: Date;
     kind: "BUS" | "CASE" | "WO_STEP";
@@ -331,7 +357,7 @@ export default async function BusLifePage({ params }: PageProps) {
     href?: string | null;
   }> = [];
 
-  for (const e of bus.lifecycle) {
+  for (const e of timelineLifecycle) {
     timeline.push({
       at: e.occurredAt,
       kind: "BUS",
@@ -342,7 +368,7 @@ export default async function BusLifePage({ params }: PageProps) {
     });
   }
 
-  for (const e of caseEvents) {
+  for (const e of timelineCaseEvents) {
     timeline.push({
       at: e.createdAt,
       kind: "CASE",
@@ -353,7 +379,7 @@ export default async function BusLifePage({ params }: PageProps) {
     });
   }
 
-  for (const s of woSteps) {
+  for (const s of timelineWoSteps) {
     const wo = woById.get(s.workOrderId);
     timeline.push({
       at: s.createdAt,
@@ -422,6 +448,13 @@ export default async function BusLifePage({ params }: PageProps) {
         href: `/api/work-orders/${wo.id}/report-pdf?kind=${kind}`,
         at: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
       });
+      if (c.type === "CORRECTIVO") {
+        attachments.push({
+          label: "Formulario correctivo (Word STS)",
+          href: `/api/work-orders/${wo.id}/corrective-docx`,
+          at: wo.finishedAt ?? wo.startedAt ?? wo.assignedAt ?? c.createdAt,
+        });
+      }
     }
 
     if (wo?.id && wo.interventionReceipt?.id) {
@@ -520,7 +553,7 @@ export default async function BusLifePage({ params }: PageProps) {
         <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">Casos recientes</p>
           <p className="mt-1 text-lg font-semibold">{totalCases}</p>
-          <p className="text-xs text-muted-foreground">últimos 50</p>
+          <p className="text-xs text-muted-foreground">últimos 5</p>
         </div>
         <div className="sts-card p-4">
           <p className="text-xs text-muted-foreground">OT asociadas</p>
@@ -940,11 +973,22 @@ export default async function BusLifePage({ params }: PageProps) {
 
           {/* Timeline */}
           <section className="sts-card p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Trazabilidad (timeline)</h2>
-              <p className="text-xs text-muted-foreground">
-                {bus.lifecycle.length} eventos bus • {caseEvents.length} eventos caso • {woSteps.length} pasos OT
-              </p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-base font-semibold">Trazabilidad (timeline)</h2>
+                <p className="text-xs text-muted-foreground">
+                  {timelineLifecycle.length} eventos bus • {timelineCaseEvents.length} eventos caso • {timelineWoSteps.length} pasos OT
+                </p>
+                {selectedCase ? (
+                  <p className="mt-1 text-xs text-primary">
+                    Filtro activo: {fmtCaseNo(selectedCase.caseNo)} · {selectedCase.title}
+                  </p>
+                ) : null}
+              </div>
+              <BusTimelineCaseFilter
+                selectedCaseId={selectedCaseId}
+                cases={bus.cases.map((c) => ({ id: c.id, caseNo: c.caseNo, title: c.title }))}
+              />
             </div>
 
             <div className="mt-4 space-y-3">
