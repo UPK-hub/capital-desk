@@ -37,6 +37,17 @@ function fmtDate(v: any) {
   return d.toISOString().slice(0, 10);
 }
 
+function fmtDateTime(v: any) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v ?? "");
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(d);
+}
+
 function fmtInternalTime(v?: Date | null) {
   if (!v) return "";
   return new Intl.DateTimeFormat("es-CO", {
@@ -92,50 +103,132 @@ function renderPreventive(report: Record<string, any>, internalStart: string, in
 }
 
 function renderCorrective(report: Record<string, any>, internalStart: string, internalEnd: string) {
+  const templateData =
+    report?.templateData && typeof report.templateData === "object" && !Array.isArray(report.templateData)
+      ? (report.templateData as Record<string, any>)
+      : {};
+  const fileName = (input: any) => String(input ?? "").trim().split("/").pop() || "";
+  const txt = (value: any) => String(value ?? "").trim();
+  const pick = (key: string, fallback: any = "") => txt(templateData[key] ?? fallback);
+
   const lines: string[] = [];
   const push = (label: string, value: any) => {
     if (value === null || value === undefined || value === "") return;
     lines.push(`${label}: ${value}`);
   };
 
-  lines.push("== Datos del dispositivo/equipo ==");
-  push("Ticket", report.ticketNumber);
-  push("OT", report.workOrderNumber);
-  push("Bus (TM)", report.busCode);
+  lines.push("== A. Identificación del ticket (Mesa de Ayuda) ==");
+  push("Ticket Mesa de Ayuda (ID)", report.ticketNumber);
+  push("OT Correctivo CAPITALBUS (ID)", report.workOrderNumber);
+  push("Fecha y hora de reporte", pick("reportDateTime"));
+  push("Canal de reporte", pick("reportChannel"));
+  push("Reportado por (Nombre / Área)", pick("reportedBy"));
+  push("Contacto (tel / correo)", pick("reportContact"));
+
+  lines.push("");
+  lines.push("== B. Información del bus ==");
+  push("Bus (No.)", report.busCode);
+  push("Producción (SP)", pick("productionSp"));
   push("Placa", report.plate);
-  push("Tipo dispositivo", report.deviceType);
-  push("Marca", report.brand);
-  push("Modelo", report.model);
-  push("Serial", report.serial);
+  push("Tipo de bus", pick("busType"));
+  push("Patio / Ubicación", pick("yardLocation"));
+  push("Fecha y hora de intervención", pick("interventionDateTime"));
+  push("Turno", pick("interventionShift"));
+
+  const hasSectionC = Boolean(
+    pick("affectedSystem") ||
+      pick("componentName", report.deviceType) ||
+      pick("symptomNovelty") ||
+      pick("operationImpact") ||
+      pick("briefDescription")
+  );
+  if (hasSectionC) {
+    lines.push("");
+    lines.push("== C. Novedad reportada ==");
+    push("Sistema afectado", pick("affectedSystem"));
+    push("Equipo / Componente", pick("componentName", report.deviceType));
+    push("Síntoma / Novedad", pick("symptomNovelty"));
+    push("Impacto en operación", pick("operationImpact"));
+    push("Descripción breve", pick("briefDescription"));
+    push("Marca", report.brand);
+    push("Modelo", report.model);
+    push("Serial", report.serial);
+    push("Ubicación", report.location);
+    push("Ubicación (otro)", report.locationOther);
+  }
+
+  const hasSectionD = Boolean(
+    pick("quickCheckResult") ||
+      pick("nextActionResponsible") ||
+      pick("quickChecklistSummary") ||
+      pick("quickEvidenceSummary") ||
+      pick("requiresNightIntervention") ||
+      pick("nightBusStatus")
+  );
+  if (hasSectionD) {
+    lines.push("");
+    lines.push("== D. Verificación rápida (primeros 5 min) ==");
+    push("Resultado verificación rápida", pick("quickCheckResult"));
+    push("Acción siguiente / responsable", pick("nextActionResponsible"));
+    push("Paso a paso (pre-formulario novedad)", pick("quickChecklistSummary"));
+    push("Evidencia mínima (pre-formulario novedad)", pick("quickEvidenceSummary"));
+    push("¿Requiere intervención nocturna?", pick("requiresNightIntervention"));
+    push("Estado solicitud bus noche", pick("nightBusStatus"));
+  }
+
+  lines.push("");
+  lines.push("== E. Diagnóstico y solución (técnico) ==");
+  push("Fecha/hora inicio diagnóstico", pick("diagnosticStartAt", internalStart));
+  push("Fecha/hora fin diagnóstico", pick("diagnosticEndAt", internalEnd));
+  push("Técnico de apoyo", pick("supportTechnician"));
   push("Tipo procedimiento", report.procedureType);
   push("Procedimiento (otro)", report.procedureOther);
-  push("Ubicación", report.location);
-  push("Ubicación (otro)", report.locationOther);
-  push("Fecha desmonte", fmtDate(report.dateDismount));
-  push("Fecha entrega", fmtDate(report.dateDelivered));
-
-  lines.push("");
-  lines.push("== Descripción de la falla ==");
-  push("Accesorios suministrados", yesNo(report.accessoriesSupplied));
-  push("Accesorios (cuáles)", report.accessoriesWhich);
   push("Tipo de falla", report.failureType);
   push("Tipo de falla (otro)", report.failureOther);
-  push("Estado físico", report.physicalState);
-  push("Diagnóstico", report.diagnosis);
-  push("Solución", report.solution);
+  push("Causa raíz", pick("rootCause"));
+  push("Estado físico del equipo retirado", report.physicalState);
+  push("Diagnóstico detallado", report.diagnosis);
+  push("Solución aplicada", report.solution);
+  push("Repuestos / materiales", pick("materialsUsed"));
   push("Tiempo solución fabricante", report.manufacturerEta);
-  push("Inicio OT (interno)", internalStart);
-  push("Cierre OT (interno)", internalEnd);
+  push("Fecha desmonte", fmtDate(report.dateDismount));
+  push("Fecha entrega", fmtDate(report.dateDelivered));
+  push("Accesorios suministrados", yesNo(report.accessoriesSupplied));
+  push("Accesorios (cuáles)", report.accessoriesWhich);
+  push("Solicitud desmonte carrocería", yesNo(report.bodyworkDismountRequested));
+  push("Detalle desmonte correctivo", report.bodyworkDismountNotes);
 
   lines.push("");
-  lines.push("== Cambio de componente ==");
+  lines.push("== Cambio de componente (si aplica) ==");
   push("Fecha instalación", fmtDate(report.installDate));
   push("Marca nueva", report.newBrand);
   push("Modelo nuevo", report.newModel);
   push("Serial nuevo", report.newSerial);
-  if (!report.installDate && !report.newBrand && !report.newModel && !report.newSerial) {
-    lines.push("No aplica.");
-  }
+  if (!report.installDate && !report.newBrand && !report.newModel && !report.newSerial) lines.push("No aplica.");
+
+  lines.push("");
+  lines.push("== F. Evidencias y trazabilidad ==");
+  push("Ticket/Caso donde reposa evidencia", pick("evidenceTicketRef"));
+  push(
+    "Evidencia 1 (antes/después)",
+    fileName(pick("evidenceBeforeAfterFile")) || pick("evidenceBeforeAfter")
+  );
+  push(
+    "Evidencia 2 (capturas/logs)",
+    fileName(pick("evidenceLogsFile")) || pick("evidenceLogs")
+  );
+  push("Evidencia 3 (otros)", fileName(pick("evidenceOtherFile")) || pick("evidenceOther"));
+  push("Archivo foto serial actual", fileName(report.photoSerialCurrent));
+  push("Archivo foto serial nuevo", fileName(report.photoSerialNew));
+  push("Archivo desmonte carrocería", fileName(report.photoBodyworkDismount));
+
+  lines.push("");
+  lines.push("== G. Cierre y conformidad ==");
+  push("Estado final del correctivo", pick("finalStatus"));
+  push("Fecha y hora de cierre", pick("closureDateTime", fmtDateTime(report.updatedAt)));
+  push("Conformidad del cliente", pick("clientConformity"));
+  push("Nombre / Cargo quien recibe", pick("receiverNameRole"));
+  push("Observaciones de cierre", pick("closureNotes"));
 
   return lines;
 }
@@ -363,6 +456,9 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   }
   if (corrective?.photoSerialNew) {
     await addImagePage("Foto serial nuevo", corrective.photoSerialNew);
+  }
+  if (corrective?.photoBodyworkDismount) {
+    await addImagePage("Evidencia desmonte por carroceria", corrective.photoBodyworkDismount);
   }
   const renewalOldPhotos = Array.isArray(renewal?.photosOld) ? renewal.photosOld : [];
   const renewalNewPhotos = Array.isArray(renewal?.photosNew) ? renewal.photosNew : [];

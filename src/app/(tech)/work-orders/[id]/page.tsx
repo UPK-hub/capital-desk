@@ -7,6 +7,7 @@ import { CaseType, ProcedureType, Role } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import {
   loadNovedadCatalog,
+  type NovedadCatalogItem,
   parseMinimalEvidenceRequirements,
   parseQuickCheckSteps,
 } from "@/lib/novedad-catalog";
@@ -41,6 +42,9 @@ type NovedadStateSnapshot = {
 type QuickVerificationSnapshot = {
   result: "CONFIRMADA" | "DESCARTADA" | "REQUIERE_REVISION" | "";
   notes: string;
+  suggestedAction: string;
+  checklist: Array<{ id: string; label: string; done: boolean }>;
+  evidence: Array<{ key: string; label: string; required: boolean; fileName: string }>;
 };
 
 type QuickVerificationPreset = {
@@ -53,6 +57,18 @@ type QuickVerificationPreset = {
   impact: string;
   quickSteps: Array<{ id: string; label: string }>;
   requiredEvidence: Array<{ id: string; label: string; required: boolean }>;
+};
+
+type FinishAutoContent = {
+  catalogCode: string;
+  reportedNovelty: string;
+  quickSolvedResponse: string;
+  requiresOtResponse: string;
+  standardObservation: string;
+  startedAtIso: string | null;
+  busCode: string;
+  busPlate: string | null;
+  caseRef: string;
 };
 
 function extractLatestNovedadState(events: Array<{ meta: unknown }>): NovedadStateSnapshot | null {
@@ -85,9 +101,42 @@ function extractLatestQuickVerification(
     if (quick && typeof quick === "object") {
       const result = String(quick.result ?? "").trim().toUpperCase();
       if (!["CONFIRMADA", "DESCARTADA", "REQUIERE_REVISION"].includes(result)) continue;
+      const checklistRaw = Array.isArray(quick.checklist) ? quick.checklist : [];
+      const evidenceRaw = Array.isArray(quick.evidence)
+        ? quick.evidence
+        : Array.isArray(quick.evidenceItems)
+        ? quick.evidenceItems
+        : [];
+
+      const checklist = checklistRaw
+        .map((item: any, index: number) => ({
+          id: String(item?.id ?? "").trim() || `step-${index + 1}`,
+          label: String(item?.label ?? "").trim(),
+          done: Boolean(item?.done),
+        }))
+        .filter((item: any) => item.label);
+
+      const evidence = evidenceRaw
+        .map((item: any, index: number) => ({
+          key: String(item?.key ?? "").trim() || `evidence-${index + 1}`,
+          label: String(item?.label ?? "").trim(),
+          required: Boolean(item?.required),
+          fileName:
+            String(item?.fileName ?? "").trim() ||
+            String(item?.filePath ?? "")
+              .trim()
+              .split("/")
+              .pop() ||
+            "",
+        }))
+        .filter((item: any) => item.label);
+
       return {
         result: result as QuickVerificationSnapshot["result"],
         notes: String(quick.notes ?? "").trim(),
+        suggestedAction: String(quick.suggestedAction ?? "").trim(),
+        checklist,
+        evidence,
       };
     }
   }
@@ -136,6 +185,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
           caseNo: true,
           title: true,
           description: true,
+          createdAt: true,
           type: true,
           bus: { select: { id: true, code: true, plate: true } },
           busEquipment: {
@@ -237,11 +287,14 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
   const quickResolved = latestQuickVerification?.result === "CONFIRMADA";
 
   let quickVerificationPreset: QuickVerificationPreset | null = null;
+  let matchedNovedadCatalog: NovedadCatalogItem | null = null;
   if (wo.case.type === "CORRECTIVO" && noveltyState) {
     const catalog = await loadNovedadCatalog();
-    const match = noveltyState.catalogCode
-      ? catalog.find((item) => item.code === noveltyState.catalogCode)
+    const normalizedCatalogCode = noveltyState.catalogCode.trim().toUpperCase();
+    const match = normalizedCatalogCode
+      ? catalog.find((item) => item.code.trim().toUpperCase() === normalizedCatalogCode)
       : undefined;
+    matchedNovedadCatalog = match ?? null;
     quickVerificationPreset = {
       required: true,
       catalogCode: noveltyState.catalogCode || match?.code || "",
@@ -255,6 +308,43 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
       requiredEvidence: parseMinimalEvidenceRequirements(match?.minimalEvidence || ""),
     };
   }
+
+  const finishAutoContent: FinishAutoContent | null =
+    wo.case.type === "CORRECTIVO" && noveltyState
+      ? {
+          catalogCode: noveltyState.catalogCode || matchedNovedadCatalog?.code || "",
+          reportedNovelty:
+            noveltyState.reportedNovelty || matchedNovedadCatalog?.novelty || wo.case.title,
+          quickSolvedResponse: matchedNovedadCatalog?.quickSolvedResponse || "",
+          requiresOtResponse: matchedNovedadCatalog?.requiresOtResponse || "",
+          standardObservation: matchedNovedadCatalog?.standardObservation || "",
+          startedAtIso: wo.startedAt ? wo.startedAt.toISOString() : null,
+          busCode: wo.case.bus.code,
+          busPlate: wo.case.bus.plate ?? null,
+          caseRef: fmtCaseNo(wo.case.caseNo),
+        }
+      : null;
+
+  const quickChecklistSummary =
+    latestQuickVerification?.checklist?.length
+      ? latestQuickVerification.checklist
+          .map((step) => `${step.done ? "OK" : "Pend"}: ${step.label}`)
+          .join(" | ")
+      : quickVerificationPreset?.quickSteps?.length
+      ? quickVerificationPreset.quickSteps.map((step) => step.label).join(" | ")
+      : "";
+  const quickEvidenceSummary =
+    latestQuickVerification?.evidence?.length
+      ? latestQuickVerification.evidence
+          .map((item) =>
+            `${item.label}${item.fileName ? ` (${item.fileName})` : item.required ? " (pendiente)" : ""}`
+          )
+          .join(" | ")
+      : quickVerificationPreset?.requiredEvidence?.length
+      ? quickVerificationPreset.requiredEvidence
+          .map((item) => `${item.label}${item.required ? " (obligatoria)" : ""}`)
+          .join(" | ")
+      : "";
 
   // Reglas finalizar por formulario (según registry)
   const requiresFinishForm =
@@ -495,6 +585,27 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     suggestedTicketNumber={suggestedTicketNumber}
                     busCode={wo.case.bus.code}
                     caseRef={fmtCaseNo(wo.case.caseNo)}
+                    ticketRequestedAt={wo.case.createdAt.toISOString()}
+                    isCorrectiveFromNovelty={Boolean(noveltyState)}
+                    noveltyAutoFill={
+                      noveltyState
+                        ? {
+                            catalogCode: noveltyState.catalogCode,
+                            affectedEquipment: noveltyState.affectedEquipment,
+                            reportedNovelty: noveltyState.reportedNovelty,
+                            impact: quickVerificationPreset?.impact ?? "",
+                            quickCheck: quickVerificationPreset?.quickCheck ?? "",
+                            quickResult: latestQuickVerification?.result ?? "",
+                            quickNotes: latestQuickVerification?.notes ?? "",
+                            quickSuggestedAction: latestQuickVerification?.suggestedAction ?? "",
+                            quickChecklistSummary,
+                            quickEvidenceSummary,
+                            quickSolvedResponse: finishAutoContent?.quickSolvedResponse ?? "",
+                            requiresOtResponse: finishAutoContent?.requiresOtResponse ?? "",
+                            standardObservation: finishAutoContent?.standardObservation ?? "",
+                          }
+                        : null
+                    }
                   />
                 ) : cfg?.formKind === "RENEWAL" ? (
                   <RenewalTechReportForm
@@ -549,6 +660,18 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                         >
                           Descargar PDF del formulario
                         </a>
+                        {cfg?.formKind === "CORRECTIVE" ? (
+                          <div>
+                            <a
+                              className="text-xs underline"
+                              href={`/api/work-orders/${wo.id}/corrective-docx`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Descargar Word diligenciado (plantilla STS)
+                            </a>
+                          </div>
+                        ) : null}
                         {canDownloadRenewalActa ? (
                           <div>
                             <a
@@ -667,6 +790,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                       id: eq.id,
                       label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
                     }))}
+                    autoContent={finishAutoContent}
                     blockingReason={
                       !startDone
                         ? "Debes iniciar la OT primero."
@@ -710,6 +834,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   id: eq.id,
                   label: `${eq.equipmentType.name}${eq.serial ? ` • ${eq.serial}` : ""}${eq.location ? ` • ${eq.location}` : ""}`,
                 }))}
+                autoContent={finishAutoContent}
                 blockingReason={
                   !startDone
                     ? "Debes iniciar la OT primero."

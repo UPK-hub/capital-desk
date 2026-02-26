@@ -1,9 +1,21 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
 import { withPhotoWatermarkMany } from "@/lib/photo-watermark-client";
+
+type FinishAutoContent = {
+  catalogCode: string;
+  reportedNovelty?: string | null;
+  quickSolvedResponse?: string | null;
+  requiresOtResponse?: string | null;
+  standardObservation?: string | null;
+  startedAtIso?: string | null;
+  busCode?: string | null;
+  busPlate?: string | null;
+  caseRef?: string | null;
+};
 
 type Props = {
   workOrderId: string;
@@ -18,7 +30,65 @@ type Props = {
     busCode?: string | null;
     caseRef?: string | null;
   };
+  autoContent?: FinishAutoContent | null;
 };
+
+function formatBogotaDateTime(date: Date) {
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(date);
+}
+
+function minutesSince(startedAtIso: string | null | undefined) {
+  if (!startedAtIso) return null;
+  const startedAtMs = Date.parse(startedAtIso);
+  if (!Number.isFinite(startedAtMs)) return null;
+  return Math.max(0, Math.floor((Date.now() - startedAtMs) / 60000));
+}
+
+function applyTemplate(
+  text: string,
+  context: { bus: string; dateTime: string; caseRef: string; code: string; novelty: string }
+) {
+  if (!text.trim()) return "";
+  return text
+    .replace(/\{BUS\}/gi, context.bus)
+    .replace(/\{FECHA_HORA\}/gi, context.dateTime)
+    .replace(/\{CASE_REF\}/gi, context.caseRef)
+    .replace(/\{CASO\}/gi, context.caseRef)
+    .replace(/\{CODIGO\}/gi, context.code)
+    .replace(/\{NOVEDAD\}/gi, context.novelty);
+}
+
+function buildAutoNotes(autoContent: FinishAutoContent | null | undefined) {
+  if (!autoContent) return { text: "", elapsedMinutes: null as number | null, quickSolved: false };
+
+  const elapsedMinutes = minutesSince(autoContent.startedAtIso);
+  const quickSolved = elapsedMinutes !== null ? elapsedMinutes <= 5 : false;
+  const selectedTemplate = quickSolved
+    ? String(autoContent.quickSolvedResponse ?? "").trim()
+    : String(autoContent.requiresOtResponse ?? "").trim();
+  const fallbackTemplate = String(autoContent.requiresOtResponse ?? autoContent.quickSolvedResponse ?? "").trim();
+  const observationTemplate = String(autoContent.standardObservation ?? "").trim();
+
+  const bus = autoContent.busCode?.trim()
+    ? autoContent.busPlate?.trim()
+      ? `${autoContent.busCode.trim()} (${autoContent.busPlate.trim()})`
+      : autoContent.busCode.trim()
+    : "No disponible";
+  const dateTime = formatBogotaDateTime(new Date());
+  const caseRef = autoContent.caseRef?.trim() || "N/A";
+  const code = autoContent.catalogCode?.trim() || "N/A";
+  const novelty = autoContent.reportedNovelty?.trim() || "N/A";
+
+  const main = applyTemplate(selectedTemplate || fallbackTemplate, { bus, dateTime, caseRef, code, novelty });
+  const observation = applyTemplate(observationTemplate, { bus, dateTime, caseRef, code, novelty });
+  const text = [main, observation].filter(Boolean).join("\n\n").trim();
+
+  return { text, elapsedMinutes, quickSolved };
+}
 
 export default function FinishWorkOrderCard({
   workOrderId,
@@ -29,9 +99,12 @@ export default function FinishWorkOrderCard({
   equipmentOptions = [],
   embedded = false,
   watermarkContext,
+  autoContent = null,
 }: Props) {
   const router = useRouter();
-  const [notes, setNotes] = useState("");
+  const autoNotes = buildAutoNotes(autoContent);
+  const [notes, setNotes] = useState(autoNotes.text);
+  const [notesTouched, setNotesTouched] = useState(false);
   const [evidences, setEvidences] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +113,20 @@ export default function FinishWorkOrderCard({
   const [createCorrective, setCreateCorrective] = useState(false);
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const inputId = useId();
+
+  useEffect(() => {
+    if (!autoContent || notesTouched || finishedAt) return;
+
+    const syncSuggestion = () => {
+      const next = buildAutoNotes(autoContent).text;
+      if (!next) return;
+      setNotes(next);
+    };
+
+    syncSuggestion();
+    const timer = window.setInterval(syncSuggestion, 60_000);
+    return () => window.clearInterval(timer);
+  }, [autoContent, notesTouched, finishedAt]);
 
   async function submit(opts?: { forcePreventive?: boolean }) {
     setSaving(true);
@@ -193,9 +280,23 @@ export default function FinishWorkOrderCard({
           className="app-field-control min-h-[88px] w-full rounded-xl border p-3 text-sm focus-visible:outline-none"
           placeholder="Notas de finalización..."
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            setNotesTouched(true);
+          }}
           disabled={disabled || saving}
         />
+        {autoNotes.text && !finishedAt ? (
+          <p className="text-xs text-muted-foreground">
+            Autocompletado por {autoContent?.catalogCode || "catálogo"}{" "}
+            {autoNotes.elapsedMinutes !== null
+              ? autoNotes.quickSolved
+                ? `(<=5 min, ${autoNotes.elapsedMinutes} min).`
+                : `(>5 min, ${autoNotes.elapsedMinutes} min).`
+              : "(sin tiempo de inicio)."}
+            {notesTouched ? " Editaste el texto sugerido." : ""}
+          </p>
+        ) : null}
 
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Evidencias finales</p>

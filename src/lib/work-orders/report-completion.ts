@@ -75,6 +75,15 @@ export function correctiveCompletion(r: CorrectiveReport | null | undefined) {
   if (!r) return { ok: false, reasons: ["No existe el formato CORRECTIVO (debes guardarlo)."] };
 
   if (!hasText(r.ticketNumber)) reasons.push("Falta número de ticket.");
+  const bodyworkRequested = Boolean((r as any)?.bodyworkDismountRequested);
+  if (bodyworkRequested) {
+    if (!hasText((r as any)?.bodyworkDismountNotes)) {
+      reasons.push("Falta el detalle del desmonte por solicitud de carrocería.");
+    }
+    if (!hasText((r as any)?.photoBodyworkDismount)) {
+      reasons.push("Falta evidencia del desmonte por solicitud de carrocería.");
+    }
+  }
 
   return { ok: reasons.length === 0, reasons };
 }

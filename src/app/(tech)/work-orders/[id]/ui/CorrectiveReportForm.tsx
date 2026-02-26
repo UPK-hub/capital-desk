@@ -26,6 +26,11 @@ type Props = {
     reportedNovelty?: string;
     impact?: string;
     quickCheck?: string;
+    quickResult?: string;
+    quickNotes?: string;
+    quickSuggestedAction?: string;
+    quickChecklistSummary?: string;
+    quickEvidenceSummary?: string;
     quickSolvedResponse?: string;
     requiresOtResponse?: string;
     standardObservation?: string;
@@ -62,6 +67,8 @@ type TemplateFields = {
   nextActionResponsible: string;
   requiresNightIntervention: string;
   nightBusStatus: string;
+  quickChecklistSummary: string;
+  quickEvidenceSummary: string;
   diagnosticStartAt: string;
   diagnosticEndAt: string;
   supportTechnician: string;
@@ -198,6 +205,8 @@ const TEMPLATE_KEYS: Array<keyof TemplateFields> = [
   "nextActionResponsible",
   "requiresNightIntervention",
   "nightBusStatus",
+  "quickChecklistSummary",
+  "quickEvidenceSummary",
   "diagnosticStartAt",
   "diagnosticEndAt",
   "supportTechnician",
@@ -238,6 +247,8 @@ function emptyTemplateFields(): TemplateFields {
     nextActionResponsible: "",
     requiresNightIntervention: "",
     nightBusStatus: "",
+    quickChecklistSummary: "",
+    quickEvidenceSummary: "",
     diagnosticStartAt: "",
     diagnosticEndAt: "",
     supportTechnician: "",
@@ -357,6 +368,14 @@ function normalizeQuickCheckLabel(raw: string) {
   if (lowered.includes("fabricante") || lowered.includes("rma")) return "Escalar a fabricante/RMA";
   if (lowered.includes("escal") || lowered.includes("profund")) return "Requiere revisión a profundidad (escalar)";
   return QUICK_RESULT_OPTIONS.includes(value as any) ? value : "";
+}
+
+function normalizeQuickResultCode(raw: string) {
+  const value = String(raw ?? "").trim().toUpperCase();
+  if (value === "CONFIRMADA") return "Solucionado en verificación rápida (remoto)";
+  if (value === "REQUIERE_REVISION") return "Requiere revisión a profundidad (escalar)";
+  if (value === "DESCARTADA") return "Programar intervención en sitio";
+  return "";
 }
 
 function classInput() {
@@ -594,9 +613,20 @@ export default function CorrectiveReportForm(props: Props) {
       if (isNoveltyCorrective && noveltyAutoFill) {
         const affectedEquipment = String(noveltyAutoFill.affectedEquipment ?? "").trim();
         const reportedNovelty = String(noveltyAutoFill.reportedNovelty ?? "").trim();
+        const quickNotes = String(noveltyAutoFill.quickNotes ?? "").trim();
+        const quickChecklistSummary = String(noveltyAutoFill.quickChecklistSummary ?? "").trim();
+        const quickEvidenceSummary = String(noveltyAutoFill.quickEvidenceSummary ?? "").trim();
         if (!curr.componentName?.trim() && affectedEquipment) patch.componentName = affectedEquipment;
         if (!curr.symptomNovelty?.trim() && reportedNovelty) patch.symptomNovelty = reportedNovelty;
-        if (!curr.briefDescription?.trim() && reportedNovelty) patch.briefDescription = reportedNovelty;
+        if (!curr.briefDescription?.trim()) {
+          const descriptionLines = [
+            reportedNovelty,
+            quickNotes ? `Verificación rápida: ${quickNotes}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+          if (descriptionLines) patch.briefDescription = descriptionLines;
+        }
         if (!curr.affectedSystem?.trim()) {
           const inferredSystem = inferAffectedSystem(affectedEquipment, reportedNovelty);
           if (inferredSystem) patch.affectedSystem = inferredSystem;
@@ -606,7 +636,9 @@ export default function CorrectiveReportForm(props: Props) {
           if (inferredImpact) patch.operationImpact = inferredImpact;
         }
         if (!curr.quickCheckResult?.trim()) {
+          const quickFromResult = normalizeQuickResultCode(String(noveltyAutoFill.quickResult ?? ""));
           const quickRaw =
+            quickFromResult ||
             String(noveltyAutoFill.quickSolvedResponse ?? "").trim() ||
             String(noveltyAutoFill.quickCheck ?? "").trim() ||
             String(noveltyAutoFill.requiresOtResponse ?? "").trim();
@@ -615,11 +647,18 @@ export default function CorrectiveReportForm(props: Props) {
         }
         if (!curr.nextActionResponsible?.trim()) {
           const nextAction =
+            String(noveltyAutoFill.quickSuggestedAction ?? "").trim() ||
             String(noveltyAutoFill.requiresOtResponse ?? "").trim() ||
             String(noveltyAutoFill.standardObservation ?? "").trim();
           if (nextAction) patch.nextActionResponsible = nextAction;
         }
-        const quickJoined = `${noveltyAutoFill.quickCheck ?? ""} ${noveltyAutoFill.requiresOtResponse ?? ""}`.toLowerCase();
+        if (!curr.quickChecklistSummary?.trim() && quickChecklistSummary) {
+          patch.quickChecklistSummary = quickChecklistSummary;
+        }
+        if (!curr.quickEvidenceSummary?.trim() && quickEvidenceSummary) {
+          patch.quickEvidenceSummary = quickEvidenceSummary;
+        }
+        const quickJoined = `${noveltyAutoFill.quickCheck ?? ""} ${noveltyAutoFill.requiresOtResponse ?? ""} ${noveltyAutoFill.quickSuggestedAction ?? ""} ${noveltyAutoFill.quickNotes ?? ""}`.toLowerCase();
         if (!curr.requiresNightIntervention?.trim() && quickJoined.includes("nocturn")) {
           patch.requiresNightIntervention = "Sí";
         }
@@ -775,6 +814,8 @@ export default function CorrectiveReportForm(props: Props) {
         delete templateData.nextActionResponsible;
         delete templateData.requiresNightIntervention;
         delete templateData.nightBusStatus;
+        delete templateData.quickChecklistSummary;
+        delete templateData.quickEvidenceSummary;
       }
 
       return {
@@ -968,7 +1009,7 @@ export default function CorrectiveReportForm(props: Props) {
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-semibold">Formato Correctivo (CAP-FO-M-CR-002)</h3>
-            <p className="text-xs text-muted-foreground">Ajustado a plantilla oficial de descarga (secciones A–G).</p>
+            <p className="text-xs text-muted-foreground">Ajustado a formato STS (secciones 1–7).</p>
           </div>
           <button
             type="button"
@@ -994,7 +1035,7 @@ export default function CorrectiveReportForm(props: Props) {
 
       <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">A. Identificación del ticket (Mesa de Ayuda)</h4>
+          <h4 className="text-sm font-semibold">1. Datos del caso (Mesa de Ayuda)</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Fecha y hora de reporte</label>
@@ -1024,7 +1065,7 @@ export default function CorrectiveReportForm(props: Props) {
 
         {/* B. DATOS DEL DISPOSITIVO / EQUIPO */}
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">B. Información del bus y equipo</h4>
+          <h4 className="text-sm font-semibold">2. Datos del bus y dispositivo</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
@@ -1179,7 +1220,7 @@ export default function CorrectiveReportForm(props: Props) {
         {isNoveltyCorrective ? (
           <>
             <section className="sts-card p-4 md:p-5">
-              <h4 className="text-sm font-semibold">C. Novedad reportada</h4>
+              <h4 className="text-sm font-semibold">3. Pre-diagnóstico - Novedad reportada</h4>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="text-xs text-muted-foreground">Sistema afectado</label>
@@ -1223,7 +1264,7 @@ export default function CorrectiveReportForm(props: Props) {
             </section>
 
             <section className="sts-card p-4 md:p-5">
-              <h4 className="text-sm font-semibold">D. Verificación rápida (primeros 5 min) - resumen</h4>
+              <h4 className="text-sm font-semibold">3. Pre-diagnóstico - Verificación rápida (primeros 5 min)</h4>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="text-xs text-muted-foreground">Resultado verificación rápida</label>
@@ -1262,21 +1303,35 @@ export default function CorrectiveReportForm(props: Props) {
                     ))}
                   </Select>
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">
+                    Paso a paso ejecutado (pre-formulario de novedad)
+                  </label>
+                  <textarea className={classTextArea()} {...form.register("quickChecklistSummary")} />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">
+                    Evidencia mínima registrada (pre-formulario de novedad)
+                  </label>
+                  <textarea className={classTextArea()} {...form.register("quickEvidenceSummary")} />
+                </div>
               </div>
             </section>
           </>
         ) : (
           <section className="sts-card p-4 md:p-5">
-            <h4 className="text-sm font-semibold">C y D. Novedad y verificación rápida</h4>
+            <h4 className="text-sm font-semibold">3. Pre-diagnóstico</h4>
             <p className="mt-2 text-sm text-muted-foreground">
-              Estas secciones solo se habilitan cuando el correctivo proviene de una novedad.
+              Esta sección se habilita cuando el correctivo proviene de una novedad.
             </p>
           </section>
         )}
 
         {/* E. DIAGNÓSTICO Y SOLUCIÓN */}
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">E. Diagnóstico y solución (técnico)</h4>
+          <h4 className="text-sm font-semibold">4. Intervención correctiva (técnico)</h4>
 
           <div className="mt-3 grid gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1389,7 +1444,7 @@ export default function CorrectiveReportForm(props: Props) {
         </section>
 
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">F. Evidencias y trazabilidad</h4>
+          <h4 className="text-sm font-semibold">6. Registro fotográfico y evidencias</h4>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <input type="hidden" {...form.register("evidenceBeforeAfterFile")} />
@@ -1562,7 +1617,7 @@ export default function CorrectiveReportForm(props: Props) {
         {/* Cambio de componente */}
         {isCambioComponente ? (
           <section className="sts-card p-4 md:p-5">
-            <h4 className="text-sm font-semibold">Cambio de componente (si aplica)</h4>
+            <h4 className="text-sm font-semibold">5. Equipo reemplazado (si aplica)</h4>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
@@ -1655,7 +1710,7 @@ export default function CorrectiveReportForm(props: Props) {
         ) : null}
 
         <section className="sts-card p-4 md:p-5">
-          <h4 className="text-sm font-semibold">G. Cierre y conformidad</h4>
+          <h4 className="text-sm font-semibold">7. Cierre, conformidad y firmas</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Estado final del correctivo</label>

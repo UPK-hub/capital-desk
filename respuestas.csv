@@ -1,0 +1,1522 @@
+Código;VR respuesta rápida – Solucionada (?5 min);VR respuesta rápida – Revisión profunda / OT CAPITALBUS;Observación estándar – Reporte CAPITALBUS
+NVD-001;"[VR-OK] NVD-001 – NVR no enciende
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-001 – NVR no enciende
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Fusible, DC-DC, cable suelto, batería baja.
+Evidencia mínima a adjuntar: Foto LEDs + medición VDC + foto conexiones.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-001. Novedad: NVR no enciende. Equipo: NVR . Síntoma reportado: Sin LEDs; no boot; no responde. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-002;"[VR-OK] NVD-002 – NVR reinicia solo
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-002 – NVR reinicia solo
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Microcortes, falso contacto, DC-DC, sobretemp, HDD.
+Evidencia mínima a adjuntar: Hora exacta + captura eventos + foto instalación.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-002. Novedad: NVR reinicia solo. Equipo: NVR. Síntoma reportado: Reinicios aleatorios; se cae en ruta. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-003;"[VR-OK] NVD-003 – NVR enciende pero no inicia (boot loop)
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-003 – NVR enciende pero no inicia (boot loop)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Firmware corrupto, disco en corto, alimentación.
+Evidencia mínima a adjuntar: Video del ciclo + log si existe.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-003. Novedad: NVR enciende pero no inicia (boot loop). Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Logo aparece y reinicia; no entra a menú. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-004;"[VR-OK] NVD-004 – Fuente DC-DC sin salida / fluctuante
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-004 – Fuente DC-DC sin salida / fluctuante
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): DC-DC dañada, conexión masa, alternador.
+Evidencia mínima a adjuntar: Tabla mediciones + foto punto masa.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-004. Novedad: Fuente DC-DC sin salida / fluctuante. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Voltaje cae al acelerar/arrancar. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-005;"[VR-OK] NVD-005 – Switch/PoE sin energía
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-005 – Switch/PoE sin energía
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Alimentación, fusible, daño switch.
+Evidencia mínima a adjuntar: Foto LEDs + medición.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-005. Novedad: Switch/PoE sin energía. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: LEDs apagados; cámaras no encienden. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-006;"[VR-OK] NVD-006 – Modulo no transmite
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-006 – Modulo no transmite
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Fusible, cableado, DC-DC.
+Evidencia mínima a adjuntar: Foto LEDs + medición.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-006. Novedad: Modulo no transmite. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Router apagado; sin datos. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-007;"[VR-OK] NVD-007 – Consumo anómalo / calentamiento fuente
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-007 – Consumo anómalo / calentamiento fuente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Sobrecarga, corto en cámara/cable.
+Evidencia mínima a adjuntar: Foto + reporte de consumo.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-007. Novedad: Consumo anómalo / calentamiento fuente. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Olor a quemado; fuente caliente. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-008;"[VR-OK] NVD-008 – Protección por bajo voltaje
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-008 – Protección por bajo voltaje
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Batería débil, alternador.
+Evidencia mínima a adjuntar: Mediciones + hora.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-008. Novedad: Protección por bajo voltaje. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Equipo se apaga cuando enciende bus. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-009;"[VR-OK] NVD-009 – Protección por alto voltaje
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-009 – Protección por alto voltaje
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Regulador alternador, DC-DC sin protección.
+Evidencia mínima a adjuntar: Mediciones + evento.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-009. Novedad: Protección por alto voltaje. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Apagado tras picos; alarmas. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-010;"[VR-OK] NVD-010 – Falso contacto en bornera
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-010 – Falso contacto en bornera
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Tornillo flojo, terminal fatigado.
+Evidencia mínima a adjuntar: Foto antes/después.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-010. Novedad: Falso contacto en bornera. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Cae con vibración. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-011;"[VR-OK] NVD-011 – Batería RTC agotada
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-011 – Batería RTC agotada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Batería interna agotada.
+Evidencia mínima a adjuntar: Captura hora antes/después.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-011. Novedad: Batería RTC agotada. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Hora se resetea. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-012;"[VR-OK] NVD-012 – Ventilador NVR no opera
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-012 – Ventilador NVR no opera
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Ventilador dañado, polvo.
+Evidencia mínima a adjuntar: Foto/vid.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-012. Novedad: Ventilador NVR no opera. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Temperatura alta; ruido. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-013;"[VR-OK] NVD-013 – Filtro/ventilación obstruida
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-013 – Filtro/ventilación obstruida
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Mantenimiento deficiente.
+Evidencia mínima a adjuntar: Foto.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-013. Novedad: Filtro/ventilación obstruida. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Calor; polvo acumulado. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-014;"[VR-OK] NVD-014 – Conector energía invertido
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-014 – Conector energía invertido
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Instalación incorrecta.
+Evidencia mínima a adjuntar: Medición + foto.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-014. Novedad: Conector energía invertido. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: No enciende; posible daño. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-015;"[VR-OK] NVD-015 – Cable energía pellizcado
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-015 – Cable energía pellizcado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Ruta de cable mal.
+Evidencia mínima a adjuntar: Foto daño.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-015. Novedad: Cable energía pellizcado. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Se apaga en baches. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-016;"[VR-OK] NVD-016 – Fusible abierto
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-016 – Fusible abierto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Sobrecarga, corto.
+Evidencia mínima a adjuntar: Foto fusible + valor.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-016. Novedad: Fusible abierto. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Equipo muerto. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-017;"[VR-OK] NVD-017 – Caída de tensión por accesorios
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-017 – Caída de tensión por accesorios
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Compartición de línea sin dimensionar.
+Evidencia mínima a adjuntar: Mediciones.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-017. Novedad: Caída de tensión por accesorios. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Falla cuando prende aire/luces. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-018;"[VR-OK] NVD-018 – Gabinete sin puesta a tierra
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-018 – Gabinete sin puesta a tierra
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Masa deficiente.
+Evidencia mínima a adjuntar: Foto punto masa + medición.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-018. Novedad: Gabinete sin puesta a tierra. Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Ruido, fallas intermitentes. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-019;"[VR-OK] NVD-019 – Interferencia eléctrica (EMI)
+Se valida NVR energizado/estable; sin reinicios recientes en logs.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-019 – Interferencia eléctrica (EMI)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Medir VDC entrada/salida DC-DC (reposo/arranque/aceleración); revisar fusibles, borneras, masa y cableado; verificar eventos de reinicio/sobretemp en logs.
+Posibles causas (referencia): Cableado sin apantallar.
+Evidencia mínima a adjuntar: Registro correlación.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-019. Novedad: Interferencia eléctrica (EMI). Equipo: NVR / PoE{/CANAL opcional}. Síntoma reportado: Pixelación/caídas coinciden con motor. Categoría: Energía / Encendido. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-100;"[VR-OK] NVD-100 – No graba ningún canal
+Se valida grabación y reproducción reciente OK; sin huecos en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-100 – No graba ningún canal
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Grabación deshabilitada, storage no montado.
+Evidencia mínima a adjuntar: Captura config + estado grabación.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-100. Novedad: No graba ningún canal. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Live ok pero playback vacío. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-101;"[VR-OK] NVD-101 – Graba pero con huecos
+Se valida grabación y reproducción reciente OK; sin huecos en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-101 – Graba pero con huecos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Reinicios, disco lento, bitrate alto.
+Evidencia mínima a adjuntar: Listado huecos + log.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-101. Novedad: Graba pero con huecos. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Faltan minutos/horas. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-102;"[VR-OK] NVD-102 – Disco no detectado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-102 – Disco no detectado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): SATA suelto, energía, HDD dañado.
+Evidencia mínima a adjuntar: Captura estado + foto conexiones.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-102. Novedad: Disco no detectado. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: HDD missing. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-103;"[VR-OK] NVD-103 – Disco con sectores dañados
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-103 – Disco con sectores dañados
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): HDD deteriorado por vibración.
+Evidencia mínima a adjuntar: SMART/log + captura.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-103. Novedad: Disco con sectores dañados. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Errores lectura; congelamientos. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-104;"[VR-OK] NVD-104 – Almacenamiento lleno
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-104 – Almacenamiento lleno
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Retención mal; bitrate alto.
+Evidencia mínima a adjuntar: Captura uso + config.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-104. Novedad: Almacenamiento lleno. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: 100% uso; no graba. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-105;"[VR-OK] NVD-105 – Retención menor a la esperada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-105 – Retención menor a la esperada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): FPS/bitrate altos, más canales.
+Evidencia mínima a adjuntar: Reporte retención + config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-105. Novedad: Retención menor a la esperada. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Solo 1-2 días. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-106;"[VR-OK] NVD-106 – Overwrite deshabilitado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-106 – Overwrite deshabilitado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Configuración.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-106. Novedad: Overwrite deshabilitado. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Se detiene al llenar. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-107;"[VR-OK] NVD-107 – Grabación en baja calidad
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-107 – Grabación en baja calidad
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Substream grabando, bitrate bajo.
+Evidencia mínima a adjuntar: Captura parámetros.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-107. Novedad: Grabación en baja calidad. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Playback pixelado. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-108;"[VR-OK] NVD-108 – Timestamp no coincide
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-108 – Timestamp no coincide
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): NTP, RTC.
+Evidencia mínima a adjuntar: Captura NTP + hora.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-108. Novedad: Timestamp no coincide. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Hora desfasada. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-109;"[VR-OK] NVD-109 – Sin audio en grabaciones
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-109 – Sin audio en grabaciones
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Mic dañado, canal sin audio.
+Evidencia mínima a adjuntar: Captura config + prueba.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-109. Novedad: Sin audio en grabaciones. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Video ok, audio mudo. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-110;"[VR-OK] NVD-110 – Exportación falla
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-110 – Exportación falla
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Permisos, storage, app.
+Evidencia mínima a adjuntar: Error exacto + captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-110. Novedad: Exportación falla. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: No descarga evidencia. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-111;"[VR-OK] NVD-111 – Archivos corruptos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-111 – Archivos corruptos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Apagados bruscos, HDD.
+Evidencia mínima a adjuntar: Archivo + log.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-111. Novedad: Archivos corruptos. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: No abre; cortes. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-112;"[VR-OK] NVD-112 – Event recording no dispara
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-112 – Event recording no dispara
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Sensores no integrados, config.
+Evidencia mínima a adjuntar: Captura reglas.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-112. Novedad: Event recording no dispara. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: No marca eventos. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-113;"[VR-OK] NVD-113 – Bitrate excesivo saturando disco
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-113 – Bitrate excesivo saturando disco
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Config alta.
+Evidencia mínima a adjuntar: Captura parámetros.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-113. Novedad: Bitrate excesivo saturando disco. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Congelamientos; drop frames. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-114;"[VR-OK] NVD-114 – Cámara sin grabación pero live ok
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-114 – Cámara sin grabación pero live ok
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Horario/canal excluido.
+Evidencia mínima a adjuntar: Captura calendario.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-114. Novedad: Cámara sin grabación pero live ok. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Canal en vivo, sin playback. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-115;"[VR-OK] NVD-115 – Disco suelto por vibración
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-115 – Disco suelto por vibración
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Soporte flojo.
+Evidencia mínima a adjuntar: Foto soporte.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-115. Novedad: Disco suelto por vibración. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Se desconecta en marcha. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-116;"[VR-OK] NVD-116 – Alerta SMART/temperatura HDD
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-116 – Alerta SMART/temperatura HDD
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Mala ventilación.
+Evidencia mínima a adjuntar: Log + foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-116. Novedad: Alerta SMART/temperatura HDD. Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Eventos de salud. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-117;"[VR-OK] NVD-117 – Tarjeta SD llena/no detectada (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-117 – Tarjeta SD llena/no detectada (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): SD dañada.
+Evidencia mínima a adjuntar: Foto + estado.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-117. Novedad: Tarjeta SD llena/no detectada (si aplica). Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: Logs/eventos no guardan. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-118;"[VR-OK] NVD-118 – Cifrado/clave perdida (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-118 – Cifrado/clave perdida (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Validar HDD/SD (SMART/errores), conexiones SATA/energía, espacio y retención; reindexar/formatear si aplica; reemplazar medio si se confirma falla.
+Posibles causas (referencia): Gestión de claves.
+Evidencia mínima a adjuntar: Error + versión.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-118. Novedad: Cifrado/clave perdida (si aplica). Equipo: NVR / HDD / SD{/CANAL opcional}. Síntoma reportado: No se puede reproducir/exportar. Categoría: Grabación / Almacenamiento. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-200;"[VR-OK] NVD-200 – Bus no reporta al Centro de Gestión
+Bus en línea y reportando estable durante la validación.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-200 – Bus no reporta al Centro de Gestión
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): SIM sin datos, APN, antena, router caído, cobertura.
+Evidencia mínima a adjuntar: Captura offline + foto LEDs + zona/hora.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-200. Novedad: Bus no reporta al Centro de Gestión. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Equipo offline en CMS; sin telemetría. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-201;"[VR-OK] NVD-201 – Reporte intermitente
+Bus en línea y reportando estable durante la validación.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-201 – Reporte intermitente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Señal débil, antena floja, microcortes energía.
+Evidencia mínima a adjuntar: Ventana horaria + zonas.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-201. Novedad: Reporte intermitente. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Online/offline frecuente. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-202;"[VR-OK] NVD-202 – Sin datos móviles (SIM) / plan agotado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-202 – Sin datos móviles (SIM) / plan agotado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Plan sin saldo, SIM bloqueada.
+Evidencia mínima a adjuntar: Captura estado SIM.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-202. Novedad: Sin datos móviles (SIM) / plan agotado. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: No navega; sin IP. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-203;"[VR-OK] NVD-203 – APN incorrecto
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-203 – APN incorrecto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Config APN.
+Evidencia mínima a adjuntar: Captura config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-203. Novedad: APN incorrecto. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Registra señal pero sin internet. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-204;"[VR-OK] NVD-204 – Antena LTE dañada/desconectada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-204 – Antena LTE dañada/desconectada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Conector suelto, cable cortado.
+Evidencia mínima a adjuntar: Foto antena + lectura señal.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-204. Novedad: Antena LTE dañada/desconectada. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Señal muy baja. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-205;"[VR-OK] NVD-205 – Router sin IP / DHCP fallando
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-205 – Router sin IP / DHCP fallando
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Router colgado.
+Evidencia mínima a adjuntar: Captura config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-205. Novedad: Router sin IP / DHCP fallando. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: No entrega red al NVR. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-206;"[VR-OK] NVD-206 – VPN caída / túnel no levanta
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-206 – VPN caída / túnel no levanta
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Certificados, servidor VPN.
+Evidencia mínima a adjuntar: Captura estado VPN.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-206. Novedad: VPN caída / túnel no levanta. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: CMS no accede pero internet ok. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-207;"[VR-OK] NVD-207 – Puertos bloqueados / NAT
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-207 – Puertos bloqueados / NAT
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Firewall, NAT incorrecto.
+Evidencia mínima a adjuntar: Mensaje error + config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-207. Novedad: Puertos bloqueados / NAT. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: No abre live/playback. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-208;"[VR-OK] NVD-208 – Latencia alta
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-208 – Latencia alta
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Congestión, cobertura.
+Evidencia mínima a adjuntar: Registro ping + captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-208. Novedad: Latencia alta. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Video remoto se congela. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-209;"[VR-OK] NVD-209 – Sin GPS
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-209 – Sin GPS
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Antena GPS, cielo bloqueado.
+Evidencia mínima a adjuntar: Captura GPS + foto antena.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-209. Novedad: Sin GPS. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Ubicación nula; sin satélites. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-210;"[VR-OK] NVD-210 – GPS desviado / saltos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-210 – GPS desviado / saltos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Multipath, antena.
+Evidencia mínima a adjuntar: Captura mapa.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-210. Novedad: GPS desviado / saltos. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Ubicación errática. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-211;"[VR-OK] NVD-211 – Sin sincronía NTP
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-211 – Sin sincronía NTP
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Sin acceso NTP por red.
+Evidencia mínima a adjuntar: Captura NTP.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-211. Novedad: Sin sincronía NTP. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Hora incorrecta. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-212;"[VR-OK] NVD-212 – DNS incorrecto
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-212 – DNS incorrecto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): DNS mal.
+Evidencia mínima a adjuntar: Captura config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-212. Novedad: DNS incorrecto. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Servicios no resuelven. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-213;"[VR-OK] NVD-213 – Módulo 4G en modo 3G/2G
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-213 – Módulo 4G en modo 3G/2G
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Configuración banda.
+Evidencia mínima a adjuntar: Captura estado radio.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-213. Novedad: Módulo 4G en modo 3G/2G. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Baja velocidad. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-214;"[VR-OK] NVD-214 – Roaming no permitido
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-214 – Roaming no permitido
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Política operador.
+Evidencia mínima a adjuntar: Zona/hora.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-214. Novedad: Roaming no permitido. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Sin datos fuera de ciudad. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-215;"[VR-OK] NVD-215 – Bloqueo por IMEI
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-215 – Bloqueo por IMEI
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Lista negra.
+Evidencia mínima a adjuntar: IMEI + reporte operador.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-215. Novedad: Bloqueo por IMEI. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Sin servicio. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-216;"[VR-OK] NVD-216 – Consumo de datos anómalo
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-216 – Consumo de datos anómalo
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): Streaming alto, configuración.
+Evidencia mínima a adjuntar: Reporte consumo.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-216. Novedad: Consumo de datos anómalo. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Plan se agota rápido. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-217;"[VR-OK] NVD-217 – Wi?Fi interno (si aplica) caído
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-217 – Wi?Fi interno (si aplica) caído
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar router, SIM/APN, antenas y alimentación; capturar niveles de señal (RSRP/RSRQ), logs y prueba de ping; validar GPS y configuración de reporte.
+Posibles causas (referencia): AP apagado.
+Evidencia mínima a adjuntar: Foto LEDs.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-217. Novedad: Wi?Fi interno (si aplica) caído. Equipo: Router / GPS / CMS{/CANAL opcional}. Síntoma reportado: Sin SSID. Categoría: Comunicaciones / Reporte. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-300;"[VR-OK] NVD-300 – Cámara sin imagen (negro)
+Se valida video y grabación OK; falla no se reproduce (o recuperada).
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-300 – Cámara sin imagen (negro)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Cámara dañada, PoE sin energía, cable.
+Evidencia mínima a adjuntar: Captura canal + foto puerto PoE.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-300. Novedad: Cámara sin imagen (negro). Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Canal negro; 'No signal'. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-301;"[VR-OK] NVD-301 – Cámara con imagen fija (congelada)
+Se valida video y grabación OK; falla no se reproduce (o recuperada).
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-301 – Cámara con imagen fija (congelada)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Cámara colgada, red.
+Evidencia mínima a adjuntar: Video del congelamiento + hora.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-301. Novedad: Cámara con imagen fija (congelada). Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Frame no cambia. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-302;"[VR-OK] NVD-302 – Imagen borrosa
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-302 – Imagen borrosa
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Lente sucio, foco, vibración.
+Evidencia mínima a adjuntar: Captura antes/después.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-302. Novedad: Imagen borrosa. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Desenfoque general. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-303;"[VR-OK] NVD-303 – Cámara con mancha
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-303 – Cámara con mancha
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Domo sucio, humedad interna.
+Evidencia mínima a adjuntar: Captura mancha + foto domo.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-303. Novedad: Cámara con mancha. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Mancha fija / halo. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-304;"[VR-OK] NVD-304 – Empañamiento/condensación
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-304 – Empañamiento/condensación
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Sello comprometido.
+Evidencia mínima a adjuntar: Foto/captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-304. Novedad: Empañamiento/condensación. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Neblina interna. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-305;"[VR-OK] NVD-305 – Reflejo/contraluz
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-305 – Reflejo/contraluz
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Orientación, IR rebotando.
+Evidencia mínima a adjuntar: Captura.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-305. Novedad: Reflejo/contraluz. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Brillos; flare. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-306;"[VR-OK] NVD-306 – IR no funciona
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-306 – IR no funciona
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): IR dañado, config.
+Evidencia mínima a adjuntar: Captura noche + config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-306. Novedad: IR no funciona. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Noche en negro. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-307;"[VR-OK] NVD-307 – IR quemando imagen
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-307 – IR quemando imagen
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Domo sucio, IR refleja.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-307. Novedad: IR quemando imagen. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Exceso de blanco de noche. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-308;"[VR-OK] NVD-308 – Imagen pixelada / macroblock
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-308 – Imagen pixelada / macroblock
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Bitrate bajo, pérdida paquetes.
+Evidencia mínima a adjuntar: Captura + parámetros.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-308. Novedad: Imagen pixelada / macroblock. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Cuadros grandes. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-309;"[VR-OK] NVD-309 – Líneas en imagen / interferencia
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-309 – Líneas en imagen / interferencia
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): EMI, masa deficiente.
+Evidencia mínima a adjuntar: Captura + medición tierra.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-309. Novedad: Líneas en imagen / interferencia. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Barras horizontales. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-310;"[VR-OK] NVD-310 – Color incorrecto
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-310 – Color incorrecto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Balance blancos, IR-cut.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-310. Novedad: Color incorrecto. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Imagen verdosa/rojiza. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-311;"[VR-OK] NVD-311 – Imagen muy oscura
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-311 – Imagen muy oscura
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Config, lente sucio.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-311. Novedad: Imagen muy oscura. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Subexpuesta. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-312;"[VR-OK] NVD-312 – Imagen muy clara
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-312 – Imagen muy clara
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Exposición, WDR.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-312. Novedad: Imagen muy clara. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Sobreexpuesta. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-313;"[VR-OK] NVD-313 – Cámara desalineada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-313 – Cámara desalineada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Golpe, vibración.
+Evidencia mínima a adjuntar: Foto montaje + captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-313. Novedad: Cámara desalineada. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Apunta al techo/piso. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-314;"[VR-OK] NVD-314 – Vibración excesiva
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-314 – Vibración excesiva
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Soporte flojo.
+Evidencia mínima a adjuntar: Video en ruta.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-314. Novedad: Vibración excesiva. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Temblor en marcha. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-315;"[VR-OK] NVD-315 – Obstrucción de lente
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-315 – Obstrucción de lente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Vandalismo.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-315. Novedad: Obstrucción de lente. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Sticker/cinta/objeto. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-316;"[VR-OK] NVD-316 – Domo rayado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-316 – Domo rayado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Limpieza incorrecta, impacto.
+Evidencia mínima a adjuntar: Foto domo.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-316. Novedad: Domo rayado. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Velos/halos. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-317;"[VR-OK] NVD-317 – Cámara se reinicia
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-317 – Cámara se reinicia
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): PoE insuficiente, cámara dañada.
+Evidencia mínima a adjuntar: Registro eventos.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-317. Novedad: Cámara se reinicia. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Se cae y vuelve. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-318;"[VR-OK] NVD-318 – Audio con ruido
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-318 – Audio con ruido
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Masa, mic.
+Evidencia mínima a adjuntar: Audio muestra.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-318. Novedad: Audio con ruido. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Zumbido. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-319;"[VR-OK] NVD-319 – Sin audio
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-319 – Sin audio
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Mic dañado, canal sin audio.
+Evidencia mínima a adjuntar: Captura config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-319. Novedad: Sin audio. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Mudo. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-320;"[VR-OK] NVD-320 – Cámara frontal con reflejo parabrisas
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-320 – Cámara frontal con reflejo parabrisas
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Mala ubicación/ángulo.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-320. Novedad: Cámara frontal con reflejo parabrisas. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Reflejo vidrio. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-321;"[VR-OK] NVD-321 – Cámara puerta no cubre área
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-321 – Cámara puerta no cubre área
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Ángulo incorrecto.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-321. Novedad: Cámara puerta no cubre área. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Zona ciega. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-322;"[VR-OK] NVD-322 – Cámara interior con baja luz
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-322 – Cámara interior con baja luz
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): IR insuficiente, ubicación.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-322. Novedad: Cámara interior con baja luz. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Noche oscura interior. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-323;"[VR-OK] NVD-323 – Cámara exterior con lluvia en lente
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-323 – Cámara exterior con lluvia en lente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Sin visera, sello.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-323. Novedad: Cámara exterior con lluvia en lente. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Gotas. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-324;"[VR-OK] NVD-324 – Pérdida de frames
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-324 – Pérdida de frames
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Disco/red saturada.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-324. Novedad: Pérdida de frames. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Saltos. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-325;"[VR-OK] NVD-325 – Resolución cambió
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-325 – Resolución cambió
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Config alterada.
+Evidencia mínima a adjuntar: Captura config.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-325. Novedad: Resolución cambió. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Calidad baja repentina. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-326;"[VR-OK] NVD-326 – Canal deshabilitado
+Se corrige mapeo/habilitación de canal y queda operativo.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-326 – Canal deshabilitado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-326. Novedad: Canal deshabilitado. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: No aparece. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-327;"[VR-OK] NVD-327 – Firmware cámara incompatible
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-327 – Firmware cámara incompatible
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Versiones.
+Evidencia mínima a adjuntar: Versiones.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-327. Novedad: Firmware cámara incompatible. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: No levanta stream. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-328;"[VR-OK] NVD-328 – Cámara no soporta H.265
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-328 – Cámara no soporta H.265
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección física: limpieza cúpula, ajuste enfoque/montaje e IR; revisar conector M12/RJ45, cableado y puerto PoE; prueba cruzada y reemplazo de cámara si persiste.
+Posibles causas (referencia): Codec no compatible.
+Evidencia mínima a adjuntar: Captura codec.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-328. Novedad: Cámara no soporta H.265. Equipo: Cámaras{/CANAL opcional}. Síntoma reportado: Pantalla negra. Categoría: Cámaras (Video/Audio). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-400;"[VR-OK] NVD-400 – Conector M12 flojo
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-400 – Conector M12 flojo
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Mala fijación.
+Evidencia mínima a adjuntar: Foto conector.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-400. Novedad: Conector M12 flojo. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Falla con vibración. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-401;"[VR-OK] NVD-401 – M12 sin pines / suelto
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-401 – M12 sin pines / suelto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Conector dañado.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-401. Novedad: M12 sin pines / suelto. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Pérdida link. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-402;"[VR-OK] NVD-402 – Cable UTP pellizcado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-402 – Cable UTP pellizcado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Ruta cable deficiente.
+Evidencia mínima a adjuntar: Foto daño.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-402. Novedad: Cable UTP pellizcado. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Link intermitente. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-403;"[VR-OK] NVD-403 – Cable PoE cortado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-403 – Cable PoE cortado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Corte físico.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-403. Novedad: Cable PoE cortado. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Cámara apagada. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-404;"[VR-OK] NVD-404 – Pérdida de link en switch
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-404 – Pérdida de link en switch
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Puerto dañado.
+Evidencia mínima a adjuntar: Foto LEDs.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-404. Novedad: Pérdida de link en switch. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: LED link apagado. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-405;"[VR-OK] NVD-405 – Switch reinicia
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-405 – Switch reinicia
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Alimentación o falla switch.
+Evidencia mínima a adjuntar: Video LEDs.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-405. Novedad: Switch reinicia. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Cae todo el sistema. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-406;"[VR-OK] NVD-406 – Loop de red (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-406 – Loop de red (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Conexión incorrecta.
+Evidencia mínima a adjuntar: Registro.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-406. Novedad: Loop de red (si aplica). Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Tormenta broadcast. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-407;"[VR-OK] NVD-407 – IP conflictiva
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-407 – IP conflictiva
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): DHCP/estático duplicado.
+Evidencia mínima a adjuntar: Listado IPs.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-407. Novedad: IP conflictiva. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Cámaras no aparecen. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-408;"[VR-OK] NVD-408 – DHCP interno fallando
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-408 – DHCP interno fallando
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Servidor DHCP caído.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-408. Novedad: DHCP interno fallando. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Equipos sin IP. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-409;"[VR-OK] NVD-409 – Velocidad negociada baja
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-409 – Velocidad negociada baja
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Cable/puerto.
+Evidencia mínima a adjuntar: Captura link.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-409. Novedad: Velocidad negociada baja. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Video se congela. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-410;"[VR-OK] NVD-410 – PoE presupuesto insuficiente
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-410 – PoE presupuesto insuficiente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Switch subdimensionado.
+Evidencia mínima a adjuntar: Inventario PoE.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-410. Novedad: PoE presupuesto insuficiente. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Varias cámaras reinician. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-411;"[VR-OK] NVD-411 – Conector oxidado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-411 – Conector oxidado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Humedad.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-411. Novedad: Conector oxidado. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Intermitencia. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-412;"[VR-OK] NVD-412 – Cableado sin sujeción
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-412 – Cableado sin sujeción
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Instalación.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-412. Novedad: Cableado sin sujeción. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Se mueve/roza. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-413;"[VR-OK] NVD-413 – Canaleta rota
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-413 – Canaleta rota
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Vibración/impacto.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-413. Novedad: Canaleta rota. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Cable expuesto. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-414;"[VR-OK] NVD-414 – Ruteo por zona caliente
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-414 – Ruteo por zona caliente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Proximidad motor/escape.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-414. Novedad: Ruteo por zona caliente. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Degradación cable. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-415;"[VR-OK] NVD-415 – Conector incorrecto (no IP67)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-415 – Conector incorrecto (no IP67)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Mala selección.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-415. Novedad: Conector incorrecto (no IP67). Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Entrada humedad. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-416;"[VR-OK] NVD-416 – Sin etiqueta de cable
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-416 – Sin etiqueta de cable
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): Falta de estandar.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-416. Novedad: Sin etiqueta de cable. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Difícil diagnóstico. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-417;"[VR-OK] NVD-417 – Puerto NVR sin link
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-417 – Puerto NVR sin link
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): NIC dañada.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-417. Novedad: Puerto NVR sin link. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: No ve cámaras. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-418;"[VR-OK] NVD-418 – Interferencia por cables potencia
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-418 – Interferencia por cables potencia
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Revisar/crimpar conectores M12/RJ45, continuidad y fijación; revisar puertos y alimentación del switch PoE; reemplazar cable o conector dañado; validar estabilidad de enlace.
+Posibles causas (referencia): UTP junto a potencia.
+Evidencia mínima a adjuntar: Foto ruta.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-418. Novedad: Interferencia por cables potencia. Equipo: Cableado / Switch{/CANAL opcional}. Síntoma reportado: Artefactos. Categoría: Cableado / Red interna. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-500;"[VR-OK] NVD-500 – Credenciales inválidas en CMS
+Se actualizan credenciales/permiso y se valida acceso OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-500 – Credenciales inválidas en CMS
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Contraseña cambiada, desincronía.
+Evidencia mínima a adjuntar: Error exacto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-500. Novedad: Credenciales inválidas en CMS. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: No autentica. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-501;"[VR-OK] NVD-501 – NVR sin licencia / licencia vencida (si aplica)
+Se valida/actualiza licencia y se confirma operación OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-501 – NVR sin licencia / licencia vencida (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Licencia expirada.
+Evidencia mínima a adjuntar: Captura licencia.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-501. Novedad: NVR sin licencia / licencia vencida (si aplica). Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Funciones bloqueadas. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-502;"[VR-OK] NVD-502 – Firmware NVR desactualizado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-502 – Firmware NVR desactualizado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Sin plan actualización.
+Evidencia mínima a adjuntar: Versión.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-502. Novedad: Firmware NVR desactualizado. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Bugs conocidos. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-503;"[VR-OK] NVD-503 – Actualización fallida
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-503 – Actualización fallida
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Corte energía, paquete corrupto.
+Evidencia mínima a adjuntar: Logs.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-503. Novedad: Actualización fallida. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Equipo inestable. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-504;"[VR-OK] NVD-504 – Servicios de grabación caídos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-504 – Servicios de grabación caídos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Proceso colgado.
+Evidencia mínima a adjuntar: Log servicios.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-504. Novedad: Servicios de grabación caídos. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Live ok, sin grabación. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-505;"[VR-OK] NVD-505 – Configuración alterada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-505 – Configuración alterada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Intervención no controlada.
+Evidencia mínima a adjuntar: Captura cambios.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-505. Novedad: Configuración alterada. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Cambio de calidad/horarios. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-506;"[VR-OK] NVD-506 – Parámetros de stream incorrectos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-506 – Parámetros de stream incorrectos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Codec/resolución.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-506. Novedad: Parámetros de stream incorrectos. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: No abre video. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-507;"[VR-OK] NVD-507 – WDR/Exposición mal configurada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-507 – WDR/Exposición mal configurada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-507. Novedad: WDR/Exposición mal configurada. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Contraluz. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-508;"[VR-OK] NVD-508 – Detección de movimiento mal calibrada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-508 – Detección de movimiento mal calibrada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Sensibilidad alta.
+Evidencia mínima a adjuntar: Captura reglas.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-508. Novedad: Detección de movimiento mal calibrada. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Falsos eventos. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-509;"[VR-OK] NVD-509 – Alarma de pérdida de video deshabilitada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-509 – Alarma de pérdida de video deshabilitada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-509. Novedad: Alarma de pérdida de video deshabilitada. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: No notifica fallas. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-510;"[VR-OK] NVD-510 – Perfiles día/noche invertidos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-510 – Perfiles día/noche invertidos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): IR-cut.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-510. Novedad: Perfiles día/noche invertidos. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Noche blanco o negro. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-511;"[VR-OK] NVD-511 – Logs llenos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-511 – Logs llenos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Sin rotación.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-511. Novedad: Logs llenos. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Rendimiento bajo. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-512;"[VR-OK] NVD-512 – Idioma/plantilla incorrecta
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-512 – Idioma/plantilla incorrecta
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-512. Novedad: Idioma/plantilla incorrecta. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Operación confusa. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-513;"[VR-OK] NVD-513 – NVR no acepta configuración remota
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-513 – NVR no acepta configuración remota
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Permisos, firewall.
+Evidencia mínima a adjuntar: Error.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-513. Novedad: NVR no acepta configuración remota. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Timeout. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-514;"[VR-OK] NVD-514 – Sin sincronización de usuarios
+Se actualizan credenciales/permiso y se valida acceso OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-514 – Sin sincronización de usuarios
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Integración.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-514. Novedad: Sin sincronización de usuarios. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Usuarios no aparecen. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-515;"[VR-OK] NVD-515 – Política de privacidad/retención no cumple
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-515 – Política de privacidad/retención no cumple
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-515. Novedad: Política de privacidad/retención no cumple. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Retención distinta. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-516;"[VR-OK] NVD-516 – Watermark deshabilitado (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-516 – Watermark deshabilitado (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura export.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-516. Novedad: Watermark deshabilitado (si aplica). Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Evidencia sin sello. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-517;"[VR-OK] NVD-517 – Sistema de archivos en modo solo lectura
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-517 – Sistema de archivos en modo solo lectura
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Disco dañado.
+Evidencia mínima a adjuntar: Log.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-517. Novedad: Sistema de archivos en modo solo lectura. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: No graba. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-518;"[VR-OK] NVD-518 – Perfil de substream no configurado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-518 – Perfil de substream no configurado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Respaldar configuración; revisar credenciales, licencias, perfiles y horarios; recolectar logs; aplicar ajuste/actualización controlada (firmware) según diagnóstico.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-518. Novedad: Perfil de substream no configurado. Equipo: NVR / Cámaras / CMS{/CANAL opcional}. Síntoma reportado: Remoto pesado. Categoría: Software / Configuración. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-600;"[VR-OK] NVD-600 – Gabinete abierto / sello roto
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-600 – Gabinete abierto / sello roto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Manipulación.
+Evidencia mínima a adjuntar: Fotos múltiples.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-600. Novedad: Gabinete abierto / sello roto. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Tornillos faltantes; precinto roto. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-601;"[VR-OK] NVD-601 – Evidencia de vandalismo en cámara
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-601 – Evidencia de vandalismo en cámara
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Vandalismo.
+Evidencia mínima a adjuntar: Foto + captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-601. Novedad: Evidencia de vandalismo en cámara. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Cámara girada o tapada. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-602;"[VR-OK] NVD-602 – Domo roto / carcasa fracturada
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-602 – Domo roto / carcasa fracturada
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Impacto.
+Evidencia mínima a adjuntar: Foto.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-602. Novedad: Domo roto / carcasa fracturada. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Imagen con velos; daño visible. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-603;"[VR-OK] NVD-603 – Ingreso de agua en gabinete
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-603 – Ingreso de agua en gabinete
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Sellos, ubicación.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-603. Novedad: Ingreso de agua en gabinete. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Humedad/corrosión. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-604;"[VR-OK] NVD-604 – Corrosión en conectores
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-604 – Corrosión en conectores
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Humedad.
+Evidencia mínima a adjuntar: Foto macro.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-604. Novedad: Corrosión en conectores. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Intermitencia. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-605;"[VR-OK] NVD-605 – Olor a quemado / componente chamuscado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-605 – Olor a quemado / componente chamuscado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Corto, sobrevoltaje.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-605. Novedad: Olor a quemado / componente chamuscado. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Humo/olor. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-606;"[VR-OK] NVD-606 – Montaje flojo del NVR
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-606 – Montaje flojo del NVR
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Tornillería.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-606. Novedad: Montaje flojo del NVR. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Golpes/vibración. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-607;"[VR-OK] NVD-607 – Soporte de cámara flojo
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-607 – Soporte de cámara flojo
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Tornillos.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-607. Novedad: Soporte de cámara flojo. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Vibración. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-608;"[VR-OK] NVD-608 – Cable expuesto al usuario
+Se actualizan credenciales/permiso y se valida acceso OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-608 – Cable expuesto al usuario
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Canaleta rota.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-608. Novedad: Cable expuesto al usuario. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Riesgo manipulación. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-609;"[VR-OK] NVD-609 – Etiquetas/serial ilegibles
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-609 – Etiquetas/serial ilegibles
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Desgaste.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-609. Novedad: Etiquetas/serial ilegibles. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: No identifica equipo. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-610;"[VR-OK] NVD-610 – Polvo excesivo sucio
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-610 – Polvo excesivo sucio
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Falta limpieza.
+Evidencia mínima a adjuntar: Foto.";"[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-610. Novedad: Polvo excesivo sucio. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Calor; fallas. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min)."
+NVD-611;"[VR-OK] NVD-611 – Ventana/lente sucia por operación
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-611 – Ventana/lente sucia por operación
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Suciedad.
+Evidencia mínima a adjuntar: Captura antes/después.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-611. Novedad: Ventana/lente sucia por operación. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Borroso. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-612;"[VR-OK] NVD-612 – Daño por químicos (limpiadores)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-612 – Daño por químicos (limpiadores)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Uso de químicos agresivos.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-612. Novedad: Daño por químicos (limpiadores). Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Domo opaco. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-613;"[VR-OK] NVD-613 – Insectos dentro de cámara
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-613 – Insectos dentro de cámara
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Sello deficiente.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-613. Novedad: Insectos dentro de cámara. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Manchas móviles/sombras. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-614;"[VR-OK] NVD-614 – Condensación recurrente post-lavado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-614 – Condensación recurrente post-lavado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Procedimiento lavado.
+Evidencia mínima a adjuntar: Registro.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-614. Novedad: Condensación recurrente post-lavado. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Empañamiento. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-615;"[VR-OK] NVD-615 – Robo de componente
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-615 – Robo de componente
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Inspección en patio con registro fotográfico; asegurar gabinete/sellos/tornillería; reparar/reemplazar componentes vandalizados o sueltos; validar ruta de cableado y fijaciones.
+Posibles causas (referencia): Hurto.
+Evidencia mínima a adjuntar: Foto faltante.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-615. Novedad: Robo de componente. Equipo: Instalación{/CANAL opcional}. Síntoma reportado: Faltante. Categoría: Físico / Seguridad. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-700;"[VR-OK] NVD-700 – CMS sin acceso (caído)
+Servicio CMS restablecido; acceso y visualización OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-700 – CMS sin acceso (caído)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Servidor caído, red.
+Evidencia mínima a adjuntar: Captura error + hora.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-700. Novedad: CMS sin acceso (caído). Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Usuarios no ingresan. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-701;"[VR-OK] NVD-701 – CMS lento
+Servicio CMS restablecido; acceso y visualización OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-701 – CMS lento
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Alta demanda, BD.
+Evidencia mínima a adjuntar: Hora + pantallazo.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-701. Novedad: CMS lento. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Carga demorada. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-702;"[VR-OK] NVD-702 – Bus duplicado en CMS
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-702 – Bus duplicado en CMS
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Alta errónea.
+Evidencia mínima a adjuntar: Captura activos.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-702. Novedad: Bus duplicado en CMS. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Dos activos para mismo bus. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-703;"[VR-OK] NVD-703 – Cámaras mal asociadas
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-703 – Cámaras mal asociadas
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Mapeo incorrecto.
+Evidencia mínima a adjuntar: Captura canal vs ubicación.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-703. Novedad: Cámaras mal asociadas. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Canal 1 muestra otra vista. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-704;"[VR-OK] NVD-704 – Sin permisos de usuario
+Se actualizan credenciales/permiso y se valida acceso OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-704 – Sin permisos de usuario
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Rol mal asignado.
+Evidencia mínima a adjuntar: Captura rol.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-704. Novedad: Sin permisos de usuario. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: No ve buses/cámaras. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-705;"[VR-OK] NVD-705 – Alarmas masivas falsas
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-705 – Alarmas masivas falsas
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Flapping, config.
+Evidencia mínima a adjuntar: Export eventos.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-705. Novedad: Alarmas masivas falsas. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Muchos 'video loss'. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-706;"[VR-OK] NVD-706 – No llega notificación de alarma
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-706 – No llega notificación de alarma
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Correo/SMS, config.
+Evidencia mínima a adjuntar: Evidencia prueba.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-706. Novedad: No llega notificación de alarma. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Eventos no alertan. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-707;"[VR-OK] NVD-707 – Falla de exportación desde CMS
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-707 – Falla de exportación desde CMS
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Permisos, storage.
+Evidencia mínima a adjuntar: Error.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-707. Novedad: Falla de exportación desde CMS. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Descarga no inicia. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-708;"[VR-OK] NVD-708 – Marca de agua ausente en export
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-708 – Marca de agua ausente en export
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Archivo export.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-708. Novedad: Marca de agua ausente en export. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Evidencia cuestionable. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-709;"[VR-OK] NVD-709 – Desfase hora CMS vs NVR
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-709 – Desfase hora CMS vs NVR
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Zona horaria.
+Evidencia mínima a adjuntar: Capturas comparativas.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-709. Novedad: Desfase hora CMS vs NVR. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Eventos no coinciden. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-710;"[VR-OK] NVD-710 – No se muestran mapas
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-710 – No se muestran mapas
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): API mapas, llave.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-710. Novedad: No se muestran mapas. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Mapa en blanco. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-711;"[VR-OK] NVD-711 – Integración GPS caída
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-711 – Integración GPS caída
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Servicio GPS.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-711. Novedad: Integración GPS caída. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Buses sin ruta. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-712;"[VR-OK] NVD-712 – Integración telemetría caída
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-712 – Integración telemetría caída
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Servicio.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-712. Novedad: Integración telemetría caída. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: Sin sensores. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-713;"[VR-OK] NVD-713 – Licencias CMS agotadas
+Se valida/actualiza licencia y se confirma operación OK.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-713 – Licencias CMS agotadas
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Licenciamiento.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-713. Novedad: Licencias CMS agotadas. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: No deja registrar. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-714;"[VR-OK] NVD-714 – Registro de auditoría incompleto
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-714 – Registro de auditoría incompleto
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Escalar a soporte CMS (servicios/licencias/base de datos/red). Si se requiere ajuste en bus (mapeo local/acceso físico), coordinar OT correctivo para acceso al vehículo.
+Posibles causas (referencia): Logs.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-714. Novedad: Registro de auditoría incompleto. Equipo: CMS / Servidores{/CANAL opcional}. Síntoma reportado: No hay trazabilidad. Categoría: Centro de Gestión (CMS). Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-800;"[VR-OK] NVD-800 – Botón de pánico no funciona (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-800 – Botón de pánico no funciona (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Cableado, entrada digital.
+Evidencia mínima a adjuntar: Captura evento + foto botón.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-800. Novedad: Botón de pánico no funciona (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: No genera evento. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-801;"[VR-OK] NVD-801 – Botón de pánico genera falsos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-801 – Botón de pánico genera falsos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Rebote, humedad.
+Evidencia mínima a adjuntar: Registro eventos.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-801. Novedad: Botón de pánico genera falsos. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Eventos sin pulsación. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-802;"[VR-OK] NVD-802 – Micrófono no funciona
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-802 – Micrófono no funciona
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Mic dañado, entrada.
+Evidencia mínima a adjuntar: Prueba audio.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-802. Novedad: Micrófono no funciona. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Sin audio. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-803;"[VR-OK] NVD-803 – Altavoz/PA no funciona (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-803 – Altavoz/PA no funciona (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Amplificador, cable.
+Evidencia mínima a adjuntar: Video prueba.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-803. Novedad: Altavoz/PA no funciona (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: No se oye. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-804;"[VR-OK] NVD-804 – Pantalla/monitor de cabina sin señal
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-804 – Pantalla/monitor de cabina sin señal
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Cable HDMI, monitor.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-804. Novedad: Pantalla/monitor de cabina sin señal. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Negro. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-805;"[VR-OK] NVD-805 – Monitor muestra canales erróneos
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-805 – Monitor muestra canales erróneos
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-805. Novedad: Monitor muestra canales erróneos. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: No coincide. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-806;"[VR-OK] NVD-806 – UPS/Batería backup no sostiene (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-806 – UPS/Batería backup no sostiene (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Batería degradada.
+Evidencia mínima a adjuntar: Resultado prueba.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-806. Novedad: UPS/Batería backup no sostiene (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Se apaga al cortar. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-807;"[VR-OK] NVD-807 – Sensor de puerta no reporta (si aplica)
+Bus en línea y reportando estable durante la validación.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-807 – Sensor de puerta no reporta (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Cableado, regla.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-807. Novedad: Sensor de puerta no reporta (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Sin eventos. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-809;"[VR-OK] NVD-809 – Cámara cabina no cubre conductor
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-809 – Cámara cabina no cubre conductor
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Montaje.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-809. Novedad: Cámara cabina no cubre conductor. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Ángulo. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-810;"[VR-OK] NVD-810 – Sirena/alarma audible no suena (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-810 – Sirena/alarma audible no suena (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Salida digital.
+Evidencia mínima a adjuntar: Video prueba.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-810. Novedad: Sirena/alarma audible no suena (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: No activa. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-811;"[VR-OK] NVD-811 – Puerto USB dañado
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-811 – Puerto USB dañado
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Uso indebido.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-811. Novedad: Puerto USB dañado. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: No reconoce. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-812;"[VR-OK] NVD-812 – SD para evidencias no lee
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-812 – SD para evidencias no lee
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): SD dañada.
+Evidencia mínima a adjuntar: Foto.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-812. Novedad: SD para evidencias no lee. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: No exporta. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-813;"[VR-OK] NVD-813 – Intercomunicador no funciona (si aplica)
+Se valida operación normal; novedad recuperada/no reproducible en la ventana consultada.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-813 – Intercomunicador no funciona (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Equipo/cable.
+Evidencia mínima a adjuntar: Video.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-813. Novedad: Intercomunicador no funciona (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Sin comunicación. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-814;"[VR-OK] NVD-814 – Lector de eventos CAN no reporta (si aplica)
+Bus en línea y reportando estable durante la validación.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-814 – Lector de eventos CAN no reporta (si aplica)
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Conexión CAN.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-814. Novedad: Lector de eventos CAN no reporta (si aplica). Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Sin telemetría motor. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).
+NVD-815;"[VR-OK] NVD-815 – Sensor de impacto no reporta
+Bus en línea y reportando estable durante la validación.
+Validación: CMS/Live/Playback/Logs (según aplique).
+Acción: Cerrar como «Solucionada en VR» y monitorear 48 h (reabrir si reincide).";"[VR-OT] NVD-815 – Sensor de impacto no reporta
+Resultado: no recupera en verificación rápida / requiere diagnóstico extendido.
+Acción: Solicitar OT correctivo a CAPITALBUS (preferible nocturno).
+Actividades en bus: Probar entradas/salidas IO y cableado; calibración/ajuste; prueba controlada con operación; reemplazo de sensor/botonera si se confirma falla.
+Posibles causas (referencia): Config.
+Evidencia mínima a adjuntar: Captura.";[REPORTE CAPITALBUS] Bus {BUS} | Fecha/Hora {FECHA_HORA} | NVD-815. Novedad: Sensor de impacto no reporta. Equipo: IO / Sensores{/CANAL opcional}. Síntoma reportado: Sin eventos. Categoría: Periféricos / Sensores. Acción inmediata: iniciar Verificación rápida (primeros 5 min).

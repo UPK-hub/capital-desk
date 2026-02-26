@@ -8,6 +8,51 @@ import CorrectiveReportForm from "../ui/CorrectiveReportForm";
 
 type PageProps = { params: { id: string } };
 
+function extractLatestNovedadState(events: Array<{ meta: unknown }>) {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const state = (events[i].meta as any)?.noveltyState;
+    if (state && typeof state === "object") {
+      return {
+        catalogCode: String(state.catalogCode ?? "").trim(),
+        affectedEquipment: String(state.affectedEquipment ?? "").trim(),
+        reportedNovelty: String(state.reportedNovelty ?? "").trim(),
+      };
+    }
+  }
+  return null;
+}
+
+function extractLatestQuickVerification(events: Array<{ meta: unknown }>) {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const quick = (events[i].meta as any)?.quickVerification;
+    if (!quick || typeof quick !== "object") continue;
+    const result = String(quick.result ?? "").trim().toUpperCase();
+    if (!["CONFIRMADA", "DESCARTADA", "REQUIERE_REVISION"].includes(result)) continue;
+
+    const checklistRaw = Array.isArray(quick.checklist) ? quick.checklist : [];
+    const evidenceRaw = Array.isArray(quick.evidence)
+      ? quick.evidence
+      : Array.isArray(quick.evidenceItems)
+      ? quick.evidenceItems
+      : [];
+
+    return {
+      result,
+      notes: String(quick.notes ?? "").trim(),
+      suggestedAction: String(quick.suggestedAction ?? "").trim(),
+      checklistSummary: checklistRaw
+        .map((item: any) => String(item?.label ?? "").trim())
+        .filter(Boolean)
+        .join(" | "),
+      evidenceSummary: evidenceRaw
+        .map((item: any) => String(item?.label ?? "").trim())
+        .filter(Boolean)
+        .join(" | "),
+    };
+  }
+  return null;
+}
+
 export default async function CorrectiveReportPage({ params }: PageProps) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -32,13 +77,22 @@ export default async function CorrectiveReportPage({ params }: PageProps) {
       ...(role === Role.ADMIN ? {} : { assignedToId: userId }),
     },
     include: {
-      case: { include: { bus: true } },
+      case: {
+        include: {
+          bus: true,
+          events: { orderBy: { createdAt: "asc" }, select: { meta: true }, take: 120 },
+        },
+      },
       correctiveReport: true,
       interventionReceipt: true,
     },
   });
 
   if (!wo) return notFound();
+  const noveltyState =
+    wo.case.type === "CORRECTIVO" ? extractLatestNovedadState(wo.case.events ?? []) : null;
+  const quickVerification =
+    wo.case.type === "CORRECTIVO" ? extractLatestQuickVerification(wo.case.events ?? []) : null;
 
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-4">
@@ -62,6 +116,24 @@ export default async function CorrectiveReportPage({ params }: PageProps) {
           suggestedTicketNumber={
             wo.interventionReceipt?.ticketNo ??
             (wo.workOrderNo ? `UPK-${String(wo.workOrderNo).padStart(3, "0")}` : "")
+          }
+          busCode={wo.case.bus.code}
+          caseRef={wo.case.caseNo ? `CASO-${String(wo.case.caseNo).padStart(3, "0")}` : undefined}
+          ticketRequestedAt={wo.case.createdAt.toISOString()}
+          isCorrectiveFromNovelty={Boolean(noveltyState)}
+          noveltyAutoFill={
+            noveltyState
+              ? {
+                  catalogCode: noveltyState.catalogCode,
+                  affectedEquipment: noveltyState.affectedEquipment,
+                  reportedNovelty: noveltyState.reportedNovelty,
+                  quickResult: quickVerification?.result ?? "",
+                  quickNotes: quickVerification?.notes ?? "",
+                  quickSuggestedAction: quickVerification?.suggestedAction ?? "",
+                  quickChecklistSummary: quickVerification?.checklistSummary ?? "",
+                  quickEvidenceSummary: quickVerification?.evidenceSummary ?? "",
+                }
+              : null
           }
         />
       </section>

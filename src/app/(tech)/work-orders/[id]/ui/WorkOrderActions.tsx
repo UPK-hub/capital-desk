@@ -39,7 +39,6 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
     setMsg(null);
     try {
       if (!notesStart.trim()) throw new Error("La nota de inicio es requerida.");
-      if (!photoStart) throw new Error("La evidencia de inicio (foto o archivo) es requerida.");
 
       await postForm(`/api/work-orders/${workOrderId}/start`, notesStart.trim(), photoStart);
       setMsg("OT iniciada correctamente.");

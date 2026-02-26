@@ -32,7 +32,33 @@ type NovedadCatalogOption = {
   priorityLabel: string;
   minimalEvidence: string;
   impact: string;
+  standardObservation: string;
 };
+
+function formatBogotaDateTime(date: Date) {
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(date);
+}
+
+function applyObservationTemplate(
+  template: string,
+  context: { busCode?: string | null; busPlate?: string | null; catalogCode: string; reportedNovelty: string }
+) {
+  const text = String(template ?? "").trim();
+  if (!text) return "";
+  const busCode = context.busCode?.trim() || "No disponible";
+  const busPlate = context.busPlate?.trim() || "";
+  const busText = busPlate ? `${busCode} (${busPlate})` : busCode;
+  const dateTime = formatBogotaDateTime(new Date());
+  return text
+    .replace(/\{BUS\}/gi, busText)
+    .replace(/\{FECHA_HORA\}/gi, dateTime)
+    .replace(/\{CODIGO\}/gi, context.catalogCode || "N/A")
+    .replace(/\{NOVEDAD\}/gi, context.reportedNovelty || "N/A");
+}
 
 function normalizeAffectedEquipment(value: string): AffectedEquipmentType | "" {
   const normalized = String(value ?? "")
@@ -66,6 +92,8 @@ type Props = {
   evidenceName: string | null;
   relatedCorrectiveCaseId?: string | null;
   relatedWorkOrderId?: string | null;
+  busCode?: string | null;
+  busPlate?: string | null;
 };
 
 export default function NovedadTraceCard(props: Props) {
@@ -123,6 +151,7 @@ export default function NovedadTraceCard(props: Props) {
             priorityLabel: String(item.priorityLabel ?? ""),
             minimalEvidence: String(item.minimalEvidence ?? ""),
             impact: String(item.impact ?? ""),
+            standardObservation: String(item.standardObservation ?? ""),
           }))
         );
       } catch {
@@ -238,9 +267,16 @@ export default function NovedadTraceCard(props: Props) {
                   if (equipmentCatalog.length) {
                     const selected = equipmentCatalog.find((entry) => entry.code === value);
                     if (selected) {
+                      const nextObservation = applyObservationTemplate(selected.standardObservation, {
+                        busCode: props.busCode ?? null,
+                        busPlate: props.busPlate ?? null,
+                        catalogCode: selected.code,
+                        reportedNovelty: selected.novelty,
+                      });
                       setCatalogCode(selected.code);
                       setReportedNovelty(selected.novelty);
                       setPriority(mapCatalogPriorityToOption(selected.priorityValue));
+                      if (nextObservation) setObservations(nextObservation);
                       return;
                     }
                   }

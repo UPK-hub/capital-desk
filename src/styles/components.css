@@ -88,6 +88,28 @@
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
+.equipment-list-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) hsl(var(--background));
+}
+
+.equipment-list-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.equipment-list-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+.equipment-list-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: hsl(var(--border));
+}
+
+.equipment-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
 .sts-card {
   border: 1px solid var(--border-normal);
   border-radius: var(--radius-lg);

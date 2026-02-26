@@ -142,7 +142,6 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   if (!notes) return NextResponse.json({ error: "La nota de inicio es requerida" }, { status: 400 });
-  if (!file) return NextResponse.json({ error: "La foto de inicio es requerida" }, { status: 400 });
 
   const wo = await prisma.workOrder.findFirst({
     where: { id: ctx.params.id, tenantId },
@@ -210,9 +209,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       })
     : null;
 
-  const relPath = await saveUpload(file, `work-orders/${wo.id}/start`, {
-    fileNamePrefix: wo.case.bus.code,
-  });
+  const relPath = file
+    ? await saveUpload(file, `work-orders/${wo.id}/start`, {
+        fileNamePrefix: wo.case.bus.code,
+      })
+    : null;
   const quickEvidence = [] as Array<{
     key: string;
     label: string;
@@ -294,9 +295,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       data: { workOrderId: wo.id, stepType: "INICIO", notes },
     });
 
-    await tx.workOrderMedia.create({
-      data: { workOrderStepId: step.id, kind: MediaKind.FOTO_INICIO, filePath: relPath },
-    });
+    if (relPath) {
+      await tx.workOrderMedia.create({
+        data: { workOrderStepId: step.id, kind: MediaKind.FOTO_INICIO, filePath: relPath },
+      });
+    }
 
     await tx.workOrder.update({
       where: { id: wo.id },
@@ -355,7 +358,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         caseId: wo.caseId,
         workOrderId: wo.id,
         eventType: "WO_STARTED",
-        summary: "OT iniciada con evidencia",
+        summary: relPath ? "OT iniciada con evidencia" : "OT iniciada",
         occurredAt: new Date(),
       },
     });

@@ -235,7 +235,11 @@ export default function StartWorkOrderCard({
       ) : null}
 
       {startedAt ? <p className="mt-2 text-sm text-muted-foreground">Iniciada: {startedAt}</p> : null}
-      {!startedAt ? <p className="mt-2 text-sm text-muted-foreground">Registra nota y evidencia de inicio.</p> : null}
+      {!startedAt ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Registra la nota de inicio. La evidencia es opcional.
+        </p>
+      ) : null}
 
       {error ? (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
@@ -481,7 +485,7 @@ export default function StartWorkOrderCard({
             >
               <Upload className="h-5 w-5 text-primary" />
               <span className="text-sm font-medium text-primary">Cargar foto o archivo</span>
-              <span className="text-xs text-primary/80">Evidencia de inicio</span>
+              <span className="text-xs text-primary/80">Evidencia de inicio (opcional)</span>
             </label>
           </div>
           <input
@@ -509,7 +513,7 @@ export default function StartWorkOrderCard({
         <button
           type="button"
           onClick={submit}
-          disabled={disabled || saving || !notes.trim() || !photo}
+          disabled={disabled || saving || !notes.trim()}
           className="sts-btn-primary text-sm disabled:opacity-60"
         >
           {saving ? "Guardando..." : "Iniciar"}

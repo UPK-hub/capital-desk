@@ -23,6 +23,9 @@ export type NovedadCatalogItem = {
   priorityLabel: string;
   priorityValue: number;
   interventionType: string;
+  quickSolvedResponse: string;
+  requiresOtResponse: string;
+  standardObservation: string;
 };
 
 export type QuickCheckStep = {
@@ -36,10 +39,22 @@ export type QuickEvidenceRequirement = {
   required: boolean;
 };
 
+type NovedadResponseTemplates = {
+  quickSolvedResponse: string;
+  requiresOtResponse: string;
+  standardObservation: string;
+};
+
 const CATALOG_FILE_CANDIDATES = [
   "Catalogo de novedades.csv",
   "catalogo-de-novedades.csv",
   "data/Catalogo de novedades.csv",
+];
+
+const RESPONSES_FILE_CANDIDATES = [
+  "respuestas.csv",
+  "Respuestas.csv",
+  "data/respuestas.csv",
 ];
 
 const FALLBACK_OPTIONS: Record<AffectedEquipmentType, string[]> = {
@@ -51,7 +66,7 @@ const FALLBACK_OPTIONS: Record<AffectedEquipmentType, string[]> = {
   CMS: ["Bus no visible en CMS", "Evento no registrado en CMS", "Datos incompletos en CMS", "Sin sincronizacion CMS"],
 };
 
-let cache: { key: string; mtimeMs: number; items: NovedadCatalogItem[] } | null = null;
+let cache: { signature: string; items: NovedadCatalogItem[] } | null = null;
 
 function normalizeKey(value: string) {
   return value
@@ -62,15 +77,21 @@ function normalizeKey(value: string) {
     .toUpperCase();
 }
 
-function parseSemicolonLine(line: string) {
-  const cols: string[] = [];
+function normalizeHeader(value: string) {
+  return normalizeKey(value).replace(/[^A-Z0-9]+/g, " ");
+}
+
+function parseSemicolonRows(raw: string) {
+  const rows: string[][] = [];
+  const normalized = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  let row: string[] = [];
   let current = "";
   let quoted = false;
 
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
+  for (let i = 0; i < normalized.length; i += 1) {
+    const ch = normalized[i];
     if (ch === '"') {
-      const next = line[i + 1];
+      const next = normalized[i + 1];
       if (quoted && next === '"') {
         current += '"';
         i += 1;
@@ -80,15 +101,38 @@ function parseSemicolonLine(line: string) {
       continue;
     }
     if (ch === ";" && !quoted) {
-      cols.push(current.trim());
+      row.push(current.trim());
+      current = "";
+      continue;
+    }
+    if (ch === "\n" && !quoted) {
+      row.push(current.trim());
+      const hasAny = row.some((col) => col.length > 0);
+      if (hasAny) rows.push(row);
+      row = [];
       current = "";
       continue;
     }
     current += ch;
   }
 
-  cols.push(current.trim());
-  return cols;
+  if (current.length > 0 || row.length > 0) {
+    row.push(current.trim());
+    const hasAny = row.some((col) => col.length > 0);
+    if (hasAny) rows.push(row);
+  }
+
+  if (rows.length && rows[0].length) {
+    rows[0][0] = rows[0][0].replace(/^\uFEFF/, "");
+  }
+
+  return rows;
+}
+
+function findHeaderIndex(headerCols: string[], requiredTokens: string[]) {
+  const normalizedHeaders = headerCols.map((value) => normalizeHeader(value));
+  const upperTokens = requiredTokens.map((token) => token.toUpperCase());
+  return normalizedHeaders.findIndex((header) => upperTokens.every((token) => header.includes(token)));
 }
 
 function toPriorityValue(label: string) {
@@ -124,14 +168,63 @@ async function readCatalogFile() {
   return null;
 }
 
-function parseCatalog(raw: string) {
-  const lines = raw
-    .split(/\r?\n/g)
-    .map((line) => line.replace(/^\uFEFF/, "").trim())
-    .filter(Boolean);
-  if (!lines.length) return [];
+async function readResponsesFile() {
+  for (const relPath of RESPONSES_FILE_CANDIDATES) {
+    const fullPath = path.join(process.cwd(), relPath);
+    try {
+      const [raw, stat] = await Promise.all([fs.readFile(fullPath, "latin1"), fs.stat(fullPath)]);
+      return { fullPath, raw, mtimeMs: stat.mtimeMs };
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
 
-  const headerCols = parseSemicolonLine(lines[0]);
+function parseResponsesCatalog(raw: string) {
+  const records = parseSemicolonRows(raw);
+  if (!records.length) return new Map<string, NovedadResponseTemplates>();
+
+  const headerCols = records[0];
+  const iCode = findHeaderIndex(headerCols, ["CODIGO"]);
+  const iQuickSolved = (() => {
+    const exact = findHeaderIndex(headerCols, ["VR", "SOLUCIONADA"]);
+    if (exact >= 0) return exact;
+    return findHeaderIndex(headerCols, ["RESPUESTA", "RAPIDA", "SOLUCIONADA"]);
+  })();
+  const iRequiresOt = (() => {
+    const exact = findHeaderIndex(headerCols, ["VR", "REVISION", "OT"]);
+    if (exact >= 0) return exact;
+    return findHeaderIndex(headerCols, ["REVISION", "PROFUNDA", "OT"]);
+  })();
+  const iObservation = (() => {
+    const exact = findHeaderIndex(headerCols, ["OBSERVACION", "REPORTE", "CAPITALBUS"]);
+    if (exact >= 0) return exact;
+    return findHeaderIndex(headerCols, ["OBSERVACION", "ESTANDAR"]);
+  })();
+
+  if (iCode < 0) return new Map<string, NovedadResponseTemplates>();
+
+  const byCode = new Map<string, NovedadResponseTemplates>();
+  for (let i = 1; i < records.length; i += 1) {
+    const cols = records[i];
+    const code = String(cols[iCode] ?? "").trim();
+    if (!code) continue;
+    byCode.set(normalizeKey(code), {
+      quickSolvedResponse: iQuickSolved >= 0 ? String(cols[iQuickSolved] ?? "").trim() : "",
+      requiresOtResponse: iRequiresOt >= 0 ? String(cols[iRequiresOt] ?? "").trim() : "",
+      standardObservation: iObservation >= 0 ? String(cols[iObservation] ?? "").trim() : "",
+    });
+  }
+
+  return byCode;
+}
+
+function parseCatalog(raw: string, responseByCode: Map<string, NovedadResponseTemplates>) {
+  const records = parseSemicolonRows(raw);
+  if (!records.length) return [];
+
+  const headerCols = records[0];
   const indexByHeader = new Map<string, number>();
   for (let i = 0; i < headerCols.length; i += 1) {
     indexByHeader.set(normalizeKey(headerCols[i]), i);
@@ -139,21 +232,33 @@ function parseCatalog(raw: string) {
 
   const idx = (name: string) => indexByHeader.get(normalizeKey(name)) ?? -1;
 
-  const iCode = idx("Codigo");
-  const iCategory = idx("Categoria");
-  const iEquipment = idx("Equipo");
-  const iNovelty = idx("Novedad");
-  const iSymptoms = idx("Sintomas / Evidencia en sitio");
-  const iPossibleCauses = idx("Posibles causas");
-  const iQuickCheck = idx("Verificacion rapida (primeros 5 min)");
-  const iMinimalEvidence = idx("Evidencia minima para ticket");
-  const iImpact = idx("Impacto sugerido");
-  const iPriority = idx("Prioridad");
-  const iInterventionType = idx("Tipo de intervencion");
+  let iCode = idx("Codigo");
+  let iCategory = idx("Categoria");
+  let iEquipment = idx("Equipo");
+  let iNovelty = idx("Novedad");
+  let iSymptoms = idx("Sintomas / Evidencia en sitio");
+  let iPossibleCauses = idx("Posibles causas");
+  let iQuickCheck = idx("Verificacion rapida (primeros 5 min)");
+  let iMinimalEvidence = idx("Evidencia minima para ticket");
+  let iImpact = idx("Impacto sugerido");
+  let iPriority = idx("Prioridad");
+  let iInterventionType = idx("Tipo de intervencion");
 
-  const rows: NovedadCatalogItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const cols = parseSemicolonLine(lines[i]);
+  if (iCode < 0) iCode = findHeaderIndex(headerCols, ["CODIGO"]);
+  if (iCategory < 0) iCategory = findHeaderIndex(headerCols, ["CATEGORIA"]);
+  if (iEquipment < 0) iEquipment = findHeaderIndex(headerCols, ["EQUIPO"]);
+  if (iNovelty < 0) iNovelty = findHeaderIndex(headerCols, ["NOVEDAD"]);
+  if (iSymptoms < 0) iSymptoms = findHeaderIndex(headerCols, ["SINTOMAS"]);
+  if (iPossibleCauses < 0) iPossibleCauses = findHeaderIndex(headerCols, ["POSIBLES", "CAUSAS"]);
+  if (iQuickCheck < 0) iQuickCheck = findHeaderIndex(headerCols, ["VERIFICACION", "RAPIDA"]);
+  if (iMinimalEvidence < 0) iMinimalEvidence = findHeaderIndex(headerCols, ["EVIDENCIA", "MINIMA"]);
+  if (iImpact < 0) iImpact = findHeaderIndex(headerCols, ["IMPACTO"]);
+  if (iPriority < 0) iPriority = findHeaderIndex(headerCols, ["PRIORIDAD"]);
+  if (iInterventionType < 0) iInterventionType = findHeaderIndex(headerCols, ["TIPO", "INTERVENCION"]);
+
+  const parsedRows: NovedadCatalogItem[] = [];
+  for (let i = 1; i < records.length; i += 1) {
+    const cols = records[i];
     const code = (iCode >= 0 ? cols[iCode] : "").trim();
     const novelty = (iNovelty >= 0 ? cols[iNovelty] : "").trim();
     const equipmentLabel = (iEquipment >= 0 ? cols[iEquipment] : "").trim();
@@ -162,8 +267,9 @@ function parseCatalog(raw: string) {
     const affectedEquipment = mapEquipmentToType(equipmentLabel);
     if (!affectedEquipment) continue;
 
+    const responseTemplates = responseByCode.get(normalizeKey(code));
     const priorityLabel = (iPriority >= 0 ? cols[iPriority] : "").trim() || "Media";
-    rows.push({
+    parsedRows.push({
       code,
       category: (iCategory >= 0 ? cols[iCategory] : "").trim(),
       equipmentLabel,
@@ -177,19 +283,22 @@ function parseCatalog(raw: string) {
       priorityLabel,
       priorityValue: toPriorityValue(priorityLabel),
       interventionType: (iInterventionType >= 0 ? cols[iInterventionType] : "").trim(),
+      quickSolvedResponse: responseTemplates?.quickSolvedResponse ?? "",
+      requiresOtResponse: responseTemplates?.requiresOtResponse ?? "",
+      standardObservation: responseTemplates?.standardObservation ?? "",
     });
   }
 
-  return rows;
+  return parsedRows;
 }
 
 function fallbackCatalogItems() {
-  const rows: NovedadCatalogItem[] = [];
+  const items: NovedadCatalogItem[] = [];
   let i = 1;
   const entries = Object.entries(FALLBACK_OPTIONS) as Array<[AffectedEquipmentType, string[]]>;
   for (const [affectedEquipment, novelties] of entries) {
     for (const novelty of novelties) {
-      rows.push({
+      items.push({
         code: `NVD-FB-${String(i).padStart(3, "0")}`,
         category: "Fallback",
         equipmentLabel: affectedEquipment,
@@ -203,11 +312,14 @@ function fallbackCatalogItems() {
         priorityLabel: "Media",
         priorityValue: 3,
         interventionType: "Correctivo",
+        quickSolvedResponse: "",
+        requiresOtResponse: "",
+        standardObservation: "",
       });
       i += 1;
     }
   }
-  return rows;
+  return items;
 }
 
 function normalizeSentence(value: string) {
@@ -248,10 +360,7 @@ function splitCatalogText(value: string) {
   return commaParts.length > 1 ? commaParts : primaryParts;
 }
 
-const NO_EVIDENCE_PATTERNS = [
-  /^(no\s*requiere|no\s*requerido|no\s*aplica|ninguna?)$/i,
-  /sin\s+evidencia/i,
-];
+const NO_EVIDENCE_PATTERNS = [/^(no\s*requiere|no\s*requerido|no\s*aplica|ninguna?)$/i, /sin\s+evidencia/i];
 
 function hasNoEvidenceToken(value: string) {
   const normalized = normalizeSentence(value).toLowerCase();
@@ -282,16 +391,20 @@ export function parseMinimalEvidenceRequirements(minimalEvidence: string): Quick
 }
 
 export async function loadNovedadCatalog() {
-  const file = await readCatalogFile();
-  if (!file) return fallbackCatalogItems();
+  const [catalogFile, responsesFile] = await Promise.all([readCatalogFile(), readResponsesFile()]);
+  if (!catalogFile) return fallbackCatalogItems();
 
-  if (cache && cache.key === file.fullPath && cache.mtimeMs === file.mtimeMs) {
+  const signature = `${catalogFile.fullPath}:${catalogFile.mtimeMs}|${responsesFile?.fullPath ?? ""}:${responsesFile?.mtimeMs ?? 0}`;
+  if (cache && cache.signature === signature) {
     return cache.items;
   }
 
-  const parsed = parseCatalog(file.raw);
+  const responseByCode = responsesFile
+    ? parseResponsesCatalog(responsesFile.raw)
+    : new Map<string, NovedadResponseTemplates>();
+  const parsed = parseCatalog(catalogFile.raw, responseByCode);
   const items = parsed.length ? parsed : fallbackCatalogItems();
-  cache = { key: file.fullPath, mtimeMs: file.mtimeMs, items };
+  cache = { signature, items };
   return items;
 }
 

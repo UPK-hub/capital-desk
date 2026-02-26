@@ -90,6 +90,8 @@ function sanitizeTemplateData(raw: unknown): Record<string, string> | null {
     "nextActionResponsible",
     "requiresNightIntervention",
     "nightBusStatus",
+    "quickChecklistSummary",
+    "quickEvidenceSummary",
     "diagnosticStartAt",
     "diagnosticEndAt",
     "supportTechnician",
