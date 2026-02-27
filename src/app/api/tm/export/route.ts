@@ -47,6 +47,12 @@ export async function GET(req: NextRequest) {
       "Breaches resolución": report.totals.resolutionBreaches,
       "Promedio respuesta (min)": report.totals.avgResponseMinutes,
       "Promedio resolución (min)": report.totals.avgResolutionMinutes,
+      "Telemetría total": report.telemetryTotals.total,
+      "Tramas tipo 1": report.telemetryTotals.tramas,
+      P20: report.telemetryTotals.p20,
+      P60: report.telemetryTotals.p60,
+      "Eventos tipo 2": report.telemetryTotals.eventos,
+      "Alarmas tipo 3": report.telemetryTotals.alarmas,
     },
   ]);
 
@@ -57,11 +63,21 @@ export async function GET(req: NextRequest) {
       periodStart: row.periodStart.toISOString().slice(0, 10),
     }))
   );
+  const telemetrySummarySheet = utils.json_to_sheet([report.telemetryTotals]);
+  const telemetryEventsSheet = report.telemetryEvents.length
+    ? utils.json_to_sheet(report.telemetryEvents)
+    : utils.aoa_to_sheet([["Sin eventos en el rango"]]);
+  const telemetryAlarmsSheet = report.telemetryAlarms.length
+    ? utils.json_to_sheet(report.telemetryAlarms)
+    : utils.aoa_to_sheet([["Sin alarmas en el rango"]]);
 
   const workbook = utils.book_new();
   utils.book_append_sheet(workbook, summarySheet, "Resumen");
   utils.book_append_sheet(workbook, slaSheet, "SLA_Componentes");
   utils.book_append_sheet(workbook, kpiSheet, "KPIs");
+  utils.book_append_sheet(workbook, telemetrySummarySheet, "Telemetria_Resumen");
+  utils.book_append_sheet(workbook, telemetryEventsSheet, "Eventos_Tipo2");
+  utils.book_append_sheet(workbook, telemetryAlarmsSheet, "Alarmas_Tipo3");
 
   const buffer = write(workbook, { type: "buffer", bookType: "xlsx" });
   return new Response(buffer, {

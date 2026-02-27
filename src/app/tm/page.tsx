@@ -77,6 +77,9 @@ export default async function TmPage({
     <TmDashboard
       range={{ start: formatInputDate(start), end: formatInputDate(end), rangeDays: safeRange }}
       totals={report.totals}
+      telemetryTotals={report.telemetryTotals}
+      telemetryEvents={report.telemetryEvents}
+      telemetryAlarms={report.telemetryAlarms}
       severityLabels={report.severityOrder.map((s) => severityLabels[s])}
       severityCounts={report.severityCounts}
       componentSeverityRows={report.componentSeverityRows}

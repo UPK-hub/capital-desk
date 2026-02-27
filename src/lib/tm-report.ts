@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  StsTelemetryKind,
   StsKpiMetric,
   StsKpiPeriodicity,
   StsTicketSeverity,
@@ -26,6 +27,29 @@ type TicketRow = {
   resolutionMinutes: number | null;
 };
 
+type TelemetryTotals = {
+  total: number;
+  tramas: number;
+  eventos: number;
+  alarmas: number;
+  p20: number;
+  p60: number;
+};
+
+type TelemetryEventRow = {
+  code: string;
+  label: string;
+  total: number;
+};
+
+type TelemetryAlarmRow = {
+  code: string;
+  label: string;
+  levelCode: string;
+  levelLabel: string;
+  total: number;
+};
+
 function minutesDiff(a?: Date | null, b?: Date | null) {
   if (!a || !b) return null;
   const diff = b.getTime() - a.getTime();
@@ -34,6 +58,15 @@ function minutesDiff(a?: Date | null, b?: Date | null) {
 }
 
 export async function buildTmReport({ tenantId, start, end, busId }: TmReportParams) {
+  const telemetryWhere = {
+    tenantId,
+    ...(busId ? { busId } : {}),
+    OR: [
+      { eventAt: { gte: start, lt: end } },
+      { eventAt: null, receivedAt: { gte: start, lt: end } },
+    ],
+  };
+
   const tickets = await prisma.stsTicket.findMany({
     where: {
       tenantId,
@@ -181,6 +214,64 @@ export async function buildTmReport({ tenantId, start, end, busId }: TmReportPar
     };
   });
 
+  const [telemetryByKind, tramaSubtypeCounts, eventCounts, alarmCounts] = await Promise.all([
+    prisma.integrationInboundEvent.groupBy({
+      by: ["kind"],
+      where: telemetryWhere,
+      _count: { id: true },
+    }),
+    prisma.integrationInboundEvent.groupBy({
+      by: ["tramaSubtype"],
+      where: { ...telemetryWhere, kind: StsTelemetryKind.TRAMAS, tramaType: 1 },
+      _count: { id: true },
+    }),
+    prisma.integrationInboundEvent.groupBy({
+      by: ["eventCode", "eventLabel"],
+      where: { ...telemetryWhere, kind: StsTelemetryKind.EVENTOS, tramaType: 2 },
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+      take: 50,
+    }),
+    prisma.integrationInboundEvent.groupBy({
+      by: ["alarmCode", "alarmLabel", "alarmLevelCode", "alarmLevelLabel"],
+      where: { ...telemetryWhere, kind: StsTelemetryKind.ALARMAS, tramaType: 3 },
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+      take: 100,
+    }),
+  ]);
+
+  const byKind = new Map(telemetryByKind.map((row) => [row.kind, row._count.id ?? 0]));
+  const bySubtype = new Map(
+    tramaSubtypeCounts.map((row) => [String(row.tramaSubtype ?? "").toUpperCase(), row._count.id ?? 0])
+  );
+
+  const telemetryTotals: TelemetryTotals = {
+    total:
+      (byKind.get(StsTelemetryKind.TRAMAS) ?? 0) +
+      (byKind.get(StsTelemetryKind.EVENTOS) ?? 0) +
+      (byKind.get(StsTelemetryKind.ALARMAS) ?? 0),
+    tramas: byKind.get(StsTelemetryKind.TRAMAS) ?? 0,
+    eventos: byKind.get(StsTelemetryKind.EVENTOS) ?? 0,
+    alarmas: byKind.get(StsTelemetryKind.ALARMAS) ?? 0,
+    p20: bySubtype.get("P20") ?? 0,
+    p60: bySubtype.get("P60") ?? 0,
+  };
+
+  const telemetryEvents: TelemetryEventRow[] = eventCounts.map((row) => ({
+    code: row.eventCode ?? "SIN_CODIGO",
+    label: row.eventLabel ?? "Sin etiqueta",
+    total: row._count.id ?? 0,
+  }));
+
+  const telemetryAlarms: TelemetryAlarmRow[] = alarmCounts.map((row) => ({
+    code: row.alarmCode ?? "SIN_CODIGO",
+    label: row.alarmLabel ?? "Sin etiqueta",
+    levelCode: row.alarmLevelCode ?? "SIN_NIVEL",
+    levelLabel: row.alarmLevelLabel ?? "Sin nivel",
+    total: row._count.id ?? 0,
+  }));
+
   return {
     range: { start, end },
     totals: {
@@ -200,5 +291,8 @@ export async function buildTmReport({ tenantId, start, end, busId }: TmReportPar
     metricSummary,
     kpiRows,
     ticketRows: rows,
+    telemetryTotals,
+    telemetryEvents,
+    telemetryAlarms,
   };
 }
