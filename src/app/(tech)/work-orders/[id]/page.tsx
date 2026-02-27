@@ -28,8 +28,49 @@ function fmtDate(d: Date) {
   }).format(d);
 }
 
+function normalizeStoredUploadPath(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const marker = "/api/uploads/";
+  const markerIdx = raw.indexOf(marker);
+  if (markerIdx >= 0) {
+    return raw
+      .slice(markerIdx + marker.length)
+      .replace(/^\/+/, "")
+      .replace(/^uploads\//i, "")
+      .replace(/\\/g, "/");
+  }
+  try {
+    const u = new URL(raw);
+    const pathname = String(u.pathname ?? "");
+    const idx = pathname.indexOf(marker);
+    if (idx >= 0) {
+      return pathname
+        .slice(idx + marker.length)
+        .replace(/^\/+/, "")
+        .replace(/^uploads\//i, "")
+        .replace(/\\/g, "/");
+    }
+    return pathname
+      .replace(/^\/+/, "")
+      .replace(/^uploads\//i, "")
+      .replace(/\\/g, "/");
+  } catch {
+    return raw
+      .replace(/^\/+/, "")
+      .replace(/^api\/uploads\//i, "")
+      .replace(/^uploads\//i, "")
+      .replace(/\\/g, "/");
+  }
+}
+
+function uploadUrl(filePath: string | null | undefined) {
+  const rel = normalizeStoredUploadPath(filePath);
+  return rel ? `/api/uploads/${rel}` : "";
+}
+
 function isImageFilePath(filePath: string | null | undefined) {
-  const value = String(filePath ?? "").toLowerCase();
+  const value = normalizeStoredUploadPath(filePath).toLowerCase();
   return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
 }
 
@@ -533,26 +574,28 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
 
                     {s.media?.length ? (
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {s.media.map((m) =>
-                          isImageFilePath(m.filePath) ? (
+                        {s.media.map((m) => {
+                          const mediaUrl = uploadUrl(m.filePath);
+                          if (!mediaUrl) return null;
+                          return isImageFilePath(m.filePath) ? (
                             <img
                               key={m.id}
-                              src={`/api/uploads/${m.filePath}`}
+                              src={mediaUrl}
                               alt={m.kind}
                               className="h-40 w-full rounded-md border object-cover"
                             />
                           ) : (
                             <a
                               key={m.id}
-                              href={`/api/uploads/${m.filePath}`}
+                              href={mediaUrl}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex h-12 items-center justify-center rounded-md border px-3 text-sm"
                             >
                               Abrir archivo adjunto
                             </a>
-                          )
-                        )}
+                          );
+                        })}
                       </div>
                     ) : null}
                   </div>

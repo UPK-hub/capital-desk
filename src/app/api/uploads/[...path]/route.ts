@@ -29,11 +29,19 @@ function contentTypeFromPath(filePath: string): string {
   return MIME_BY_EXT[ext] ?? "application/octet-stream";
 }
 
+function normalizeIncomingUploadPath(raw: string): string {
+  let value = String(raw ?? "").trim().replace(/\\/g, "/");
+  value = value.replace(/^\/+/, "");
+  value = value.replace(/^api\/uploads\//i, "");
+  value = value.replace(/^uploads\//i, "");
+  return value;
+}
+
 export async function GET(
   _req: NextRequest,
   ctx: { params: { path: string[] } }
 ) {
-  const rel = (ctx.params.path || []).join("/");
+  const rel = normalizeIncomingUploadPath((ctx.params.path || []).join("/"));
   if (!rel) return new Response("Not found", { status: 404 });
 
   let filePath = "";
