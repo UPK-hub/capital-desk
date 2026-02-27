@@ -61,10 +61,34 @@ Evento ETB crudo (también soportado, sin transformación previa):
 Mapeo automático ETB -> canónico:
 - `externalId = idRegistro`
 - `busCode = idVehiculo`
-- `eventType = codigoEvento` (o `TRAMA_<tipoTrama>`)
+- `tipoTrama=1 => kind=TRAMAS` y `eventType=P20|P60`
+  - `P20` cuando despues de `tipoFreno` solo vienen los campos fijos:
+    - `velocidadVehiculo`
+    - `aceleracionVehiculo`
+  - `P60` cuando despues de `tipoFreno` aparece cualquier otro campo adicional
+- `tipoTrama=2 => kind=EVENTOS` y `eventType=EVENTO:<codigo>`
+- `tipoTrama=3 => kind=ALARMAS` y `eventType=ALARMA:<codigo>`
+- `severity`:
+  - tipo 2 desde `nivelEvento|severidadEvento|severity|nivel` (si existe)
+  - tipo 3 desde `nivelAlarma|nivel|severidad|severity|prioridad` (si existe)
+  - normaliza `NIV1..NIV5` y `N1..N5` a `N1..N5`
+    - `N1` Critico Superior
+    - `N2` Tolerable Superior
+    - `N3` Normal (no genera alarma)
+    - `N4` Tolerable Inferior
+    - `N5` Critico Inferior
 - `eventAt = fechaHoraLecturaDato` (fallback `fechaHoraEnvioDato`)
 - `payload = objeto completo recibido`
-- `timeline = true` cuando `tipoTrama=2` o trae `codigoEvento`
+- `timeline = true` para `tipoTrama=2` y `tipoTrama=3`
+
+Catalogo de tipo 3 (ALARMAS):
+- `ALA1` Aceleracion Brusca
+- `ALA2` Frenada Brusca
+- `ALA3` Exceso de velocidad
+- `ALA4` Exceso de Peso
+- `ALA5` Ausencia imagen camara del conductor
+- `ALA6` Ausencia de imagen de alguna camara de CCTV distinta a la del conductor
+- `ALA7` Giro Brusco
 
 Envelope opcional:
 

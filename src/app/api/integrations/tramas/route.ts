@@ -58,6 +58,196 @@ function finalizeEnvelope(parsed: z.infer<typeof EnvelopeSchema>): ParsedEnvelop
 
 type CanonicalEvent = z.infer<typeof CanonicalEventSchema>;
 
+const TIPO2_EVENT_CATALOG: Record<string, string> = {
+  EVE1: "Parada en estacion",
+  EVE2: "Apertura y cierre de puertas",
+  EVE3: "Estado de sistema de ventilacion",
+  EVE4: "Estado sistema de iluminacion",
+  EVE5: "Estado de sistema limpiaparabrisas",
+  EVE6: "Encendido del vehiculo",
+  EVE7: "Apagado del vehiculo",
+  EVE8: "Cambio de conductor",
+  EVE9: "Activacion de boton de panico",
+  EVE10: "Accidente o colision",
+  EVE11: "Por demanda",
+  EVE12: "Desconexion de energia principal",
+  EVE13: "Encendido del STS",
+  EVE14: "Apagado del STS",
+  EVE15: "Inicio de operacion",
+  EVE16: "Fin de operacion",
+  EVE17: "Reconexion de energia principal de STS",
+  EVE18: "Silla vacia del conductor",
+};
+
+const TIPO3_ALARM_CATALOG: Record<string, string> = {
+  ALA1: "Aceleracion Brusca",
+  ALA2: "Frenada Brusca",
+  ALA3: "Exceso de velocidad",
+  ALA4: "Exceso de Peso",
+  ALA5: "Ausencia imagen camara del conductor",
+  ALA6: "Ausencia de imagen de alguna camara de CCTV distinta a la del conductor",
+  ALA7: "Giro Brusco",
+};
+
+const TIPO3_LEVEL_CATALOG: Record<string, string> = {
+  N1: "Critico Superior",
+  N2: "Tolerable Superior",
+  N3: "Normal (no genera alarma)",
+  N4: "Tolerable Inferior",
+  N5: "Critico Inferior",
+};
+
+function textValue(value: unknown): string | null {
+  const v = String(value ?? "").trim();
+  return v.length ? v : null;
+}
+
+function pickText(input: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = textValue(input[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function hasAnyField(input: Record<string, unknown>, keys: string[]): boolean {
+  return keys.some((key) => Object.prototype.hasOwnProperty.call(input, key));
+}
+
+function normalizeSeverity(input: string | null): string | null {
+  return input ? input.toUpperCase() : null;
+}
+
+function normalizeTipo2EventCode(code: string | null): string | null {
+  if (!code) return null;
+  const normalized = code.toUpperCase().replace(/\s+/g, "");
+  const match = normalized.match(/^EVE?(\d{1,2})$/);
+  if (!match) return normalized;
+  return `EVE${Number(match[1])}`;
+}
+
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (value === 1 || value === "1") return true;
+  if (value === 0 || value === "0") return false;
+  const text = String(value ?? "").trim().toLowerCase();
+  if (["true", "si", "sí", "yes", "on"].includes(text)) return true;
+  if (["false", "no", "off"].includes(text)) return false;
+  return null;
+}
+
+function normalizeTipo3AlarmCode(code: string | null): string | null {
+  if (!code) return null;
+  const normalized = code.toUpperCase().replace(/\s+/g, "");
+  const match = normalized.match(/^ALA(\d{1,2})$/);
+  if (!match) return normalized;
+  return `ALA${Number(match[1])}`;
+}
+
+function normalizeTipo3AlarmLevel(level: string | null): { code: string; label: string | null } | null {
+  if (!level) return null;
+  const normalized = level.toUpperCase().replace(/\s+/g, "");
+  const match = normalized.match(/^N(?:IV(?:EL)?)?(\d)$/);
+  if (!match) return { code: normalized, label: null };
+  const code = `N${Number(match[1])}`;
+  return { code, label: TIPO3_LEVEL_CATALOG[code] ?? null };
+}
+
+function pickBoolean(input: Record<string, unknown>, keys: string[]): boolean | null {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
+    const value = normalizeBoolean(input[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function buildTipo2EventDetail(input: Record<string, unknown>, eventCode: string | null): string | null {
+  const details: string[] = [];
+
+  const boolByEvent: Record<string, { keys: string[]; label: string }> = {
+    EVE3: { keys: ["estadoSistemaVentilacion"], label: "estadoSistemaVentilacion" },
+    EVE4: { keys: ["estadoSistemaIluminacion"], label: "estadoSistemaIluminacion" },
+    EVE5: { keys: ["estadoSistemaLimpiaparabrisas"], label: "estadoSistemaLimpiaparabrisas" },
+    EVE9: { keys: ["activacionBotonPanico", "estadoBotonPanico"], label: "botonPanico" },
+    EVE18: { keys: ["sillaVaciaConductor"], label: "sillaVaciaConductor" },
+  };
+
+  const boolConfig = eventCode ? boolByEvent[eventCode] : undefined;
+  if (boolConfig) {
+    const value = pickBoolean(input, boolConfig.keys);
+    if (value !== null) details.push(`${boolConfig.label}: ${value ? "true" : "false"}`);
+  } else {
+    for (const [key, raw] of Object.entries(input)) {
+      const value = normalizeBoolean(raw);
+      if (value !== null) {
+        details.push(`${key}: ${value ? "true" : "false"}`);
+        break;
+      }
+    }
+  }
+
+  const photoRaw = pickText(input, ["fotoConductor", "foto_conductor", "imagenConductor"]);
+  if (photoRaw) {
+    details.push(`fotoConductor: base64 (${photoRaw.length} chars)`);
+  }
+
+  return details.length ? details.join(" | ") : null;
+}
+
+function buildTipo3AlarmDetail(input: Record<string, unknown>): string | null {
+  const details: string[] = [];
+
+  const peso = textValue(input.peso);
+  if (peso) details.push(`peso: ${peso}`);
+
+  const velocidad = pickText(input, ["velocidad", "velocidadVehiculo"]);
+  if (velocidad) details.push(`velocidad: ${velocidad}`);
+
+  const cameraRef = pickText(input, ["idCamara", "camara", "camaraAfectada", "ubicacionCamara"]);
+  if (cameraRef) details.push(`camara: ${cameraRef}`);
+
+  const photoRaw = pickText(input, ["fotoConductor", "foto", "imagen"]);
+  if (photoRaw) {
+    details.push(`foto: base64 (${photoRaw.length} chars)`);
+  }
+
+  return details.length ? details.join(" | ") : null;
+}
+
+function classifyTipo1Trama(input: Record<string, unknown>): "P20" | "P60" {
+  const p20FixedKeys = new Set(["velocidadVehiculo", "aceleracionVehiculo"]);
+  const orderedKeys = Object.keys(input);
+  const idxTipoFreno = orderedKeys.indexOf("tipoFreno");
+
+  if (idxTipoFreno >= 0) {
+    const keysAfterTipoFreno = orderedKeys.slice(idxTipoFreno + 1);
+    if (keysAfterTipoFreno.length > 0) {
+      const nonP20Keys = keysAfterTipoFreno.filter((key) => !p20FixedKeys.has(key));
+      return nonP20Keys.length === 0 ? "P20" : "P60";
+    }
+  }
+
+  // Fallback por presencia de llaves cuando no se puede usar el orden del payload.
+  const hasExtended = hasAnyField(input, [
+    "temperaturaMotor",
+    "presionAceiteMotor",
+    "revolucionesMotor",
+    "estadoDesgasteFrenos",
+    "kilometrosOdometro",
+    "consumoCombustible",
+    "nivelTanqueCombustible",
+    "consumoEnergia",
+    "regeneracionEnergia",
+    "nivelRestanteEnergia",
+    "porcentajeEnergiaGenerada",
+    "sentidoMarcha",
+  ]);
+  if (hasExtended) return "P60";
+
+  return "P20";
+}
+
 function mapFromEtbRawEvent(input: Record<string, unknown>): CanonicalEvent | null {
   const externalId = String(input.idRegistro ?? "").trim();
   const busCode = String(input.idVehiculo ?? "").trim();
@@ -65,27 +255,99 @@ function mapFromEtbRawEvent(input: Record<string, unknown>): CanonicalEvent | nu
 
   const tipoTrama = Number(input.tipoTrama);
   const tipoTramaValid = Number.isFinite(tipoTrama) ? tipoTrama : null;
-  const codigoEvento = String(input.codigoEvento ?? "").trim();
+  const codigoEvento = pickText(input, ["codigoEvento", "idEvento", "evento", "eventCode"]);
+  const codigoEventoTipo2 = normalizeTipo2EventCode(codigoEvento);
+  const descripcionEvento = pickText(input, [
+    "descripcionEvento",
+    "detalleEvento",
+    "mensaje",
+    "descripcion",
+  ]);
 
-  const eventType =
-    codigoEvento ||
-    (tipoTramaValid !== null ? `TRAMA_${tipoTramaValid}` : "TRAMA");
+  let kind: StsTelemetryKind = StsTelemetryKind.TRAMAS;
+  let eventType = tipoTramaValid !== null ? `TRAMA_${tipoTramaValid}` : "TRAMA";
+  let severity: string | null = null;
+  let timeline = false;
+  let message: string | null = null;
+  let subtype: string | null = null;
+  let alarmCode: string | null = null;
+  let alarmLabel: string | null = null;
+  let alarmLevelCode: string | null = null;
+  let alarmLevelLabel: string | null = null;
 
-  const severity = tipoTramaValid === 2 ? "HIGH" : null;
-  const timeline = tipoTramaValid === 2 || Boolean(codigoEvento);
+  if (tipoTramaValid === 1) {
+    subtype = classifyTipo1Trama(input);
+    kind = StsTelemetryKind.TRAMAS;
+    eventType = subtype;
+    message = `Trama ${subtype}`;
+    timeline = false;
+  } else if (tipoTramaValid === 2) {
+    kind = StsTelemetryKind.EVENTOS;
+    eventType = `EVENTO:${codigoEventoTipo2 ?? codigoEvento ?? "SIN_CODIGO"}`;
+    severity = normalizeSeverity(
+      pickText(input, ["nivelEvento", "severidadEvento", "severity", "nivel"])
+    );
+    const eventLabel = codigoEventoTipo2 ? TIPO2_EVENT_CATALOG[codigoEventoTipo2] ?? null : null;
+    const detail = buildTipo2EventDetail(input, codigoEventoTipo2);
+    const primary = eventLabel ?? descripcionEvento ?? codigoEventoTipo2 ?? codigoEvento;
+    message = [primary, detail].filter(Boolean).join(" • ") || null;
+    timeline = true;
+  } else if (tipoTramaValid === 3) {
+    const codigoAlarmaRaw = pickText(input, [
+      "codigoAlarma",
+      "idAlarma",
+      "alarma",
+      "codigoEvento",
+      "eventCode",
+    ]);
+    alarmCode = normalizeTipo3AlarmCode(codigoAlarmaRaw) ?? codigoAlarmaRaw;
+    const rawLevel = pickText(input, ["nivelAlarma", "nivel", "severidad", "severity", "prioridad"]);
+    const normalizedLevel = normalizeTipo3AlarmLevel(rawLevel);
+    alarmLevelCode = normalizedLevel?.code ?? normalizeSeverity(rawLevel);
+    alarmLevelLabel = normalizedLevel?.label ?? null;
+    alarmLabel = alarmCode ? TIPO3_ALARM_CATALOG[alarmCode] ?? null : null;
+    kind = StsTelemetryKind.ALARMAS;
+    eventType = `ALARMA:${alarmCode ?? "SIN_CODIGO"}`;
+    severity = alarmLevelCode;
+    const detail = buildTipo3AlarmDetail(input);
+    const primary = alarmLabel ?? descripcionEvento ?? alarmCode;
+    const levelPart = alarmLevelCode
+      ? `${alarmLevelCode}${alarmLevelLabel ? ` ${alarmLevelLabel}` : ""}`
+      : null;
+    message = [primary, levelPart, detail].filter(Boolean).join(" • ") || null;
+    timeline = true;
+  } else {
+    eventType = codigoEvento || eventType;
+    severity = tipoTramaValid === 2 ? "HIGH" : null;
+    message = descripcionEvento ?? codigoEvento;
+    timeline = tipoTramaValid === 2 || Boolean(codigoEvento);
+  }
 
   return {
     externalId,
     busCode,
-    kind: StsTelemetryKind.TRAMAS,
+    kind,
     eventType,
     severity,
-    message: codigoEvento || null,
+    message,
     eventAt: String(
       input.fechaHoraLecturaDato ?? input.fechaHoraEnvioDato ?? ""
     ).trim() || null,
     timeline,
-    payload: input,
+    payload: {
+      ...input,
+      classification: {
+        tipoTrama: tipoTramaValid,
+        kind,
+        subtype,
+        eventCode: codigoEventoTipo2 ?? codigoEvento,
+        eventLabel: codigoEventoTipo2 ? TIPO2_EVENT_CATALOG[codigoEventoTipo2] ?? null : null,
+        alarmCode,
+        alarmLabel,
+        alarmLevelCode,
+        alarmLevelLabel,
+      },
+    },
   };
 }
 
