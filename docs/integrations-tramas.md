@@ -104,6 +104,10 @@ Envelope opcional:
 
 ## Qué guarda
 1. `IntegrationInboundEvent` (staging crudo, deduplicado por `tenantId + externalId`)
+   - Campos clasificados/indexados para consulta rapida:
+     - `tramaType`, `tramaSubtype`
+     - `eventCode`, `eventLabel`
+     - `alarmCode`, `alarmLabel`, `alarmLevelCode`, `alarmLevelLabel`
 2. `BusTelemetryState` (último estado por bus) al procesar
 3. `BusLifecycleEvent` solo para eventos relevantes (alertas/pánico/offline/high severity) al procesar
 

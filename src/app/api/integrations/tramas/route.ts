@@ -18,6 +18,14 @@ const CanonicalEventSchema = z.object({
   externalId: z.string().trim().min(1).max(191),
   busCode: z.string().trim().min(1).max(64),
   kind: z.nativeEnum(StsTelemetryKind).optional().default(StsTelemetryKind.TRAMAS),
+  tramaType: z.number().int().optional().nullable(),
+  tramaSubtype: z.string().trim().max(32).optional().nullable(),
+  eventCode: z.string().trim().max(64).optional().nullable(),
+  eventLabel: z.string().trim().max(200).optional().nullable(),
+  alarmCode: z.string().trim().max(64).optional().nullable(),
+  alarmLabel: z.string().trim().max(200).optional().nullable(),
+  alarmLevelCode: z.string().trim().max(32).optional().nullable(),
+  alarmLevelLabel: z.string().trim().max(120).optional().nullable(),
   eventType: z.string().trim().min(1).max(120),
   severity: z.string().trim().max(40).optional().nullable(),
   message: z.string().trim().max(500).optional().nullable(),
@@ -327,6 +335,14 @@ function mapFromEtbRawEvent(input: Record<string, unknown>): CanonicalEvent | nu
     externalId,
     busCode,
     kind,
+    tramaType: tipoTramaValid,
+    tramaSubtype: subtype,
+    eventCode: codigoEventoTipo2 ?? codigoEvento,
+    eventLabel: codigoEventoTipo2 ? TIPO2_EVENT_CATALOG[codigoEventoTipo2] ?? null : null,
+    alarmCode,
+    alarmLabel,
+    alarmLevelCode,
+    alarmLevelLabel,
     eventType,
     severity,
     message,
@@ -530,6 +546,35 @@ export async function POST(req: NextRequest) {
             : { value: item.payload }
           : {};
       const payload = { ...payloadBase, timeline: item.timeline ?? false };
+      const payloadClassification =
+        typeof payloadBase.classification === "object" && payloadBase.classification !== null
+          ? (payloadBase.classification as Record<string, unknown>)
+          : null;
+      const tramaTypeFromPayload = Number(payloadClassification?.tipoTrama);
+      const tramaType =
+        item.tramaType ??
+        (Number.isFinite(tramaTypeFromPayload) ? Math.trunc(tramaTypeFromPayload) : null);
+      const tramaSubtype =
+        item.tramaSubtype ??
+        (payloadClassification ? pickText(payloadClassification, ["subtype"]) : null);
+      const eventCode =
+        item.eventCode ??
+        (payloadClassification ? pickText(payloadClassification, ["eventCode"]) : null);
+      const eventLabel =
+        item.eventLabel ??
+        (payloadClassification ? pickText(payloadClassification, ["eventLabel"]) : null);
+      const alarmCode =
+        item.alarmCode ??
+        (payloadClassification ? pickText(payloadClassification, ["alarmCode"]) : null);
+      const alarmLabel =
+        item.alarmLabel ??
+        (payloadClassification ? pickText(payloadClassification, ["alarmLabel"]) : null);
+      const alarmLevelCode =
+        item.alarmLevelCode ??
+        (payloadClassification ? pickText(payloadClassification, ["alarmLevelCode"]) : null);
+      const alarmLevelLabel =
+        item.alarmLevelLabel ??
+        (payloadClassification ? pickText(payloadClassification, ["alarmLevelLabel"]) : null);
 
       return {
         tenantId: tenant.id,
@@ -538,6 +583,14 @@ export async function POST(req: NextRequest) {
         source,
         externalId: item.externalId,
         kind: item.kind ?? StsTelemetryKind.TRAMAS,
+        tramaType,
+        tramaSubtype,
+        eventCode,
+        eventLabel,
+        alarmCode,
+        alarmLabel,
+        alarmLevelCode,
+        alarmLevelLabel,
         eventType: item.eventType,
         severity: item.severity ?? null,
         message: item.message ?? null,

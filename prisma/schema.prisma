@@ -518,6 +518,14 @@ model IntegrationInboundEvent {
   source      String
   externalId  String
   kind        StsTelemetryKind
+  tramaType   Int?
+  tramaSubtype String?
+  eventCode   String?
+  eventLabel  String?
+  alarmCode   String?
+  alarmLabel  String?
+  alarmLevelCode  String?
+  alarmLevelLabel String?
   eventType   String
   severity    String?
   message     String?
@@ -534,6 +542,10 @@ model IntegrationInboundEvent {
   @@index([tenantId, status, receivedAt])
   @@index([tenantId, busId, eventAt])
   @@index([tenantId, busCode, eventAt])
+  @@index([tenantId, kind, eventAt])
+  @@index([tenantId, tramaType, tramaSubtype, eventAt])
+  @@index([tenantId, eventCode, eventAt])
+  @@index([tenantId, alarmCode, alarmLevelCode, eventAt])
 }
 
 model BusTelemetryState {
