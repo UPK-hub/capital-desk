@@ -787,7 +787,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               <div className="border-t border-border/50 p-3">
                 <StartWorkOrderCard
                   workOrderId={wo.id}
-                  disabled={startDone || finishDone}
+                  disabled={false}
                   startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
                   embedded
                   quickVerificationPreset={quickVerificationPreset}
@@ -820,7 +820,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 <div className="border-t border-border/50 p-3">
                   <FinishWorkOrderCard
                     workOrderId={wo.id}
-                    disabled={!startDone || finishDone || missingFinishForm}
+                    disabled={!startDone || (!finishDone && missingFinishForm)}
                     finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
                     embedded
                     caseType={wo.case.type}
@@ -837,9 +837,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     blockingReason={
                       !startDone
                         ? "Debes iniciar la OT primero."
-                        : finishDone
-                        ? "La OT ya está finalizada."
-                        : missingFinishForm
+                        : !finishDone && missingFinishForm
                         ? "Debes completar el formulario requerido antes de finalizar."
                         : null
                     }
@@ -852,7 +850,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
           <div className="hidden space-y-4 xl:block">
             <StartWorkOrderCard
               workOrderId={wo.id}
-              disabled={startDone || finishDone}
+              disabled={false}
               startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
               quickVerificationPreset={quickVerificationPreset}
               watermarkContext={{
@@ -865,7 +863,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
             {!onlyStartFlow ? (
               <FinishWorkOrderCard
                 workOrderId={wo.id}
-                disabled={!startDone || finishDone || missingFinishForm}
+                disabled={!startDone || (!finishDone && missingFinishForm)}
                 finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
                 caseType={wo.case.type}
                 watermarkContext={{
@@ -881,9 +879,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 blockingReason={
                   !startDone
                     ? "Debes iniciar la OT primero."
-                    : finishDone
-                    ? "La OT ya está finalizada."
-                    : missingFinishForm
+                    : !finishDone && missingFinishForm
                     ? "Debes completar el formulario requerido antes de finalizar."
                     : null
                 }

@@ -103,7 +103,13 @@ export default function FinishWorkOrderCard({
 }: Props) {
   const router = useRouter();
   const autoNotes = buildAutoNotes(autoContent);
-  const [notes, setNotes] = useState(autoNotes.text);
+  const defaultFinishNote = `Se finaliza ${String(
+    autoContent?.caseRef ?? watermarkContext?.caseRef ?? "caso"
+  ).trim() || "caso"} del ID bus (${String(
+    autoContent?.busCode ?? watermarkContext?.busCode ?? ""
+  ).trim() || "sin bus"})`;
+  const initialFinishNote = [defaultFinishNote, autoNotes.text].filter(Boolean).join("\n\n");
+  const [notes, setNotes] = useState(initialFinishNote);
   const [notesTouched, setNotesTouched] = useState(false);
   const [evidences, setEvidences] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
@@ -118,15 +124,16 @@ export default function FinishWorkOrderCard({
     if (!autoContent || notesTouched || finishedAt) return;
 
     const syncSuggestion = () => {
-      const next = buildAutoNotes(autoContent).text;
-      if (!next) return;
+      const nextAuto = buildAutoNotes(autoContent).text;
+      const next = [defaultFinishNote, nextAuto].filter(Boolean).join("\n\n");
+      if (!next.trim()) return;
       setNotes(next);
     };
 
     syncSuggestion();
     const timer = window.setInterval(syncSuggestion, 60_000);
     return () => window.clearInterval(timer);
-  }, [autoContent, notesTouched, finishedAt]);
+  }, [autoContent, notesTouched, finishedAt, defaultFinishNote]);
 
   async function submit(opts?: { forcePreventive?: boolean }) {
     setSaving(true);
@@ -166,7 +173,8 @@ export default function FinishWorkOrderCard({
         throw new Error(txt || `${res.status} ${res.statusText}`);
       }
 
-      setNotes("");
+      setNotes(initialFinishNote);
+      setNotesTouched(false);
       setEvidences([]);
       setCreateCorrective(false);
       setSelectedEquipments([]);
@@ -199,11 +207,18 @@ export default function FinishWorkOrderCard({
       ) : null}
 
       {finishedAt ? (
-        <p className="mt-2 text-sm text-muted-foreground">Finalizada: {finishedAt}</p>
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">Finalizada: {finishedAt}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Puedes actualizar la nota y volver a cargar evidencias de cierre.
+          </p>
+        </>
       ) : blockingReason ? (
         <p className="mt-2 text-sm font-medium text-amber-800">{blockingReason}</p>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">Registra nota y evidencia de finalización.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Registra la nota de finalización. Las evidencias son opcionales.
+        </p>
       )}
 
       {error ? (
@@ -299,7 +314,7 @@ export default function FinishWorkOrderCard({
         ) : null}
 
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Evidencias finales</p>
+          <p className="text-xs text-muted-foreground">Evidencias finales (opcionales)</p>
           <div className="rounded-xl border-2 border-dashed border-primary/35 bg-primary/5 p-4">
             <label
               htmlFor={inputId}
@@ -343,12 +358,11 @@ export default function FinishWorkOrderCard({
             disabled ||
             saving ||
             !notes.trim() ||
-            evidences.length === 0 ||
             (caseType === "PREVENTIVO" && createCorrective && selectedEquipments.length === 0)
           }
           className="sts-btn-primary w-full text-sm disabled:opacity-60"
         >
-          {saving ? "Guardando..." : "Finalizar"}
+          {saving ? "Guardando..." : finishedAt ? "Actualizar finalización" : "Finalizar"}
         </button>
       </div>
     </section>

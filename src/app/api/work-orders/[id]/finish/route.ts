@@ -72,9 +72,6 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     : [];
 
   if (!notes) return NextResponse.json({ error: "La nota de finalización es requerida" }, { status: 400 });
-  if (!files.length) {
-    return NextResponse.json({ error: "Debes adjuntar al menos una evidencia de finalización" }, { status: 400 });
-  }
 
   const wo = await prisma.workOrder.findFirst({
     where: { id: ctx.params.id, tenantId },
@@ -97,6 +94,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     },
   });
   if (!wo) return NextResponse.json({ error: "OT no encontrada" }, { status: 404 });
+  const isFinishUpdate = Boolean(wo.finishedAt);
 
   if (role !== Role.ADMIN && wo.assignedToId !== userId) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
@@ -110,7 +108,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const quickSolvedInPreCheck = latestQuickVerification?.result === "CONFIRMADA";
 
   // Validación de formularios requeridos para finalizar
-  if (cfg?.finishRequiresForm) {
+  if (!isFinishUpdate && cfg?.finishRequiresForm) {
     if (cfg.formKind === "CORRECTIVE" && !wo.correctiveReport && !quickSolvedInPreCheck) {
       return NextResponse.json({ error: "Debes completar el Formato Correctivo antes de finalizar." }, { status: 400 });
     }
@@ -125,7 +123,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     }
   }
 
-  if (wo.case.type === CaseType.CORRECTIVO && !createPreventive) {
+  if (!isFinishUpdate && wo.case.type === CaseType.CORRECTIVO && !createPreventive) {
     const lastPrev = await prisma.workOrder.findFirst({
       where: {
         tenantId,
@@ -171,6 +169,49 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const splitGroupKey = typeof createdMeta?.splitGroupKey === "string" ? createdMeta.splitGroupKey : null;
 
   await prisma.$transaction(async (tx) => {
+    if (isFinishUpdate) {
+      const step = await tx.workOrderStep.create({
+        data: { workOrderId: wo.id, stepType: "FIN_ACTUALIZACION", notes },
+      });
+
+      if (relPaths.length > 0) {
+        await tx.workOrderMedia.createMany({
+          data: relPaths.map((filePath) => ({
+            workOrderStepId: step.id,
+            kind: MediaKind.FOTO_FIN,
+            filePath,
+          })),
+        });
+      }
+
+      await tx.caseEvent.create({
+        data: {
+          caseId: wo.caseId,
+          type: CaseEventType.COMMENT,
+          message:
+            relPaths.length > 0
+              ? "Se actualizó nota y evidencias de finalización de OT."
+              : "Se actualizó nota de finalización de OT.",
+          meta: { workOrderId: wo.id, by: userId, updatedAfterFinish: true },
+        },
+      });
+
+      await tx.busLifecycleEvent.create({
+        data: {
+          busId: wo.case.busId,
+          caseId: wo.caseId,
+          workOrderId: wo.id,
+          eventType: "WO_FINISH_UPDATED",
+          summary:
+            relPaths.length > 0
+              ? "Finalización OT actualizada con evidencia"
+              : "Nota de finalización OT actualizada",
+        },
+      });
+
+      return;
+    }
+
     let siblingCaseIds: string[] = [];
     if (splitGroupKey) {
       const siblingCreatedEvents = await tx.caseEvent.findMany({
@@ -456,14 +497,16 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     timeout: 30_000,
   });
 
-  await notifyTenantUsers({
-    tenantId,
-    roles: [Role.ADMIN, Role.BACKOFFICE],
-    type: NotificationType.WO_FINISHED,
-    title: needsCoordinatorValidation ? "OT en validación de acta" : "OT finalizada",
-    body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
-    meta: { workOrderId: wo.id, caseId: wo.caseId },
-  });
+  if (!isFinishUpdate) {
+    await notifyTenantUsers({
+      tenantId,
+      roles: [Role.ADMIN, Role.BACKOFFICE],
+      type: NotificationType.WO_FINISHED,
+      title: needsCoordinatorValidation ? "OT en validación de acta" : "OT finalizada",
+      body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
+      meta: { workOrderId: wo.id, caseId: wo.caseId },
+    });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, updated: isFinishUpdate });
 }

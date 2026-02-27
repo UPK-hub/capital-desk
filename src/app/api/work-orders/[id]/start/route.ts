@@ -155,6 +155,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     },
   });
   if (!wo) return NextResponse.json({ error: "OT no encontrada" }, { status: 404 });
+  const isStartUpdate = Boolean(wo.startedAt);
 
   // FIX: autorización correcta según schema
   if (role !== Role.ADMIN && wo.assignedToId !== userId) {
@@ -292,7 +293,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     }
 
     const step = await tx.workOrderStep.create({
-      data: { workOrderId: wo.id, stepType: "INICIO", notes },
+      data: { workOrderId: wo.id, stepType: isStartUpdate ? "INICIO_ACTUALIZACION" : "INICIO", notes },
     });
 
     if (relPath) {
@@ -301,34 +302,47 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       });
     }
 
-    await tx.workOrder.update({
-      where: { id: wo.id },
-      data: { status: WorkOrderStatus.EN_CAMPO, startedAt: wo.startedAt ?? new Date() },
-    });
+    if (!isStartUpdate) {
+      await tx.workOrder.update({
+        where: { id: wo.id },
+        data: { status: WorkOrderStatus.EN_CAMPO, startedAt: new Date() },
+      });
 
-    await tx.case.update({
-      where: { id: wo.caseId },
-      data: { status: CaseStatus.EN_EJECUCION },
-    });
+      await tx.case.update({
+        where: { id: wo.caseId },
+        data: { status: CaseStatus.EN_EJECUCION },
+      });
 
-    await tx.caseEvent.create({
-      data: {
-        caseId: wo.caseId,
-        type: CaseEventType.STATUS_CHANGE,
-        message: "OT iniciada",
-        meta: {
-          workOrderId: wo.id,
-          by: userId,
-          quickVerification: quickVerification
-            ? {
-                ...quickVerification,
-                required: requiresQuickVerification,
-                evidence: quickEvidence,
-              }
-            : null,
+      await tx.caseEvent.create({
+        data: {
+          caseId: wo.caseId,
+          type: CaseEventType.STATUS_CHANGE,
+          message: "OT iniciada",
+          meta: {
+            workOrderId: wo.id,
+            by: userId,
+            quickVerification: quickVerification
+              ? {
+                  ...quickVerification,
+                  required: requiresQuickVerification,
+                  evidence: quickEvidence,
+                }
+              : null,
+          },
         },
-      },
-    });
+      });
+    } else {
+      await tx.caseEvent.create({
+        data: {
+          caseId: wo.caseId,
+          type: CaseEventType.COMMENT,
+          message: relPath
+            ? "Se actualizó evidencia y nota de inicio de OT."
+            : "Se actualizó nota de inicio de OT.",
+          meta: { workOrderId: wo.id, by: userId },
+        },
+      });
+    }
 
     if (quickVerification && sourceNovedadCase) {
       await tx.caseEvent.create({
@@ -357,22 +371,30 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         busId: wo.case.busId,
         caseId: wo.caseId,
         workOrderId: wo.id,
-        eventType: "WO_STARTED",
-        summary: relPath ? "OT iniciada con evidencia" : "OT iniciada",
+        eventType: isStartUpdate ? "WO_START_UPDATED" : "WO_STARTED",
+        summary: isStartUpdate
+          ? relPath
+            ? "Inicio OT actualizado con evidencia"
+            : "Nota de inicio OT actualizada"
+          : relPath
+          ? "OT iniciada con evidencia"
+          : "OT iniciada",
         occurredAt: new Date(),
       },
     });
   });
 
-  await notifyTenantUsers({
-    tenantId,
-    roles: [Role.ADMIN, Role.BACKOFFICE],
-    type: NotificationType.WO_STARTED,
-    title: "OT iniciada",
-    body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
-    href: `/work-orders/${wo.id}`,
-    meta: { workOrderId: wo.id, caseId: wo.caseId },
-  });
+  if (!isStartUpdate) {
+    await notifyTenantUsers({
+      tenantId,
+      roles: [Role.ADMIN, Role.BACKOFFICE],
+      type: NotificationType.WO_STARTED,
+      title: "OT iniciada",
+      body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
+      href: `/work-orders/${wo.id}`,
+      meta: { workOrderId: wo.id, caseId: wo.caseId },
+    });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, updated: isStartUpdate });
 }

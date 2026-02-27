@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseType, Role, WorkOrderStatus } from "@prisma/client";
+import { readUploadBinary, saveGeneratedUpload } from "@/lib/uploads";
 import {
   buildRenewalPlaceholders,
   generateRenewalActaDocxBuffer,
@@ -73,10 +74,32 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     equipmentUpdates,
   });
 
-  const docx = await generateRenewalActaDocxBuffer(templatePath, placeholders);
   const ticketNo = safeToken(String(report.ticketNumber ?? wo.workOrderNo ?? workOrderId), "OT");
   const busToken = safeToken(report.busCode ?? wo.case.bus.code, "BUS");
   const fileName = `ACTA-RENOVACION-${busToken}-${ticketNo}.docx`;
+  const cachedRelPath = `work-orders/${wo.id}/generated/${fileName}`;
+  const regenerate = String(new URL(req.url).searchParams.get("regenerate") ?? "").toLowerCase() === "true";
+
+  if (!regenerate) {
+    const cached = await readUploadBinary(cachedRelPath);
+    if (cached) {
+      return new Response(cached.buffer, {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="${fileName}"`,
+          "X-Document-Source": `cached-${cached.source}`,
+        },
+      });
+    }
+  }
+
+  const docx = await generateRenewalActaDocxBuffer(templatePath, placeholders);
+  await saveGeneratedUpload(cachedRelPath, docx, {
+    originalName: fileName,
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
 
   return new Response(Buffer.from(docx), {
     status: 200,
@@ -84,6 +107,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "Content-Disposition": `attachment; filename="${fileName}"`,
+      "X-Document-Source": "generated",
     },
   });
 }

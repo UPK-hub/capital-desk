@@ -7,9 +7,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role, WorkOrderStatus } from "@prisma/client";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import fs from "node:fs/promises";
 import path from "node:path";
-import { resolveUploadPath } from "@/lib/uploads";
+import { readUploadBinary } from "@/lib/uploads";
 
 type MediaInfo = { kind: string; filePath: string };
 
@@ -300,8 +299,8 @@ function renderRenewal(
 
 async function readImageBytes(filePath: string) {
   if (!isImageFile(filePath)) return null;
-  const abs = resolveUploadPath(filePath);
-  return fs.readFile(abs);
+  const upload = await readUploadBinary(filePath);
+  return upload?.buffer ?? null;
 }
 
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {

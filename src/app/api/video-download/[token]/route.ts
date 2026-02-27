@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUploadsRoot, resolveUploadPath } from "@/lib/uploads";
+import { getUploadBackup, getUploadsRoot, normalizeUploadRelPath, resolveUploadPath } from "@/lib/uploads";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,9 +18,12 @@ export async function GET(_req: NextRequest, ctx: { params: { token: string } })
 
   if (!record) return new Response("Invalid or expired token", { status: 404 });
 
+  const relPath = normalizeUploadRelPath(record.attachment.filePath);
+  if (!relPath) return new Response("Not found", { status: 404 });
+
   let filePath = "";
   try {
-    filePath = resolveUploadPath(record.attachment.filePath);
+    filePath = resolveUploadPath(relPath);
   } catch {
     return new Response("Invalid path", { status: 400 });
   }
@@ -29,7 +32,21 @@ export async function GET(_req: NextRequest, ctx: { params: { token: string } })
     return new Response("Invalid path", { status: 400 });
   }
   if (!fs.existsSync(filePath)) {
-    return new Response("Not found", { status: 404 });
+    const backup = await getUploadBackup(relPath);
+    if (!backup) return new Response("Not found", { status: 404 });
+
+    const content = Buffer.from(backup.content);
+    const filename = record.attachment.originalName || backup.originalName || "video";
+    const mimeType = record.attachment.mimeType || backup.mimeType || "application/octet-stream";
+
+    return new Response(content, {
+      status: 200,
+      headers: {
+        "Content-Type": mimeType,
+        "Content-Length": String(backup.sizeBytes || content.length),
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
   }
 
   const stream = fs.createReadStream(filePath);

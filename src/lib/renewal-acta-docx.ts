@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
-import { resolveUploadPath } from "@/lib/uploads";
+import { readUploadBinary } from "@/lib/uploads";
 
 type RenewalEqRow = {
   type?: string | null;
@@ -290,19 +290,17 @@ export async function generateRenewalActaDocxBuffer(
 
   for (const field of imageFields) {
     const relPath = placeholders.imagePlaceholders[field];
-    const absPath = resolveUploadPath(relPath);
-    let fileBuffer: Buffer | null = null;
-    try {
-      fileBuffer = await fs.readFile(absPath);
-    } catch {
-      fileBuffer = null;
-    }
+    const upload = await readUploadBinary(relPath);
+    const fileBuffer = upload?.buffer ?? null;
     if (!fileBuffer) {
       documentXml = replaceToken(documentXml, field, "");
       continue;
     }
 
-    const ext = normalizeImageExt(path.extname(absPath));
+    const ext =
+      normalizeImageExt(path.extname(upload?.fileName || relPath)) ||
+      normalizeImageExt(path.extname(relPath)) ||
+      extensionFromMime(upload?.mimeType);
     const contentType = IMAGE_CONTENT_TYPE_BY_EXT[ext];
     if (!contentType) {
       documentXml = replaceToken(documentXml, field, "");
@@ -442,6 +440,16 @@ const IMAGE_CONTENT_TYPE_BY_EXT: Record<string, string> = {
 
 function normalizeImageExt(extWithDot: string) {
   return extWithDot.replace(/^\./, "").toLowerCase();
+}
+
+function extensionFromMime(mimeType: string | null | undefined) {
+  const value = String(mimeType ?? "").toLowerCase();
+  if (!value) return "";
+  if (value.includes("jpeg")) return "jpg";
+  if (value.includes("png")) return "png";
+  if (value.includes("gif")) return "gif";
+  if (value.includes("webp")) return "webp";
+  return "";
 }
 
 function addImageRelationship(relsXml: string, rid: string, imageTarget: string) {

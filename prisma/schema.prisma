@@ -896,6 +896,21 @@ model WorkOrderMedia {
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
 }
 
+model UploadBackup {
+  id String @id @default(cuid())
+
+  filePath     String @unique
+  originalName String?
+  mimeType     String?
+  sizeBytes    Int
+  content      Bytes
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([createdAt])
+}
+
 enum RemoteVisualReviewStatus {
   DRAFT
   COMPLETED

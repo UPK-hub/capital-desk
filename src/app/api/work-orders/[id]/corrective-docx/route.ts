@@ -9,6 +9,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import JSZip from "jszip";
+import { readUploadBinary, saveGeneratedUpload } from "@/lib/uploads";
 
 function text(v: unknown) {
   return String(v ?? "").trim();
@@ -106,6 +107,28 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const pick = (key: string, fallback = "") => text(templateData[key] ?? fallback);
 
   const busCode = text(report.busCode || wo.case.bus.code);
+  const otToken = safeToken(text(report.workOrderNumber || wo.workOrderNo || workOrderId), "OT");
+  const busToken = safeToken(busCode, "BUS");
+  const filename = `FORMATO-CORRECTIVO-STS-${busToken}-${otToken}.docx`;
+  const cachedRelPath = `work-orders/${wo.id}/generated/${filename}`;
+  const url = new URL(_req.url);
+  const regenerate = String(url.searchParams.get("regenerate") ?? "").toLowerCase() === "true";
+
+  if (!regenerate) {
+    const cached = await readUploadBinary(cachedRelPath);
+    if (cached) {
+      return new Response(cached.buffer, {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "X-Document-Source": `cached-${cached.source}`,
+        },
+      });
+    }
+  }
+
   const workOrderNo = text(
     report.workOrderNumber || (wo.workOrderNo ? `OT-${String(wo.workOrderNo).padStart(3, "0")}` : "")
   );
@@ -176,9 +199,10 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   zip.file("word/document.xml", documentXml);
   const buffer = await zip.generateAsync({ type: "nodebuffer" });
 
-  const busToken = safeToken(busCode, "BUS");
-  const otToken = safeToken(workOrderNo || workOrderId, "OT");
-  const filename = `FORMATO-CORRECTIVO-STS-${busToken}-${otToken}.docx`;
+  await saveGeneratedUpload(cachedRelPath, buffer, {
+    originalName: filename,
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
 
   return new Response(Buffer.from(buffer), {
     status: 200,
@@ -186,6 +210,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-Document-Source": "generated",
     },
   });
 }

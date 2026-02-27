@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { saveUpload } from "@/lib/uploads";
+import { invalidateUploadsByPrefix, saveUpload } from "@/lib/uploads";
 import { CaseEventType, NotificationType, Role } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { findInventoryModelBySerial } from "@/lib/inventory-catalog";
@@ -233,6 +233,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       },
     });
 
+    await invalidateUploadsByPrefix(`work-orders/${wo.id}/generated`);
+
     return NextResponse.json({ ok: true, report });
   }
 
@@ -332,6 +334,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       create: { workOrderId: wo.id, ...normalized },
       update: normalized,
     });
+    await invalidateUploadsByPrefix(`work-orders/${wo.id}/generated`);
     return NextResponse.json({ ok: true, draft: true, report });
   }
 
@@ -402,6 +405,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
     return saved;
   });
+
+  await invalidateUploadsByPrefix(`work-orders/${wo.id}/generated`);
 
   await notifyTenantUsers({
     tenantId,

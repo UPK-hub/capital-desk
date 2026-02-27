@@ -40,6 +40,7 @@ export default function StartWorkOrderCard({
   const defaultStartNote = `Inicio de ${String(watermarkContext?.caseRef ?? "").trim() || "caso"} del ID bus (${String(
     watermarkContext?.busCode ?? ""
   ).trim() || "sin bus"})`;
+  const isUpdateMode = Boolean(startedAt);
   const [notes, setNotes] = useState(defaultStartNote);
   const [photo, setPhoto] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
@@ -239,7 +240,11 @@ export default function StartWorkOrderCard({
         <p className="mt-2 text-sm text-muted-foreground">
           Registra la nota de inicio. La evidencia es opcional.
         </p>
-      ) : null}
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Puedes actualizar la nota y volver a cargar la evidencia de inicio.
+        </p>
+      )}
 
       {error ? (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
@@ -516,7 +521,7 @@ export default function StartWorkOrderCard({
           disabled={disabled || saving || !notes.trim()}
           className="sts-btn-primary text-sm disabled:opacity-60"
         >
-          {saving ? "Guardando..." : "Iniciar"}
+          {saving ? "Guardando..." : isUpdateMode ? "Actualizar inicio" : "Iniciar"}
         </button>
 
         {disabled ? (

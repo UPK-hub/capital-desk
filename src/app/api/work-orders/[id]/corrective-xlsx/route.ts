@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveUploadPath } from "@/lib/uploads";
+import { readUploadBinary } from "@/lib/uploads";
 import { Role } from "@prisma/client";
 import ExcelJS from "exceljs";
 
@@ -129,20 +129,9 @@ async function appendEvidenceImagesSheet(workbook: ExcelJS.Workbook, evidence: E
     const extension = imageExtensionFromPath(relPath);
     if (!extension) continue;
 
-    let absPath = "";
-    try {
-      absPath = resolveUploadPath(relPath);
-      await fs.access(absPath);
-    } catch {
-      continue;
-    }
-
-    let bytes: Uint8Array;
-    try {
-      bytes = await fs.readFile(absPath);
-    } catch {
-      continue;
-    }
+    const upload = await readUploadBinary(relPath);
+    if (!upload) continue;
+    const bytes = upload.buffer;
 
     const ws = ensureSheet();
     const imageId = workbook.addImage({ buffer: Buffer.from(bytes), extension } as any);
