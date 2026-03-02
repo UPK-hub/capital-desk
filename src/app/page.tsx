@@ -4,7 +4,17 @@ import { ModuleCard } from "@/components/ui/module-card";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Role, StsTicketStatus, VideoCaseStatus } from "@prisma/client";
-import { BriefcaseBusiness, CalendarDays, ClipboardList, Eye, Film, ShieldCheck, Truck, Wrench } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  CalendarDays,
+  ClipboardList,
+  Eye,
+  Film,
+  Satellite,
+  ShieldCheck,
+  Truck,
+  Wrench,
+} from "lucide-react";
 import Image from "next/image";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { CAPABILITIES } from "@/lib/capabilities";
@@ -137,6 +147,16 @@ export default async function HomePage() {
       action: "Abrir",
       icon: <ShieldCheck className="h-5 w-5" />,
       tone: "admin" as const,
+    },
+    {
+      key: "telemetry-admin",
+      title: "Telemetría",
+      description: "Mapa satelital y detalle de tramas por bus.",
+      href: "/telemetry",
+      can: isAdmin,
+      action: "Abrir",
+      icon: <Satellite className="h-5 w-5" />,
+      tone: "tm" as const,
     },
     {
       key: "tm-admin",

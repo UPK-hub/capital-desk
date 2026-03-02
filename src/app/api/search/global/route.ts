@@ -195,5 +195,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  if (isAdmin) {
+    results.push({
+      type: "Telemetría",
+      title: "Mapa de telemetría",
+      subtitle: "Tramas por bus y visual satelital",
+      href: "/telemetry",
+    });
+  }
+
   return NextResponse.json({ items: results.slice(0, 20) });
 }

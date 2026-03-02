@@ -137,6 +137,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       capabilities: [CAPABILITIES.TM_READ],
     },
     {
+      label: "Telemetría",
+      href: "/telemetry",
+      icon: "telemetry",
+      section: "reports",
+      color: "var(--color-tm)",
+      roles: [Role.ADMIN],
+    },
+    {
       label: "Administración",
       href: "/admin",
       icon: "settings",

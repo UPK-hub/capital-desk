@@ -1,4 +1,5 @@
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { SmoothScrollProvider } from "@/components/animations/SmoothScrollProvider";

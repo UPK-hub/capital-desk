@@ -13,6 +13,7 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
+  Satellite,
   Settings,
   TrendingUp,
   UserCircle,
@@ -34,6 +35,7 @@ export type SidebarIconKey =
   | "clock"
   | "sts"
   | "tm"
+  | "telemetry"
   | "settings"
   | "admin"
   | "user";
@@ -70,6 +72,8 @@ function iconFor(name: SidebarIconKey) {
       return BarChart3;
     case "tm":
       return TrendingUp;
+    case "telemetry":
+      return Satellite;
     case "settings":
       return Settings;
     case "admin":

@@ -56,35 +56,9 @@ type Totals = {
   avgResolutionMinutes: number;
 };
 
-type TelemetryTotals = {
-  total: number;
-  tramas: number;
-  eventos: number;
-  alarmas: number;
-  p20: number;
-  p60: number;
-};
-
-type TelemetryEventRow = {
-  code: string;
-  label: string;
-  total: number;
-};
-
-type TelemetryAlarmRow = {
-  code: string;
-  label: string;
-  levelCode: string;
-  levelLabel: string;
-  total: number;
-};
-
 type Props = {
   range: { start: string; end: string; rangeDays: number };
   totals: Totals;
-  telemetryTotals: TelemetryTotals;
-  telemetryEvents: TelemetryEventRow[];
-  telemetryAlarms: TelemetryAlarmRow[];
   severityLabels: string[];
   severityCounts: number[];
   componentSeverityRows: ComponentRow[];
@@ -117,9 +91,6 @@ function severityToPriority(severity: string) {
 export default function TmDashboard({
   range,
   totals,
-  telemetryTotals,
-  telemetryEvents,
-  telemetryAlarms,
   severityLabels,
   severityCounts,
   componentSeverityRows,
@@ -233,102 +204,6 @@ export default function TmDashboard({
           <p className="text-xs text-muted-foreground">Tiempos promedio</p>
           <p className="mt-2 text-sm">Respuesta: {totals.avgResponseMinutes} min</p>
           <p className="text-sm">Resolución: {totals.avgResolutionMinutes} min</p>
-        </div>
-      </section>
-
-      <section className="sts-card p-5 space-y-4">
-        <h2 className="text-base font-semibold">Telemetría de tramas (integración)</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-          <div className="sts-card sts-card--interactive p-3">
-            <p className="text-xs text-muted-foreground">Total tramas</p>
-            <p className="mt-2 text-xl font-semibold">{telemetryTotals.total}</p>
-          </div>
-          <div className="sts-card sts-card--interactive p-3">
-            <p className="text-xs text-muted-foreground">Tipo 1</p>
-            <p className="mt-2 text-xl font-semibold">{telemetryTotals.tramas}</p>
-          </div>
-          <div className="sts-card sts-card--interactive p-3">
-            <p className="text-xs text-muted-foreground">P20</p>
-            <p className="mt-2 text-xl font-semibold">{telemetryTotals.p20}</p>
-          </div>
-          <div className="sts-card sts-card--interactive p-3">
-            <p className="text-xs text-muted-foreground">P60</p>
-            <p className="mt-2 text-xl font-semibold">{telemetryTotals.p60}</p>
-          </div>
-          <div className="sts-card sts-card--interactive p-3">
-            <p className="text-xs text-muted-foreground">Tipo 2 (Eventos)</p>
-            <p className="mt-2 text-xl font-semibold">{telemetryTotals.eventos}</p>
-          </div>
-          <div className="sts-card sts-card--interactive p-3">
-            <p className="text-xs text-muted-foreground">Tipo 3 (Alarmas)</p>
-            <p className="mt-2 text-xl font-semibold">{telemetryTotals.alarmas}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="sts-card p-5 space-y-4">
-          <h2 className="text-base font-semibold">Eventos tipo 2</h2>
-          <DataTable>
-            <DataTableHeader>
-              <DataTableRow>
-                <DataTableHead>Código</DataTableHead>
-                <DataTableHead>Evento</DataTableHead>
-                <DataTableHead>Total</DataTableHead>
-              </DataTableRow>
-            </DataTableHeader>
-            <DataTableBody>
-              {telemetryEvents.length === 0 ? (
-                <DataTableRow>
-                  <DataTableCell colSpan={3} className="text-sm text-muted-foreground">
-                    Sin eventos en el rango seleccionado.
-                  </DataTableCell>
-                </DataTableRow>
-              ) : (
-                telemetryEvents.map((row, idx) => (
-                  <DataTableRow key={`${row.code}-${idx}`}>
-                    <DataTableCell>{row.code}</DataTableCell>
-                    <DataTableCell>{row.label}</DataTableCell>
-                    <DataTableCell>{row.total}</DataTableCell>
-                  </DataTableRow>
-                ))
-              )}
-            </DataTableBody>
-          </DataTable>
-        </div>
-
-        <div className="sts-card p-5 space-y-4">
-          <h2 className="text-base font-semibold">Alarmas tipo 3</h2>
-          <DataTable>
-            <DataTableHeader>
-              <DataTableRow>
-                <DataTableHead>Código</DataTableHead>
-                <DataTableHead>Alarma</DataTableHead>
-                <DataTableHead>Nivel</DataTableHead>
-                <DataTableHead>Total</DataTableHead>
-              </DataTableRow>
-            </DataTableHeader>
-            <DataTableBody>
-              {telemetryAlarms.length === 0 ? (
-                <DataTableRow>
-                  <DataTableCell colSpan={4} className="text-sm text-muted-foreground">
-                    Sin alarmas en el rango seleccionado.
-                  </DataTableCell>
-                </DataTableRow>
-              ) : (
-                telemetryAlarms.map((row, idx) => (
-                  <DataTableRow key={`${row.code}-${row.levelCode}-${idx}`}>
-                    <DataTableCell>{row.code}</DataTableCell>
-                    <DataTableCell>{row.label}</DataTableCell>
-                    <DataTableCell>
-                      {row.levelCode} · {row.levelLabel}
-                    </DataTableCell>
-                    <DataTableCell>{row.total}</DataTableCell>
-                  </DataTableRow>
-                ))
-              )}
-            </DataTableBody>
-          </DataTable>
         </div>
       </section>
 
