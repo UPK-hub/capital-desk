@@ -413,6 +413,16 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
     finishDone &&
     !isPendingValidation &&
     wo.correctiveReport?.procedureType === ProcedureType.CAMBIO_COMPONENTE;
+  const startPhotoPath =
+    [...wo.steps]
+      .reverse()
+      .flatMap((step) => [...(step.media ?? [])].reverse())
+      .find((m) => String(m.kind) === "FOTO_INICIO")?.filePath ?? null;
+  const finishPhotoPath =
+    [...wo.steps]
+      .reverse()
+      .flatMap((step) => [...(step.media ?? [])].reverse())
+      .find((m) => String(m.kind) === "FOTO_FIN")?.filePath ?? null;
   const isRenewalFlow = cfg?.formKind === "RENEWAL";
   const renewalActaLabel = "Descargar acta de cambios (plantilla)";
   const onlyStartFlow = !startDone && !finishDone;
@@ -629,6 +639,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     busCode={wo.case.bus.code}
                     caseRef={fmtCaseNo(wo.case.caseNo)}
                     ticketRequestedAt={wo.case.createdAt.toISOString()}
+                    startPhotoPath={startPhotoPath}
                     isCorrectiveFromNovelty={Boolean(noveltyState)}
                     noveltyAutoFill={
                       noveltyState
@@ -789,6 +800,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                   workOrderId={wo.id}
                   disabled={false}
                   startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
+                  startEvidencePath={startPhotoPath}
                   embedded
                   quickVerificationPreset={quickVerificationPreset}
                   watermarkContext={{
@@ -822,6 +834,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                     workOrderId={wo.id}
                     disabled={!startDone || (!finishDone && missingFinishForm)}
                     finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
+                    finishEvidencePath={finishPhotoPath}
                     embedded
                     caseType={wo.case.type}
                     watermarkContext={{
@@ -852,6 +865,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
               workOrderId={wo.id}
               disabled={false}
               startedAt={wo.startedAt ? fmtDate(wo.startedAt) : null}
+              startEvidencePath={startPhotoPath}
               quickVerificationPreset={quickVerificationPreset}
               watermarkContext={{
                 equipmentLabel,
@@ -865,6 +879,7 @@ export default async function WorkOrderDetailPage({ params }: PageProps) {
                 workOrderId={wo.id}
                 disabled={!startDone || (!finishDone && missingFinishForm)}
                 finishedAt={wo.finishedAt ? fmtDate(wo.finishedAt) : null}
+                finishEvidencePath={finishPhotoPath}
                 caseType={wo.case.type}
                 watermarkContext={{
                   equipmentLabel,

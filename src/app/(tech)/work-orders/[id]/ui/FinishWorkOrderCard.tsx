@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
 import { withPhotoWatermarkMany } from "@/lib/photo-watermark-client";
@@ -21,6 +21,7 @@ type Props = {
   workOrderId: string;
   disabled: boolean;
   finishedAt: string | null;
+  finishEvidencePath?: string | null;
   blockingReason: string | null;
   caseType?: "PREVENTIVO" | "CORRECTIVO" | string;
   equipmentOptions?: Array<{ id: string; label: string }>;
@@ -32,6 +33,52 @@ type Props = {
   };
   autoContent?: FinishAutoContent | null;
 };
+
+function normalizeStoredUploadPath(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const marker = "/api/uploads/";
+  const markerIdx = raw.indexOf(marker);
+  if (markerIdx >= 0) {
+    return raw
+      .slice(markerIdx + marker.length)
+      .replace(/^\/+/, "")
+      .replace(/^uploads\//i, "")
+      .replace(/\\/g, "/");
+  }
+  try {
+    const u = new URL(raw);
+    const pathname = String(u.pathname ?? "");
+    const idx = pathname.indexOf(marker);
+    if (idx >= 0) {
+      return pathname
+        .slice(idx + marker.length)
+        .replace(/^\/+/, "")
+        .replace(/^uploads\//i, "")
+        .replace(/\\/g, "/");
+    }
+    return pathname
+      .replace(/^\/+/, "")
+      .replace(/^uploads\//i, "")
+      .replace(/\\/g, "/");
+  } catch {
+    return raw
+      .replace(/^\/+/, "")
+      .replace(/^api\/uploads\//i, "")
+      .replace(/^uploads\//i, "")
+      .replace(/\\/g, "/");
+  }
+}
+
+function toUploadUrl(path: string | null | undefined) {
+  const rel = normalizeStoredUploadPath(path);
+  return rel ? `/api/uploads/${rel}` : "";
+}
+
+function isImageUploadPath(path: string | null | undefined) {
+  const rel = normalizeStoredUploadPath(path).toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(rel);
+}
 
 function formatBogotaDateTime(date: Date) {
   return new Intl.DateTimeFormat("es-CO", {
@@ -94,6 +141,7 @@ export default function FinishWorkOrderCard({
   workOrderId,
   disabled,
   finishedAt,
+  finishEvidencePath = null,
   blockingReason,
   caseType,
   equipmentOptions = [],
@@ -119,6 +167,25 @@ export default function FinishWorkOrderCard({
   const [createCorrective, setCreateCorrective] = useState(false);
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const inputId = useId();
+  const localImagePreviews = useMemo(
+    () =>
+      evidences
+        .filter((file) => String(file.type ?? "").toLowerCase().startsWith("image/"))
+        .map((file) => ({
+          name: file.name,
+          url: URL.createObjectURL(file),
+        })),
+    [evidences]
+  );
+  const persistedFinishPreviewUrl = isImageUploadPath(finishEvidencePath) ? toUploadUrl(finishEvidencePath) : "";
+  const finishPreviewFallback = localImagePreviews.length === 0 ? persistedFinishPreviewUrl : "";
+
+  useEffect(() => {
+    if (!localImagePreviews.length) return;
+    return () => {
+      for (const preview of localImagePreviews) URL.revokeObjectURL(preview.url);
+    };
+  }, [localImagePreviews]);
 
   useEffect(() => {
     if (!autoContent || notesTouched || finishedAt) return;
@@ -349,6 +416,48 @@ export default function FinishWorkOrderCard({
           ) : (
             <p className="text-xs text-muted-foreground">Sin fotos o archivos seleccionados.</p>
           )}
+          {localImagePreviews.length > 0 ? (
+            <div className="rounded-xl border border-border/70 bg-card p-2">
+              <p className="mb-2 text-[11px] font-medium text-muted-foreground">Vista previa nueva</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {localImagePreviews.slice(0, 4).map((preview, idx) => (
+                  <div key={`${preview.name}-${idx}`} className="overflow-hidden rounded-lg border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={preview.url}
+                      alt={`Vista previa evidencia cierre ${idx + 1}`}
+                      className="h-36 w-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+              {localImagePreviews.length > 4 ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  +{localImagePreviews.length - 4} imagen(es) más seleccionadas.
+                </p>
+              ) : null}
+            </div>
+          ) : finishPreviewFallback ? (
+            <div className="rounded-xl border border-border/70 bg-card p-2">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-medium text-muted-foreground">Última evidencia guardada</p>
+                <a
+                  href={finishPreviewFallback}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] font-medium text-primary underline"
+                >
+                  Abrir
+                </a>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={finishPreviewFallback}
+                alt="Vista previa evidencia final"
+                className="h-44 w-full rounded-lg border object-cover"
+              />
+            </div>
+          ) : null}
         </div>
 
         <button
