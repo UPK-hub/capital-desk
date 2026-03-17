@@ -105,6 +105,7 @@ type VideoForm = {
   eventEndAt: string;
 
 cameras: string[];
+  cameraEquipmentIds: string[];
   deliveryMethod: "WINSCP" | "USB" | "ONEDRIVE";
 
   descriptionNovedad: string;
@@ -271,6 +272,7 @@ export default function NewCasePage() {
     eventStartAt: "",
     eventEndAt: "",
     cameras: [],
+  cameraEquipmentIds: [],
     deliveryMethod: "WINSCP",
     descriptionNovedad: "",
     finSolicitud: [],
@@ -928,8 +930,17 @@ export default function NewCasePage() {
               <DateTimeField value={video.eventEndAt} onChange={(v) => setVideo((x) => ({ ...x, eventEndAt: v }))} />
             </Field>
 
-          <Field label="Cámaras solicitadas">
-              <div className="grid grid-cols-4 gap-2">
+       <Field label="Cámaras solicitadas">
+              <BusEquipmentMultiSelect
+                busId={bus?.id ?? null}
+                value={video.cameraEquipmentIds}
+                onChange={(ids) => {
+                  setVideo((x) => ({ ...x, cameraEquipmentIds: ids }));
+                }}
+                filterCategory="CAMARAS"
+                disabled={!bus?.id}
+              />
+            </Field>
                 {["CAM1","CAM2","CAM3","CAM4","CAM5","CAM6","CAM7","CAM8","CAM9","CAM10","CAM11","CAM12","CAM13"].map((cam) => (
                   <label key={cam} className="flex items-center gap-1 text-sm cursor-pointer">
                     <input
