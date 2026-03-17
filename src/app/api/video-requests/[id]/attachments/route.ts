@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
   if (!file) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
 
-  const relPath = await saveUpload(file, video-requests/${requestId});
+  const relPath = await saveUpload(file, `video-requests/${requestId}`);
 
   const created = await prisma.videoAttachment.create({
     data: {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     data: {
       requestId,
       type: VideoRequestEventType.FILE_UPLOADED,
-      message: Archivo cargado (${kind}),
+      message: `Archivo cargado (${kind})`,
       meta: { attachmentId: created.id, filePath: created.filePath },
       actorUserId,
     },
