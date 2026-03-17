@@ -99,11 +99,13 @@ export function BusEquipmentMultiSelect({
   value,
   onChange,
   disabled,
+  filterCategory,
 }: {
   busId: string | null;
   value: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
+  filterCategory?: EquipmentCategory;
 }) {
   const [items, setItems] = React.useState<EquipOption[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -140,19 +142,24 @@ export function BusEquipmentMultiSelect({
     };
   }, [busId]);
 
-  const activeItems = React.useMemo(() => items.filter((x) => x.active), [items]);
+const activeItems = React.useMemo(
+    () => items.filter((x) => x.active),
+    [items]
+  );
 
-  const decoratedItems = React.useMemo<DecoratedEquipment[]>(
+const decoratedItems = React.useMemo<DecoratedEquipment[]>(
     () =>
-      activeItems.map((item) => {
-        const label = buildLabel(item);
-        return {
-          ...item,
-          label,
-          category: categoryFromEquipment(item),
-        };
-      }),
-    [activeItems]
+      activeItems
+        .map((item) => {
+          const label = buildLabel(item);
+          return {
+            ...item,
+            label,
+            category: categoryFromEquipment(item),
+          };
+        })
+        .filter((item) => !filterCategory || item.category === filterCategory),
+    [activeItems, filterCategory]
   );
 
   const groupedFilteredItems = React.useMemo(() => {
