@@ -546,7 +546,7 @@ export default function NewCasePage() {
 
               {/* Prioridad STS unificada con Prioridad */}
 
-              {isRenewalTecnologica ? (
+          {type !== "SOLICITUD_DESCARGA_VIDEO" && (isRenewalTecnologica ? (
                 <Field
                   label="Equipo(s) del bus"
                   hint="En renovación tecnológica se vinculan automáticamente todos los equipos activos del bus."
@@ -584,7 +584,7 @@ export default function NewCasePage() {
                     />
                   )}
                 </Field>
-              )}
+              ))}
             </div>
           </div>
         ) : (
