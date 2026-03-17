@@ -279,7 +279,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: { id: string } })
       if (vdr) {
         await tx.videoRequestEvent.deleteMany({ where: { requestId: vdr.id } });
         await tx.videoAttachment.deleteMany({ where: { requestId: vdr.id } });
-        await tx.videoDownloadToken.deleteMany({ where: { requestId: vdr.id } });
+  await tx.videoDownloadToken.deleteMany({ where: { attachment: { requestId: vdr.id } } });
         await tx.videoDownloadRequest.delete({ where: { id: vdr.id } });
       }
     }
