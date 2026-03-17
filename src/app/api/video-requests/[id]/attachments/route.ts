@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/uploads";
-import { Role, VideoAttachmentKind, VideoDownloadStatus, VideoRequestEventType } from "@prisma/client";
+import { Role, VideoAttachmentKind, VideoRequestEventType } from "@prisma/client";
 import { buildVideoRequestCaseScope, isBackofficeRestricted, isVideosOnlyBackoffice } from "@/lib/access-control";
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
@@ -38,11 +38,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
   if (!file) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
 
-  if (kind === VideoAttachmentKind.VIDEO && request.downloadStatus !== VideoDownloadStatus.DESCARGA_REALIZADA) {
-    return NextResponse.json({ error: "Solo puedes adjuntar video si la descarga fue realizada." }, { status: 400 });
-  }
-
-  const relPath = await saveUpload(file, `video-requests/${requestId}`);
+  const relPath = await saveUpload(file, video-requests/${requestId});
 
   const created = await prisma.videoAttachment.create({
     data: {
@@ -60,7 +56,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     data: {
       requestId,
       type: VideoRequestEventType.FILE_UPLOADED,
-      message: `Archivo cargado (${kind})`,
+      message: Archivo cargado (${kind}),
       meta: { attachmentId: created.id, filePath: created.filePath },
       actorUserId,
     },
