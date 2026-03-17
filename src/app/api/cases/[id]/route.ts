@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     const c = await tx.case.create({
       data: {
         tenantId,
-        caseNo: nums.caseNo!, // requerido
+        caseNo: nums.caseNo!,
         type: cfg.type,
         status: CaseStatus.NUEVO,
         priority: priority ?? 3,
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
       await tx.workOrder.create({
         data: {
           tenantId,
-          workOrderNo: nums.workOrderNo!, // requerido
+          workOrderNo: nums.workOrderNo!,
           caseId: c.id,
         },
       });
@@ -255,4 +255,63 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created);
+}
+
+export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = (session.user as any).role as Role;
+  if (role !== Role.ADMIN) {
+    return NextResponse.json({ error: "Solo administradores pueden eliminar casos" }, { status: 403 });
+  }
+
+  const tenantId = (session.user as any).tenantId as string;
+  const actorId = (session.user as any).id as string;
+  const id = String(ctx.params.id);
+
+  const c = await prisma.case.findFirst({ where: { id, tenantId } });
+  if (!c) return NextResponse.json({ error: "Caso no encontrado" }, { status: 404 });
+
+  await prisma.$transaction(async (tx) => {
+    if (c.type === "SOLICITUD_DESCARGA_VIDEO") {
+      const vdr = await tx.videoDownloadRequest.findFirst({ where: { caseId: id } });
+      if (vdr) {
+        await tx.videoRequestEvent.deleteMany({ where: { requestId: vdr.id } });
+        await tx.videoAttachment.deleteMany({ where: { requestId: vdr.id } });
+        await tx.videoDownloadToken.deleteMany({ where: { requestId: vdr.id } });
+        await tx.videoDownloadRequest.delete({ where: { id: vdr.id } });
+      }
+    }
+    const wo = await tx.workOrder.findFirst({ where: { caseId: id } });
+    if (wo) {
+      await tx.workOrderMedia.deleteMany({ where: { workOrderStep: { workOrderId: wo.id } } });
+      await tx.workOrderStep.deleteMany({ where: { workOrderId: wo.id } });
+      await tx.correctiveReport.deleteMany({ where: { workOrderId: wo.id } });
+      await tx.preventiveReport.deleteMany({ where: { workOrderId: wo.id } });
+      await tx.renewalTechReport.deleteMany({ where: { workOrderId: wo.id } });
+      await tx.interventionReceipt.deleteMany({ where: { workOrderId: wo.id } });
+      await tx.workOrder.delete({ where: { id: wo.id } });
+    }
+    if (c.type !== "SOLICITUD_DESCARGA_VIDEO") {
+      await tx.stsTicketEvent.deleteMany({ where: { ticket: { caseId: id } } });
+      await tx.stsTicket.deleteMany({ where: { caseId: id } });
+    }
+    await tx.caseEquipment.deleteMany({ where: { caseId: id } });
+    await tx.caseEvent.deleteMany({ where: { caseId: id } });
+    await tx.caseChatMessage.deleteMany({ where: { caseId: id } });
+    await tx.case.delete({ where: { id } });
+    await tx.stsAuditLog.create({
+      data: {
+        tenantId,
+        actorId,
+        action: "case.delete",
+        entityType: "Case",
+        entityId: id,
+        meta: { title: c.title, type: c.type },
+      },
+    });
+  });
+
+  return NextResponse.json({ ok: true });
 }
