@@ -941,26 +941,7 @@ export default function NewCasePage() {
                 disabled={!bus?.id}
               />
             </Field>
-                {["CAM1","CAM2","CAM3","CAM4","CAM5","CAM6","CAM7","CAM8","CAM9","CAM10","CAM11","CAM12","CAM13"].map((cam) => (
-                  <label key={cam} className="flex items-center gap-1 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={video.cameras.includes(cam)}
-                      onChange={(e) =>
-                        setVideo((x) => ({
-                          ...x,
-                          cameras: e.target.checked
-                            ? [...x.cameras, cam]
-                            : x.cameras.filter((c) => c !== cam),
-                        }))
-                      }
-                    />
-                    {cam}
-                  </label>
-                ))}
-              </div>
-            </Field>
-
+      
             <Field label="Medio de entrega">
               <Select
                 value={video.deliveryMethod}
