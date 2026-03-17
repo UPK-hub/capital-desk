@@ -203,3 +203,37 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
   return NextResponse.json({ ok: true, ticket: updated });
 }
+
+export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const role = session.user.role as Role;
+  if (role !== Role.ADMIN) {
+    return NextResponse.json({ error: "Solo administradores pueden eliminar tickets" }, { status: 403 });
+  }
+
+  const tenantId = (session.user as any).tenantId as string;
+  const actorId = (session.user as any).id as string;
+  const id = String(ctx.params.id);
+
+  const ticket = await prisma.stsTicket.findFirst({ where: { id, tenantId } });
+  if (!ticket) return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.stsTicketEvent.deleteMany({ where: { ticketId: id } });
+    await tx.stsTicket.delete({ where: { id } });
+    await tx.stsAuditLog.create({
+      data: {
+        tenantId,
+        actorId,
+        action: "sts.ticket.delete",
+        entityType: "StsTicket",
+        entityId: id,
+        meta: { reason: "Eliminado manualmente por administrador" },
+      },
+    });
+  });
+
+  return NextResponse.json({ ok: true });
+}
