@@ -16,6 +16,7 @@ import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { CheckCircle2, FileText } from "lucide-react";
+import DeleteCaseButton from "./ui/DeleteCaseButton";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -788,6 +789,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               >
                 Crear otro caso
               </Link>
+              {role === Role.ADMIN ? (
+                <DeleteCaseButton caseId={c.id} caseTitle={c.title} />
+              ) : null}
             </div>
           </section>
         </div>
