@@ -15,6 +15,7 @@ import CaseCommentsCard from "./ui/CaseCommentsCard";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
+import { CheckCircle2, FileText } from "lucide-react";
 import DeleteCaseButton from "./ui/DeleteCaseButton";
 
 function fmtDate(d: Date) {
