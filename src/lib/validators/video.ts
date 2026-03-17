@@ -42,7 +42,14 @@ export const VideoDownloadRequestSchema = z.object({
   eventStartAt: dateLike.optional(), // -> Date|null
   eventEndAt: dateLike.optional(),   // -> Date|null
 
-  cameras: z.string().trim().optional().nullable(),
+cameras: z
+    .union([z.string(), z.array(z.string()), z.null(), z.undefined()])
+    .transform((v) => {
+      if (Array.isArray(v)) return v.join(", ");
+      return v ?? null;
+    })
+    .optional(),
+  
   deliveryMethod: z.nativeEnum(VideoDeliveryMethod).optional().nullable(),
 
   descriptionNovedad: z.string().trim().optional().nullable(),
