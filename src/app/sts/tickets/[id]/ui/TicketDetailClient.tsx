@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { StsTicketStatus } from "@prisma/client";
 import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 import { Select } from "@/components/Field";
@@ -34,7 +35,8 @@ type SlaInfo = {
   resolutionProgress: number | null;
 };
 
-export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
+export default function TicketDetailClient({ ticketId, userRole }: { ticketId: string; userRole?: string }) {
+  const router = useRouter();
   const [ticket, setTicket] = React.useState<Ticket | null>(null);
   const [sla, setSla] = React.useState<SlaInfo | null>(null);
   const [users, setUsers] = React.useState<UserRow[]>([]);
@@ -44,6 +46,7 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
   const [isResponse, setIsResponse] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
 
@@ -126,8 +129,32 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
     await load();
   }
 
+  async function deleteTicket() {
+    if (!ticket) return;
+    const confirmed = window.confirm(
+      `¿Estás seguro de eliminar el ticket "${ticket.component.name}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+
+    const res = await fetch(`/api/sts/tickets/${ticket.id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    setDeleting(false);
+
+    if (!res.ok) {
+      setError(data?.error ?? "No se pudo eliminar el ticket");
+      return;
+    }
+
+    router.push("/sts/tickets");
+  }
+
   if (loading) return <p className="text-sm text-muted-foreground">Cargando...</p>;
   if (!ticket) return <p className="text-sm text-muted-foreground">Ticket no encontrado.</p>;
+
+  const isAdmin = userRole === "ADMIN";
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -135,7 +162,19 @@ export default function TicketDetailClient({ ticketId }: { ticketId: string }) {
         <div className="sts-card p-5 space-y-2 fade-up">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{ticket.component.name}</h2>
-            <span className="sts-chip">{labelFromMap(ticket.status, stsStatusLabels)}</span>
+            <div className="flex items-center gap-2">
+              <span className="sts-chip">{labelFromMap(ticket.status, stsStatusLabels)}</span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={deleteTicket}
+                  disabled={deleting}
+                  className="rounded-md border border-red-300 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deleting ? "Eliminando..." : "Eliminar ticket"}
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-sm text-muted-foreground">{ticket.description}</p>
           <p className="text-xs text-muted-foreground">
