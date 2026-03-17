@@ -786,9 +786,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               <Link
                 href={`/cases/new`}
                 className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
-              >
-                Crear otro caso
-              <Link
+         <Link
                 href={/cases/new}
                 className="inline-flex w-full items-center justify-center sts-btn-ghost text-sm"
               >
@@ -797,5 +795,4 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               {role === Role.ADMIN ? (
                 <DeleteCaseButton caseId={c.id} caseTitle={c.title} />
               ) : null}
-            </div>
           </section>
