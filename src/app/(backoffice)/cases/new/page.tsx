@@ -104,7 +104,7 @@ type VideoForm = {
   eventStartAt: string;
   eventEndAt: string;
 
-  cameras: string;
+cameras: string[];
   deliveryMethod: "WINSCP" | "USB" | "ONEDRIVE";
 
   descriptionNovedad: string;
@@ -270,7 +270,7 @@ export default function NewCasePage() {
     vehicleId: "",
     eventStartAt: "",
     eventEndAt: "",
-    cameras: "",
+    cameras: [],
     deliveryMethod: "WINSCP",
     descriptionNovedad: "",
     finSolicitud: [],
@@ -928,8 +928,26 @@ export default function NewCasePage() {
               <DateTimeField value={video.eventEndAt} onChange={(v) => setVideo((x) => ({ ...x, eventEndAt: v }))} />
             </Field>
 
-            <Field label="Cámaras solicitadas">
-              <Input value={video.cameras} onChange={(e) => setVideo((x) => ({ ...x, cameras: e.target.value }))} />
+          <Field label="Cámaras solicitadas">
+              <div className="grid grid-cols-4 gap-2">
+                {["CAM1","CAM2","CAM3","CAM4","CAM5","CAM6","CAM7","CAM8","CAM9","CAM10","CAM11","CAM12","CAM13"].map((cam) => (
+                  <label key={cam} className="flex items-center gap-1 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={video.cameras.includes(cam)}
+                      onChange={(e) =>
+                        setVideo((x) => ({
+                          ...x,
+                          cameras: e.target.checked
+                            ? [...x.cameras, cam]
+                            : x.cameras.filter((c) => c !== cam),
+                        }))
+                      }
+                    />
+                    {cam}
+                  </label>
+                ))}
+              </div>
             </Field>
 
             <Field label="Medio de entrega">
