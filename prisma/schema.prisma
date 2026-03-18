@@ -214,6 +214,10 @@ model User {
   // ✅ opcional para permitir "crear usuario" y luego enviar reset por correo
   passwordHash String?
 
+phone          String?
+jobTitle       String?
+document       String?
+
   role           Role
   active         Boolean  @default(true)
   capabilities   String[] @default([])
