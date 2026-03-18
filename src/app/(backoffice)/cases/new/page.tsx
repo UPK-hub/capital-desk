@@ -261,7 +261,7 @@ export default function NewCasePage() {
     requestType: "",
     radicadoTMSA: "",
     radicadoTMSADate: "",
-    radicadoConcesionarioDate: "",
+   radicadoConcesionarioDate: new Date().toISOString().slice(0, 16),
     requesterName: "",
     requesterDocument: "",
     requesterRole: "",
@@ -864,14 +864,6 @@ export default function NewCasePage() {
 
             <Field label="Tipo de requerimiento">
               <Input value={video.requestType} onChange={(e) => setVideo((x) => ({ ...x, requestType: e.target.value }))} />
-            </Field>
-
-            <Field label="Radicado TMSA">
-              <Input value={video.radicadoTMSA} onChange={(e) => setVideo((x) => ({ ...x, radicadoTMSA: e.target.value }))} />
-            </Field>
-
-            <Field label="Fecha radicado TMSA">
-              <DateTimeField value={video.radicadoTMSADate} onChange={(v) => setVideo((x) => ({ ...x, radicadoTMSADate: v }))} />
             </Field>
 
             <Field label="Fecha radicado Concesionario">
