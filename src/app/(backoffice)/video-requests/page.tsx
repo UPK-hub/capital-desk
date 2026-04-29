@@ -14,6 +14,7 @@ import {
   DataTableRow,
 } from "@/components/ui/data-table";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
+import VideoModuleTabs from "./VideoModuleTabs";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -49,7 +50,7 @@ export default async function VideoRequestsPage() {
   }
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.TECHNICIAN) {
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.TECHNICIAN && role !== Role.SUPERVISOR) {
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="sts-card p-6">
@@ -63,6 +64,7 @@ export default async function VideoRequestsPage() {
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const userId = String((session.user as any).id ?? "");
   const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
+  const canCreateRequest = role === Role.ADMIN || role === Role.BACKOFFICE;
 
   const items = await prisma.videoDownloadRequest.findMany({
     where: { case: { tenantId, ...caseScope } },
@@ -81,13 +83,16 @@ export default async function VideoRequestsPage() {
           <div className="space-y-1">
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Gestión de videos</h1>
             <p className="text-sm text-muted-foreground">Solicitudes y estado de descarga.</p>
+            <VideoModuleTabs active="requests" />
           </div>
-          <Link
-            className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm"
-            href="/cases/new?type=SOLICITUD_DESCARGA_VIDEO"
-          >
-            Crear solicitud
-          </Link>
+          {canCreateRequest ? (
+            <Link
+              className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm"
+              href="/cases/new?type=SOLICITUD_DESCARGA_VIDEO"
+            >
+              Crear solicitud
+            </Link>
+          ) : null}
         </div>
       </header>
 

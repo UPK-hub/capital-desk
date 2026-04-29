@@ -168,6 +168,7 @@ model Tenant {
   themeSettings            ThemeSettings?
   inventorySerialCatalog   InventorySerialCatalog[]
   integrationInboundEvents IntegrationInboundEvent[]
+  integrationVideos        IntegrationVideo[]
   busTelemetryStates       BusTelemetryState[]
   remoteVisualReviews      RemoteVisualReview[]
 
@@ -552,6 +553,40 @@ model IntegrationInboundEvent {
   @@index([tenantId, alarmCode, alarmLevelCode, eventAt])
 }
 
+model IntegrationVideo {
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  busId String?
+  bus   Bus?    @relation(fields: [busId], references: [id], onDelete: SetNull)
+
+  busCode   String?
+  source    String  @default("device-backup")
+  registerId String?
+  deviceId   String?
+  vehicleId  String?
+
+  filename     String?
+  originalName String?
+  filePath     String
+  mimeType     String?
+  sizeBytes    Int?
+
+  metadataPath String?
+  metadata     Json?
+  requestMeta  Json?
+
+  receivedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, receivedAt])
+  @@index([tenantId, busId, receivedAt])
+  @@index([tenantId, busCode, receivedAt])
+  @@index([tenantId, deviceId, receivedAt])
+  @@index([tenantId, registerId, receivedAt])
+}
+
 model BusTelemetryState {
   busId String @id
   bus   Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
@@ -644,8 +679,9 @@ model Bus {
   cases          Case[]
   lifecycle      BusLifecycleEvent[]
   telemetryState BusTelemetryState?
-  inboundEvents  IntegrationInboundEvent[]
-  remoteChecks   RemoteVisualReviewBus[]
+  inboundEvents      IntegrationInboundEvent[]
+  integrationVideos  IntegrationVideo[]
+  remoteChecks       RemoteVisualReviewBus[]
 
   @@unique([tenantId, code])
 }

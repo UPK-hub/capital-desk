@@ -27,7 +27,7 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
   }
 
   const role = (session.user as any).role as Role;
-  if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
+  if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN, Role.SUPERVISOR].includes(role)) {
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="sts-card p-6">

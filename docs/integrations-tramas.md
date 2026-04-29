@@ -4,6 +4,9 @@ Base path:
 - `POST /api/integrations/tramas`
 - `POST /api/cron/integrations-tramas-process`
 
+Integracion relacionada:
+- Videos recibidos por dispositivo: `docs/integrations-videos.md`
+
 ## Seguridad
 - Recomendado: configurar `INTEGRATION_INGEST_SECRET` y enviar header `x-integration-secret`.
 - En fallback (sin secreto) solo permite sesión `ADMIN`/`BACKOFFICE`.
