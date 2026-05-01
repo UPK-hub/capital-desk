@@ -52,7 +52,7 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
   const item = await prisma.videoDownloadRequest.findFirst({
     where: { id: requestId, case: { tenantId, ...caseScope } },
     include: {
-      case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true, plate: true } } } },
+case: { select: { id: true, caseNo: true, title: true, description: true, bus: { select: { code: true, plate: true } } } },
       assignedTo: { select: { id: true, name: true, email: true } },
       attachments: { orderBy: { createdAt: "desc" } },
       events: { orderBy: { createdAt: "desc" }, take: 200 },
