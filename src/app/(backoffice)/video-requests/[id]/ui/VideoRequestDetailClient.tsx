@@ -278,9 +278,9 @@ export default function VideoRequestDetailClient({
                 <label className="text-xs text-muted-foreground">Medio de entrega</label>
                 <p className="text-sm">{item.deliveryMethod ?? "-"}</p>
               </div>
-              <div className="sm:col-span-2">
+             <div className="sm:col-span-2">
                 <label className="text-xs text-muted-foreground">Descripcion</label>
-                <p className="text-sm whitespace-pre-wrap">{item.descriptionNovedad ?? "-"}</p>
+                <p className="text-sm whitespace-pre-wrap">{item.case.description ?? item.descriptionNovedad ?? "-"}</p>
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-muted-foreground">Fin solicitud</label>
