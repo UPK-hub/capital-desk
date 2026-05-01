@@ -246,6 +246,38 @@ export default function VideoRequestDetailClient({
                 <label className="text-xs text-muted-foreground">Medio de entrega</label>
                 <p className="text-sm">{item.deliveryMethod ?? "-"}</p>
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Procedencia</label>
+                <p className="text-sm">{item.origin ?? "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Tipo requerimiento</label>
+                <p className="text-sm">{item.requestType ?? "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Radicado TMSA</label>
+                <p className="text-sm">{item.tmsaRadicado ?? "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Fecha radicado concesionario</label>
+                <p className="text-sm">{item.concessionaireFiledAt ? fmtDate(item.concessionaireFiledAt) : "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Fecha evento inicio</label>
+                <p className="text-sm">{item.eventStart ? fmtDate(item.eventStart) : "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Fecha evento fin</label>
+                <p className="text-sm">{item.eventEnd ? fmtDate(item.eventEnd) : "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Camaras solicitadas</label>
+                <p className="text-sm">{item.camerasRequested ?? "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Medio de entrega</label>
+                <p className="text-sm">{item.deliveryMethod ?? "-"}</p>
+              </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-muted-foreground">Descripcion</label>
                 <p className="text-sm whitespace-pre-wrap">{item.descriptionNovedad ?? "-"}</p>
