@@ -36,7 +36,7 @@ type Item = {
   createdAt: string;
   updatedAt: string;
   assignedTo: { id: string; name: string; email: string | null } | null;
-  case: { id: string; caseNo: number | null; title: string; bus: { code: string; plate: string | null } };
+case: { id: string; caseNo: number | null; title: string; description: string | null; bus: { code: string; plate: string | null } };
   attachments: Array<{
     id: string;
     kind: VideoAttachmentKind;
