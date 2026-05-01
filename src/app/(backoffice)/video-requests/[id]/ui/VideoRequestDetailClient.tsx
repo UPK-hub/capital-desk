@@ -20,8 +20,17 @@ type Item = {
   requesterPhone: string | null;
   requesterEmail: string | null;
   requesterEmails: any;
-  vehicleId: string | null;
+ vehicleId: string | null;
   descriptionNovedad: string | null;
+  origin: string | null;
+  requestType: string | null;
+  tmsaRadicado: string | null;
+  tmsaFiledAt: string | null;
+  concessionaireFiledAt: string | null;
+  eventStart: string | null;
+  eventEnd: string | null;
+  camerasRequested: string | null;
+  deliveryMethod: string | null;
   finSolicitud: any;
   observationsTechnician: string | null;
   createdAt: string;
