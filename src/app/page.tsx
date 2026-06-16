@@ -33,15 +33,15 @@ const ROLE_LABELS: Record<string, string> = {
   AUDITOR: "Auditoría",
 };
 
-const TONES: Record<string, { bg: string; fg: string; border: string }> = {
-  backoffice: { bg: "bg-red-100", fg: "text-red-600", border: "hover:border-red-200" },
-  tecnico: { bg: "bg-indigo-100", fg: "text-indigo-600", border: "hover:border-indigo-200" },
-  videos: { bg: "bg-violet-100", fg: "text-violet-600", border: "hover:border-violet-200" },
-  rvr: { bg: "bg-sky-100", fg: "text-sky-600", border: "hover:border-sky-200" },
-  planner: { bg: "bg-cyan-100", fg: "text-cyan-600", border: "hover:border-cyan-200" },
-  sts: { bg: "bg-orange-100", fg: "text-orange-600", border: "hover:border-orange-200" },
-  tm: { bg: "bg-blue-100", fg: "text-blue-600", border: "hover:border-blue-200" },
-  admin: { bg: "bg-indigo-100", fg: "text-indigo-600", border: "hover:border-indigo-200" },
+const TONES: Record<string, { bg: string; fg: string; border: string; button: string }> = {
+  backoffice: { bg: "bg-red-100", fg: "text-red-600", border: "hover:border-red-200", button: "from-[#2f5bc9] to-[#2fa4f4]" },
+  tecnico: { bg: "bg-indigo-100", fg: "text-indigo-600", border: "hover:border-indigo-200", button: "from-[#5963d5] to-[#6f7cf6]" },
+  videos: { bg: "bg-violet-100", fg: "text-violet-600", border: "hover:border-violet-200", button: "from-[#5963d5] to-[#6f7cf6]" },
+  rvr: { bg: "bg-cyan-100", fg: "text-cyan-600", border: "hover:border-cyan-200", button: "from-[#1da4c8] to-[#33c5da]" },
+  planner: { bg: "bg-cyan-100", fg: "text-cyan-600", border: "hover:border-cyan-200", button: "from-[#1da4c8] to-[#33c5da]" },
+  sts: { bg: "bg-orange-100", fg: "text-orange-600", border: "hover:border-orange-200", button: "from-[#f18b5d] to-[#f3a15d]" },
+  tm: { bg: "bg-blue-100", fg: "text-blue-600", border: "hover:border-blue-200", button: "from-[#2f5bc9] to-[#2f8ce8]" },
+  admin: { bg: "bg-indigo-100", fg: "text-indigo-600", border: "hover:border-indigo-200", button: "from-[#5963d5] to-[#6f7cf6]" },
 };
 
 function initials(name?: string | null) {
@@ -135,7 +135,7 @@ export default async function HomePage() {
         </div>
         <div className="text-base font-semibold text-slate-900">{item.title}</div>
         <p className="flex-1 text-sm text-muted-foreground">{item.description}</p>
-        <span className={`mt-1 inline-flex items-center gap-1 text-sm font-medium ${t.fg}`}>
+        <span className={`mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r ${t.button} px-4 py-2.5 text-sm font-medium text-white shadow-sm transition group-hover:brightness-110`}>
           Abrir <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
         </span>
       </Link>
