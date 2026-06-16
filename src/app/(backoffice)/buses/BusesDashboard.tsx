@@ -259,14 +259,20 @@ export default function BusesDashboard() {
                     </div>
                   ) : null}
                 </div>
+                {isPrev ? (
+                  <p className="mb-2 text-[11px] leading-snug text-slate-400">
+                    La barra muestra los preventivos <span className="font-semibold text-slate-600">ejecutados / esperados</span> (1 por mes desde la renovación).{" "}
+                    <span className="font-semibold text-amber-600">Pre-renov.</span> = preventivos hechos antes de la renovación.
+                  </p>
+                ) : null}
                 {isPrev && detailBuses.length > 0 ? (
                   <div className="mb-1 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide text-slate-300">
                     <span className="w-7 shrink-0" />
                     <span className="w-16 shrink-0">Bus</span>
                     <span className="hidden w-[116px] shrink-0 text-center sm:block">Renovación</span>
                     <span className="flex-1">Cumplimiento</span>
-                    <span className="w-12 shrink-0 text-right">Ej./Esp.</span>
-                    <span className="w-16 shrink-0 text-right">Pre</span>
+                    <span className="w-16 shrink-0 text-right">Ejec./Esper.</span>
+                    <span className="w-16 shrink-0 text-right">Pre-renov.</span>
                   </div>
                 ) : null}
                 {detailBuses.length === 0 ? (
@@ -305,7 +311,7 @@ export default function BusesDashboard() {
                           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                             <div className="h-full rounded-full" style={{ width: `${width}%`, backgroundColor: col }} />
                           </div>
-                          <span className="w-12 shrink-0 text-right text-sm font-bold tabular-nums text-slate-900">
+                          <span className="w-16 shrink-0 text-right text-sm font-bold tabular-nums text-slate-900">
                             {isPrev ? (hasExp ? `${v}/${exp}` : v > 0 ? v : "—") : v}
                           </span>
                           {isPrev ? (
@@ -315,7 +321,7 @@ export default function BusesDashboard() {
                                   className="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
                                   title="Preventivos pre renovación tecnológica"
                                 >
-                                  {b.prevPre} pre
+                                  {b.prevPre}
                                 </span>
                               ) : null}
                             </span>
