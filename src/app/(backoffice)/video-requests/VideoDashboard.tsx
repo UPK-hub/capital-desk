@@ -52,7 +52,7 @@ function Donut({ segments, size = 128, thickness = 20 }: { segments: { count: nu
   let acc = 0;
   return (
     <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef2f7" strokeWidth={thickness} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e3ecf9" strokeWidth={thickness} />
       {total > 0 &&
         segments.map((s, i) => {
           if (s.count <= 0) return null;
@@ -96,7 +96,7 @@ function LegendItem({ label, count, total, color, onClick, active }: { label: st
     </>
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className={`flex w-full items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-muted/50 ${active ? "bg-muted/50" : ""}`}>
+    <button type="button" onClick={onClick} className={`flex w-full items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-blue-50 ${active ? "bg-blue-100" : ""}`}>
       {inner}
     </button>
   ) : (
@@ -111,7 +111,7 @@ function HBar({ label, count, max, color }: { label: string; count: number; max:
       <span className="w-36 shrink-0 truncate text-xs text-muted-foreground" title={label}>
         {label}
       </span>
-      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
+      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e3ecf9]">
         <div className="h-full rounded-full" style={{ width: `${width}%`, backgroundColor: color }} />
       </div>
       <span className="w-8 shrink-0 text-right text-xs font-semibold tabular-nums">{count}</span>
@@ -180,7 +180,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
   const chartH = H - padTop - padBottom;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 rounded-2xl border border-[#dce7f5] p-4" style={{ backgroundColor: "#eff5fc" }}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Tablero de videos</h2>
@@ -205,7 +205,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
               <p className="mt-1 text-[28px] font-semibold leading-tight tabular-nums" style={{ color: k.color }}>
                 {k.value}
               </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e3ecf9]">
                 <div className="h-full rounded-full" style={{ width: `${p}%`, backgroundColor: k.color }} />
               </div>
             </>
@@ -216,14 +216,14 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
                 key={k.label}
                 type="button"
                 onClick={() => toggle(k.key as string)}
-                className={`rounded-xl border bg-card p-4 text-left transition hover:bg-muted/30 ${active ? "border-foreground/30 ring-1 ring-border/60" : "border-border/60"}`}
+                className={`rounded-xl border bg-white p-4 text-left transition hover:bg-blue-50 ${active ? "border-blue-400 ring-1 ring-blue-200" : "border-[#dce7f5]"}`}
               >
                 {content}
               </button>
             );
           }
           return (
-            <div key={k.label} className="rounded-xl border border-border/60 bg-card p-4">
+            <div key={k.label} className="rounded-xl border border-[#dce7f5] bg-white p-4">
               {content}
             </div>
           );
@@ -232,7 +232,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
 
       {/* Drill-down */}
       {openDef ? (
-        <div className="rounded-xl border border-border/60 bg-card p-4">
+        <div className="rounded-xl border border-[#dce7f5] bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-semibold">
               Solicitudes · {openDef.label} <span className="text-muted-foreground">({openRows.length})</span>
@@ -246,7 +246,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
           ) : (
             <div className="divide-y divide-border/50">
               {openRows.slice(0, 60).map((r) => (
-                <Link key={r.id} href={`/video-requests/${r.id}`} className="flex items-center justify-between gap-3 rounded px-1 py-2 hover:bg-muted/40">
+                <Link key={r.id} href={`/video-requests/${r.id}`} className="flex items-center justify-between gap-3 rounded px-1 py-2 hover:bg-blue-50">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       #{r.caseNo ?? r.caseId} · {r.busCode}
@@ -266,7 +266,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
 
       {/* Donas */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div className="rounded-xl border border-border/60 bg-card p-4">
+        <div className="rounded-xl border border-[#dce7f5] bg-white p-4">
           <p className="mb-3 text-sm font-semibold">Estado del caso</p>
           <div className="flex items-center gap-4">
             <Donut segments={caseStatus} />
@@ -277,7 +277,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card p-4">
+        <div className="rounded-xl border border-[#dce7f5] bg-white p-4">
           <p className="mb-3 text-sm font-semibold">Estado de descarga</p>
           <div className="flex items-center gap-4">
             <Donut segments={downloadStatus} />
@@ -288,7 +288,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card p-4 md:col-span-2 xl:col-span-1">
+        <div className="rounded-xl border border-[#dce7f5] bg-white p-4 md:col-span-2 xl:col-span-1">
           <p className="mb-3 text-sm font-semibold">Por procedencia</p>
           <div className="flex items-center gap-4">
             <Donut segments={origin} />
@@ -302,7 +302,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
       </div>
 
       {/* Gestión por mes */}
-      <div className="rounded-xl border border-border/60 bg-card p-4">
+      <div className="rounded-xl border border-[#dce7f5] bg-white p-4">
         <p className="text-sm font-semibold">Gestión por mes</p>
         <p className="mb-3 text-xs text-muted-foreground">Solicitudes creadas (últimos 6 meses)</p>
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Solicitudes por mes">
@@ -328,7 +328,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
 
       {/* Top buses + técnicos */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border/60 bg-card p-4">
+        <div className="rounded-xl border border-[#dce7f5] bg-white p-4">
           <p className="mb-3 text-sm font-semibold">Top buses con más solicitudes</p>
           <div className="space-y-2.5">
             {topBuses.length === 0 ? (
@@ -338,7 +338,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
             )}
           </div>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card p-4">
+        <div className="rounded-xl border border-[#dce7f5] bg-white p-4">
           <p className="mb-3 text-sm font-semibold">Carga por técnico</p>
           <div className="space-y-2.5">
             {byTech.length === 0 ? (
