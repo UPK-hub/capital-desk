@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/Field";
+import { Search, LayoutDashboard } from "lucide-react";
+import BusesDashboard from "./BusesDashboard";
 
 type BusRow = {
   id: string;
@@ -21,6 +23,7 @@ export default function BusesPage() {
   const [items, setItems] = useState<BusRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [tab, setTab] = useState<"buscar" | "tablero">("buscar");
 
   useEffect(() => {
     let mounted = true;
@@ -76,6 +79,32 @@ export default function BusesPage() {
         ) : null}
       </header>
 
+      <nav className="flex gap-1 rounded-xl border border-border/60 bg-white p-1 shadow-sm sm:w-fit">
+        {([
+          { id: "buscar", label: "Buscar", Icon: Search },
+          { id: "tablero", label: "Tablero", Icon: LayoutDashboard },
+        ] as const).map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${
+                active ? "bg-[#2563eb] text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <t.Icon className="h-4 w-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {tab === "tablero" ? (
+        <BusesDashboard />
+      ) : (
+      <>
       <section className="rounded-2xl border border-border/60 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-2.5 sm:flex-row">
           <Input
@@ -156,6 +185,8 @@ export default function BusesPage() {
             );
           })}
         </section>
+      )}
+      </>
       )}
     </div>
   );
