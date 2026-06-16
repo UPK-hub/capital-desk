@@ -188,7 +188,6 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
 
               <Select name="type" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.type ?? ""}>
                 <option value="">Tipo (todos)</option>
-                <option value="NOVEDAD">{caseTypeLabels.NOVEDAD}</option>
                 <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
                 <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
                 <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>

@@ -158,6 +158,7 @@ export default function NewCasePage() {
     () =>
       Object.values(CASE_TYPE_REGISTRY).filter((c) => {
         if (c.type === "MEJORA_PRODUCTO") return false;
+        if (c.type === "NOVEDAD") return false;
         if (!isVideosOnlyUser) return true;
         return c.type === "SOLICITUD_DESCARGA_VIDEO";
       }),

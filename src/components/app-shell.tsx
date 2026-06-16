@@ -60,15 +60,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
     },
     {
-      label: "Novedades",
-      href: "/novedades",
-      icon: "case",
-      section: "main",
-      color: "var(--color-backoffice)",
-      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER],
-      hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
-    },
-    {
       label: "Buses",
       href: "/buses",
       icon: "bus",
