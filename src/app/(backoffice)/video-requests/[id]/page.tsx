@@ -54,12 +54,19 @@ export default async function VideoRequestDetailPage({ params }: { params: { id:
     include: {
 case: { select: { id: true, caseNo: true, title: true, description: true, bus: { select: { code: true, plate: true } } } },
       assignedTo: { select: { id: true, name: true, email: true } },
-      attachments: { orderBy: { createdAt: "desc" } },
+      attachments: { where: { active: true }, orderBy: { createdAt: "desc" } },
       events: { orderBy: { createdAt: "desc" }, take: 200 },
     },
   });
 
   if (!item) return notFound();
 
-  return <VideoRequestDetailClient initialItem={item} canManage={canManage} />;
+  return (
+    <VideoRequestDetailClient
+      initialItem={item}
+      canManage={canManage}
+      currentUserId={userId}
+      isAdmin={role === Role.ADMIN}
+    />
+  );
 }

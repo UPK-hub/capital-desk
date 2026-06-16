@@ -42,6 +42,7 @@ case: { id: string; caseNo: number | null; title: string; description: string | 
     kind: VideoAttachmentKind;
     filePath: string;
     originalName: string | null;
+    uploadedById: string | null;
     createdAt: string;
   }>;
   events: Array<{
@@ -54,6 +55,31 @@ case: { id: string; caseNo: number | null; title: string; description: string | 
 
 type Tech = { id: string; name: string; email?: string | null };
 
+type UploadItem = {
+  name: string;
+  size: number;
+  progress: number; // 0-100
+  status: "queued" | "uploading" | "done" | "error";
+  etaSeconds: number | null;
+  error?: string;
+};
+
+function fmtBytes(n: number) {
+  if (!n || n <= 0) return "0 B";
+  const u = ["B", "KB", "MB", "GB"];
+  const i = Math.min(u.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+  return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${u[i]}`;
+}
+
+function fmtEta(s: number | null) {
+  if (s == null || !isFinite(s) || s < 0) return "—";
+  const sec = Math.round(s);
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const r = sec % 60;
+  return `${m}m ${r}s`;
+}
+
 function fmtDate(d: string) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(d));
 }
@@ -65,9 +91,13 @@ function inputCls() {
 export default function VideoRequestDetailClient({
   initialItem,
   canManage = true,
+  currentUserId = "",
+  isAdmin = false,
 }: {
   initialItem: Item;
   canManage?: boolean;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }) {
   const [item, setItem] = React.useState<Item>(initialItem);
   const [saving, setSaving] = React.useState(false);
@@ -79,8 +109,11 @@ export default function VideoRequestDetailClient({
   const [observations, setObservations] = React.useState(item.observationsTechnician ?? "");
   const [assignedToId, setAssignedToId] = React.useState(item.assignedTo?.id ?? "");
 
-  const [file, setFile] = React.useState<File | null>(null);
+  const [files, setFiles] = React.useState<File[]>([]);
   const [fileKind, setFileKind] = React.useState<VideoAttachmentKind>(VideoAttachmentKind.VIDEO);
+  const [uploading, setUploading] = React.useState(false);
+  const [queue, setQueue] = React.useState<UploadItem[]>([]);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!canManage) return;
@@ -128,26 +161,95 @@ export default function VideoRequestDetailClient({
     await refresh();
   }
 
-  async function upload() {
-    if (!file) {
-      setMsg("Selecciona un archivo");
+  function uploadOne(file: File, onProgress: (loaded: number, total: number) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `/api/video-requests/${item.id}/attachments`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          let m = `Error ${xhr.status}`;
+          try {
+            const d = JSON.parse(xhr.responseText);
+            if (d?.error) m = d.error;
+          } catch {
+            /* respuesta no JSON */
+          }
+          reject(new Error(m));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Error de red"));
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", fileKind);
+      xhr.send(form);
+    });
+  }
+
+  async function uploadAll() {
+    if (!files.length) {
+      setMsg("Selecciona al menos un archivo");
       return;
     }
-    setSaving(true);
+    setUploading(true);
     setMsg(null);
-    const form = new FormData();
-    form.append("file", file);
-    form.append("kind", fileKind);
-    const res = await fetch(`/api/video-requests/${item.id}/attachments`, { method: "POST", body: form });
-    const data = await res.json().catch(() => ({}));
-    setSaving(false);
-    if (!res.ok) {
-      setMsg(data?.error ?? "No se pudo subir");
-      return;
+    setQueue(
+      files.map((f) => ({ name: f.name, size: f.size, progress: 0, status: "queued" as const, etaSeconds: null }))
+    );
+
+    let okCount = 0;
+    let errCount = 0;
+    // Subida secuencial (en cola): un archivo a la vez.
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const startedAt = Date.now();
+      setQueue((q) => q.map((it, idx) => (idx === i ? { ...it, status: "uploading" as const } : it)));
+      try {
+        await uploadOne(f, (loaded, total) => {
+          const elapsed = (Date.now() - startedAt) / 1000;
+          const speed = elapsed > 0 ? loaded / elapsed : 0; // bytes/s
+          const eta = speed > 0 ? (total - loaded) / speed : null;
+          const progress = total > 0 ? Math.round((loaded / total) * 100) : 0;
+          setQueue((q) => q.map((it, idx) => (idx === i ? { ...it, progress, etaSeconds: eta } : it)));
+        });
+        okCount += 1;
+        setQueue((q) =>
+          q.map((it, idx) => (idx === i ? { ...it, status: "done" as const, progress: 100, etaSeconds: 0 } : it))
+        );
+      } catch (err: any) {
+        errCount += 1;
+        setQueue((q) =>
+          q.map((it, idx) => (idx === i ? { ...it, status: "error" as const, error: err?.message ?? "Falló" } : it))
+        );
+      }
     }
-    setFile(null);
-    setMsg("Archivo cargado");
+
+    setUploading(false);
+    setFiles([]);
+    setMsg(`Carga finalizada: ${okCount} ok${errCount ? `, ${errCount} con error` : ""}`);
     await refresh();
+  }
+
+  async function removeAttachment(att: { id: string; originalName: string | null; kind: VideoAttachmentKind }) {
+    if (!window.confirm(`¿Eliminar el adjunto "${att.originalName ?? att.kind}"? Desaparecerá de la lista.`)) return;
+    setDeletingId(att.id);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/video-requests/${item.id}/attachments/${att.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data?.error ?? "No se pudo eliminar");
+        return;
+      }
+      setMsg("Adjunto eliminado");
+      await refresh();
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const requesterEmails = Array.isArray(item.requesterEmails)
@@ -382,37 +484,98 @@ export default function VideoRequestDetailClient({
                 <input
                   className={inputCls()}
                   type="file"
-                  disabled={!canManage}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  multiple
+                  disabled={!canManage || uploading}
+                  onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])}
                 />
+                {files.length > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">{files.length} archivo(s) seleccionado(s)</p>
+                ) : null}
               </div>
             </div>
             <div className="mt-3">
               <button
                 type="button"
-                onClick={upload}
-                disabled={saving || !canManage}
+                onClick={uploadAll}
+                disabled={uploading || !canManage || files.length === 0}
                 className="rounded-md border px-4 py-2 text-sm disabled:opacity-60"
               >
-                Subir archivo
+                {uploading ? "Subiendo..." : `Subir archivo${files.length > 1 ? "s" : ""}`}
               </button>
             </div>
+
+            {queue.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {queue.map((u, idx) => (
+                  <div key={`${u.name}-${idx}`} className="rounded border px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium">{u.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{fmtBytes(u.size)}</span>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded bg-zinc-200">
+                      <div
+                        className={`h-full rounded transition-all ${
+                          u.status === "error" ? "bg-red-600" : u.status === "done" ? "bg-green-600" : "bg-blue-600"
+                        }`}
+                        style={{ width: `${u.progress}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>
+                        {u.status === "queued"
+                          ? "En cola"
+                          : u.status === "uploading"
+                          ? `Subiendo ${u.progress}%`
+                          : u.status === "done"
+                          ? "Completado"
+                          : `Error: ${u.error ?? "falló"}`}
+                      </span>
+                      {u.status === "uploading" ? <span>Faltan {fmtEta(u.etaSeconds)}</span> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             <div className="mt-4 space-y-2">
               {item.attachments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sin adjuntos.</p>
               ) : (
-                item.attachments.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium">{a.kind}</p>
-                      <p className="text-xs text-muted-foreground">{a.originalName ?? a.filePath}</p>
+                item.attachments.map((a) => {
+                  const canDelete =
+                    canManage && (isAdmin || (!!a.uploadedById && a.uploadedById === currentUserId));
+                  return (
+                    <div
+                      key={a.id}
+                      className="flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">{a.kind}</p>
+                        <p className="truncate text-xs text-muted-foreground">{a.originalName ?? a.filePath}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <a
+                          className="text-xs underline"
+                          href={`/api/uploads/${a.filePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Descargar
+                        </a>
+                        {canDelete ? (
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(a)}
+                            disabled={deletingId === a.id}
+                            className="text-xs text-red-600 underline disabled:opacity-60"
+                          >
+                            {deletingId === a.id ? "Eliminando..." : "Eliminar"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                    <a className="text-xs underline" href={`/api/uploads/${a.filePath}`} target="_blank" rel="noreferrer">
-                      Descargar
-                    </a>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </section>

@@ -66,7 +66,7 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
     include: {
       case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true, plate: true } } } },
       assignedTo: { select: { id: true, name: true, email: true } },
-      attachments: { orderBy: { createdAt: "desc" } },
+      attachments: { where: { active: true }, orderBy: { createdAt: "desc" } },
       events: { orderBy: { createdAt: "desc" }, take: 200 },
     },
   });
