@@ -259,10 +259,20 @@ export default function BusesDashboard() {
                     </div>
                   ) : null}
                 </div>
+                {isPrev && detailBuses.length > 0 ? (
+                  <div className="mb-1 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide text-slate-300">
+                    <span className="w-7 shrink-0" />
+                    <span className="w-16 shrink-0">Bus</span>
+                    <span className="hidden w-[116px] shrink-0 text-center sm:block">Renovación</span>
+                    <span className="flex-1">Cumplimiento</span>
+                    <span className="w-12 shrink-0 text-right">Ej./Esp.</span>
+                    <span className="w-16 shrink-0 text-right">Pre</span>
+                  </div>
+                ) : null}
                 {detailBuses.length === 0 ? (
                   <p className="text-sm text-slate-400">Sin registros en este período.</p>
                 ) : (
-                  <div className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
+                  <div className="max-h-[440px] space-y-1.5 overflow-y-auto pr-1">
                     {detailBuses.map((b) => {
                       const v = b[selected];
                       const exp = b.expected;
@@ -277,24 +287,39 @@ export default function BusesDashboard() {
                           : "#cbd5e1"
                         : s.color;
                       const width = hasExp ? Math.min(100, (v / exp) * 100) : (v / busMax) * 100;
-                      const sub = isPrev
-                        ? `${b.renov ? "renov. " + b.renov.split("-").reverse().join("/") : "sin renovación"}${b.prevPre ? ` · ${b.prevPre} pre-renov` : ""}`
-                        : b.plate ?? "Sin placa";
                       return (
-                        <div key={b.busId} className="flex items-center gap-2.5">
+                        <div key={b.busId} className="flex items-center gap-2">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#eff4ff] text-[#2563eb]">
                             <BusIcon className="h-3.5 w-3.5" />
                           </span>
-                          <div className="w-28 shrink-0 leading-tight">
+                          <div className="w-16 shrink-0 leading-tight">
                             <p className="truncate text-sm font-semibold text-slate-800">{b.code}</p>
-                            <p className="truncate text-[10px] text-slate-400">{sub}</p>
+                            <p className="truncate text-[10px] text-slate-400">{b.plate ?? "—"}</p>
                           </div>
+                          {isPrev ? (
+                            <span className="hidden w-[116px] shrink-0 items-center justify-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-medium text-slate-500 sm:inline-flex">
+                              <CalendarCheck className="h-3 w-3 shrink-0 text-slate-400" />
+                              {b.renov ? b.renov.split("-").reverse().join("/") : "sin renov."}
+                            </span>
+                          ) : null}
                           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                             <div className="h-full rounded-full" style={{ width: `${width}%`, backgroundColor: col }} />
                           </div>
-                          <span className="w-14 text-right text-sm font-bold tabular-nums text-slate-900">
+                          <span className="w-12 shrink-0 text-right text-sm font-bold tabular-nums text-slate-900">
                             {isPrev ? (hasExp ? `${v}/${exp}` : v > 0 ? v : "—") : v}
                           </span>
+                          {isPrev ? (
+                            <span className="flex w-16 shrink-0 justify-end">
+                              {b.prevPre > 0 ? (
+                                <span
+                                  className="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+                                  title="Preventivos pre renovación tecnológica"
+                                >
+                                  {b.prevPre} pre
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : null}
                         </div>
                       );
                     })}
