@@ -14,7 +14,7 @@ import {
   DataTableRow,
 } from "@/components/ui/data-table";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
-import VideoDashboard from "./VideoDashboard";
+import VideoTabs from "./VideoTabs";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -109,14 +109,29 @@ export default async function VideoRequestsPage({
   const dashRows = await prisma.videoDownloadRequest.findMany({
     where: { case: { tenantId, ...caseScope } },
     select: {
+      id: true,
       status: true,
       downloadStatus: true,
       origin: true,
       createdAt: true,
       assignedTo: { select: { name: true } },
-      case: { select: { bus: { select: { code: true } } } },
+      case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true } } } },
     },
   });
+
+  const dashData = dashRows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    downloadStatus: r.downloadStatus,
+    origin: r.origin,
+    createdAt: r.createdAt.toISOString(),
+    tech: r.assignedTo?.name ?? null,
+    busCode: r.case.bus.code,
+    caseNo: r.case.caseNo,
+    caseId: r.case.id,
+    title: r.case.title,
+  }));
+  const hasFilters = Boolean(q || estado || descarga);
 
   return (
     <div className="mobile-page-shell">
@@ -138,7 +153,7 @@ export default async function VideoRequestsPage({
       </header>
 
       <div className="mobile-page-content max-w-6xl lg:px-6">
-        <VideoDashboard rows={dashRows} />
+        <VideoTabs rows={dashData} initialTab={hasFilters ? "solicitudes" : "tablero"}>
 
         <section className="mobile-section-card mobile-section-card__body">
           <form className="grid gap-3 md:grid-cols-[1fr_180px_200px_auto]" action="/video-requests">
@@ -266,6 +281,7 @@ export default async function VideoRequestsPage({
             )}
           </div>
         </section>
+        </VideoTabs>
       </div>
     </div>
   );
