@@ -14,6 +14,7 @@ import {
   DataTableRow,
 } from "@/components/ui/data-table";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
+import VideoDashboard from "./VideoDashboard";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -104,6 +105,19 @@ export default async function VideoRequestsPage({
     },
   });
 
+  // Datos para el tablero (toda la operación dentro del alcance, sin los filtros de la lista).
+  const dashRows = await prisma.videoDownloadRequest.findMany({
+    where: { case: { tenantId, ...caseScope } },
+    select: {
+      status: true,
+      downloadStatus: true,
+      origin: true,
+      createdAt: true,
+      assignedTo: { select: { name: true } },
+      case: { select: { bus: { select: { code: true } } } },
+    },
+  });
+
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header">
@@ -124,6 +138,8 @@ export default async function VideoRequestsPage({
       </header>
 
       <div className="mobile-page-content max-w-6xl lg:px-6">
+        <VideoDashboard rows={dashRows} />
+
         <section className="mobile-section-card mobile-section-card__body">
           <form className="grid gap-3 md:grid-cols-[1fr_180px_200px_auto]" action="/video-requests">
             <input
