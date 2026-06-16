@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { SmoothScrollProvider } from "@/components/animations/SmoothScrollProvider";
-import { Manrope, Sora } from "next/font/google";
+import { Manrope, Open_Sans } from "next/font/google";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -11,7 +11,7 @@ const manrope = Manrope({
   variable: "--font-sans",
 });
 
-const sora = Sora({
+const openSans = Open_Sans({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${manrope.variable} ${sora.variable}`}>
+      <body className={`${manrope.variable} ${openSans.variable}`}>
         <SmoothScrollProvider>
           <AppShell>{children}</AppShell>
         </SmoothScrollProvider>
