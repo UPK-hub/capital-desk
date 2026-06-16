@@ -34,23 +34,22 @@ export type BusesReport = {
   kpis: { prev: number; corr: number; video: number; ot: number; expected: number; executed: number };
 };
 
-// Preventivos esperados para un bus = 1 por mes desde su renovación hasta el fin del período.
+// Preventivos esperados para un bus: 1 por mes A PARTIR DEL MES SIGUIENTE a su renovación.
+// El preventivo de cada mes vence al final de ese mes, por eso solo contamos meses ya cumplidos
+// (el mes en curso todavía no cuenta como atrasado).
 function expectedForBus(renov: Date | null, year: number, month: number, now: Date): number {
-  const cy = now.getFullYear();
-  const cm = now.getMonth() + 1;
-  const rY = renov ? renov.getFullYear() : -Infinity;
-  const rM = renov ? renov.getMonth() + 1 : 1;
+  const currentIdx = now.getFullYear() * 12 + (now.getMonth() + 1); // mes en curso (aún no vencido)
+  // Primer preventivo: el mes siguiente a la renovación (si no hay fecha, desde enero del año).
+  const firstDue = renov ? renov.getFullYear() * 12 + (renov.getMonth() + 1) + 1 : year * 12 + 1;
 
   if (month >= 1 && month <= 12) {
-    const occurred = year < cy || (year === cy && month <= cm);
-    if (!occurred) return 0;
-    return year > rY || (year === rY && month >= rM) ? 1 : 0;
+    const a = year * 12 + month;
+    return a >= firstDue && a < currentIdx ? 1 : 0;
   }
 
-  const endMonth = year < cy ? 12 : year > cy ? 0 : cm;
-  if (endMonth === 0 || year < rY) return 0;
-  const startMonth = year > rY ? 1 : rM;
-  return Math.max(0, endMonth - startMonth + 1);
+  const last = Math.min(year * 12 + 12, currentIdx - 1);
+  const first = Math.max(firstDue, year * 12 + 1);
+  return Math.max(0, last - first + 1);
 }
 
 export async function buildBusesReport(params: { tenantId: string; year: number; month?: number }): Promise<BusesReport> {

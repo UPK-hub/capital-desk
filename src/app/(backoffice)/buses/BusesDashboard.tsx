@@ -255,13 +255,13 @@ export default function BusesDashboard() {
                       <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "#16a34a" }} />Al día</span>
                       <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "#f59e0b" }} />Atrasado</span>
                       <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "#dc2626" }} />Sin ejecutar</span>
-                      <span className="text-slate-400">· 1 por mes desde renovación</span>
+                      <span className="text-slate-400">· meta: 1 por mes</span>
                     </div>
                   ) : null}
                 </div>
                 {isPrev ? (
                   <p className="mb-2 text-[11px] leading-snug text-slate-400">
-                    La barra muestra los preventivos <span className="font-semibold text-slate-600">ejecutados / esperados</span> (1 por mes desde la renovación).{" "}
+                    La barra muestra los preventivos <span className="font-semibold text-slate-600">ejecutados / esperados</span> (1 por mes, a partir del mes siguiente a la renovación; vence a fin de mes).{" "}
                     <span className="font-semibold text-amber-600">Pre-renov.</span> = preventivos hechos antes de la renovación.
                   </p>
                 ) : null}
