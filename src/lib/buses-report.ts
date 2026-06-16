@@ -17,6 +17,7 @@ export type BusReportRow = {
 export type BusesReport = {
   year: number;
   month: number; // 0 = todos los meses, 1-12 = mes específico
+  expectedPerBus: number; // preventivos esperados por bus en el período (1 por mes)
   months: { label: string; prev: number; corr: number; video: number; ot: number }[];
   buses: BusReportRow[];
   kpis: { prev: number; corr: number; video: number; ot: number };
@@ -36,7 +37,7 @@ export async function buildBusesReport(params: { tenantId: string; year: number;
   const start = new Date(year, 0, 1);
   const end = new Date(year + 1, 0, 1);
 
-  const [cases, wos] = await Promise.all([
+  const [cases, wos, allBuses] = await Promise.all([
     prisma.case.findMany({
       where: {
         tenantId,
@@ -48,6 +49,10 @@ export async function buildBusesReport(params: { tenantId: string; year: number;
     prisma.workOrder.findMany({
       where: { tenantId, createdAt: { gte: start, lt: end } },
       select: { createdAt: true, case: { select: { busId: true, bus: { select: { code: true, plate: true } } } } },
+    }),
+    prisma.bus.findMany({
+      where: { tenantId, NOT: { code: "BUS_ID" } },
+      select: { id: true, code: true, plate: true },
     }),
   ]);
 
@@ -86,13 +91,26 @@ export async function buildBusesReport(params: { tenantId: string; year: number;
     r.ot++;
   }
 
-  const buses = [...map.values()]
-    .map((r) => ({ ...r, total: r.prev + r.corr + r.video + r.ot }))
-    .sort((a, b) => b.total - a.total);
+  // Construimos una fila por CADA bus de la flota (aunque tenga 0), para poder
+  // detectar buses atrasados o sin actividad en el período.
+  const buses: BusReportRow[] = allBuses
+    .map((b) => {
+      const c = map.get(b.id);
+      const prev = c?.prev ?? 0;
+      const corr = c?.corr ?? 0;
+      const video = c?.video ?? 0;
+      const ot = c?.ot ?? 0;
+      return { busId: b.id, code: b.code, plate: b.plate, prev, corr, video, ot, total: prev + corr + video + ot };
+    })
+    .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
   const kpis = buses.reduce(
     (acc, r) => ({ prev: acc.prev + r.prev, corr: acc.corr + r.corr, video: acc.video + r.video, ot: acc.ot + r.ot }),
     { prev: 0, corr: 0, video: 0, ot: 0 }
   );
 
-  return { year, month, months, buses, kpis };
+  // Preventivos esperados por bus = 1 por mes: mes puntual → 1; año en curso → mes actual; años pasados → 12.
+  const cy = new Date().getFullYear();
+  const expectedPerBus = month ? 1 : year < cy ? 12 : year > cy ? 0 : new Date().getMonth() + 1;
+
+  return { year, month, expectedPerBus, months, buses, kpis };
 }

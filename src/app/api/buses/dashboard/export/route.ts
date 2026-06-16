@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   const resumen = [
     { Indicador: "Período", Valor: periodo },
     { Indicador: "Preventivos", Valor: report.kpis.prev },
+    { Indicador: "Preventivos esperados por bus", Valor: report.expectedPerBus },
     { Indicador: "Correctivos", Valor: report.kpis.corr },
     { Indicador: "Solicitudes de video", Valor: report.kpis.video },
     { Indicador: "OTs", Valor: report.kpis.ot },
@@ -44,7 +45,9 @@ export async function GET(req: NextRequest) {
   const porBus = report.buses.map((b) => ({
     Bus: b.code,
     Placa: b.plate ?? "",
-    Preventivos: b.prev,
+    "Prev. ejecutados": b.prev,
+    "Prev. esperados": report.expectedPerBus,
+    "Cumpl. prev. %": report.expectedPerBus ? Math.round(Math.min(100, (b.prev / report.expectedPerBus) * 100)) : 0,
     Correctivos: b.corr,
     "Solicitudes video": b.video,
     OT: b.ot,
