@@ -114,6 +114,7 @@ export default function VideoRequestDetailClient({
   const [uploading, setUploading] = React.useState(false);
   const [queue, setQueue] = React.useState<UploadItem[]>([]);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   React.useEffect(() => {
     if (!canManage) return;
@@ -135,6 +136,30 @@ export default function VideoRequestDetailClient({
     const data = await res.json().catch(() => ({}));
     if (res.ok && data?.item) {
       setItem(data.item);
+    }
+  }
+
+  async function deleteRequest() {
+    if (
+      !window.confirm(
+        "¿Eliminar esta solicitud de video por completo? Se borrarán el caso, los adjuntos (videos) y el historial. Esta acción no se puede deshacer."
+      )
+    )
+      return;
+    setDeleting(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/video-requests/${item.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data?.error ?? "No se pudo eliminar");
+        setDeleting(false);
+        return;
+      }
+      window.location.href = "/video-requests";
+    } catch {
+      setMsg("No se pudo eliminar");
+      setDeleting(false);
     }
   }
 
@@ -276,6 +301,16 @@ export default function VideoRequestDetailClient({
             <Link className="sts-btn-primary text-sm" href={`/cases/${item.case.id}`}>
               Ver caso
             </Link>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={deleteRequest}
+                disabled={deleting}
+                className="inline-flex h-9 items-center justify-center rounded-md border border-red-300 px-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                {deleting ? "Eliminando..." : "Eliminar solicitud"}
+              </button>
+            ) : null}
           </div>
         </div>
       </header>

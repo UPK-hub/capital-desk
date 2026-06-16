@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Evita el paso "Collecting build traces" (se cuelga en Windows con antivirus).
+  // No es necesario para `next start`; solo sirve para output standalone.
+  outputFileTracing: false,
   eslint: {
     ignoreDuringBuilds: true,
   },

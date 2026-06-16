@@ -302,3 +302,36 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Acción destructiva: solo ADMIN.
+  const role = (session.user as any).role as Role;
+  if (role !== Role.ADMIN) {
+    return NextResponse.json({ error: "Solo un administrador puede eliminar solicitudes." }, { status: 403 });
+  }
+
+  const tenantId = (session.user as any).tenantId as string;
+  const requestId = String(ctx.params.id);
+
+  const request = await prisma.videoDownloadRequest.findFirst({
+    where: { id: requestId, case: { tenantId } },
+    select: { caseId: true },
+  });
+  if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    // Borrar el caso elimina en cascada la solicitud, sus adjuntos, tokens e historial.
+    await prisma.case.delete({ where: { id: request.caseId } });
+  } catch (err) {
+    console.error("VIDEO_REQUEST_DELETE_FAILED", err);
+    return NextResponse.json(
+      { error: "No se pudo eliminar: la solicitud tiene registros vinculados (p. ej. una OT)." },
+      { status: 409 }
+    );
+  }
+
+  return NextResponse.json({ ok: true });
+}
