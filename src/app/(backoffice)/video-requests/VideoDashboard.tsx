@@ -6,7 +6,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Layers, Clock, Play, Check, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
+import { Layers, Clock, Play, Check, X } from "lucide-react";
 
 type Row = {
   id: string;
@@ -128,25 +128,8 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
   const downloadStatus = DOWNLOAD_STATUS.map((d) => ({ ...d, count: countOf("downloadStatus", d.key) }));
   const origin = ORIGIN.map((d) => ({ ...d, count: countOf("origin", d.key) }));
 
-  // Tendencia (vs período anterior si hay rango; si no, mes vs mes anterior)
   const now = new Date();
   const matches = (r: Row, field?: "status", key?: string) => (field ? r[field] === key : true);
-  function trend(field?: "status", key?: string): number {
-    if (from && to && isFinite(fromTime) && isFinite(toTime)) {
-      const len = toTime - fromTime;
-      const prevFrom = fromTime - len - 1;
-      const cur = filtered.filter((r) => matches(r, field, key)).length;
-      const prev = rows.filter((r) => {
-        const t = new Date(r.createdAt).getTime();
-        return t >= prevFrom && t < fromTime && matches(r, field, key);
-      }).length;
-      return prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100);
-    }
-    const cur = rows.filter((r) => mkey(new Date(r.createdAt)) === mkey(now) && matches(r, field, key)).length;
-    const pm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prev = rows.filter((r) => mkey(new Date(r.createdAt)) === mkey(pm) && matches(r, field, key)).length;
-    return prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100);
-  }
   function series6(field?: "status", key?: string): number[] {
     const out: number[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -235,19 +218,16 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => {
           const active = !!k.key && open === k.key;
-          const d = trend(k.sf, k.sk);
-          const TrendIcon = d > 0 ? TrendingUp : d < 0 ? TrendingDown : Minus;
-          const trendColor = d > 0 ? "#15803d" : d < 0 ? "#b91c1c" : "#64748b";
-          const trendBg = d > 0 ? "#dcfce7" : d < 0 ? "#fee2e2" : "#eef2f7";
+          const share = pct(k.value, total);
           const content = (
             <>
               <div className="flex items-center justify-between">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: k.iconBg, color: k.color }}>
                   <k.Icon size={17} />
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ backgroundColor: trendBg, color: trendColor }}>
-                  <TrendIcon size={12} /> {Math.abs(d)}%
-                </span>
+                {k.key ? (
+                  <span className="rounded-full bg-[#eef2f7] px-2 py-0.5 text-[11px] font-medium text-slate-600">{share}% del total</span>
+                ) : null}
               </div>
               <div className="mt-2">
                 <div className="text-[26px] font-semibold leading-none tabular-nums" style={{ color: k.color }}>{k.value}</div>
