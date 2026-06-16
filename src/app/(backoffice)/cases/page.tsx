@@ -66,33 +66,76 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   const ownOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
 
   const q = toStr(searchParams?.q);
-  const status = toStr(searchParams?.status) as CaseStatus | null;
+  const statusParam = toStr(searchParams?.status); // "", "NUEVO", "PROCESO", "RESUELTO"
   const type = toStr(searchParams?.type) as CaseType | null;
   const priority = toStr(searchParams?.priority);
   const priorityInt = priority ? Number(priority) : null;
 
-  const cases = await prisma.case.findMany({
-    where: {
-      tenantId,
-      ...(ownOnly ? ownCasesWhere(userId) : {}),
-      ...(status ? { status } : {}),
-      ...(type ? { type } : {}),
-      ...(priorityInt ? { priority: priorityInt } : {}),
-      ...(q
-        ? {
-            OR: [
-              { bus: { code: { contains: q, mode: "insensitive" } } },
-              { bus: { plate: { contains: q, mode: "insensitive" } } },
-              { title: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: { bus: { select: { code: true, plate: true } } },
-  });
+  const qDigits = q && /^\d+$/.test(q) ? Number(q) : null;
+  const searchWhere = q
+    ? {
+        OR: [
+          { bus: { code: { contains: q, mode: "insensitive" as const } } },
+          { bus: { plate: { contains: q, mode: "insensitive" as const } } },
+          { title: { contains: q, mode: "insensitive" as const } },
+          { description: { contains: q, mode: "insensitive" as const } },
+          ...(qDigits !== null ? [{ caseNo: qDigits }] : []),
+        ],
+      }
+    : {};
+
+  const baseWhere = {
+    tenantId,
+    ...(ownOnly ? ownCasesWhere(userId) : {}),
+    ...(type ? { type } : {}),
+    ...(priorityInt ? { priority: priorityInt } : {}),
+    ...searchWhere,
+  };
+
+  const statusWhere =
+    statusParam === "NUEVO"
+      ? { status: CaseStatus.NUEVO }
+      : statusParam === "PROCESO"
+      ? { status: { in: [CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION] } }
+      : statusParam === "RESUELTO"
+      ? { status: { in: [CaseStatus.RESUELTO, CaseStatus.CERRADO] } }
+      : {};
+
+  const [cases, grouped] = await Promise.all([
+    prisma.case.findMany({
+      where: { ...baseWhere, ...statusWhere },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { bus: { select: { code: true, plate: true } } },
+    }),
+    prisma.case.groupBy({ by: ["status"], where: baseWhere, _count: { _all: true } }),
+  ]);
+
+  const cnt: Record<string, number> = {};
+  for (const g of grouped) cnt[g.status] = g._count._all;
+  const cNuevo = cnt["NUEVO"] ?? 0;
+  const cProceso = (cnt["OT_ASIGNADA"] ?? 0) + (cnt["EN_EJECUCION"] ?? 0);
+  const cResuelto = (cnt["RESUELTO"] ?? 0) + (cnt["CERRADO"] ?? 0);
+  const cAll = grouped.reduce((s, g) => s + g._count._all, 0);
+  const filteredTotal =
+    statusParam === "NUEVO" ? cNuevo : statusParam === "PROCESO" ? cProceso : statusParam === "RESUELTO" ? cResuelto : cAll;
+
+  const chipHref = (st?: string) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (type) p.set("type", type);
+    if (priority) p.set("priority", priority);
+    if (st) p.set("status", st);
+    const s = p.toString();
+    return `/cases${s ? `?${s}` : ""}`;
+  };
+
+  const chips = [
+    { key: "", label: "Todos", count: cAll, dot: "" },
+    { key: "NUEVO", label: "Nuevos", count: cNuevo, dot: "#3b82f6" },
+    { key: "PROCESO", label: "En proceso", count: cProceso, dot: "#f59e0b" },
+    { key: "RESUELTO", label: "Resueltos", count: cResuelto, dot: "#22c55e" },
+  ];
 
   return (
     <div className="mobile-page-shell">
@@ -113,22 +156,35 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
 
       <div className="mobile-page-content max-w-[1600px] lg:px-6">
         <ScrollReveal>
-          <div className="mobile-section-card mobile-section-card__body">
+          <div className="mobile-section-card mobile-section-card__body space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {chips.map((c) => {
+                const active = (statusParam ?? "") === c.key;
+                return (
+                  <Link
+                    key={c.key || "all"}
+                    href={chipHref(c.key || undefined)}
+                    className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+                      active ? "bg-slate-900 text-white" : "border border-border/60 bg-white text-slate-600 hover:bg-muted/40"
+                    }`}
+                  >
+                    {c.dot ? <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.dot }} /> : null}
+                    {c.label}
+                    <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${active ? "bg-white/20" : "bg-muted text-slate-600"}`}>
+                      {c.count}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
             <form className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap" method="get">
+              <input type="hidden" name="status" value={statusParam ?? ""} />
               <input
                 name="q"
-                placeholder="Buscar por busCode o placa"
-                className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[18rem]"
+                placeholder="Buscar por bus, placa, título o # de caso"
+                className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[20rem]"
                 defaultValue={searchParams?.q ?? ""}
               />
-              <Select name="status" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.status ?? ""}>
-                <option value="">Estado (todos)</option>
-                <option value="NUEVO">{caseStatusLabels.NUEVO}</option>
-                <option value="OT_ASIGNADA">{caseStatusLabels.OT_ASIGNADA}</option>
-                <option value="EN_EJECUCION">{caseStatusLabels.EN_EJECUCION}</option>
-                <option value="RESUELTO">{caseStatusLabels.RESUELTO}</option>
-                <option value="CERRADO">{caseStatusLabels.CERRADO}</option>
-              </Select>
 
               <Select name="type" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.type ?? ""}>
                 <option value="">Tipo (todos)</option>
@@ -160,6 +216,10 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             </form>
           </div>
         </ScrollReveal>
+
+        <p className="px-1 pb-1 text-xs text-muted-foreground">
+          Mostrando {cases.length} de {filteredTotal} {filteredTotal === 1 ? "caso" : "casos"}
+        </p>
 
         {cases.length === 0 ? (
           <div className="mobile-section-card mobile-section-card__body text-sm text-muted-foreground">No hay casos.</div>
