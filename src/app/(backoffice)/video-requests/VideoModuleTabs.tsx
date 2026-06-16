@@ -14,12 +14,6 @@ export default function VideoModuleTabs({ active }: { active: "requests" | "rece
       >
         Solicitudes
       </Link>
-      <Link
-        href="/video-requests/received"
-        className={`${base} ${active === "received" ? current : inactive}`}
-      >
-        Recibidos
-      </Link>
     </nav>
   );
 }

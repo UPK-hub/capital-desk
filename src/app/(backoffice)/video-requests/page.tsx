@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { Role, VideoCaseStatus, VideoDownloadStatus } from "@prisma/client";
 import { buildVideoRequestCaseScope } from "@/lib/access-control";
 import { labelFromMap, videoCaseStatusLabels, videoDownloadStatusLabels } from "@/lib/labels";
 import {
@@ -14,7 +14,6 @@ import {
   DataTableRow,
 } from "@/components/ui/data-table";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
-import VideoModuleTabs from "./VideoModuleTabs";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -34,7 +33,11 @@ function mapDownloadStatus(v: string): StatusPillStatus {
   return "en_ejecucion";
 }
 
-export default async function VideoRequestsPage() {
+export default async function VideoRequestsPage({
+  searchParams,
+}: {
+  searchParams?: { q?: string; estado?: string; descarga?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return (
@@ -66,8 +69,33 @@ export default async function VideoRequestsPage() {
   const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
   const canCreateRequest = role === Role.ADMIN || role === Role.BACKOFFICE;
 
+  // Filtros: búsqueda (móvil/teléfono/bus/placa), estado del caso y estado de descarga.
+  const q = (searchParams?.q ?? "").trim();
+  const estadoRaw = searchParams?.estado ?? "";
+  const descargaRaw = searchParams?.descarga ?? "";
+  const estado = (Object.values(VideoCaseStatus) as string[]).includes(estadoRaw)
+    ? (estadoRaw as VideoCaseStatus)
+    : undefined;
+  const descarga = (Object.values(VideoDownloadStatus) as string[]).includes(descargaRaw)
+    ? (descargaRaw as VideoDownloadStatus)
+    : undefined;
+
   const items = await prisma.videoDownloadRequest.findMany({
-    where: { case: { tenantId, ...caseScope } },
+    where: {
+      case: { tenantId, ...caseScope },
+      ...(estado ? { status: estado } : {}),
+      ...(descarga ? { downloadStatus: descarga } : {}),
+      ...(q
+        ? {
+            OR: [
+              { requesterPhone: { contains: q, mode: "insensitive" } },
+              { vehicleId: { contains: q, mode: "insensitive" } },
+              { case: { bus: { code: { contains: q, mode: "insensitive" } } } },
+              { case: { bus: { plate: { contains: q, mode: "insensitive" } } } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
@@ -83,7 +111,6 @@ export default async function VideoRequestsPage() {
           <div className="space-y-1">
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Gestión de videos</h1>
             <p className="text-sm text-muted-foreground">Solicitudes y estado de descarga.</p>
-            <VideoModuleTabs active="requests" />
           </div>
           {canCreateRequest ? (
             <Link
@@ -97,6 +124,39 @@ export default async function VideoRequestsPage() {
       </header>
 
       <div className="mobile-page-content max-w-6xl lg:px-6">
+        <section className="mobile-section-card mobile-section-card__body">
+          <form className="grid gap-3 md:grid-cols-[1fr_180px_200px_auto]" action="/video-requests">
+            <input
+              className="h-10 rounded-md border px-3 text-sm"
+              name="q"
+              defaultValue={q}
+              placeholder="Móvil, teléfono, bus o placa"
+            />
+            <select className="h-10 rounded-md border px-3 text-sm" name="estado" defaultValue={estadoRaw}>
+              <option value="">Estado: todos</option>
+              <option value="EN_ESPERA">{videoCaseStatusLabels.EN_ESPERA}</option>
+              <option value="EN_CURSO">{videoCaseStatusLabels.EN_CURSO}</option>
+              <option value="COMPLETADO">{videoCaseStatusLabels.COMPLETADO}</option>
+            </select>
+            <select className="h-10 rounded-md border px-3 text-sm" name="descarga" defaultValue={descargaRaw}>
+              <option value="">Descarga: todas</option>
+              <option value="PENDIENTE">{videoDownloadStatusLabels.PENDIENTE}</option>
+              <option value="DESCARGA_REALIZADA">{videoDownloadStatusLabels.DESCARGA_REALIZADA}</option>
+              <option value="DESCARGA_FALLIDA">{videoDownloadStatusLabels.DESCARGA_FALLIDA}</option>
+              <option value="BUS_NO_EN_PATIO">{videoDownloadStatusLabels.BUS_NO_EN_PATIO}</option>
+            </select>
+            <div className="flex gap-2">
+              <button className="sts-btn-primary h-10 flex-1 px-4 text-sm md:flex-none">Filtrar</button>
+              <Link
+                className="sts-btn-ghost inline-flex h-10 flex-1 items-center justify-center px-4 text-sm md:flex-none"
+                href="/video-requests"
+              >
+                Limpiar
+              </Link>
+            </div>
+          </form>
+        </section>
+
         <section className="mobile-section-card">
           <div className="mobile-section-card__header flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Solicitudes</h2>
