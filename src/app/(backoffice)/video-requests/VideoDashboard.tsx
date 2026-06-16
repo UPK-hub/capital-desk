@@ -198,7 +198,7 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
   ];
 
   // Geometría del gráfico de área
-  const W = 520, H = 168, L = 34, R = 12, T = 16, B = 26;
+  const W = 1000, H = 200, L = 40, R = 18, T = 28, B = 34;
   const plotW = W - L - R, plotH = H - T - B, baseY = T + plotH;
   const n = areaData.length;
   const maxV = Math.max(1, ...areaData.map((d) => d.count));
@@ -300,20 +300,20 @@ export default function VideoDashboard({ rows }: { rows: Row[] }) {
         {n === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">Sin datos en el rango seleccionado.</p>
         ) : (
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Solicitudes por mes">
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 240 }} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Solicitudes por mes">
             <line x1={L} y1={T} x2={W - R} y2={T} stroke="#eef2f7" strokeWidth="1" />
             <line x1={L} y1={T + plotH / 2} x2={W - R} y2={T + plotH / 2} stroke="#eef2f7" strokeWidth="1" />
             <line x1={L} y1={baseY} x2={W - R} y2={baseY} stroke="#e2e8f0" strokeWidth="1" />
-            <text x={L - 6} y={T + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{maxV}</text>
-            <text x={L - 6} y={T + plotH / 2 + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{Math.round(maxV / 2)}</text>
-            <text x={L - 6} y={baseY + 4} textAnchor="end" fontSize="10" fill="#94a3b8">0</text>
+            <text x={L - 8} y={T + 5} textAnchor="end" fontSize="13" fill="#94a3b8">{maxV}</text>
+            <text x={L - 8} y={T + plotH / 2 + 5} textAnchor="end" fontSize="13" fill="#94a3b8">{Math.round(maxV / 2)}</text>
+            <text x={L - 8} y={baseY + 5} textAnchor="end" fontSize="13" fill="#94a3b8">0</text>
             <path d={areaPath} fill="rgba(37,99,235,0.10)" />
-            {n > 1 ? <polyline points={areaData.map((d, i) => `${xAt(i)},${yAt(d.count)}`).join(" ")} fill="none" stroke="#2563eb" strokeWidth="2.5" /> : null}
+            {n > 1 ? <polyline points={areaData.map((d, i) => `${xAt(i)},${yAt(d.count)}`).join(" ")} fill="none" stroke="#2563eb" strokeWidth="3" strokeLinejoin="round" /> : null}
             {areaData.map((d, i) => (
               <g key={i}>
-                <circle cx={xAt(i)} cy={yAt(d.count)} r="3.5" fill="#fff" stroke="#2563eb" strokeWidth="2" />
-                <text x={xAt(i)} y={yAt(d.count) - 8} textAnchor="middle" fontSize="10" fontWeight="600" fill="#475569">{d.count}</text>
-                <text x={xAt(i)} y={H - 8} textAnchor="middle" fontSize="10" fill="#94a3b8">{d.label}</text>
+                <circle cx={xAt(i)} cy={yAt(d.count)} r="4.5" fill="#fff" stroke="#2563eb" strokeWidth="2.5" />
+                <text x={xAt(i)} y={yAt(d.count) - 12} textAnchor="middle" fontSize="15" fontWeight="600" fill="#475569">{d.count}</text>
+                <text x={xAt(i)} y={H - 10} textAnchor="middle" fontSize="13" fill="#94a3b8">{d.label}</text>
               </g>
             ))}
           </svg>
