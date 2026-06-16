@@ -133,6 +133,12 @@ export default async function VideoRequestsPage({
   }));
   const hasFilters = Boolean(q || estado || descarga);
 
+  const exportParams = new URLSearchParams();
+  if (q) exportParams.set("q", q);
+  if (estado) exportParams.set("estado", estado);
+  if (descarga) exportParams.set("descarga", descarga);
+  const exportHref = `/api/video-requests/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
+
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header">
@@ -141,14 +147,22 @@ export default async function VideoRequestsPage({
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Gestión de videos</h1>
             <p className="text-sm text-muted-foreground">Solicitudes y estado de descarga.</p>
           </div>
-          {canCreateRequest ? (
-            <Link
+          <div className="flex flex-wrap items-center gap-2">
+            <a
               className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm"
-              href="/cases/new?type=SOLICITUD_DESCARGA_VIDEO"
+              href={exportHref}
             >
-              Crear solicitud
-            </Link>
-          ) : null}
+              Exportar Excel
+            </a>
+            {canCreateRequest ? (
+              <Link
+                className="sts-btn-primary inline-flex h-10 items-center justify-center px-4 text-sm"
+                href="/cases/new?type=SOLICITUD_DESCARGA_VIDEO"
+              >
+                Crear solicitud
+              </Link>
+            ) : null}
+          </div>
         </div>
       </header>
 
