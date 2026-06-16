@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarCheck, Wrench, Film, ClipboardList, Download, Bus as BusIcon } from "lucide-react";
+import { CalendarCheck, Wrench, Film, ClipboardList, Download, Bus as BusIcon, ChevronRight, X } from "lucide-react";
 import { Input } from "@/components/Field";
 
 type MonthPoint = { label: string; prev: number; corr: number; video: number; ot: number };
@@ -60,6 +60,7 @@ export default function BusesDashboard() {
   const [data, setData] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [busQ, setBusQ] = useState("");
+  const [selected, setSelected] = useState<"prev" | "corr" | "video" | "ot" | null>(null);
 
   const years = useMemo(() => {
     const y = now.getFullYear();
@@ -84,10 +85,10 @@ export default function BusesDashboard() {
 
   const kpis = data?.kpis ?? { prev: 0, corr: 0, video: 0, ot: 0 };
   const kpiCards = [
-    { label: "Preventivos", value: kpis.prev, color: "#2563eb", bg: "#eff4ff", Icon: CalendarCheck },
-    { label: "Correctivos", value: kpis.corr, color: "#e11d48", bg: "#fff1f4", Icon: Wrench },
-    { label: "Solicitudes de video", value: kpis.video, color: "#8b5cf6", bg: "#f5f1ff", Icon: Film },
-    { label: "OTs", value: kpis.ot, color: "#06b6d4", bg: "#ecfdff", Icon: ClipboardList },
+    { key: "prev" as const, label: "Preventivos", value: kpis.prev, color: "#2563eb", bg: "#eff4ff", Icon: CalendarCheck },
+    { key: "corr" as const, label: "Correctivos", value: kpis.corr, color: "#e11d48", bg: "#fff1f4", Icon: Wrench },
+    { key: "video" as const, label: "Solicitudes de video", value: kpis.video, color: "#8b5cf6", bg: "#f5f1ff", Icon: Film },
+    { key: "ot" as const, label: "OTs", value: kpis.ot, color: "#06b6d4", bg: "#ecfdff", Icon: ClipboardList },
   ];
 
   const months = data?.months ?? [];
@@ -164,23 +165,101 @@ export default function BusesDashboard() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — todas del mismo tamaño y clicables para ver el detalle */}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {kpiCards.map(({ label, value, color, bg, Icon }) => (
-          <div key={label} className="overflow-hidden rounded-2xl border border-[#dce7f5] bg-white shadow-sm">
-            <div className="flex items-center gap-3 p-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: bg }}>
-                <Icon className="h-5 w-5" style={{ color }} />
+        {kpiCards.map(({ key, label, value, color, bg, Icon }) => {
+          const active = selected === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSelected(active ? null : key)}
+              className="group flex h-full flex-col overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:shadow-md focus:outline-none"
+              style={{ borderColor: active ? color : "#dce7f5", boxShadow: active ? `0 0 0 2px ${color}` : undefined }}
+            >
+              <div className="flex items-start justify-between p-4 pb-1.5">
+                <p className="text-3xl font-bold tabular-nums text-slate-900">{loading ? "—" : value}</p>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: bg }}>
+                  <Icon className="h-5 w-5" style={{ color }} />
+                </span>
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-[12px] font-medium text-slate-500">{label}</p>
-                <p className="text-2xl font-bold tabular-nums text-slate-900">{loading ? "—" : value}</p>
+              <p className="flex min-h-[2.5em] items-start px-4 text-[13px] font-medium leading-tight text-slate-500">{label}</p>
+              <div className="mt-auto flex items-center gap-1 px-4 pb-3 pt-2 text-[11px] font-semibold" style={{ color }}>
+                {active ? "Ocultar detalle" : "Ver detalle"}
+                <ChevronRight className={`h-3.5 w-3.5 transition ${active ? "rotate-90" : "group-hover:translate-x-0.5"}`} />
               </div>
-            </div>
-            <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-          </div>
-        ))}
+              <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
+            </button>
+          );
+        })}
       </div>
+
+      {/* Detalle del indicador seleccionado */}
+      {selected && !loading
+        ? (() => {
+            const s = SERIES.find((x) => x.key === selected)!;
+            const total = kpis[selected];
+            const monthMax = Math.max(1, ...months.map((m) => m[selected]));
+            const detailBuses = [...(data?.buses ?? [])].filter((b) => b[selected] > 0).sort((a, b) => b[selected] - a[selected]);
+            const busMax = Math.max(1, ...detailBuses.map((b) => b[selected]));
+            return (
+              <div className="rounded-2xl border-2 bg-white p-4 shadow-sm sm:p-5" style={{ borderColor: s.color }}>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: s.color }} />
+                    <h3 className="font-display text-base font-semibold text-slate-900">Detalle · {s.label}</h3>
+                    <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ backgroundColor: `${s.color}1a`, color: s.color }}>
+                      {total} · {periodLabel}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Cerrar detalle"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Por mes · {year}</p>
+                <div className="mb-5 flex items-end gap-1.5" style={{ height: 76 }}>
+                  {months.map((m, i) => (
+                    <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                      <div className="flex w-full flex-1 items-end justify-center">
+                        <div
+                          className="w-full rounded-t"
+                          style={{ height: `${(m[selected] / monthMax) * 100}%`, backgroundColor: s.color, minHeight: m[selected] ? 3 : 0 }}
+                          title={`${m.label}: ${m[selected]}`}
+                        />
+                      </div>
+                      <span className="text-[9px] text-slate-400">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Buses con más {s.label.toLowerCase()}</p>
+                {detailBuses.length === 0 ? (
+                  <p className="text-sm text-slate-400">Sin registros en este período.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {detailBuses.slice(0, 8).map((b) => (
+                      <div key={b.busId} className="flex items-center gap-3">
+                        <span className="w-20 shrink-0 truncate text-sm font-semibold text-slate-700" title={b.plate ?? ""}>
+                          {b.code}
+                        </span>
+                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-full rounded-full" style={{ width: `${(b[selected] / busMax) * 100}%`, backgroundColor: s.color }} />
+                        </div>
+                        <span className="w-7 text-right text-sm font-bold tabular-nums text-slate-900">{b[selected]}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        : null}
 
       {/* gráfico mensual estilo Power BI */}
       <div className="rounded-2xl border border-[#dce7f5] bg-white p-4 shadow-sm sm:p-5">
@@ -230,6 +309,9 @@ export default function BusesDashboard() {
                         height={Math.max(0, h)}
                         rx={2}
                         fill={s.color}
+                        fillOpacity={selected && selected !== s.key ? 0.18 : 1}
+                        style={{ cursor: "pointer", transition: "fill-opacity .15s" }}
+                        onClick={() => setSelected(selected === s.key ? null : s.key)}
                       >
                         <title>{`${s.label} · ${m.label}: ${v}`}</title>
                       </rect>
