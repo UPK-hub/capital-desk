@@ -27,10 +27,13 @@ export async function GET(req: NextRequest) {
   const report = await buildBusesReport({ tenantId, year, month });
 
   const periodo = month ? `${MESES[month - 1]} ${year}` : `Año ${year}`;
+  const cumplGlobal = report.kpis.expected ? Math.round((report.kpis.executed / report.kpis.expected) * 100) : 0;
   const resumen = [
     { Indicador: "Período", Valor: periodo },
-    { Indicador: "Preventivos", Valor: report.kpis.prev },
-    { Indicador: "Preventivos esperados por bus", Valor: report.expectedPerBus },
+    { Indicador: "Preventivos (total)", Valor: report.kpis.prev },
+    { Indicador: "Preventivos ejecutados (desde renovación)", Valor: report.kpis.executed },
+    { Indicador: "Preventivos esperados (flota)", Valor: report.kpis.expected },
+    { Indicador: "Cumplimiento global %", Valor: cumplGlobal },
     { Indicador: "Correctivos", Valor: report.kpis.corr },
     { Indicador: "Solicitudes de video", Valor: report.kpis.video },
     { Indicador: "OTs", Valor: report.kpis.ot },
@@ -45,9 +48,11 @@ export async function GET(req: NextRequest) {
   const porBus = report.buses.map((b) => ({
     Bus: b.code,
     Placa: b.plate ?? "",
+    Renovación: b.renov ?? "",
     "Prev. ejecutados": b.prev,
-    "Prev. esperados": report.expectedPerBus,
-    "Cumpl. prev. %": report.expectedPerBus ? Math.round(Math.min(100, (b.prev / report.expectedPerBus) * 100)) : 0,
+    "Prev. esperados": b.expected,
+    "Prev. pre-renov": b.prevPre,
+    "Cumpl. %": b.expected ? Math.round(Math.min(100, (b.prev / b.expected) * 100)) : "",
     Correctivos: b.corr,
     "Solicitudes video": b.video,
     OT: b.ot,

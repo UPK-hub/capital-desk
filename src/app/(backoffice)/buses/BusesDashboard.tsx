@@ -10,18 +10,20 @@ type BusRow = {
   code: string;
   plate: string | null;
   prev: number;
+  prevPre: number;
   corr: number;
   video: number;
   ot: number;
+  expected: number;
+  renov: string | null;
   total: number;
 };
 type Report = {
   year: number;
   month: number;
-  expectedPerBus: number;
   months: MonthPoint[];
   buses: BusRow[];
-  kpis: { prev: number; corr: number; video: number; ot: number };
+  kpis: { prev: number; corr: number; video: number; ot: number; expected: number; executed: number };
 };
 
 const SERIES = [
@@ -202,11 +204,10 @@ export default function BusesDashboard() {
             const total = kpis[selected];
             const monthMax = Math.max(1, ...months.map((m) => m[selected]));
             const isPrev = selected === "prev";
-            // Esperado por bus = 1 por mes: año en curso → mes actual; años pasados → 12; mes puntual → 1.
-            const expected = data?.expectedPerBus ?? (month ? 1 : year < now.getFullYear() ? 12 : year > now.getFullYear() ? 0 : now.getMonth() + 1);
             const allRows = data?.buses ?? [];
+            // Preventivos: más atrasados primero (mayor déficit esperado − ejecutado).
             const detailBuses = isPrev
-              ? [...allRows].sort((a, b) => a.prev - b.prev || a.code.localeCompare(b.code))
+              ? [...allRows].sort((a, b) => b.expected - b.prev - (a.expected - a.prev) || a.code.localeCompare(b.code))
               : [...allRows].filter((b) => b[selected] > 0).sort((a, b) => b[selected] - a[selected]);
             const busMax = Math.max(1, ...detailBuses.map((b) => b[selected]));
             return (
@@ -249,12 +250,12 @@ export default function BusesDashboard() {
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                     {isPrev ? "Preventivos ejecutados por bus" : `${s.label} por bus`}
                   </p>
-                  {isPrev && expected > 0 ? (
-                    <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500">
+                  {isPrev ? (
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-slate-500">
                       <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "#16a34a" }} />Al día</span>
                       <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "#f59e0b" }} />Atrasado</span>
                       <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: "#dc2626" }} />Sin ejecutar</span>
-                      <span className="text-slate-400">· esperado {expected}/bus</span>
+                      <span className="text-slate-400">· 1 por mes desde renovación</span>
                     </div>
                   ) : null}
                 </div>
@@ -264,22 +265,35 @@ export default function BusesDashboard() {
                   <div className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
                     {detailBuses.map((b) => {
                       const v = b[selected];
-                      const col = isPrev && expected > 0 ? (v >= expected ? "#16a34a" : v > 0 ? "#f59e0b" : "#dc2626") : s.color;
-                      const width = isPrev && expected > 0 ? Math.min(100, (v / expected) * 100) : (v / busMax) * 100;
+                      const exp = b.expected;
+                      const hasExp = isPrev && exp > 0;
+                      const col = isPrev
+                        ? hasExp
+                          ? v >= exp
+                            ? "#16a34a"
+                            : v > 0
+                            ? "#f59e0b"
+                            : "#dc2626"
+                          : "#cbd5e1"
+                        : s.color;
+                      const width = hasExp ? Math.min(100, (v / exp) * 100) : (v / busMax) * 100;
+                      const sub = isPrev
+                        ? `${b.renov ? "renov. " + b.renov.split("-").reverse().join("/") : "sin renovación"}${b.prevPre ? ` · ${b.prevPre} pre-renov` : ""}`
+                        : b.plate ?? "Sin placa";
                       return (
                         <div key={b.busId} className="flex items-center gap-2.5">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#eff4ff] text-[#2563eb]">
                             <BusIcon className="h-3.5 w-3.5" />
                           </span>
-                          <div className="w-24 shrink-0 leading-tight">
+                          <div className="w-28 shrink-0 leading-tight">
                             <p className="truncate text-sm font-semibold text-slate-800">{b.code}</p>
-                            <p className="truncate text-[10px] text-slate-400">{b.plate ?? "Sin placa"}</p>
+                            <p className="truncate text-[10px] text-slate-400">{sub}</p>
                           </div>
                           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                             <div className="h-full rounded-full" style={{ width: `${width}%`, backgroundColor: col }} />
                           </div>
-                          <span className="w-12 text-right text-sm font-bold tabular-nums text-slate-900">
-                            {isPrev && expected > 0 ? `${v}/${expected}` : v}
+                          <span className="w-14 text-right text-sm font-bold tabular-nums text-slate-900">
+                            {isPrev ? (hasExp ? `${v}/${exp}` : v > 0 ? v : "—") : v}
                           </span>
                         </div>
                       );
@@ -401,7 +415,7 @@ export default function BusesDashboard() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{b.prev}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{b.prev + b.prevPre}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{b.corr}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{b.video}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{b.ot}</td>
