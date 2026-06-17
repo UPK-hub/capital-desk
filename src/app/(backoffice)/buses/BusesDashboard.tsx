@@ -18,10 +18,18 @@ type BusRow = {
   renov: string | null;
   total: number;
 };
+type MonthlyPreventive = {
+  label: string;
+  expected: number;
+  executed: number;
+  pending: number;
+  compliance: number;
+};
 type Report = {
   year: number;
   month: number;
   months: MonthPoint[];
+  monthlyPreventive: MonthlyPreventive[];
   buses: BusRow[];
   kpis: { prev: number; corr: number; video: number; ot: number; expected: number; executed: number };
 };
@@ -400,6 +408,88 @@ export default function BusesDashboard() {
             })}
             <line x1={L} y1={baseY} x2={W - R} y2={baseY} stroke="#cbd5e1" strokeWidth={1} />
           </svg>
+        )}
+      </div>
+
+      {/* Preventivos por mes: esperados vs ejecutados vs pendientes (año completo) */}
+      <div className="rounded-2xl border border-[#dce7f5] bg-white shadow-sm">
+        <div className="flex flex-col gap-1 border-b border-[#eef2f7] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-display text-base font-semibold text-slate-900">
+              Preventivos por mes — esperados vs ejecutados vs pendientes
+            </h3>
+            <p className="text-sm text-slate-500">Año {year} · meta: 1 por mes por bus desde su renovación</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-slate-500">
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "#2563eb" }} />Esperados</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "#16a34a" }} />Ejecutados</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "#dc2626" }} />Pendientes</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="p-6 text-sm text-slate-400">Cargando…</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-2.5">Mes</th>
+                  <th className="px-3 py-2.5 text-right">Esperados</th>
+                  <th className="px-3 py-2.5 text-right">Ejecutados</th>
+                  <th className="px-3 py-2.5 text-right">Pendientes</th>
+                  <th className="px-4 py-2.5">% Cumplimiento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.monthlyPreventive ?? []).map((m, idx) => {
+                  const col = m.compliance >= 100 ? "#16a34a" : m.compliance > 0 ? "#f59e0b" : "#dc2626";
+                  return (
+                    <tr key={m.label} className={idx % 2 ? "bg-[#f8fafc]" : "bg-white"}>
+                      <td className="px-4 py-2.5 font-medium capitalize text-slate-700">{m.label}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{m.expected}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-[#16a34a]">{m.executed}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold" style={{ color: m.pending > 0 ? "#dc2626" : "#94a3b8" }}>
+                        {m.pending}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-slate-100 sm:block">
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${Math.min(100, m.compliance)}%`, backgroundColor: col }}
+                            />
+                          </div>
+                          <span className="w-10 text-right font-bold tabular-nums" style={{ color: col }}>
+                            {m.expected ? `${m.compliance}%` : "—"}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                {(() => {
+                  const mp = data?.monthlyPreventive ?? [];
+                  const exp = mp.reduce((s, m) => s + m.expected, 0);
+                  const exe = mp.reduce((s, m) => s + m.executed, 0);
+                  const pen = mp.reduce((s, m) => s + m.pending, 0);
+                  const cmp = exp ? Math.round((exe / exp) * 100) : 0;
+                  const col = cmp >= 100 ? "#16a34a" : cmp > 0 ? "#f59e0b" : "#dc2626";
+                  return (
+                    <tr className="border-t border-[#eef2f7] font-semibold text-slate-800">
+                      <td className="px-4 py-2.5">Total</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{exp}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-[#16a34a]">{exe}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums" style={{ color: pen > 0 ? "#dc2626" : "#94a3b8" }}>{pen}</td>
+                      <td className="px-4 py-2.5 font-bold tabular-nums" style={{ color: col }}>{exp ? `${cmp}%` : "—"}</td>
+                    </tr>
+                  );
+                })()}
+              </tfoot>
+            </table>
+          </div>
         )}
       </div>
 

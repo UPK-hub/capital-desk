@@ -30,6 +30,15 @@ export type BusesReport = {
   year: number;
   month: number; // 0 = todos los meses, 1-12 = mes específico
   months: { label: string; prev: number; corr: number; video: number; ot: number }[];
+  // Preventivos esperados vs ejecutados vs pendientes para los 12 meses del AÑO
+  // (independiente del filtro de mes). Sirve para el reporte de cumplimiento mensual.
+  monthlyPreventive: {
+    label: string;
+    expected: number;
+    executed: number;
+    pending: number;
+    compliance: number; // % ejecutado/esperado
+  }[];
   buses: BusReportRow[];
   kpis: { prev: number; corr: number; video: number; ot: number; expected: number; executed: number };
 };
@@ -155,5 +164,21 @@ export async function buildBusesReport(params: { tenantId: string; year: number;
     { prev: 0, corr: 0, video: 0, ot: 0, expected: 0, executed: 0 }
   );
 
-  return { year, month, months, buses, kpis };
+  // Reporte mensual de preventivos (12 meses del AÑO, sin importar el filtro de mes):
+  // - expected: suma sobre TODOS los buses de los esperados de ESE mes (1 por mes desde la renovación).
+  // - executed: preventivos creados ese mes en la flota (serie ya calculada en months[m-1].prev).
+  // - pending: max(0, expected - executed).
+  const monthlyPreventive = MONTH_LABELS.map((label, idx) => {
+    const m = idx + 1;
+    const expected = allBuses.reduce(
+      (sum, b) => sum + expectedForBus(renovFor(b.code), year, m, now),
+      0
+    );
+    const executed = months[idx].prev;
+    const pending = Math.max(0, expected - executed);
+    const compliance = expected ? Math.round((executed / expected) * 100) : 0;
+    return { label, expected, executed, pending, compliance };
+  });
+
+  return { year, month, months, monthlyPreventive, buses, kpis };
 }

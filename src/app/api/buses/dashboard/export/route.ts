@@ -58,10 +58,18 @@ export async function GET(req: NextRequest) {
     OT: b.ot,
     Total: b.total,
   }));
+  const preventivosPorMes = report.monthlyPreventive.map((m) => ({
+    Mes: m.label,
+    Esperados: m.expected,
+    Ejecutados: m.executed,
+    Pendientes: m.pending,
+    "Cumplimiento %": m.compliance,
+  }));
 
   const wb = utils.book_new();
   utils.book_append_sheet(wb, utils.json_to_sheet(resumen), "Resumen");
   utils.book_append_sheet(wb, utils.json_to_sheet(porMes), "Por mes");
+  utils.book_append_sheet(wb, utils.json_to_sheet(preventivosPorMes), "Preventivos por mes");
   utils.book_append_sheet(wb, utils.json_to_sheet(porBus.length ? porBus : [{ Bus: "Sin datos" }]), "Por bus");
 
   const buffer = write(wb, { type: "buffer", bookType: "xlsx" });

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType, Role } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { ownCasesWhere } from "@/lib/access-control";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
@@ -70,6 +70,28 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   const type = toStr(searchParams?.type) as CaseType | null;
   const priority = toStr(searchParams?.priority);
   const priorityInt = priority ? Number(priority) : null;
+  const creator = toStr(searchParams?.creator); // userId del creador (CaseEvent CREATED meta.userId)
+
+  // Rango de fechas (createdAt). Formato YYYY-MM-DD; acepta solo "desde", solo "hasta" o ambos.
+  const dateFromStr = toStr(searchParams?.dateFrom);
+  const dateToStr = toStr(searchParams?.dateTo);
+  const dateFromVal = dateFromStr ? new Date(`${dateFromStr}T00:00:00`) : null;
+  const dateToVal = dateToStr ? new Date(`${dateToStr}T23:59:59`) : null;
+  const validFrom = dateFromVal && !Number.isNaN(dateFromVal.getTime()) ? dateFromVal : null;
+  const validTo = dateToVal && !Number.isNaN(dateToVal.getTime()) ? dateToVal : null;
+  const createdAtWhere =
+    validFrom || validTo
+      ? { createdAt: { ...(validFrom ? { gte: validFrom } : {}), ...(validTo ? { lte: validTo } : {}) } }
+      : {};
+
+  // Filtro por usuario creador: casos cuyo evento CREATED tenga ese userId en meta.
+  const creatorWhere = creator
+    ? {
+        events: {
+          some: { type: CaseEventType.CREATED, meta: { path: ["userId"], equals: creator } },
+        },
+      }
+    : {};
 
   // Acepta "1", "001" y también prefijos cosméticos como "OT-12" o "CASO-12"
   // extrayendo solo los dígitos para buscar por # de caso / # de OT.
@@ -94,6 +116,8 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     ...(ownOnly ? ownCasesWhere(userId) : {}),
     ...(type ? { type } : {}),
     ...(priorityInt ? { priority: priorityInt } : {}),
+    ...createdAtWhere,
+    ...creatorWhere,
     ...searchWhere,
   };
 
@@ -106,7 +130,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       ? { status: { in: [CaseStatus.RESUELTO, CaseStatus.CERRADO] } }
       : {};
 
-  const [cases, grouped] = await Promise.all([
+  const [cases, grouped, creatorEvents] = await Promise.all([
     prisma.case.findMany({
       where: { ...baseWhere, ...statusWhere },
       orderBy: { createdAt: "desc" },
@@ -114,7 +138,26 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       include: { bus: { select: { code: true, plate: true } } },
     }),
     prisma.case.groupBy({ by: ["status"], where: baseWhere, _count: { _all: true } }),
+    // Para poblar el filtro "usuario creador": eventos CREATED del tenant -> meta.userId.
+    prisma.caseEvent.findMany({
+      where: { type: CaseEventType.CREATED, case: { tenantId } },
+      select: { meta: true },
+    }),
   ]);
+
+  // Lista de creadores (distinct) -> usuarios activos del tenant, ordenados por nombre.
+  const creatorIds = new Set<string>();
+  for (const ev of creatorEvents) {
+    const uid = (ev.meta as any)?.userId;
+    if (typeof uid === "string" && uid.trim()) creatorIds.add(uid.trim());
+  }
+  const creators = creatorIds.size
+    ? await prisma.user.findMany({
+        where: { tenantId, active: true, id: { in: Array.from(creatorIds) } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   const cnt: Record<string, number> = {};
   for (const g of grouped) cnt[g.status] = g._count._all;
@@ -130,6 +173,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     if (q) p.set("q", q);
     if (type) p.set("type", type);
     if (priority) p.set("priority", priority);
+    if (creator) p.set("creator", creator);
+    if (dateFromStr) p.set("dateFrom", dateFromStr);
+    if (dateToStr) p.set("dateTo", dateToStr);
     if (st) p.set("status", st);
     const s = p.toString();
     return `/cases${s ? `?${s}` : ""}`;
@@ -207,6 +253,36 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                 <option value="4">4</option>
                 <option value="5">5 (Baja)</option>
               </Select>
+
+              <Select name="creator" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.creator ?? ""}>
+                <option value="">Creador (todos)</option>
+                {creators.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </Select>
+
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="hidden sm:inline">Desde</span>
+                <input
+                  type="date"
+                  name="dateFrom"
+                  aria-label="Fecha desde"
+                  className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-auto"
+                  defaultValue={searchParams?.dateFrom ?? ""}
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="hidden sm:inline">Hasta</span>
+                <input
+                  type="date"
+                  name="dateTo"
+                  aria-label="Fecha hasta"
+                  className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-auto"
+                  defaultValue={searchParams?.dateTo ?? ""}
+                />
+              </label>
 
               <div className="flex w-full items-center gap-2 sm:w-auto">
                 <button className="sts-btn-primary h-10 flex-1 px-4 text-sm sm:flex-none">Filtrar</button>
