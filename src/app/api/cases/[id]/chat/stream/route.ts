@@ -61,9 +61,11 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
         });
 
         for (const item of items) {
+          last = item.createdAt;
+          const meta = (item.meta ?? {}) as any;
+          if (meta?.deleted) continue; // no emitir adjuntos eliminados
           const payload = JSON.stringify(item);
           controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-          last = item.createdAt;
         }
 
         await sleep(2000);

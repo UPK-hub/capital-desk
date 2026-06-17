@@ -6,13 +6,22 @@ import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseType, ProcedureType, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { buildCaseAccessWhere } from "@/lib/access-control";
-import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import {
+  caseStatusLabels,
+  caseTypeLabels,
+  labelFromMap,
+  videoDeliveryLabels,
+  videoOriginLabels,
+  workOrderStatusLabels,
+} from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
+import EditCaseTitleCard from "./ui/EditCaseTitleCard";
+import EvidenciasCard, { type EvidenceItem, type EvidenceKind } from "./ui/EvidenciasCard";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
@@ -31,6 +40,23 @@ function fmtCaseNo(n?: number | null) {
 function fmtWoNo(n?: number | null) {
   if (!n) return "OT--";
   return `OT-${String(n).padStart(3, "0")}`;
+}
+
+const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif", ".svg"]);
+const VIDEO_EXT = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
+
+function evidenceKindFor(name: string, mime?: string | null): EvidenceKind {
+  const m = String(mime ?? "").toLowerCase();
+  if (m.startsWith("image/")) return "image";
+  if (m === "application/pdf") return "pdf";
+  if (m.startsWith("video/")) return "video";
+  const lower = String(name ?? "").toLowerCase();
+  const dot = lower.lastIndexOf(".");
+  const ext = dot >= 0 ? lower.slice(dot) : "";
+  if (IMAGE_EXT.has(ext)) return "image";
+  if (ext === ".pdf") return "pdf";
+  if (VIDEO_EXT.has(ext)) return "video";
+  return "other";
 }
 
 function mapCaseStatusForPill(status: string) {
@@ -172,10 +198,24 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           assignedTo: { select: { id: true, name: true, email: true, role: true } },
           interventionReceipt: true,
           correctiveReport: { select: { procedureType: true } },
+          steps: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              stepType: true,
+              createdAt: true,
+              media: { select: { id: true, kind: true, filePath: true, createdAt: true } },
+            },
+          },
         },
       },
       events: { orderBy: { createdAt: "asc" }, take: 200 },
       videoDownloadRequest: true,
+      chatMessages: {
+        orderBy: { createdAt: "asc" },
+        take: 300,
+        select: { id: true, senderId: true, meta: true, createdAt: true },
+      },
       stsTicket: {
         include: { events: { orderBy: { createdAt: "asc" } } },
       },
@@ -371,14 +411,109 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     };
   });
 
+  // ---- MEJORA 4: permiso para editar el titulo ----
+  const canEditTitle =
+    role === Role.ADMIN ||
+    role === Role.BACKOFFICE ||
+    role === Role.SUPERVISOR ||
+    role === Role.PLANNER;
+
+  // ---- MEJORAS 1 y 5: consolidar evidencias/adjuntos del caso ----
+  const evidenceItems: EvidenceItem[] = [];
+
+  // 1) Adjuntos del chat del caso (CaseChatMessage.meta), excluye los borrados.
+  for (const m of c.chatMessages ?? []) {
+    const meta = (m.meta ?? {}) as any;
+    const filePath = meta?.filePath ? String(meta.filePath) : "";
+    if (!filePath || meta?.deleted) continue;
+    const name = String(meta?.filename ?? meta?.fileName ?? filePath.split("/").pop() ?? "Adjunto");
+    const ownerId = String(meta?.userId ?? meta?.uploadedById ?? m.senderId ?? "");
+    const canDelete = role === Role.ADMIN || (Boolean(ownerId) && ownerId === userId);
+    evidenceItems.push({
+      key: `chat-${m.id}`,
+      source: "chat",
+      sourceLabel: "Chat del caso",
+      name,
+      filePath,
+      kind: evidenceKindFor(name, meta?.mime ?? meta?.mimeType),
+      createdAt: m.createdAt.toISOString(),
+      messageId: m.id,
+      canDelete,
+    });
+  }
+
+  // 2) Archivo de la OT (workOrder.orderFilePath / orderFileName).
+  if (c.workOrder?.orderFilePath) {
+    const name = String((c.workOrder as any).orderFileName ?? c.workOrder.orderFilePath.split("/").pop() ?? "Archivo OT");
+    evidenceItems.push({
+      key: `wo-file-${c.workOrder.id}`,
+      source: "wo-file",
+      sourceLabel: "Orden de trabajo",
+      name,
+      filePath: String(c.workOrder.orderFilePath),
+      kind: evidenceKindFor(name, (c.workOrder as any).orderFileMimeType),
+      createdAt: (c.workOrder as any).orderFileUpdatedAt
+        ? new Date((c.workOrder as any).orderFileUpdatedAt).toISOString()
+        : null,
+    });
+  }
+
+  // 3) Medios de pasos de la OT (WorkOrderStep.media -> WorkOrderMedia).
+  for (const step of c.workOrder?.steps ?? []) {
+    for (const media of step.media ?? []) {
+      if (!media.filePath) continue;
+      const name = String(media.filePath.split("/").pop() ?? "Evidencia OT");
+      evidenceItems.push({
+        key: `wo-media-${media.id}`,
+        source: "wo-media",
+        sourceLabel: `OT · ${labelFromMap(media.kind, { FOTO_INICIO: "Foto inicio", FOTO_FIN: "Foto fin" })}`,
+        name,
+        filePath: String(media.filePath),
+        kind: evidenceKindFor(name),
+        createdAt: media.createdAt ? new Date(media.createdAt).toISOString() : null,
+      });
+    }
+  }
+
+  // 4) Evidencia de novedad (noveltyState.evidence en CaseEvent.meta).
+  const seenNoveltyEvidence = new Set<string>();
+  for (const ev of c.events) {
+    const meta = (ev.meta ?? {}) as any;
+    const evidence = meta?.noveltyState?.evidence ?? meta?.evidence ?? null;
+    const filePath = evidence?.filePath ? String(evidence.filePath) : "";
+    if (!filePath || seenNoveltyEvidence.has(filePath)) continue;
+    seenNoveltyEvidence.add(filePath);
+    const name = String(evidence?.fileName ?? filePath.split("/").pop() ?? "Evidencia");
+    evidenceItems.push({
+      key: `novedad-${ev.id}`,
+      source: "novedad",
+      sourceLabel: "Evidencia novedad",
+      name,
+      filePath,
+      kind: evidenceKindFor(name, evidence?.mimeType),
+      createdAt: ev.createdAt.toISOString(),
+    });
+  }
+
+  // Mas recientes primero.
+  evidenceItems.sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  // Tarjeta de evidencias: visible para PREVENTIVO/CORRECTIVO y en general si hay adjuntos.
+  const showEvidenceCard = evidenceItems.length > 0 || c.type === CaseType.PREVENTIVO || c.type === CaseType.CORRECTIVO;
+
+  // ---- MEJORA 2: datos de la solicitud de video ----
+  const vdr = c.videoDownloadRequest;
+
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header sticky top-16 lg:static lg:top-auto">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
           <div className="min-w-0 space-y-2">
-            <h1 className="break-words text-2xl font-semibold leading-tight text-slate-900 lg:text-[2.2rem]">
-              {c.title}
-            </h1>
+            <EditCaseTitleCard caseId={c.id} initialTitle={c.title} canEdit={canEditTitle} />
             <p className="truncate text-xs leading-tight text-muted-foreground lg:text-sm">
               {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
             </p>
@@ -586,38 +721,115 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               </p>
             ) : null}
           </section>
+
+          {showEvidenceCard ? <EvidenciasCard caseId={c.id} items={evidenceItems} /> : null}
         </div>
 
         <div className="space-y-6">
           {isVideoCase ? (
-            <section className="sts-card overflow-hidden">
-              <div className="border-b border-border/50 bg-muted/20 p-5">
-                <h2 className="text-base font-semibold">Gestión de video</h2>
-              </div>
-
-              <div className="space-y-2 p-5">
-                <div className="sts-card p-3">
-                  <p className="text-xs text-muted-foreground">Estado solicitud</p>
-                  <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.status ?? "-"}</p>
+            <>
+              <section className="sts-card overflow-hidden">
+                <div className="border-b border-border/50 bg-muted/20 p-5">
+                  <h2 className="text-base font-semibold">Solicitud de video</h2>
                 </div>
 
-                <div className="sts-card p-3">
-                  <p className="text-xs text-muted-foreground">Estado descarga</p>
-                  <p className="mt-1 text-sm font-medium">{c.videoDownloadRequest?.downloadStatus ?? "-"}</p>
-                </div>
-
-                {c.videoDownloadRequest ? (
-                  <Link
-                    href={`/video-requests/${c.videoDownloadRequest.id}`}
-                    className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
-                  >
-                    Abrir gestion
-                  </Link>
+                {vdr ? (
+                  <div className="grid gap-3 p-5 sm:grid-cols-2">
+                    <div className="sm:col-span-2 rounded-lg border-2 border-border/60 bg-muted/30 p-3">
+                      <p className="text-xs text-muted-foreground">Cámaras solicitadas</p>
+                      <p className="mt-1 text-sm font-medium whitespace-pre-wrap">{vdr.camerasRequested ?? "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Medio de entrega</p>
+                      <p className="mt-1 text-sm font-medium">
+                        {vdr.deliveryMethod ? labelFromMap(vdr.deliveryMethod, videoDeliveryLabels) : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Procedencia</p>
+                      <p className="mt-1 text-sm font-medium">
+                        {vdr.origin ? labelFromMap(vdr.origin, videoOriginLabels) : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Fecha evento inicio</p>
+                      <p className="mt-1 text-sm font-medium">{vdr.eventStart ? fmtDate(vdr.eventStart) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Fecha evento fin</p>
+                      <p className="mt-1 text-sm font-medium">{vdr.eventEnd ? fmtDate(vdr.eventEnd) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Solicitante</p>
+                      <p className="mt-1 text-sm font-medium">{vdr.requesterName ?? "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Cargo</p>
+                      <p className="mt-1 text-sm font-medium">{vdr.requesterRole ?? "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Vehículo</p>
+                      <p className="mt-1 text-sm font-medium">{vdr.vehicleId ?? "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tipo requerimiento</p>
+                      <p className="mt-1 text-sm font-medium">{vdr.requestType ?? "-"}</p>
+                    </div>
+                    {vdr.tmsaRadicado ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Radicado TMSA</p>
+                        <p className="mt-1 text-sm font-medium">{vdr.tmsaRadicado}</p>
+                      </div>
+                    ) : null}
+                    {vdr.tmsaFiledAt ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fecha radicado TMSA</p>
+                        <p className="mt-1 text-sm font-medium">{fmtDate(vdr.tmsaFiledAt)}</p>
+                      </div>
+                    ) : null}
+                    {vdr.concessionaireFiledAt ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fecha radicado concesionario</p>
+                        <p className="mt-1 text-sm font-medium">{fmtDate(vdr.concessionaireFiledAt)}</p>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Solicitud de video no disponible.</p>
+                  <div className="p-5">
+                    <p className="text-xs text-muted-foreground">Solicitud de video no disponible.</p>
+                  </div>
                 )}
-              </div>
-            </section>
+              </section>
+
+              <section className="sts-card overflow-hidden">
+                <div className="border-b border-border/50 bg-muted/20 p-5">
+                  <h2 className="text-base font-semibold">Gestión de video</h2>
+                </div>
+
+                <div className="space-y-2 p-5">
+                  <div className="sts-card p-3">
+                    <p className="text-xs text-muted-foreground">Estado solicitud</p>
+                    <p className="mt-1 text-sm font-medium">{vdr?.status ?? "-"}</p>
+                  </div>
+
+                  <div className="sts-card p-3">
+                    <p className="text-xs text-muted-foreground">Estado descarga</p>
+                    <p className="mt-1 text-sm font-medium">{vdr?.downloadStatus ?? "-"}</p>
+                  </div>
+
+                  {vdr ? (
+                    <Link
+                      href={`/video-requests/${vdr.id}`}
+                      className="inline-flex w-full items-center justify-center sts-btn-primary text-sm"
+                    >
+                      Abrir gestion
+                    </Link>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Solicitud de video no disponible.</p>
+                  )}
+                </div>
+              </section>
+            </>
           ) : (
             <>
               <section className="sts-card overflow-hidden">

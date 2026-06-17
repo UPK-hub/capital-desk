@@ -280,6 +280,41 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const id = String(ctx.params.id);
 
   const body = await req.json().catch(() => ({} as any));
+
+  // ---- Edicion de titulo (cualquier tipo de caso) ----
+  // Si el body incluye "title", se trata como una edicion de titulo.
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "title")) {
+    const nextTitle = String(body?.title ?? "").trim();
+    if (nextTitle.length < 3) {
+      return NextResponse.json({ error: "El titulo debe tener al menos 3 caracteres." }, { status: 400 });
+    }
+
+    const target = await prisma.case.findFirst({
+      where: { id, tenantId },
+      select: { id: true, title: true },
+    });
+    if (!target) return NextResponse.json({ error: "Caso no encontrado." }, { status: 404 });
+
+    if (target.title === nextTitle) {
+      return NextResponse.json({ ok: true, unchanged: true, caseId: target.id, title: target.title });
+    }
+
+    const titleBefore = target.title;
+    await prisma.$transaction(async (tx) => {
+      await tx.case.update({ where: { id: target.id }, data: { title: nextTitle } });
+      await tx.caseEvent.create({
+        data: {
+          caseId: target.id,
+          type: CaseEventType.COMMENT,
+          message: "Titulo editado",
+          meta: { titleBefore, titleAfter: nextTitle, by: userId },
+        },
+      });
+    });
+
+    return NextResponse.json({ ok: true, caseId: target.id, title: nextTitle });
+  }
+
   const nextStatus = String(body?.status ?? "").trim().toUpperCase();
 
   // Por ahora solo se admite el cierre manual de una NOVEDAD.

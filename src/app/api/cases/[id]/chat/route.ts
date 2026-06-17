@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const sinceParam = req.nextUrl.searchParams.get("since");
   const since = sinceParam ? new Date(sinceParam) : null;
 
-  const items = await prisma.caseChatMessage.findMany({
+  const rows = await prisma.caseChatMessage.findMany({
     where: {
       tenantId,
       caseId,
@@ -51,6 +51,12 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     orderBy: { createdAt: "asc" },
     take: 200,
     include: { sender: { select: { id: true, name: true, role: true } } },
+  });
+
+  // Oculta adjuntos eliminados (borrado logico: meta.deleted = true).
+  const items = rows.filter((m) => {
+    const meta = (m.meta ?? {}) as any;
+    return !meta?.deleted;
   });
 
   return NextResponse.json({ items });
