@@ -185,6 +185,36 @@ export default function NewCasePage() {
 
   const [bus, setBus] = useState<BusOption | null>(null);
   const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
+  // Aviso NO bloqueante: el bus tuvo un preventivo reciente (<30 días).
+  const [recentPreventiveDays, setRecentPreventiveDays] = useState<number | null>(null);
+
+  // Cuando el tipo es PREVENTIVO y hay un bus seleccionado, consulta si ese bus tuvo
+  // un preventivo reciente para mostrar un aviso (no bloquea la creación).
+  useEffect(() => {
+    if (type !== "PREVENTIVO" || !bus?.id) {
+      setRecentPreventiveDays(null);
+      return;
+    }
+    let cancelled = false;
+    setRecentPreventiveDays(null);
+    async function checkRecentPreventive(busId: string) {
+      try {
+        const res = await fetch(
+          `/api/cases/check-recent-preventive?busId=${encodeURIComponent(busId)}`,
+          { cache: "no-store" }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || cancelled) return;
+        setRecentPreventiveDays(data?.recent ? Number(data.days) : null);
+      } catch {
+        // Best effort: si falla, no mostramos aviso.
+      }
+    }
+    void checkRecentPreventive(bus.id);
+    return () => {
+      cancelled = true;
+    };
+  }, [type, bus?.id]);
 
   useEffect(() => {
     if (!prefillBusId) return;
@@ -621,6 +651,13 @@ export default function NewCasePage() {
                   }}
                 />
               </Field>
+
+              {type === "PREVENTIVO" && recentPreventiveDays !== null ? (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                  ⚠️ Este bus tuvo un preventivo hace {recentPreventiveDays} días (menos de 30).
+                  Verifica si realmente corresponde crear otro.
+                </div>
+              ) : null}
 
               <Field label="Título" hint="Autollenado por tipo, editable">
                 <Input value={effectiveTitle} onChange={(e) => setTitle(e.target.value)} />

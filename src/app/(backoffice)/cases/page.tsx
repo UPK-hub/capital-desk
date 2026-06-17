@@ -71,7 +71,10 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   const priority = toStr(searchParams?.priority);
   const priorityInt = priority ? Number(priority) : null;
 
-  const qDigits = q && /^\d+$/.test(q) ? Number(q) : null;
+  // Acepta "1", "001" y también prefijos cosméticos como "OT-12" o "CASO-12"
+  // extrayendo solo los dígitos para buscar por # de caso / # de OT.
+  const qOnlyDigits = q ? q.replace(/\D/g, "") : "";
+  const qDigits = qOnlyDigits ? Number(qOnlyDigits) : null;
   const searchWhere = q
     ? {
         OR: [
@@ -79,7 +82,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           { bus: { plate: { contains: q, mode: "insensitive" as const } } },
           { title: { contains: q, mode: "insensitive" as const } },
           { description: { contains: q, mode: "insensitive" as const } },
-          ...(qDigits !== null ? [{ caseNo: qDigits }] : []),
+          ...(qDigits !== null
+            ? [{ caseNo: qDigits }, { workOrder: { workOrderNo: qDigits } }]
+            : []),
         ],
       }
     : {};
@@ -181,7 +186,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
               <input type="hidden" name="status" value={statusParam ?? ""} />
               <input
                 name="q"
-                placeholder="Buscar por bus, placa, título o # de caso"
+                placeholder="Buscar por bus, placa, título, # de caso o # OT"
                 className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[20rem]"
                 defaultValue={searchParams?.q ?? ""}
               />

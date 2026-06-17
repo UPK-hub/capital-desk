@@ -66,6 +66,10 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
 
   const q = toStr(searchParams?.q);
   const status = toStr(searchParams?.status) as WorkOrderStatus | null;
+  // Acepta "1", "001" y prefijos cosméticos ("OT-12" / "CASO-12") extrayendo dígitos
+  // para buscar por # de OT y # de caso.
+  const qOnlyDigits = q ? q.replace(/\D/g, "") : "";
+  const qDigits = qOnlyDigits ? Number(qOnlyDigits) : null;
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
@@ -80,6 +84,9 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
               { case: { description: { contains: q, mode: "insensitive" } } },
               { case: { bus: { code: { contains: q, mode: "insensitive" } } } },
               { case: { bus: { plate: { contains: q, mode: "insensitive" } } } },
+              ...(qDigits !== null
+                ? [{ workOrderNo: qDigits }, { case: { caseNo: qDigits } }]
+                : []),
             ],
           }
         : {}),
@@ -117,7 +124,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: S
           <form className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" method="get">
             <Input
               name="q"
-              placeholder="Buscar por bus (código/placa) o caso."
+              placeholder="Buscar por bus, placa, caso, # OT o # de caso"
               defaultValue={searchParams?.q ?? ""}
               className="w-full lg:w-96"
             />

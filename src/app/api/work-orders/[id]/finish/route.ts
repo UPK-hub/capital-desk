@@ -270,6 +270,16 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         },
         data: { status: CaseStatus.CERRADO },
       });
+    } else {
+      // El técnico finalizó la intervención (pendiente de validación del coordinador):
+      // el caso pasa a RESUELTO. El coordinador lo dejará luego en CERRADO.
+      await tx.case.updateMany({
+        where: {
+          id: { in: siblingCaseIds },
+          status: { notIn: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
+        },
+        data: { status: CaseStatus.RESUELTO },
+      });
     }
 
     await tx.workOrder.updateMany({
@@ -289,7 +299,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         caseId,
         type: CaseEventType.STATUS_CHANGE,
         message: needsCoordinatorValidation
-          ? "OT cerrada, pendiente validación de acta por coordinador"
+          ? "Intervención finalizada por el técnico (pendiente de validación)"
           : "OT finalizada y caso cerrado",
         meta: { workOrderId: wo.id, by: userId, closedByCascade: caseId !== wo.caseId },
       })),
@@ -493,7 +503,10 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         });
       }
     }
-    return needsCoordinatorValidation ? ([] as string[]) : siblingCaseIds;
+    // Tanto en cierre directo (CERRADO) como en finalización pendiente de validación
+    // (RESUELTO) devolvemos los casos afectados para disparar el cierre automático de
+    // la novedad de origen si todos sus enlazados ya quedaron resueltos/cerrados.
+    return siblingCaseIds;
   }, {
     maxWait: 10_000,
     timeout: 30_000,
