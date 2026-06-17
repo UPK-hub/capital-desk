@@ -7,7 +7,8 @@ export type AffectedEquipmentType =
   | "ROUTER_SIM"
   | "SWITCH_POE"
   | "GPS"
-  | "CMS";
+  | "CMS"
+  | "IO_SENSORES";
 
 export type NovedadCatalogItem = {
   code: string;
@@ -64,6 +65,7 @@ const FALLBACK_OPTIONS: Record<AffectedEquipmentType, string[]> = {
   SWITCH_POE: ["Sin alimentacion PoE", "Puerto sin enlace", "Switch sin energia", "Switch intermitente"],
   GPS: ["Sin posicion GPS", "Posicion erratica", "GPS desconectado", "Sin actualizacion de ubicacion"],
   CMS: ["Bus no visible en CMS", "Evento no registrado en CMS", "Datos incompletos en CMS", "Sin sincronizacion CMS"],
+  IO_SENSORES: ["Boton de panico no funciona", "Boton de panico obturado", "Sensor no reporta", "Microfono sin audio"],
 };
 
 let cache: { signature: string; items: NovedadCatalogItem[] } | null = null;
@@ -152,6 +154,16 @@ function mapEquipmentToType(equipmentLabel: string): AffectedEquipmentType | nul
   if (key.includes("ROUTER") || key.includes("SIM")) return "ROUTER_SIM";
   if (key.includes("SWITCH") || key.includes("POE") || key.includes("CABLEADO")) return "SWITCH_POE";
   if (key.includes("NVR") || key.includes("HDD") || key.includes("GRABACION")) return "NVR";
+  if (
+    key.includes("SENSOR") ||
+    key.includes("PANICO") ||
+    key.includes("BOTON") ||
+    key.includes("MICROFONO") ||
+    key.includes("PANTALLA") ||
+    key.includes("CABINA") ||
+    key.includes("IO ")
+  )
+    return "IO_SENSORES";
   return null;
 }
 
