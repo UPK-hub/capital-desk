@@ -197,7 +197,16 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         include: {
           assignedTo: { select: { id: true, name: true, email: true, role: true } },
           interventionReceipt: true,
-          correctiveReport: { select: { procedureType: true } },
+          correctiveReport: {
+            select: {
+              procedureType: true,
+              photoBodyworkDismount: true,
+              photoSerialCurrent: true,
+              photoSerialNew: true,
+            },
+          },
+          preventiveReport: { select: { activities: true } },
+          renewalTechReport: { select: { photosOld: true, photosNew: true, photosChecklist: true } },
           steps: {
             orderBy: { createdAt: "asc" },
             select: {
@@ -474,6 +483,71 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       });
     }
   }
+
+  // 3b) Fotos de los informes (preventivo / correctivo / renovación).
+  const woRep = c.workOrder as any;
+  const prevActivities = Array.isArray(woRep?.preventiveReport?.activities) ? woRep.preventiveReport.activities : [];
+  prevActivities.forEach((act: any, ai: number) => {
+    const label = String(act?.activity ?? act?.key ?? "Actividad").trim() || "Actividad";
+    const paths = Array.isArray(act?.photoPaths) ? act.photoPaths : [];
+    paths.forEach((p: any, pi: number) => {
+      const fp = String(p ?? "").trim();
+      if (!fp) return;
+      const name = String(fp.split("/").pop() ?? "Foto preventivo");
+      evidenceItems.push({
+        key: `prev-${ai}-${pi}`,
+        source: "preventive-report",
+        sourceLabel: `Preventivo · ${label}`,
+        name,
+        filePath: fp,
+        kind: evidenceKindFor(name),
+        createdAt: null,
+      });
+    });
+  });
+  const corrRep = woRep?.correctiveReport ?? null;
+  const corrPhotos: Array<[string, unknown]> = [
+    ["Desmonte / carrocería", corrRep?.photoBodyworkDismount],
+    ["Serial actual", corrRep?.photoSerialCurrent],
+    ["Serial nuevo", corrRep?.photoSerialNew],
+  ];
+  corrPhotos.forEach(([lbl, p], i) => {
+    const fp = String(p ?? "").trim();
+    if (!fp) return;
+    const name = String(fp.split("/").pop() ?? "Foto correctivo");
+    evidenceItems.push({
+      key: `corr-${i}`,
+      source: "corrective-report",
+      sourceLabel: `Correctivo · ${lbl}`,
+      name,
+      filePath: fp,
+      kind: evidenceKindFor(name),
+      createdAt: null,
+    });
+  });
+  const renRep = woRep?.renewalTechReport ?? null;
+  const renGroups: Array<[string, unknown]> = [
+    ["Antes", renRep?.photosOld],
+    ["Después", renRep?.photosNew],
+    ["Checklist", renRep?.photosChecklist],
+  ];
+  renGroups.forEach(([lbl, arr], gi) => {
+    const list = Array.isArray(arr) ? arr : [];
+    list.forEach((p: any, pi: number) => {
+      const fp = String(p ?? "").trim();
+      if (!fp) return;
+      const name = String(fp.split("/").pop() ?? "Foto renovación");
+      evidenceItems.push({
+        key: `ren-${gi}-${pi}`,
+        source: "renewal-report",
+        sourceLabel: `Renovación · ${lbl}`,
+        name,
+        filePath: fp,
+        kind: evidenceKindFor(name),
+        createdAt: null,
+      });
+    });
+  });
 
   // 4) Evidencia de novedad (noveltyState.evidence en CaseEvent.meta).
   const seenNoveltyEvidence = new Set<string>();

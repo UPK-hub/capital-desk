@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { FileText, ImageIcon, Film, File as FileIcon, X, Download } from "lucide-react";
 
 export type EvidenceKind = "image" | "pdf" | "video" | "other";
-export type EvidenceSource = "chat" | "wo-file" | "wo-media" | "novedad";
+export type EvidenceSource =
+  | "chat"
+  | "wo-file"
+  | "wo-media"
+  | "novedad"
+  | "preventive-report"
+  | "corrective-report"
+  | "renewal-report";
 
 export type EvidenceItem = {
   key: string;
