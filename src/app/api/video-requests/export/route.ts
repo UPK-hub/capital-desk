@@ -45,12 +45,14 @@ export async function GET(req: NextRequest) {
   const descarga = (Object.values(VideoDownloadStatus) as string[]).includes(descargaRaw)
     ? (descargaRaw as VideoDownloadStatus)
     : undefined;
+  const solicitante = (searchParams.get("solicitante") ?? "").trim();
 
   const items = await prisma.videoDownloadRequest.findMany({
     where: {
       case: { tenantId, ...caseScope },
       ...(estado ? { status: estado } : {}),
       ...(descarga ? { downloadStatus: descarga } : {}),
+      ...(solicitante ? { requesterName: solicitante } : {}),
       ...(q
         ? {
             OR: [

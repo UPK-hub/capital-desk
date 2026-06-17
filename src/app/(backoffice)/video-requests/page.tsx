@@ -37,7 +37,7 @@ function mapDownloadStatus(v: string): StatusPillStatus {
 export default async function VideoRequestsPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; estado?: string; descarga?: string };
+  searchParams?: { q?: string; estado?: string; descarga?: string; solicitante?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -80,12 +80,14 @@ export default async function VideoRequestsPage({
   const descarga = (Object.values(VideoDownloadStatus) as string[]).includes(descargaRaw)
     ? (descargaRaw as VideoDownloadStatus)
     : undefined;
+  const solicitante = (searchParams?.solicitante ?? "").trim();
 
   const items = await prisma.videoDownloadRequest.findMany({
     where: {
       case: { tenantId, ...caseScope },
       ...(estado ? { status: estado } : {}),
       ...(descarga ? { downloadStatus: descarga } : {}),
+      ...(solicitante ? { requesterName: solicitante } : {}),
       ...(q
         ? {
             OR: [
@@ -104,6 +106,18 @@ export default async function VideoRequestsPage({
       assignedTo: { select: { id: true, name: true } },
     },
   });
+
+  // Lista de solicitantes (para el filtro), dentro del alcance del usuario.
+  const solicitanteRows = await prisma.videoDownloadRequest.findMany({
+    where: { case: { tenantId, ...caseScope }, requesterName: { not: null } },
+    select: { requesterName: true },
+    distinct: ["requesterName"],
+    orderBy: { requesterName: "asc" },
+    take: 500,
+  });
+  const solicitantes = solicitanteRows
+    .map((r) => (r.requesterName ?? "").trim())
+    .filter((name) => name.length > 0);
 
   // Datos para el tablero (toda la operación dentro del alcance, sin los filtros de la lista).
   const dashRows = await prisma.videoDownloadRequest.findMany({
@@ -131,12 +145,13 @@ export default async function VideoRequestsPage({
     caseId: r.case.id,
     title: r.case.title,
   }));
-  const hasFilters = Boolean(q || estado || descarga);
+  const hasFilters = Boolean(q || estado || descarga || solicitante);
 
   const exportParams = new URLSearchParams();
   if (q) exportParams.set("q", q);
   if (estado) exportParams.set("estado", estado);
   if (descarga) exportParams.set("descarga", descarga);
+  if (solicitante) exportParams.set("solicitante", solicitante);
   const exportHref = `/api/video-requests/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
 
   return (
@@ -170,7 +185,7 @@ export default async function VideoRequestsPage({
         <VideoTabs rows={dashData} initialTab={hasFilters ? "solicitudes" : "tablero"}>
 
         <section className="mobile-section-card mobile-section-card__body">
-          <form className="grid gap-3 md:grid-cols-[1fr_180px_200px_auto]" action="/video-requests">
+          <form className="grid gap-3 md:grid-cols-[1fr_160px_180px_200px_auto]" action="/video-requests">
             <input
               className="h-10 rounded-md border px-3 text-sm"
               name="q"
@@ -189,6 +204,14 @@ export default async function VideoRequestsPage({
               <option value="DESCARGA_REALIZADA">{videoDownloadStatusLabels.DESCARGA_REALIZADA}</option>
               <option value="DESCARGA_FALLIDA">{videoDownloadStatusLabels.DESCARGA_FALLIDA}</option>
               <option value="BUS_NO_EN_PATIO">{videoDownloadStatusLabels.BUS_NO_EN_PATIO}</option>
+            </select>
+            <select className="h-10 rounded-md border px-3 text-sm" name="solicitante" defaultValue={solicitante}>
+              <option value="">Solicitante: todos</option>
+              {solicitantes.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
             </select>
             <div className="flex gap-2">
               <button className="sts-btn-primary h-10 flex-1 px-4 text-sm md:flex-none">Filtrar</button>
