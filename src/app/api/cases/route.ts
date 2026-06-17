@@ -130,7 +130,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
+  // ITEM 5: los técnicos también pueden crear casos (p. ej. al detectar una
+  // novedad en patio). Mantiene ADMIN/BACKOFFICE como antes.
+  if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.TECHNICIAN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

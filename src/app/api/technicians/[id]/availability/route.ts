@@ -39,6 +39,13 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   });
   if (!tech) return NextResponse.json({ error: "Tecnico invalido" }, { status: 404 });
 
+  // Si el técnico no tiene turno configurado, no calculamos slots de calendario;
+  // la UI ofrecerá asignación con fecha/hora libre. Mantenemos el formato actual
+  // (slots) para los que sí tienen turno.
+  if (!tech.technicianSchedule) {
+    return NextResponse.json({ hasSchedule: false, slots: [] });
+  }
+
   const now = new Date();
   const startParts = toBogotaParts(now);
   const rangeStart = bogotaDateTimeToUtc(startParts, 0, 0);
@@ -100,7 +107,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     }
   }
 
-  if (available.length === 0) return NextResponse.json({ slots: [] });
+  if (available.length === 0) return NextResponse.json({ hasSchedule: true, slots: [] });
 
   const reserved = await prisma.workOrder.findMany({
     where: {
@@ -119,6 +126,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   free.sort((a, b) => a.startUtc.getTime() - b.startUtc.getTime());
 
   return NextResponse.json({
+    hasSchedule: true,
     slots: free.map((slot) => ({
       start: slot.startUtc.toISOString(),
       end: slot.endUtc.toISOString(),

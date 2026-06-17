@@ -29,9 +29,16 @@ export default withAuth(
     }
 
     if (path.startsWith("/cases")) {
-      if (!RBAC.backofficeRoutes.includes(role as any)) return deny();
-      // Videos-only can create/request video cases, but cannot browse full case module.
-      if (isVideosOnly && path !== "/cases/new") return deny();
+      // ITEM 5: los técnicos pueden ENTRAR solo al formulario de crear caso
+      // (/cases/new), no al resto del módulo de casos (backoffice).
+      const isTechnician = role === "TECHNICIAN";
+      if (isTechnician) {
+        if (path !== "/cases/new") return deny();
+      } else {
+        if (!RBAC.backofficeRoutes.includes(role as any)) return deny();
+        // Videos-only can create/request video cases, but cannot browse full case module.
+        if (isVideosOnly && path !== "/cases/new") return deny();
+      }
     }
     if (path.startsWith("/novedades")) {
       if (!RBAC.backofficeRoutes.includes(role as any)) return deny();

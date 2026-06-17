@@ -7,6 +7,38 @@ import { Select } from "@/components/Field";
 type Technician = { id: string; name: string; email: string };
 type Slot = { start: string; end: string; label: string };
 
+// Colombia (America/Bogota) es UTC-5 fijo (sin horario de verano), igual que en
+// src/lib/technician-schedule. Inline para no arrastrar @prisma/client al cliente.
+const BOGOTA_OFFSET_MS = -5 * 60 * 60 * 1000;
+
+// Convierte un valor de <input type="datetime-local"> ("YYYY-MM-DDTHH:mm"),
+// interpretado como hora local de Bogotá, a { start, end } en UTC ISO con
+// duración de 60 minutos (el flujo de OT trabaja con ventanas de 1 hora).
+function freeSlotFromLocalInput(value: string): { start: string; end: string } | null {
+  const m = String(value ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute)
+  ) {
+    return null;
+  }
+  // Hora de pared en Bogotá -> UTC (restamos el offset, igual que la lib del server).
+  const startMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0) - BOGOTA_OFFSET_MS;
+  const startUtc = new Date(startMs);
+  if (Number.isNaN(startUtc.getTime())) return null;
+  const endUtc = new Date(startUtc.getTime() + 60 * 60 * 1000);
+  return { start: startUtc.toISOString(), end: endUtc.toISOString() };
+}
+
 type Props = {
   caseId: string;
   workOrderId: string | null;
@@ -61,6 +93,9 @@ export default function AssignTechnicianCard({
   const [selectedSlotStart, setSelectedSlotStart] = useState<string>("");
   const [allowReprogram, setAllowReprogram] = useState(false);
   const [reprogramReason, setReprogramReason] = useState("");
+  // Técnico sin turno: se asigna eligiendo fecha/hora libre.
+  const [hasSchedule, setHasSchedule] = useState<boolean>(true);
+  const [freeDateTime, setFreeDateTime] = useState<string>("");
 
   const programmedDateKey = useMemo(() => toBogotaDateKey(currentScheduledAt), [currentScheduledAt]);
   const programmedDateLabel = useMemo(() => fmtBogotaDate(currentScheduledAt), [currentScheduledAt]);
@@ -91,6 +126,8 @@ export default function AssignTechnicianCard({
     if (!technicianId) {
       setSlots([]);
       setSelectedSlotStart("");
+      setHasSchedule(true);
+      setFreeDateTime("");
       return;
     }
 
@@ -99,6 +136,8 @@ export default function AssignTechnicianCard({
     setSlotErr(null);
     setSlots([]);
     setSelectedSlotStart("");
+    setHasSchedule(true);
+    setFreeDateTime("");
 
     (async () => {
       const days = isPreventive ? 30 : 14;
@@ -115,6 +154,8 @@ export default function AssignTechnicianCard({
         return;
       }
 
+      // hasSchedule por defecto true para no romper a quienes ya tienen turno.
+      setHasSchedule(data?.hasSchedule !== false);
       const list = (data?.slots ?? []) as Slot[];
       setSlots(list);
     })();
@@ -133,15 +174,27 @@ export default function AssignTechnicianCard({
       const id = String(technicianId ?? "").trim();
       if (!id) throw new Error("Selecciona un técnico.");
 
-      if (!selectedSlot) throw new Error("Selecciona un horario disponible.");
+      let scheduledAt: string;
+      let scheduledTo: string;
+      if (hasSchedule) {
+        if (!selectedSlot) throw new Error("Selecciona un horario disponible.");
+        scheduledAt = selectedSlot.start;
+        scheduledTo = selectedSlot.end;
+      } else {
+        // Técnico sin turno: usar la fecha/hora libre elegida (ventana de 60 min).
+        const free = freeSlotFromLocalInput(freeDateTime);
+        if (!free) throw new Error("Selecciona una fecha y hora válidas.");
+        scheduledAt = free.start;
+        scheduledTo = free.end;
+      }
 
       const res = await fetch(`/api/cases/${caseId}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           technicianId: id,
-          scheduledAt: selectedSlot.start,
-          scheduledTo: selectedSlot.end,
+          scheduledAt,
+          scheduledTo,
           reprogram: isPreventive ? allowReprogram : false,
           reprogramReason: isPreventive && allowReprogram ? reprogramReason.trim() : null,
         }),
@@ -233,42 +286,69 @@ export default function AssignTechnicianCard({
           </Select>
 
           <div className="sts-card p-3 space-y-2">
-            <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>
             {!technicianId ? (
-              <p className="text-xs text-muted-foreground">Selecciona un tecnico para ver horarios.</p>
+              <>
+                <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>
+                <p className="text-xs text-muted-foreground">Selecciona un tecnico para ver horarios.</p>
+              </>
             ) : loadingSlots ? (
-              <p className="text-xs text-muted-foreground">Cargando horarios...</p>
+              <>
+                <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>
+                <p className="text-xs text-muted-foreground">Cargando horarios...</p>
+              </>
             ) : slotErr ? (
               <p className="text-xs text-red-600">{slotErr}</p>
-            ) : visibleSlots.length === 0 ? (
-              isPreventive && programmedDateKey && !allowReprogram ? (
-                <p className="text-xs text-amber-700">
-                  No hay horarios en la fecha programada. Activa <span className="font-medium">Reprogramar</span> para asignar otra fecha.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">Sin horarios disponibles.</p>
-              )
-            ) : (
+            ) : !hasSchedule ? (
               <div className="space-y-2">
-                {visibleSlots.map((s) => (
-                  <label key={s.start} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="schedule-slot"
-                      checked={selectedSlotStart === s.start}
-                      onChange={() => setSelectedSlotStart(s.start)}
-                    />
-                    <span>{s.label}</span>
-                  </label>
-                ))}
+                <p className="text-xs font-medium text-amber-700">
+                  Este técnico no tiene turno configurado. Asígnalo eligiendo fecha y hora libre.
+                </p>
+                <label className="text-xs text-muted-foreground">Asignar sin turno (America/Bogota)</label>
+                <input
+                  type="datetime-local"
+                  value={freeDateTime}
+                  onChange={(e) => setFreeDateTime(e.target.value)}
+                  disabled={saving}
+                  className="app-field-control h-10 w-full rounded-xl border px-3 text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Se reservará una ventana de 60 minutos desde la hora elegida.
+                </p>
               </div>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">Horarios disponibles (America/Bogota)</p>
+                {visibleSlots.length === 0 ? (
+                  isPreventive && programmedDateKey && !allowReprogram ? (
+                    <p className="text-xs text-amber-700">
+                      No hay horarios en la fecha programada. Activa <span className="font-medium">Reprogramar</span> para asignar otra fecha.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Sin horarios disponibles.</p>
+                  )
+                ) : (
+                  <div className="space-y-2">
+                    {visibleSlots.map((s) => (
+                      <label key={s.start} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="schedule-slot"
+                          checked={selectedSlotStart === s.start}
+                          onChange={() => setSelectedSlotStart(s.start)}
+                        />
+                        <span>{s.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           <button
             type="button"
             onClick={assign}
-            disabled={saving || !technicianId || !selectedSlot}
+            disabled={saving || !technicianId || (hasSchedule ? !selectedSlot : !freeDateTime)}
             className="inline-flex w-full items-center justify-center sts-btn-primary text-sm disabled:opacity-60"
           >
             {saving ? "Asignando…" : "Asignar a técnico"}

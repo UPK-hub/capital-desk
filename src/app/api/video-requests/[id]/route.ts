@@ -13,6 +13,7 @@ import {
   VideoRequestEventType,
 } from "@prisma/client";
 import { buildVideoRequestCaseScope, isBackofficeRestricted, isVideosOnlyBackoffice } from "@/lib/access-control";
+import { isCapitalUserEmail } from "@/lib/users";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
@@ -112,6 +113,23 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const observationsTechnician = typeof body.observationsTechnician === "string" ? body.observationsTechnician : undefined;
   const assignedToId = body.assignedToId ? String(body.assignedToId) : undefined;
 
+  // Si se asigna un responsable, validar que sea técnico o usuario de Capital.
+  if (assignedToId) {
+    const assignee = await prisma.user.findFirst({
+      where: { id: assignedToId, tenantId, active: true },
+      select: { id: true, role: true, email: true },
+    });
+    if (!assignee) {
+      return NextResponse.json({ error: "Usuario inválido o inactivo" }, { status: 400 });
+    }
+    if (assignee.role !== Role.TECHNICIAN && !isCapitalUserEmail(assignee.email)) {
+      return NextResponse.json(
+        { error: "El responsable debe ser un técnico o un usuario de Capital." },
+        { status: 400 }
+      );
+    }
+  }
+
   const updates: any = {};
   if (nextStatus) updates.status = nextStatus;
   if (nextDownloadStatus) updates.downloadStatus = nextDownloadStatus;
@@ -122,6 +140,27 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     where: { id: requestId },
     data: updates,
   });
+
+  // Registrar cambio de responsable en el historial.
+  if (assignedToId !== undefined && (current.assignedToId ?? null) !== (assignedToId || null)) {
+    let assigneeLabel = "Sin asignar";
+    if (assignedToId) {
+      const assignee = await prisma.user.findFirst({
+        where: { id: assignedToId, tenantId },
+        select: { name: true, email: true },
+      });
+      if (assignee) {
+        assigneeLabel = `${assignee.name}${assignee.email ? ` (${assignee.email})` : ""}`;
+      }
+    }
+    await logEvent({
+      requestId,
+      type: VideoRequestEventType.COMMENT,
+      message: `Responsable asignado: ${assigneeLabel}`,
+      meta: { kind: "ASSIGN", from: current.assignedToId ?? null, to: assignedToId || null },
+      actorUserId,
+    });
+  }
 
   if (nextStatus === VideoCaseStatus.COMPLETADO && current.status !== VideoCaseStatus.COMPLETADO) {
     await prisma.case.update({

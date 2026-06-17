@@ -53,7 +53,13 @@ case: { id: string; caseNo: number | null; title: string; description: string | 
   }>;
 };
 
-type Tech = { id: string; name: string; email?: string | null };
+type Assignable = {
+  id: string;
+  name: string;
+  email?: string | null;
+  role?: string | null;
+  isCapital?: boolean;
+};
 
 type UploadItem = {
   name: string;
@@ -102,7 +108,7 @@ export default function VideoRequestDetailClient({
   const [item, setItem] = React.useState<Item>(initialItem);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
-  const [techs, setTechs] = React.useState<Tech[]>([]);
+  const [assignables, setAssignables] = React.useState<Assignable[]>([]);
 
   const [status, setStatus] = React.useState<VideoCaseStatus>(item.status);
   const [downloadStatus, setDownloadStatus] = React.useState<VideoDownloadStatus>(item.downloadStatus);
@@ -120,11 +126,13 @@ export default function VideoRequestDetailClient({
     if (!canManage) return;
     let alive = true;
     (async () => {
-      const res = await fetch("/api/technicians");
+      // Candidatos para video: técnicos + usuarios de Capital (@capitalbus.).
+      const res = await fetch("/api/users/assignable?context=video", { cache: "no-store" });
       if (!res.ok) return;
-      const data = await res.json().catch(() => []);
+      const data = await res.json().catch(() => ({}));
       if (!alive) return;
-      setTechs(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data?.items) ? (data.items as Assignable[]) : [];
+      setAssignables(list);
     })();
     return () => {
       alive = false;
@@ -461,7 +469,7 @@ export default function VideoRequestDetailClient({
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Tecnico asignado</label>
+                <label className="text-xs text-muted-foreground">Responsable asignado</label>
                 <Select
                   className={inputCls()}
                   value={assignedToId}
@@ -469,12 +477,16 @@ export default function VideoRequestDetailClient({
                   onChange={(e) => setAssignedToId(e.target.value)}
                 >
                   <option value="">Sin asignar</option>
-                  {techs.map((t) => (
+                  {assignables.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
+                      {t.isCapital ? " — Capital" : ""}
                     </option>
                   ))}
                 </Select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Técnicos y usuarios de Capital pueden ser responsables del video.
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-muted-foreground">Observaciones tecnico</label>

@@ -133,48 +133,52 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       throw new Error("Esta OT preventiva ya tiene fecha programada. Activa 'Reprogramar' para cambiarla.");
     }
 
-    const weekParts = getBogotaWeekStartParts(toBogotaParts(scheduledAt));
-    const weekStartUtc = bogotaDateTimeToUtc(weekParts, 0, 0);
-    const weekEndUtc = bogotaDateTimeToUtc(addDaysBogota(weekParts, 7), 0, 0);
-
-    const baseSlots = schedule
-      ? buildShiftHourlySlots({
-          shiftType: schedule.shiftType,
-          restDay: schedule.restDay,
-          startParts: weekParts,
-          days: 7,
-          slotMinutes: 60,
-        })
-      : [];
-
-    const overrides = await tx.technicianWeekSlot.findMany({
-      where: {
-        technicianId: tech.id,
-        calendar: { tenantId, weekStart: weekStartUtc },
-        startAt: { gte: weekStartUtc, lt: weekEndUtc },
-      },
-      select: { startAt: true, endAt: true, kind: true },
-    });
-
     const requestedSlot = { startUtc: scheduledAt, endUtc: scheduledTo };
-    const override = overrides.find(
-      (o) =>
-        o.startAt?.getTime() === scheduledAt.getTime() &&
-        o.endAt?.getTime() === scheduledTo.getTime()
-    );
 
-    if (override?.kind === CalendarSlotKind.BLOCKED || override?.kind === CalendarSlotKind.TIME_OFF) {
-      throw new Error("El horario seleccionado esta bloqueado");
-    }
+    // Si el técnico NO tiene turno configurado, permitimos asignar a una fecha/hora
+    // libre (no validamos contra calendario). Mantenemos la validación de calendario
+    // para técnicos con turno.
+    if (schedule) {
+      const weekParts = getBogotaWeekStartParts(toBogotaParts(scheduledAt));
+      const weekStartUtc = bogotaDateTimeToUtc(weekParts, 0, 0);
+      const weekEndUtc = bogotaDateTimeToUtc(addDaysBogota(weekParts, 7), 0, 0);
 
-    const baseAllowed = baseSlots.some(
-      (slot) =>
-        slot.startUtc.getTime() === requestedSlot.startUtc.getTime() &&
-        slot.endUtc.getTime() === requestedSlot.endUtc.getTime()
-    );
+      const baseSlots = buildShiftHourlySlots({
+        shiftType: schedule.shiftType,
+        restDay: schedule.restDay,
+        startParts: weekParts,
+        days: 7,
+        slotMinutes: 60,
+      });
 
-    if (!baseAllowed && override?.kind !== CalendarSlotKind.AVAILABLE) {
-      throw new Error("El horario no coincide con el calendario del tecnico");
+      const overrides = await tx.technicianWeekSlot.findMany({
+        where: {
+          technicianId: tech.id,
+          calendar: { tenantId, weekStart: weekStartUtc },
+          startAt: { gte: weekStartUtc, lt: weekEndUtc },
+        },
+        select: { startAt: true, endAt: true, kind: true },
+      });
+
+      const override = overrides.find(
+        (o) =>
+          o.startAt?.getTime() === scheduledAt.getTime() &&
+          o.endAt?.getTime() === scheduledTo.getTime()
+      );
+
+      if (override?.kind === CalendarSlotKind.BLOCKED || override?.kind === CalendarSlotKind.TIME_OFF) {
+        throw new Error("El horario seleccionado esta bloqueado");
+      }
+
+      const baseAllowed = baseSlots.some(
+        (slot) =>
+          slot.startUtc.getTime() === requestedSlot.startUtc.getTime() &&
+          slot.endUtc.getTime() === requestedSlot.endUtc.getTime()
+      );
+
+      if (!baseAllowed && override?.kind !== CalendarSlotKind.AVAILABLE) {
+        throw new Error("El horario no coincide con el calendario del tecnico");
+      }
     }
 
     const conflicts = await tx.workOrder.findMany({

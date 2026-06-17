@@ -187,6 +187,11 @@ export default function NewCasePage() {
   const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
   // Aviso NO bloqueante: el bus tuvo un preventivo reciente (<30 días).
   const [recentPreventiveDays, setRecentPreventiveDays] = useState<number | null>(null);
+  // Estado de preventivo del móvil (siempre que haya un bus seleccionado).
+  const [preventiveStatus, setPreventiveStatus] = useState<{
+    status: "al_dia" | "pendiente" | "no_aplica";
+    message: string;
+  } | null>(null);
 
   // Cuando el tipo es PREVENTIVO y hay un bus seleccionado, consulta si ese bus tuvo
   // un preventivo reciente para mostrar un aviso (no bloquea la creación).
@@ -215,6 +220,33 @@ export default function NewCasePage() {
       cancelled = true;
     };
   }, [type, bus?.id]);
+
+  // Estado de preventivo del móvil: se muestra SIEMPRE que haya un bus
+  // seleccionado, sin importar el tipo de caso.
+  useEffect(() => {
+    if (!bus?.id) {
+      setPreventiveStatus(null);
+      return;
+    }
+    let cancelled = false;
+    setPreventiveStatus(null);
+    async function loadPreventiveStatus(busId: string) {
+      try {
+        const res = await fetch(`/api/buses/${encodeURIComponent(busId)}/preventive-status`, {
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || cancelled || !data?.status) return;
+        setPreventiveStatus({ status: data.status, message: String(data.message ?? "") });
+      } catch {
+        // Best effort: si falla, no mostramos el badge.
+      }
+    }
+    void loadPreventiveStatus(bus.id);
+    return () => {
+      cancelled = true;
+    };
+  }, [bus?.id]);
 
   useEffect(() => {
     if (!prefillBusId) return;
@@ -651,6 +683,29 @@ export default function NewCasePage() {
                   }}
                 />
               </Field>
+
+              {bus?.id && preventiveStatus ? (
+                <div
+                  className={
+                    preventiveStatus.status === "pendiente"
+                      ? "rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+                      : preventiveStatus.status === "al_dia"
+                      ? "rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+                      : "rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                  }
+                >
+                  <span className="font-medium">
+                    {preventiveStatus.status === "pendiente"
+                      ? "Le toca preventivo este mes"
+                      : preventiveStatus.status === "al_dia"
+                      ? "Al día / no requiere preventivo"
+                      : "Aún no aplica preventivo"}
+                  </span>
+                  {preventiveStatus.message ? (
+                    <span className="ml-1 text-xs opacity-80">· {preventiveStatus.message}</span>
+                  ) : null}
+                </div>
+              ) : null}
 
               {type === "PREVENTIVO" && recentPreventiveDays !== null ? (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
