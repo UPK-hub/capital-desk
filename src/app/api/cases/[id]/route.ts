@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, CaseStatus, NotificationType, Role, StsTicketChannel, StsTicketSeverity } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType, NotificationType, Role, StsTicketChannel, StsTicketSeverity } from "@prisma/client";
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
@@ -255,6 +255,63 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(created);
+}
+
+export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const role = (session.user as any).role as Role;
+  const capabilities = (session.user as any).capabilities as string[] | undefined;
+  const isVideosOnly =
+    role === Role.BACKOFFICE && capabilities?.includes(CAPABILITIES.VIDEOS_ONLY);
+  if (
+    isVideosOnly ||
+    (role !== Role.ADMIN &&
+      role !== Role.BACKOFFICE &&
+      role !== Role.SUPERVISOR &&
+      role !== Role.PLANNER)
+  ) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const tenantId = (session.user as any).tenantId as string;
+  const userId = (session.user as any).id as string;
+  const id = String(ctx.params.id);
+
+  const body = await req.json().catch(() => ({} as any));
+  const nextStatus = String(body?.status ?? "").trim().toUpperCase();
+
+  // Por ahora solo se admite el cierre manual de una NOVEDAD.
+  if (nextStatus !== CaseStatus.CERRADO) {
+    return NextResponse.json(
+      { error: "Estado no permitido. Solo se admite CERRADO." },
+      { status: 400 }
+    );
+  }
+
+  const found = await prisma.case.findFirst({
+    where: { id, tenantId, type: CaseType.NOVEDAD },
+    select: { id: true, status: true },
+  });
+  if (!found) return NextResponse.json({ error: "Novedad no encontrada." }, { status: 404 });
+  if (found.status === CaseStatus.CERRADO) {
+    return NextResponse.json({ ok: true, alreadyClosed: true, caseId: found.id });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.case.update({ where: { id: found.id }, data: { status: CaseStatus.CERRADO } });
+    await tx.caseEvent.create({
+      data: {
+        caseId: found.id,
+        type: CaseEventType.STATUS_CHANGE,
+        message: "Novedad cerrada manualmente.",
+        meta: { by: userId, manual: true },
+      },
+    });
+  });
+
+  return NextResponse.json({ ok: true, caseId: found.id, status: CaseStatus.CERRADO });
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {

@@ -17,6 +17,7 @@ import {
   WorkOrderStatus,
 } from "@prisma/client";
 import { nextNumbers } from "@/lib/tenant-sequence";
+import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 
 function formatInternalTime(d?: Date | null) {
   if (!d) return null;
@@ -67,7 +68,7 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
   const createdMeta = (wo.case.events?.[0]?.meta ?? null) as Record<string, any> | null;
   const splitGroupKey = typeof createdMeta?.splitGroupKey === "string" ? createdMeta.splitGroupKey : null;
 
-  await prisma.$transaction(async (tx) => {
+  const closedSiblingCaseIds = await prisma.$transaction(async (tx) => {
     let siblingCaseIds: string[] = [];
     if (splitGroupKey) {
       const siblingCreatedEvents = await tx.caseEvent.findMany({
@@ -247,10 +248,20 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
         }
       }
     }
+    return siblingCaseIds;
   }, {
     maxWait: 10_000,
     timeout: 30_000,
   });
+
+  // Cierre automático de la novedad de origen si todos sus enlazados quedaron resueltos.
+  for (const closedCaseId of closedSiblingCaseIds) {
+    try {
+      await maybeAutoCloseLinkedNovedad(tenantId, closedCaseId, userId);
+    } catch (error) {
+      console.error("AUTO_CLOSE_AFTER_VALIDATE_FAILED", { closedCaseId, error });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

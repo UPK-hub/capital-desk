@@ -11,6 +11,7 @@ import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
+import LinkedCasesCard from "./ui/LinkedCasesCard";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -328,6 +329,47 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           },
         })
       : null;
+
+  const linkedCasesForNovedad =
+    c.type === CaseType.NOVEDAD
+      ? await prisma.case.findMany({
+          where: {
+            tenantId,
+            type: { in: [CaseType.CORRECTIVO, CaseType.PREVENTIVO] },
+            events: {
+              some: {
+                meta: { path: ["sourceCaseId"], equals: c.id },
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            caseNo: true,
+            type: true,
+            status: true,
+            workOrder: { select: { id: true } },
+            events: { orderBy: { createdAt: "asc" }, select: { meta: true } },
+          },
+        })
+      : [];
+
+  const linkedCasesView = linkedCasesForNovedad.map((lc) => {
+    const manual = lc.events.some((ev) => {
+      const meta = (ev.meta ?? {}) as any;
+      return Boolean(meta?.sourceCaseId === c.id && meta?.manual);
+    });
+    return {
+      id: lc.id,
+      caseNo: lc.caseNo,
+      type: lc.type as "CORRECTIVO" | "PREVENTIVO",
+      typeLabel: labelFromMap(lc.type, caseTypeLabels),
+      status: lc.status,
+      statusLabel: labelFromMap(lc.status, caseStatusLabels),
+      workOrderId: lc.workOrder?.id ?? null,
+      manual,
+    };
+  });
 
   return (
     <div className="mobile-page-shell">
@@ -697,6 +739,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   }
                   busCode={c.bus?.code ?? null}
                   busPlate={c.bus?.plate ?? null}
+                />
+              ) : null}
+
+              {c.type === CaseType.NOVEDAD ? (
+                <LinkedCasesCard
+                  novedadId={c.id}
+                  novedadCaseNo={c.caseNo}
+                  novedadStatus={c.status}
+                  busId={c.bus?.id ?? null}
+                  canManage={canEditNovedad}
+                  linked={linkedCasesView}
                 />
               ) : null}
 

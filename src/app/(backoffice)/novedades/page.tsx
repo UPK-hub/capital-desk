@@ -214,7 +214,8 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   const correctiveCases = await prisma.case.findMany({
     where: {
       tenantId,
-      type: CaseType.CORRECTIVO,
+      // Incluye correctivos y preventivos enlazados a una novedad.
+      type: { in: [CaseType.CORRECTIVO, CaseType.PREVENTIVO] },
       createdAt: { gte: since },
     },
     orderBy: { createdAt: "desc" },

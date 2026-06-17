@@ -5,10 +5,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Role, StsTicketStatus } from "@prisma/client";
+import { CaseStatus, Role, StsTicketStatus } from "@prisma/client";
 import { canStsRead, canStsWrite } from "@/lib/sts/access";
 import { calcSlaResult, slaProgress } from "@/lib/sts/sla";
 import { mapTicketStatusToCaseStatus } from "@/lib/sts/case-status";
+import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 import { recomputeStsKpisForTenant } from "@/lib/sts/kpi-recompute";
 import { z } from "zod";
 
@@ -195,6 +196,19 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
     return saved;
   });
+
+  // Si el ticket cerró/resolvió su caso enlazado (CORRECTIVO/PREVENTIVO), intentar
+  // el cierre automático de la novedad de origen.
+  if (ticket.caseId && statusChanged) {
+    const mappedCaseStatus = mapTicketStatusToCaseStatus(updated.status);
+    if (mappedCaseStatus === CaseStatus.CERRADO || mappedCaseStatus === CaseStatus.RESUELTO) {
+      try {
+        await maybeAutoCloseLinkedNovedad(tenantId, ticket.caseId, actorId);
+      } catch (error) {
+        console.error("AUTO_CLOSE_AFTER_TICKET_FAILED", { caseId: ticket.caseId, error });
+      }
+    }
+  }
 
   const shouldRecompute = statusChanged && (updates.closedAt || parsed.data.status === "CLOSED");
   if (shouldRecompute) {

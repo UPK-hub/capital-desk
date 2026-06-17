@@ -708,6 +708,17 @@ export async function POST(req: NextRequest) {
   if (title.length < 3) return NextResponse.json({ error: "Título muy corto" }, { status: 400 });
   if (description.length < 5) return NextResponse.json({ error: "Descripción muy corta" }, { status: 400 });
 
+  // Enlace opcional a una novedad de origen (convención meta.sourceCaseId).
+  const fromNovedadRaw = String(body.fromNovedad ?? "").trim();
+  let fromNovedadId: string | null = null;
+  if (fromNovedadRaw && (cfg.type === "CORRECTIVO" || cfg.type === "PREVENTIVO")) {
+    const novedad = await prisma.case.findFirst({
+      where: { id: fromNovedadRaw, tenantId, type: "NOVEDAD" },
+      select: { id: true },
+    });
+    fromNovedadId = novedad?.id ?? null;
+  }
+
   const priority = normalizePriority(body.priority);
   const stsSeverity = cfg.stsComponentCode ? (body.stsSeverity as StsTicketSeverity) : null;
   if (cfg.stsComponentCode && (!stsSeverity || !Object.values(StsTicketSeverity).includes(stsSeverity))) {
@@ -835,7 +846,11 @@ export async function POST(req: NextRequest) {
             caseId: c.id,
             type: CaseEventType.CREATED,
             message: "Caso creado",
-            meta: splitGroupKey ? { userId, splitGroupKey } : { userId },
+            meta: {
+              userId,
+              ...(splitGroupKey ? { splitGroupKey } : {}),
+              ...(fromNovedadId ? { sourceCaseId: fromNovedadId } : {}),
+            },
           },
         });
 

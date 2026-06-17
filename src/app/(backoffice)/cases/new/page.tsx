@@ -121,6 +121,8 @@ export default function NewCasePage() {
     requestedType && requestedType in CASE_TYPE_REGISTRY
       ? (requestedType as keyof typeof CASE_TYPE_REGISTRY)
       : "CORRECTIVO";
+  const fromNovedadId = searchParams.get("fromNovedad");
+  const prefillBusId = searchParams.get("busId");
 
   const [type, setType] = useState<keyof typeof CASE_TYPE_REGISTRY>(initialType);
   const [isVideosOnlyUser, setIsVideosOnlyUser] = useState(false);
@@ -167,6 +169,26 @@ export default function NewCasePage() {
 
   const [bus, setBus] = useState<BusOption | null>(null);
   const [busEquipmentIds, setBusEquipmentIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!prefillBusId) return;
+    let cancelled = false;
+    async function loadPrefillBus() {
+      try {
+        const res = await fetch(`/api/buses/${prefillBusId}`, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.id || cancelled) return;
+        setBus({ id: String(data.id), code: String(data.code ?? ""), plate: data.plate ?? null });
+      } catch {
+        // Best effort: si falla, el usuario selecciona el bus manualmente.
+      }
+    }
+    void loadPrefillBus();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillBusId]);
 
   const suggested = useMemo(() => {
     const busCode = bus?.code;
@@ -405,6 +427,11 @@ export default function NewCasePage() {
           description: effectiveDescription,
           priority,
           stsSeverity: config.stsComponentCode ? priorityToSeverity[priority] : undefined,
+          // enlace opcional a una novedad de origen
+          fromNovedad:
+            fromNovedadId && (type === "CORRECTIVO" || type === "PREVENTIVO")
+              ? fromNovedadId
+              : undefined,
           // inline create form
           videoDownloadRequest: config.hasInlineCreateForm ? video : undefined,
         }),
