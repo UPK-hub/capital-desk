@@ -746,11 +746,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const splitByEquipment = cfg.type === "CORRECTIVO" && effectiveEquipmentIds.length > 1;
-    const targets = splitByEquipment ? effectiveEquipmentIds : [busEquipmentId];
-    const splitGroupKey = splitByEquipment
-      ? `split-${tenantId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      : null;
+    // ITEM 4 (bloque 6): un CORRECTIVO con varias cámaras/equipos se consolida en UN
+    // solo caso (no se divide en uno por equipo). Por eso ya no se hace split por
+    // equipo: se crea un único caso (targets = [busEquipmentId]) y todos los equipos
+    // seleccionados se vinculan vía caseEquipment (rama else más abajo).
+    // splitGroupKey queda null en casos nuevos; la lógica de validate/finish sigue
+    // soportando casos viejos que sí tengan splitGroupKey en su evento CREATED.
+    const splitByEquipment = false;
+    const targets = [busEquipmentId];
+    const splitGroupKey: string | null = null;
 
     // Reservar consecutivos en transacción corta para evitar locks largos en el flujo principal
     const reserved = await prisma.$transaction(

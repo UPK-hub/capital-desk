@@ -279,7 +279,11 @@ const REQUIRED_PHOTO_KEYS = new Set([
   "bateria_voltaje",
 ]);
 const REQUIRED_NUMBER_KEYS = new Set(["nvr_conteo_dias_grabacion"]);
-const BATTERY_VOLTAGE_OPTIONS = Array.from({ length: 301 }, (_, i) => `${(0 + i * 0.1).toFixed(1)} V`);
+// ITEM 3 (bloque 6): voltaje con INGRESO MANUAL + sugerencias de 5 en 5 hasta 60.
+// Se usa <input> + <datalist>; el usuario puede escribir un valor manual o elegir
+// una de estas sugerencias.
+const BATTERY_VOLTAGE_OPTIONS = Array.from({ length: 12 }, (_, i) => String((i + 1) * 5));
+// Días de grabación: ingreso MANUAL (input numérico) con sugerencias 0..60.
 const RECORDING_DAYS_OPTIONS = Array.from({ length: 61 }, (_, i) => String(i));
 
 function isVoltageRow(activityKey: string, activityLabel: string) {
@@ -727,6 +731,19 @@ function PreventiveReportFormInner(props: Props) {
             </p>
           </div>
 
+          {/* ITEM 3 (bloque 6): datalists compartidos para ingreso manual con sugerencias.
+              Voltaje 5..60 (de 5 en 5) y días de grabación 0..60. */}
+          <datalist id="battery-voltage-options">
+            {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
+              <option key={opt} value={opt} />
+            ))}
+          </datalist>
+          <datalist id="recording-days-options">
+            {RECORDING_DAYS_OPTIONS.map((opt) => (
+              <option key={opt} value={opt} />
+            ))}
+          </datalist>
+
           <div className="ot-table-scroll hidden lg:block overflow-x-auto overflow-y-visible">
             <table className="w-full min-w-[1080px] border-collapse [table-layout:auto]">
               <colgroup>
@@ -812,25 +829,24 @@ function PreventiveReportFormInner(props: Props) {
                         <td className="p-3">
                           {valueRequired ? (
                             valueInputKind === "voltage" ? (
-                              <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.value`)}>
-                                <option value="">Seleccionar voltaje</option>
-                                {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
-                                {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
-                                  <option key={opt} value={opt}>
-                                    {opt}
-                                  </option>
-                                ))}
-                              </Select>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                list="battery-voltage-options"
+                                className="app-field-control h-8 w-full rounded-lg border px-2 text-xs"
+                                placeholder="Voltaje (ej: 25)"
+                                {...form.register(`activities.${idx}.value`)}
+                              />
                             ) : valueInputKind === "number" ? (
-                              <Select className="app-field-control h-8 w-full rounded-lg border px-2 text-xs" {...form.register(`activities.${idx}.value`)}>
-                                <option value="">Seleccionar días</option>
-                                {value && !RECORDING_DAYS_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
-                                {RECORDING_DAYS_OPTIONS.map((opt) => (
-                                  <option key={opt} value={opt}>
-                                    {opt}
-                                  </option>
-                                ))}
-                              </Select>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                list="recording-days-options"
+                                className="app-field-control h-8 w-full rounded-lg border px-2 text-xs"
+                                placeholder="Días (ej: 30)"
+                                {...form.register(`activities.${idx}.value`)}
+                              />
                             ) : (
                               <input
                                 type="text"
@@ -869,20 +885,24 @@ function PreventiveReportFormInner(props: Props) {
                           )}
                         </td>
                       </tr>
-                      {result === "NO_FUNCIONAL" ? (
-                        <tr className="bg-muted/15">
-                          <td className="p-3 text-xs text-muted-foreground" colSpan={2}>
-                            Observación
-                          </td>
-                          <td className="p-3" colSpan={5}>
-                            <input
-                              className={smallInputCls()}
-                              placeholder="Describe la novedad"
-                              {...form.register(`activities.${idx}.observation`)}
-                            />
-                          </td>
-                        </tr>
-                      ) : null}
+                      {/* ITEM 2 (bloque 6): la observación se muestra SIEMPRE para cada tarea,
+                          no solo cuando el estado es No funcional. */}
+                      <tr className="bg-muted/15">
+                        <td className="p-3 text-xs text-muted-foreground" colSpan={2}>
+                          Observación
+                        </td>
+                        <td className="p-3" colSpan={5}>
+                          <input
+                            className={smallInputCls()}
+                            placeholder={
+                              result === "NO_FUNCIONAL"
+                                ? "Describe la novedad"
+                                : "Observación de la tarea (opcional)"
+                            }
+                            {...form.register(`activities.${idx}.observation`)}
+                          />
+                        </td>
+                      </tr>
                     </React.Fragment>
                   );
                 })}
@@ -956,25 +976,24 @@ function PreventiveReportFormInner(props: Props) {
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Valor</label>
                       {valueInputKind === "voltage" ? (
-                        <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.value`)}>
-                          <option value="">Seleccionar voltaje</option>
-                          {value && !BATTERY_VOLTAGE_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
-                          {BATTERY_VOLTAGE_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </Select>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          list="battery-voltage-options"
+                          className="app-field-control h-9 w-full rounded-xl border px-3 text-sm"
+                          placeholder="Voltaje (ej: 25)"
+                          {...form.register(`activities.${idx}.value`)}
+                        />
                       ) : valueInputKind === "number" ? (
-                        <Select className="app-field-control h-9 w-full rounded-xl border px-3 text-sm" {...form.register(`activities.${idx}.value`)}>
-                          <option value="">Seleccionar días</option>
-                          {value && !RECORDING_DAYS_OPTIONS.includes(value) ? <option value={value}>{value}</option> : null}
-                          {RECORDING_DAYS_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </Select>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          list="recording-days-options"
+                          className="app-field-control h-9 w-full rounded-xl border px-3 text-sm"
+                          placeholder="Días (ej: 30)"
+                          {...form.register(`activities.${idx}.value`)}
+                        />
                       ) : (
                         <input
                           type="text"
@@ -1009,16 +1028,19 @@ function PreventiveReportFormInner(props: Props) {
                     </div>
                   ) : null}
 
-                  {result === "NO_FUNCIONAL" ? (
-                    <div>
-                      <label className="text-[11px] font-medium text-muted-foreground">Observación</label>
-                      <input
-                        className={smallInputCls()}
-                        placeholder="Describe la novedad"
-                        {...form.register(`activities.${idx}.observation`)}
-                      />
-                    </div>
-                  ) : null}
+                  {/* ITEM 2 (bloque 6): observación visible SIEMPRE, también en mobile. */}
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground">Observación</label>
+                    <input
+                      className={smallInputCls()}
+                      placeholder={
+                        result === "NO_FUNCIONAL"
+                          ? "Describe la novedad"
+                          : "Observación de la tarea (opcional)"
+                      }
+                      {...form.register(`activities.${idx}.observation`)}
+                    />
+                  </div>
                 </div>
               );
             })}

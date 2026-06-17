@@ -278,6 +278,11 @@ export default function NewCasePage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  // Marcan si el usuario ya editó manualmente el campo. Mientras estén en false,
+  // el texto sugerido (por tipo/bus) se sincroniza como punto de partida editable.
+  // Cuando el usuario escribe o borra, se marca como tocado y deja de revertirse.
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [priority, setPriority] = useState<PriorityOption>("MEDIA");
 
   const [novedadItems, setNovedadItems] = useState<NovedadItem[]>([
@@ -353,8 +358,24 @@ export default function NewCasePage() {
     ALTA: StsTicketSeverity.HIGH,
   };
 
-  const effectiveTitle = title || suggested.title;
-  const effectiveDescription = description || suggested.description;
+  // El texto sugerido es solo un punto de partida EDITABLE y BORRABLE.
+  // Mientras el usuario no haya tocado el campo, lo mantenemos sincronizado con la
+  // sugerencia (que cambia con el tipo o el bus). En cuanto escribe o borra, el flag
+  // *Touched queda en true y dejamos de sobreescribir su contenido (incluido el vacío).
+  useEffect(() => {
+    if (!titleTouched) setTitle(suggested.title);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggested.title, titleTouched]);
+
+  useEffect(() => {
+    if (!descriptionTouched) setDescription(suggested.description);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggested.description, descriptionTouched]);
+
+  // Lo que se envía al backend es directamente el contenido editable (puede ser vacío,
+  // el backend mantiene su propia validación de longitud mínima).
+  const effectiveTitle = title;
+  const effectiveDescription = description;
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -714,12 +735,25 @@ export default function NewCasePage() {
                 </div>
               ) : null}
 
-              <Field label="Título" hint="Autollenado por tipo, editable">
-                <Input value={effectiveTitle} onChange={(e) => setTitle(e.target.value)} />
+              <Field label="Título" hint="Sugerido por tipo; puedes editarlo o borrarlo">
+                <Input
+                  value={title}
+                  onChange={(e) => {
+                    setTitleTouched(true);
+                    setTitle(e.target.value);
+                  }}
+                />
               </Field>
 
-              <Field label="Descripción" hint="Autollenado por tipo, editable">
-                <Textarea rows={3} value={effectiveDescription} onChange={(e) => setDescription(e.target.value)} />
+              <Field label="Descripción" hint="Sugerida por tipo; puedes editarla o borrarla">
+                <Textarea
+                  rows={3}
+                  value={description}
+                  onChange={(e) => {
+                    setDescriptionTouched(true);
+                    setDescription(e.target.value);
+                  }}
+                />
               </Field>
             </div>
 
