@@ -236,32 +236,37 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   if (nextDownloadStatus === VideoDownloadStatus.DESCARGA_FALLIDA && !current.notifFailedSentAt) {
-    await notifyTenantUsers({
-      tenantId,
-      roles: [Role.ADMIN, Role.BACKOFFICE],
-      type: NotificationType.VIDEO_REQUEST_FAILED,
-      title: `Descarga fallida - ${current.case.caseNo ?? current.caseId}`,
-      body: [
-        `Bus: ${current.case.bus.code}${current.case.bus.plate ? ` (${current.case.bus.plate})` : ""}`,
-        observationsTechnician ? `Obs: ${observationsTechnician}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      href: `/video-requests/${requestId}`,
-      meta: { requestId },
-    });
+    // Notificación interna acotada: SOLO al responsable asignado, si existe.
+    // Si no hay responsable, no se notifica internamente (sin blast).
+    const responsibleId = updated.assignedToId ?? null;
+    if (responsibleId) {
+      await notifyTenantUsers({
+        tenantId,
+        userIds: [responsibleId],
+        type: NotificationType.VIDEO_REQUEST_FAILED,
+        title: `Descarga fallida - ${current.case.caseNo ?? current.caseId}`,
+        body: [
+          `Bus: ${current.case.bus.code}${current.case.bus.plate ? ` (${current.case.bus.plate})` : ""}`,
+          observationsTechnician ? `Obs: ${observationsTechnician}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        href: `/video-requests/${requestId}`,
+        meta: { requestId },
+      });
+
+      await logEvent({
+        requestId,
+        type: VideoRequestEventType.EMAIL_SENT,
+        message: "Correo interno enviado: DESCARGA_FALLIDA",
+        meta: { toUserId: responsibleId },
+        actorUserId,
+      });
+    }
 
     await prisma.videoDownloadRequest.update({
       where: { id: requestId },
       data: { notifFailedSentAt: new Date() },
-    });
-
-    await logEvent({
-      requestId,
-      type: VideoRequestEventType.EMAIL_SENT,
-      message: "Correo interno enviado: DESCARGA_FALLIDA",
-      meta: { toRoles: [Role.ADMIN, Role.BACKOFFICE] },
-      actorUserId,
     });
   }
 
@@ -322,15 +327,20 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       sentClient = true;
     }
     if (sentClient) {
-      await notifyTenantUsers({
-        tenantId,
-        roles: [Role.ADMIN, Role.BACKOFFICE],
-        type: NotificationType.VIDEO_REQUEST_INTERNAL_DELIVERED,
-        title: `Entrega exitosa - ${current.case.caseNo ?? current.caseId}`,
-        body: `Caso completado con video`,
-        href: `/video-requests/${requestId}`,
-        meta: { requestId },
-      });
+      // Notificación interna acotada: SOLO al responsable asignado, si existe.
+      // Si no hay responsable, se omite la interna (sin blast).
+      const responsibleId = updated.assignedToId ?? null;
+      if (responsibleId) {
+        await notifyTenantUsers({
+          tenantId,
+          userIds: [responsibleId],
+          type: NotificationType.VIDEO_REQUEST_INTERNAL_DELIVERED,
+          title: `Entrega exitosa - ${current.case.caseNo ?? current.caseId}`,
+          body: `Caso completado con video`,
+          href: `/video-requests/${requestId}`,
+          meta: { requestId },
+        });
+      }
 
       await prisma.videoDownloadRequest.update({
         where: { id: requestId },

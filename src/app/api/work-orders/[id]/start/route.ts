@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/uploads";
 import { CaseEventType, CaseStatus, CaseType, MediaKind, NotificationType, Role, WorkOrderStatus } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { getCaseStakeholderUserIds } from "@/lib/notify-recipients";
 
 
 type QuickVerificationChecklistItem = {
@@ -385,15 +386,20 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   });
 
   if (!isStartUpdate) {
-    await notifyTenantUsers({
-      tenantId,
-      roles: [Role.ADMIN, Role.BACKOFFICE],
-      type: NotificationType.WO_STARTED,
-      title: "OT iniciada",
-      body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
-      href: `/work-orders/${wo.id}`,
-      meta: { workOrderId: wo.id, caseId: wo.caseId },
-    });
+    // Destinatarios acotados: solo los stakeholders del caso (creador + técnico
+    // asignado). Evita blast a ADMIN/BACKOFFICE.
+    const stakeholderUserIds = await getCaseStakeholderUserIds(tenantId, wo.caseId);
+    if (stakeholderUserIds.length) {
+      await notifyTenantUsers({
+        tenantId,
+        userIds: stakeholderUserIds,
+        type: NotificationType.WO_STARTED,
+        title: "OT iniciada",
+        body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
+        href: `/work-orders/${wo.id}`,
+        meta: { workOrderId: wo.id, caseId: wo.caseId },
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, updated: isStartUpdate });

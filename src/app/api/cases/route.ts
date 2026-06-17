@@ -653,7 +653,8 @@ export async function POST(req: NextRequest) {
 
       await notifyTenantUsers({
         tenantId,
-        roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+        // Destinatarios acotados: solo quienes asignan (pocos). Evita blast a ADMIN/BACKOFFICE.
+        roles: [Role.SUPERVISOR, Role.PLANNER],
         type: NotificationType.CASE_CREATED,
         title: `Novedades reportadas (${created.batchRef})`,
         body: `ID ${created.batchRef}: ${created.items.length} buses reportados y ${created.items.length} tickets correctivos en validación.`,
@@ -889,7 +890,8 @@ export async function POST(req: NextRequest) {
 
     await notifyTenantUsers({
       tenantId,
-      roles: [Role.ADMIN, Role.BACKOFFICE],
+      // Destinatarios acotados: solo quienes asignan (pocos). Evita blast a ADMIN/BACKOFFICE.
+      roles: [Role.SUPERVISOR, Role.PLANNER],
       type: NotificationType.CASE_CREATED,
       title: `Nuevo caso: ${created.case.title}`,
       body: `Tipo: ${created.case.type} | Estado: ${created.case.status}`,
@@ -995,9 +997,14 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        // Notificación interna acotada: si la solicitud ya tiene responsable
+        // asignado, solo a él; si no, a quienes asignan (SUPERVISOR/PLANNER).
+        // El correo directo al/los solicitante(s) ya se envió arriba.
         await notifyTenantUsers({
           tenantId,
-          roles: [Role.ADMIN, Role.BACKOFFICE],
+          ...(req.assignedToId
+            ? { userIds: [req.assignedToId] }
+            : { roles: [Role.SUPERVISOR, Role.PLANNER] }),
           type: NotificationType.VIDEO_REQUEST_CREATED,
           title: `Nuevo caso video - ${req.case.caseNo ?? req.caseId}`,
           body: `Bus: ${req.case.bus.code}${req.case.bus.plate ? ` (${req.case.bus.plate})` : ""}`,

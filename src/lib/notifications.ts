@@ -39,6 +39,17 @@ function shouldEmail(type: NotificationType) {
 export async function notifyTenantUsers(params: NotifyParams) {
   const { tenantId, roles, userIds, type, title, body, href, meta } = params;
 
+  // 0) GUARDA DE SEGURIDAD: nunca notificar a TODO el tenant.
+  // Si no se pasan filtros (ni userIds ni roles), no se envía nada.
+  // Esto evita "blasts" accidentales a todos los usuarios del tenant.
+  if (!userIds?.length && !roles?.length) {
+    console.warn(
+      "notifyTenantUsers: llamada sin userIds ni roles, se omite para evitar envío masivo.",
+      { tenantId, type, title }
+    );
+    return { ok: true, created: 0, emailed: 0, skipped: true };
+  }
+
   // 1) Resolver destinatarios
   const recipients = await prisma.user.findMany({
     where: {

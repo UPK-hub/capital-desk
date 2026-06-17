@@ -362,7 +362,8 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
     await notifyTenantUsers({
       tenantId,
-      roles: [Role.ADMIN, Role.BACKOFFICE, Role.PLANNER],
+      // Acotado a quienes planifican (pocos). Evita blast a ADMIN/BACKOFFICE.
+      roles: [Role.PLANNER, Role.SUPERVISOR],
       type: NotificationType.CASE_ASSIGNED,
       title: reproTitle,
       body: reproBody,

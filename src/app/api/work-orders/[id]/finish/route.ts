@@ -20,6 +20,7 @@ import {
   WorkOrderStatus,
 } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { getCaseStakeholderUserIds } from "@/lib/notify-recipients";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 
@@ -522,14 +523,19 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   if (!isFinishUpdate) {
-    await notifyTenantUsers({
-      tenantId,
-      roles: [Role.ADMIN, Role.BACKOFFICE],
-      type: NotificationType.WO_FINISHED,
-      title: needsCoordinatorValidation ? "OT en validación de acta" : "OT finalizada",
-      body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
-      meta: { workOrderId: wo.id, caseId: wo.caseId },
-    });
+    // Destinatarios acotados: solo los stakeholders del caso (creador + técnico
+    // asignado). Evita blast a ADMIN/BACKOFFICE.
+    const stakeholderUserIds = await getCaseStakeholderUserIds(tenantId, wo.caseId);
+    if (stakeholderUserIds.length) {
+      await notifyTenantUsers({
+        tenantId,
+        userIds: stakeholderUserIds,
+        type: NotificationType.WO_FINISHED,
+        title: needsCoordinatorValidation ? "OT en validación de acta" : "OT finalizada",
+        body: `OT: ${wo.id} | Bus: ${wo.case.bus.code}`,
+        meta: { workOrderId: wo.id, caseId: wo.caseId },
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, updated: isFinishUpdate });
