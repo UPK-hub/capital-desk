@@ -37,7 +37,7 @@ const NOVEDAD_OPTIONS_BY_EQUIPMENT: Record<AffectedEquipmentType, string[]> = {
 
 type NovedadItem = {
   key: string;
-  bus: BusOption | null;
+  buses: BusOption[];
   busEquipmentIds: string[];
   catalogCode: string;
   affectedEquipment: AffectedEquipmentType | "";
@@ -207,7 +207,7 @@ export default function NewCasePage() {
   const [novedadItems, setNovedadItems] = useState<NovedadItem[]>([
     {
       key: `nvd-${Date.now()}`,
-      bus: null,
+      buses: [],
       busEquipmentIds: [],
       catalogCode: "",
       affectedEquipment: "",
@@ -218,6 +218,9 @@ export default function NewCasePage() {
       evidenceFile: null,
     },
   ]);
+
+  // Bus "pendiente" por registro: lo elige el combobox y se confirma con "Agregar bus".
+  const [pendingBusByItem, setPendingBusByItem] = useState<Record<string, BusOption | null>>({});
 
   const [novedadCatalog, setNovedadCatalog] = useState<NovedadCatalogOption[]>([]);
 
@@ -324,7 +327,34 @@ export default function NewCasePage() {
 
     try {
       if (type === "NOVEDAD") {
-        const normalizedItems = novedadItems.map((item) => {
+        // Validación por registro antes de expandir a items por bus.
+        for (let idx = 0; idx < novedadItems.length; idx += 1) {
+          const item = novedadItems[idx];
+          const catalogCode = item.catalogCode.trim();
+          const selectedCatalog =
+            item.affectedEquipment && catalogCode
+              ? (catalogByEquipment[item.affectedEquipment] ?? []).find(
+                  (entry) => entry.code === catalogCode
+                )
+              : null;
+          const resolvedReportedNovelty =
+            item.reportedNovelty.trim() || selectedCatalog?.novelty?.trim() || "";
+
+          const missing: string[] = [];
+          if (!item.buses.length) missing.push("al menos un bus");
+          if (!item.affectedEquipment) missing.push("equipo afectado");
+          if (!item.priority) missing.push("prioridad");
+          if (!resolvedReportedNovelty) missing.push("novedad (catálogo o texto libre)");
+
+          if (missing.length) {
+            throw new Error(`Registro #${idx + 1}: completa ${missing.join(", ")}.`);
+          }
+        }
+
+        // Expandir cada registro a un item normalizado por cada bus.
+        // Todos los items van en el mismo POST y, por tanto, en el mismo lote (batchRef
+        // lo asigna el backend una sola vez por POST y lo reutiliza para cada caso).
+        const normalizedItems = novedadItems.flatMap((item) => {
           const catalogCode = item.catalogCode.trim();
           const selectedCatalog =
             item.affectedEquipment && catalogCode
@@ -338,44 +368,26 @@ export default function NewCasePage() {
           const resolvedPriority = selectedCatalog
             ? mapCatalogPriorityToOption(selectedCatalog.priorityValue)
             : item.priority;
+          // Los equipos específicos solo tienen sentido con exactamente un bus.
+          const equipmentIds = item.buses.length === 1 ? item.busEquipmentIds : [];
 
-          return {
-            localKey: item.key,
-            busId: item.bus?.id ?? null,
-            busCode: item.bus?.code ?? null,
-            busPlate: item.bus?.plate ?? null,
-            busEquipmentIds: item.busEquipmentIds,
+          return item.buses.map((bus) => ({
+            // localKey único por (registro, bus) para mapear evidencia 1:1 en el backend.
+            localKey: `${item.key}::${bus.id}`,
+            busId: bus.id,
+            busCode: bus.code ?? null,
+            busPlate: bus.plate ?? null,
+            busEquipmentIds: equipmentIds,
             catalogCode: catalogCode || null,
             affectedEquipment: item.affectedEquipment || null,
             priority: resolvedPriority,
             reportedNovelty: resolvedReportedNovelty,
             observations: item.observations.trim(),
-          };
+          }));
         });
 
         if (!normalizedItems.length) {
           throw new Error("Debes agregar al menos un bus en la novedad.");
-        }
-
-        const invalidIdx = normalizedItems.findIndex((item) => {
-          return (
-            !item.busId ||
-            !item.affectedEquipment ||
-            !item.priority ||
-            !item.reportedNovelty
-          );
-        });
-        if (invalidIdx >= 0) {
-          const bad = normalizedItems[invalidIdx];
-          const missing: string[] = [];
-          if (!bad.busId) missing.push("bus (selección en lista)");
-          if (!bad.affectedEquipment) missing.push("equipo afectado");
-          if (!bad.priority) missing.push("prioridad");
-          if (!bad.reportedNovelty) missing.push("novedad (catálogo)");
-
-          throw new Error(
-            `Registro #${invalidIdx + 1}: completa ${missing.join(", ")}.`
-          );
         }
 
         const fd = new FormData();
@@ -386,9 +398,12 @@ export default function NewCasePage() {
             novedadItems: normalizedItems,
           })
         );
+        // La evidencia es por registro; se adjunta a cada caso del registro
+        // enviándola bajo cada localKey expandido ("<key>::<busId>").
         for (const item of novedadItems) {
-          if (item.evidenceFile) {
-            fd.set(`evidence:${item.key}`, item.evidenceFile);
+          if (!item.evidenceFile) continue;
+          for (const bus of item.buses) {
+            fd.set(`evidence:${item.key}::${bus.id}`, item.evidenceFile);
           }
         }
 
@@ -459,7 +474,7 @@ export default function NewCasePage() {
       ...prev,
       {
         key: `nvd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        bus: null,
+        buses: [],
         busEquipmentIds: [],
         catalogCode: "",
         affectedEquipment: "",
@@ -470,6 +485,31 @@ export default function NewCasePage() {
         evidenceFile: null,
       },
     ]);
+  }
+
+  function addBusToNovedadItem(key: string, bus: BusOption | null) {
+    if (!bus?.id) return;
+    setNovedadItems((prev) =>
+      prev.map((item) => {
+        if (item.key !== key) return item;
+        if (item.buses.some((b) => b.id === bus.id)) return item;
+        const nextBuses = [...item.buses, bus];
+        // Los equipos específicos solo aplican con exactamente un bus.
+        const nextEquipmentIds = nextBuses.length === 1 ? item.busEquipmentIds : [];
+        return { ...item, buses: nextBuses, busEquipmentIds: nextEquipmentIds };
+      })
+    );
+  }
+
+  function removeBusFromNovedadItem(key: string, busId: string) {
+    setNovedadItems((prev) =>
+      prev.map((item) => {
+        if (item.key !== key) return item;
+        const nextBuses = item.buses.filter((b) => b.id !== busId);
+        const nextEquipmentIds = nextBuses.length === 1 ? item.busEquipmentIds : [];
+        return { ...item, buses: nextBuses, busEquipmentIds: nextEquipmentIds };
+      })
+    );
   }
 
   function removeNovedadItem(key: string) {
@@ -645,7 +685,7 @@ export default function NewCasePage() {
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium">Novedad masiva (múltiples buses)</p>
                 <button type="button" className="sts-btn-ghost h-9 px-3 text-xs" onClick={addNovedadItem}>
-                  Agregar bus
+                  Agregar otra novedad
                 </button>
               </div>
               <div className="space-y-3">
@@ -677,38 +717,77 @@ export default function NewCasePage() {
                         </button>
                       </div>
                       <div className="grid gap-3 md:grid-cols-2">
-                        <Field label="Bus (código o placa)">
-                          <BusCombobox
-                            value={item.bus}
-                            onChange={(b) => {
-                              const nextObservation = selectedCatalog?.standardObservation
-                                ? applyObservationTemplate(selectedCatalog.standardObservation, {
-                                    bus: b,
-                                    catalogCode: selectedCatalog.code,
-                                    reportedNovelty: selectedCatalog.novelty,
-                                  })
-                                : item.observations;
-                              updateNovedadItem(item.key, {
-                                bus: b,
-                                busEquipmentIds: [],
-                                observations: nextObservation,
-                              });
-                            }}
-                          />
-                        </Field>
+                        <div className="md:col-span-2">
+                          <Field
+                            label="Buses (código o placa)"
+                            hint="Agrega uno o varios buses; la misma novedad se aplicará a todos."
+                          >
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1">
+                                <BusCombobox
+                                  value={pendingBusByItem[item.key] ?? null}
+                                  onChange={(b) =>
+                                    setPendingBusByItem((prev) => ({ ...prev, [item.key]: b }))
+                                  }
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="sts-btn-ghost h-10 shrink-0 px-3 text-xs disabled:opacity-40"
+                                disabled={!pendingBusByItem[item.key]?.id}
+                                onClick={() => {
+                                  const pending = pendingBusByItem[item.key] ?? null;
+                                  addBusToNovedadItem(item.key, pending);
+                                  setPendingBusByItem((prev) => ({ ...prev, [item.key]: null }));
+                                }}
+                              >
+                                Agregar bus
+                              </button>
+                            </div>
+                            {item.buses.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.buses.map((b) => (
+                                  <span
+                                    key={b.id}
+                                    className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-1 text-xs"
+                                  >
+                                    <span className="font-medium">{b.code}</span>
+                                    {b.plate ? (
+                                      <span className="text-muted-foreground">({b.plate})</span>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className="ml-1 text-muted-foreground hover:text-foreground"
+                                      aria-label={`Quitar bus ${b.code}`}
+                                      onClick={() => removeBusFromNovedadItem(item.key, b.id)}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                Aún no has agregado buses a esta novedad.
+                              </p>
+                            )}
+                          </Field>
+                        </div>
 
-                        <Field label="Placa (autocompleta)">
-                          <Input value={item.bus?.plate ?? ""} placeholder="Se completa al elegir bus" disabled />
-                        </Field>
-
-                        <Field label="Equipo afectado">
+                        <Field
+                          label="Equipo afectado"
+                          hint="Queda atado a la novedad seleccionada del catálogo."
+                        >
                           <Select
                             value={item.affectedEquipment}
                             onChange={(e) =>
+                              // Al cambiar el equipo afectado se limpia la novedad seleccionada
+                              // para evitar inconsistencias novedad↔equipo.
                               updateNovedadItem(item.key, {
                                 affectedEquipment: e.target.value as AffectedEquipmentType | "",
                                 catalogCode: "",
                                 reportedNovelty: "",
+                                custom: false,
                               })
                             }
                           >
@@ -767,13 +846,15 @@ export default function NewCasePage() {
                                 const selected = equipmentCatalog.find((entry) => entry.code === value);
                                 if (selected) {
                                   const nextObservation = applyObservationTemplate(selected.standardObservation, {
-                                    bus: item.bus,
+                                    bus: item.buses[0] ?? null,
                                     catalogCode: selected.code,
                                     reportedNovelty: selected.novelty,
                                   });
                                   updateNovedadItem(item.key, {
                                     custom: false,
                                     catalogCode: selected.code,
+                                    // Atar el equipo afectado al equipo de la novedad del catálogo.
+                                    affectedEquipment: selected.affectedEquipment,
                                     reportedNovelty: selected.novelty,
                                     priority: mapCatalogPriorityToOption(selected.priorityValue),
                                     observations: nextObservation || item.observations,
@@ -829,14 +910,30 @@ export default function NewCasePage() {
                         </Field>
 
                         <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
-                          <Field label="Equipo(s) específico(s) del bus" hint="Opcional, para precisión de trazabilidad">
-                            <BusEquipmentMultiSelect
-                              busId={item.bus?.id ?? null}
-                              value={item.busEquipmentIds}
-                              onChange={(ids) => updateNovedadItem(item.key, { busEquipmentIds: ids })}
-                              disabled={!item.bus?.id}
-                            />
-                          </Field>
+                          {item.buses.length === 1 ? (
+                            <Field
+                              label="Equipo(s) específico(s) del bus"
+                              hint="Opcional, para precisión de trazabilidad (solo con un bus)."
+                            >
+                              <BusEquipmentMultiSelect
+                                busId={item.buses[0]?.id ?? null}
+                                value={item.busEquipmentIds}
+                                onChange={(ids) => updateNovedadItem(item.key, { busEquipmentIds: ids })}
+                                disabled={!item.buses[0]?.id}
+                              />
+                            </Field>
+                          ) : (
+                            <Field
+                              label="Equipo(s) específico(s) del bus"
+                              hint="Disponible solo cuando la novedad tiene exactamente un bus."
+                            >
+                              <div className="app-field-control flex h-10 items-center rounded-xl px-3 text-xs text-muted-foreground">
+                                {item.buses.length === 0
+                                  ? "Agrega un bus para precisar equipos."
+                                  : "No aplica con varios buses."}
+                              </div>
+                            </Field>
+                          )}
 
                           <div className="space-y-3">
                             {selectedCatalog ? (
