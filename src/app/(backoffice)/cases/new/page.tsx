@@ -41,6 +41,7 @@ type NovedadItem = {
   affectedEquipment: AffectedEquipmentType | "";
   priority: PriorityOption;
   reportedNovelty: string;
+  custom: boolean;
   observations: string;
   evidenceFile: File | null;
 };
@@ -158,7 +159,6 @@ export default function NewCasePage() {
     () =>
       Object.values(CASE_TYPE_REGISTRY).filter((c) => {
         if (c.type === "MEJORA_PRODUCTO") return false;
-        if (c.type === "NOVEDAD") return false;
         if (!isVideosOnlyUser) return true;
         return c.type === "SOLICITUD_DESCARGA_VIDEO";
       }),
@@ -189,6 +189,7 @@ export default function NewCasePage() {
       affectedEquipment: "",
       priority: "MEDIA",
       reportedNovelty: "",
+      custom: false,
       observations: "",
       evidenceFile: null,
     },
@@ -435,6 +436,7 @@ export default function NewCasePage() {
         affectedEquipment: "",
         priority: "MEDIA",
         reportedNovelty: "",
+        custom: false,
         observations: "",
         evidenceFile: null,
       },
@@ -712,11 +714,20 @@ export default function NewCasePage() {
                           }
                         >
                           <Select
-                            value={noveltySelectValue}
+                            value={item.custom ? "__OTRA__" : noveltySelectValue}
                             onChange={(e) => {
                               const value = e.target.value;
+                              if (value === "__OTRA__") {
+                                updateNovedadItem(item.key, {
+                                  custom: true,
+                                  catalogCode: "",
+                                  reportedNovelty: "",
+                                });
+                                return;
+                              }
                               if (!value) {
                                 updateNovedadItem(item.key, {
+                                  custom: false,
                                   catalogCode: "",
                                   reportedNovelty: "",
                                 });
@@ -732,6 +743,7 @@ export default function NewCasePage() {
                                     reportedNovelty: selected.novelty,
                                   });
                                   updateNovedadItem(item.key, {
+                                    custom: false,
                                     catalogCode: selected.code,
                                     reportedNovelty: selected.novelty,
                                     priority: mapCatalogPriorityToOption(selected.priorityValue),
@@ -742,6 +754,7 @@ export default function NewCasePage() {
                               }
 
                               updateNovedadItem(item.key, {
+                                custom: false,
                                 catalogCode: "",
                                 reportedNovelty: value,
                               });
@@ -764,8 +777,19 @@ export default function NewCasePage() {
                                     {option}
                                   </option>
                                 ))}
+                            <option value="__OTRA__">Otra (no estandarizada)</option>
                           </Select>
                         </Field>
+
+                        {item.custom ? (
+                          <Field label="Describe la novedad (no estandarizada)">
+                            <Input
+                              value={item.reportedNovelty}
+                              placeholder="Escribe la novedad..."
+                              onChange={(e) => updateNovedadItem(item.key, { reportedNovelty: e.target.value })}
+                            />
+                          </Field>
+                        ) : null}
 
                         <Field label="Código de novedad">
                           <Input

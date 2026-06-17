@@ -10,6 +10,7 @@ import {
   BusFront,
   CalendarDays,
   Clock3,
+  Flag,
   Home,
   LayoutDashboard,
   LogOut,
@@ -28,6 +29,7 @@ export type SidebarIconKey =
   | "home"
   | "grid"
   | "case"
+  | "novelty"
   | "bus"
   | "video"
   | "planner"
@@ -58,6 +60,8 @@ function iconFor(name: SidebarIconKey) {
       return LayoutDashboard;
     case "case":
       return Briefcase;
+    case "novelty":
+      return Flag;
     case "bus":
       return BusFront;
     case "video":
