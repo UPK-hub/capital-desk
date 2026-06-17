@@ -35,6 +35,20 @@ const NOVEDAD_OPTIONS_BY_EQUIPMENT: Record<AffectedEquipmentType, string[]> = {
   IO_SENSORES: ["Botón de pánico no funciona", "Botón de pánico obturado", "Sensor no reporta", "Micrófono sin audio"],
 };
 
+// Patrón de regex (string, case-insensitive y sin acentos) para autoseleccionar el
+// equipo específico del bus según el equipo afectado de la novedad.
+// - CAMARAS no se autoselecciona (caso especial: se pide elegir la cámara).
+// - CMS no tiene equipo físico, así que no autoselecciona.
+const AFFECTED_EQUIPMENT_AUTOSELECT_PATTERN: Record<AffectedEquipmentType, string | null> = {
+  NVR: "nvr",
+  ROUTER_SIM: "modulo|router|sim|4g|5g|lte|modem",
+  SWITCH_POE: "switch|poe",
+  GPS: "gps",
+  IO_SENSORES: "panico|boton|sensor|microfono",
+  CMS: null,
+  CAMARAS: null,
+};
+
 type NovedadItem = {
   key: string;
   buses: BusOption[];
@@ -348,6 +362,16 @@ export default function NewCasePage() {
 
           if (missing.length) {
             throw new Error(`Registro #${idx + 1}: completa ${missing.join(", ")}.`);
+          }
+
+          // Cámaras con exactamente 1 bus: exige al menos una cámara seleccionada.
+          // (Con varios buses no aplica el selector específico, por eso no se exige.)
+          if (
+            item.affectedEquipment === "CAMARAS" &&
+            item.buses.length === 1 &&
+            !item.busEquipmentIds.length
+          ) {
+            throw new Error(`Registro #${idx + 1}: selecciona al menos una cámara afectada.`);
           }
         }
 
@@ -702,6 +726,12 @@ export default function NewCasePage() {
                   const noveltySelectValue = equipmentCatalog.length
                     ? item.catalogCode
                     : item.reportedNovelty;
+                  // Caso especial: cámaras NO se autoselecciona; se exige elegir cuál(es).
+                  const isCamerasItem = item.affectedEquipment === "CAMARAS";
+                  // Patrón de autoselección del equipo específico (null en CÁMARAS/CMS).
+                  const autoSelectPattern = item.affectedEquipment
+                    ? AFFECTED_EQUIPMENT_AUTOSELECT_PATTERN[item.affectedEquipment]
+                    : null;
 
                   return (
                     <div key={item.key} className="rounded-xl border border-border/60 p-3">
@@ -782,12 +812,15 @@ export default function NewCasePage() {
                             value={item.affectedEquipment}
                             onChange={(e) =>
                               // Al cambiar el equipo afectado se limpia la novedad seleccionada
-                              // para evitar inconsistencias novedad↔equipo.
+                              // para evitar inconsistencias novedad↔equipo. También se limpian
+                              // los equipos específicos para que la autoselección parta de cero
+                              // (y para no arrastrar equipos de otro tipo, p. ej. al pasar a Cámaras).
                               updateNovedadItem(item.key, {
                                 affectedEquipment: e.target.value as AffectedEquipmentType | "",
                                 catalogCode: "",
                                 reportedNovelty: "",
                                 custom: false,
+                                busEquipmentIds: [],
                               })
                             }
                           >
@@ -912,14 +945,30 @@ export default function NewCasePage() {
                         <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
                           {item.buses.length === 1 ? (
                             <Field
-                              label="Equipo(s) específico(s) del bus"
-                              hint="Opcional, para precisión de trazabilidad (solo con un bus)."
+                              label={
+                                isCamerasItem
+                                  ? "Cámara(s) afectada(s)"
+                                  : "Equipo(s) específico(s) del bus"
+                              }
+                              hint={
+                                isCamerasItem
+                                  ? "Requerido: selecciona la(s) cámara(s) afectada(s)."
+                                  : "Se marca automáticamente según la novedad; puedes ajustarlo (solo con un bus)."
+                              }
                             >
+                              {isCamerasItem ? (
+                                <p className="mb-2 text-xs font-medium text-foreground">
+                                  Selecciona la(s) cámara(s) afectada(s)
+                                  <span className="text-red-600"> *</span>
+                                </p>
+                              ) : null}
                               <BusEquipmentMultiSelect
                                 busId={item.buses[0]?.id ?? null}
                                 value={item.busEquipmentIds}
                                 onChange={(ids) => updateNovedadItem(item.key, { busEquipmentIds: ids })}
                                 disabled={!item.buses[0]?.id}
+                                filterCategory={isCamerasItem ? "CAMARAS" : undefined}
+                                autoSelectPattern={isCamerasItem ? null : autoSelectPattern}
                               />
                             </Field>
                           ) : (

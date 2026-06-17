@@ -100,15 +100,29 @@ export function BusEquipmentMultiSelect({
   onChange,
   disabled,
   filterCategory,
+  autoSelectPattern,
 }: {
   busId: string | null;
   value: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
   filterCategory?: EquipmentCategory;
+  /**
+   * Patrón de regex (string) para autoseleccionar equipos por `equipmentType.name`.
+   * Opt-in: si no se pasa, el componente se comporta exactamente igual que antes
+   * (CORRECTIVO/PREVENTIVO no se ven afectados).
+   * Cuando cambia el patrón (o el bus) y los equipos ya cargaron, se reemplaza la
+   * selección por los equipos que hagan match. Las ediciones manuales posteriores
+   * NO se sobrescriben porque solo se autoaplica una vez por cada (patrón + bus).
+   */
+  autoSelectPattern?: string | null;
 }) {
   const [items, setItems] = React.useState<EquipOption[]>([]);
   const [loading, setLoading] = React.useState(false);
+  // Firma del último autoselect aplicado: "<busId>::<patrón>". Evita reaplicar
+  // (y por tanto pisar ediciones manuales) mientras no cambie patrón ni bus, y
+  // evita bucles de render porque solo llamamos onChange cuando la firma cambia.
+  const lastAutoSignatureRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -176,6 +190,49 @@ const decoratedItems = React.useMemo<DecoratedEquipment[]>(
     () => decoratedItems.filter((item) => value.includes(item.id)),
     [decoratedItems, value]
   );
+
+  // Autoselección opt-in según `autoSelectPattern`.
+  // Depende de: patrón + bus + items cargados. Solo aplica una vez por cada
+  // combinación (patrón, bus) para no pisar ediciones manuales del usuario y para
+  // no entrar en bucle con onChange (comparamos antes de llamar).
+  React.useEffect(() => {
+    if (disabled) return;
+    if (loading) return;
+
+    // Sin patrón: no autoseleccionamos nada. Reseteamos la firma para que, si más
+    // tarde llega un patrón, se aplique aunque el bus no haya cambiado.
+    if (!autoSelectPattern) {
+      lastAutoSignatureRef.current = null;
+      return;
+    }
+
+    const signature = `${busId ?? ""}::${autoSelectPattern}`;
+    if (lastAutoSignatureRef.current === signature) return;
+
+    let regex: RegExp;
+    try {
+      regex = new RegExp(autoSelectPattern, "i");
+    } catch {
+      // Patrón inválido: no hacemos nada (sin error visible).
+      lastAutoSignatureRef.current = signature;
+      return;
+    }
+
+    // Match por nombre del tipo de equipo, normalizado (sin acentos, minúsculas).
+    const matchedIds = activeItems
+      .filter((item) => regex.test(normalizeText(item.equipmentType?.name)))
+      .map((item) => item.id);
+
+    lastAutoSignatureRef.current = signature;
+
+    // Evita onChange (y re-render) si la selección ya coincide exactamente.
+    const sameSelection =
+      matchedIds.length === value.length && matchedIds.every((id) => value.includes(id));
+    if (sameSelection) return;
+
+    // Reemplaza la selección por los equipos que hicieron match (puede ser []).
+    onChange(matchedIds);
+  }, [autoSelectPattern, busId, loading, disabled, activeItems, value, onChange]);
 
   function setChecked(id: string, checked: boolean) {
     if (!checked) {
