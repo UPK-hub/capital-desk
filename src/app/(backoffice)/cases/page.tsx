@@ -228,70 +228,87 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                 );
               })}
             </div>
-            <form className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap" method="get">
+            <form className="space-y-3" method="get">
               <input type="hidden" name="status" value={statusParam ?? ""} />
-              <input
-                name="q"
-                placeholder="Buscar por bus, placa, título, # de caso o # OT"
-                className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[20rem]"
-                defaultValue={searchParams?.q ?? ""}
-              />
 
-              <Select name="type" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.type ?? ""}>
-                <option value="">Tipo (todos)</option>
-                <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
-                <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
-                <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
-                <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
-              </Select>
-
-              <Select name="priority" className="h-10 w-full sm:min-w-36 sm:w-auto" defaultValue={searchParams?.priority ?? ""}>
-                <option value="">Prioridad</option>
-                <option value="1">1 (Alta)</option>
-                <option value="2">2</option>
-                <option value="3">3 (Normal)</option>
-                <option value="4">4</option>
-                <option value="5">5 (Baja)</option>
-              </Select>
-
-              <Select name="creator" className="h-10 w-full sm:min-w-44 sm:w-auto" defaultValue={searchParams?.creator ?? ""}>
-                <option value="">Creador (todos)</option>
-                {creators.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </Select>
-
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="hidden sm:inline">Desde</span>
+              {/* Búsqueda destacada */}
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Buscar
+                </label>
                 <input
-                  type="date"
-                  name="dateFrom"
-                  aria-label="Fecha desde"
-                  className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-auto"
-                  defaultValue={searchParams?.dateFrom ?? ""}
+                  name="q"
+                  placeholder="Bus, placa, título, # de caso o # OT"
+                  className="app-field-control h-10 w-full rounded-xl px-3 text-sm"
+                  defaultValue={searchParams?.q ?? ""}
                 />
-              </label>
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="hidden sm:inline">Hasta</span>
-                <input
-                  type="date"
-                  name="dateTo"
-                  aria-label="Fecha hasta"
-                  className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-auto"
-                  defaultValue={searchParams?.dateTo ?? ""}
-                />
-              </label>
+              </div>
 
-              <div className="flex w-full items-center gap-2 sm:w-auto">
-                <button className="sts-btn-primary h-10 flex-1 px-4 text-sm sm:flex-none">Filtrar</button>
+              {/* Filtros etiquetados en cuadrícula */}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tipo</label>
+                  <Select name="type" className="h-10 w-full" defaultValue={searchParams?.type ?? ""}>
+                    <option value="">Todos</option>
+                    <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
+                    <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
+                    <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
+                    <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Prioridad</label>
+                  <Select name="priority" className="h-10 w-full" defaultValue={searchParams?.priority ?? ""}>
+                    <option value="">Todas</option>
+                    <option value="1">1 (Alta)</option>
+                    <option value="2">2</option>
+                    <option value="3">3 (Normal)</option>
+                    <option value="4">4</option>
+                    <option value="5">5 (Baja)</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Creador</label>
+                  <Select name="creator" className="h-10 w-full" defaultValue={searchParams?.creator ?? ""}>
+                    <option value="">Todos</option>
+                    {creators.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Desde</label>
+                  <input
+                    type="date"
+                    name="dateFrom"
+                    aria-label="Fecha desde"
+                    className="app-field-control h-10 w-full rounded-xl px-3 text-sm"
+                    defaultValue={searchParams?.dateFrom ?? ""}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Hasta</label>
+                  <input
+                    type="date"
+                    name="dateTo"
+                    aria-label="Fecha hasta"
+                    className="app-field-control h-10 w-full rounded-xl px-3 text-sm"
+                    defaultValue={searchParams?.dateTo ?? ""}
+                  />
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex items-center justify-end gap-2">
                 <Link
-                  className="sts-btn-ghost inline-flex h-10 flex-1 items-center justify-center px-4 text-sm sm:flex-none"
+                  className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm"
                   href="/cases"
                 >
                   Limpiar
                 </Link>
+                <button className="sts-btn-primary h-10 px-6 text-sm">Filtrar</button>
               </div>
             </form>
           </div>
