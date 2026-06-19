@@ -148,12 +148,16 @@ export default function UsersAdminClient() {
     setMsg(`Correo de restablecimiento enviado. Expira ${new Date(data.expiresAt).toLocaleString()}.`);
   }
 
-  async function deleteUser(id: string) {
+  async function deleteUser(id: string, reassignToId?: string) {
     setBusy(true);
     setError(null);
     setMsg(null);
 
-    const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reassignToId ? { reassignToId } : {}),
+    });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
 
@@ -162,7 +166,14 @@ export default function UsersAdminClient() {
       return;
     }
 
-    setMsg("Usuario eliminado.");
+    const r = data?.reassigned ?? null;
+    if (r && (r.workOrders || r.videos || r.tickets)) {
+      setMsg(
+        `Usuario eliminado. Pendientes reasignados: ${r.workOrders} OT, ${r.videos} videos, ${r.tickets} tickets.`
+      );
+    } else {
+      setMsg("Usuario eliminado. Su historial se conserva.");
+    }
     await load();
   }
 
@@ -236,6 +247,7 @@ export default function UsersAdminClient() {
                 <UserCardItem
                   key={u.id}
                   u={u}
+                  allUsers={users}
                   disabled={busy}
                   onPatch={patchUser}
                   onReset={createResetToken}
@@ -252,19 +264,27 @@ export default function UsersAdminClient() {
 
 function UserCardItem({
   u,
+  allUsers,
   disabled,
   onPatch,
   onReset,
   onDelete,
 }: {
   u: UserRow;
+  allUsers: UserRow[];
   disabled: boolean;
   onPatch: (id: string, patch: any) => Promise<void>;
   onReset: (id: string) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, reassignToId?: string) => Promise<void>;
 }) {
   const [newPass, setNewPass] = React.useState("");
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
+  const [reassignTo, setReassignTo] = React.useState("");
   const caps = new Set(u.capabilities ?? []);
+
+  // Candidatos para reasignar pendientes: otros usuarios ACTIVOS del tenant
+  // (excluyendo al propio usuario que se va a eliminar).
+  const reassignTargets = allUsers.filter((x) => x.active && x.id !== u.id);
 
   return (
     <article className="sts-card sts-card--interactive card-with-dropdown relative overflow-visible p-5 space-y-4 lg:focus-within:z-[120]">
@@ -375,16 +395,78 @@ function UserCardItem({
         <button className="sts-btn-ghost text-sm h-9 px-3" disabled={disabled} onClick={() => onReset(u.id)}>
           Enviar reset por correo
         </button>
-        <button
-          className="sts-btn-ghost text-sm h-9 px-3 text-red-600"
-          disabled={disabled}
-          onClick={() => {
-            if (confirm(`¿Eliminar usuario ${u.email}?`)) onDelete(u.id);
-          }}
-        >
-          Eliminar
-        </button>
+        {!confirmingDelete ? (
+          <button
+            className="sts-btn-ghost text-sm h-9 px-3 text-red-600"
+            disabled={disabled}
+            onClick={() => {
+              setReassignTo("");
+              setConfirmingDelete(true);
+            }}
+          >
+            Eliminar
+          </button>
+        ) : null}
       </div>
+
+      {confirmingDelete ? (
+        <div className="space-y-3 rounded-xl border border-red-500/40 bg-red-500/5 p-3">
+          <p className="text-sm font-medium text-red-700">
+            ¿Eliminar a {u.name}?
+          </p>
+          <p className="text-xs text-muted-foreground">
+            El usuario se eliminará y dejará de aparecer (no podrá iniciar sesión ni
+            saldrá en chat, mesa de ayuda ni listas de asignación). Su historial se
+            conserva a su nombre como "(eliminado)". Si tiene pendientes asignados,
+            puedes reasignarlos a otro usuario (opcional).
+          </p>
+
+          <div className="card-with-dropdown overflow-visible">
+            <label className="text-xs text-muted-foreground">
+              Reasignar pendientes a (opcional)
+            </label>
+            <Select
+              className="app-field-control h-9 w-full rounded-xl border px-2 text-sm"
+              value={reassignTo}
+              disabled={disabled}
+              onChange={(e) => setReassignTo(e.target.value)}
+            >
+              <option value="">No reasignar (quedan a nombre del eliminado)</option>
+              {reassignTargets.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} · {roleLabel(t.role)}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="sts-btn-primary text-sm h-9 px-3 bg-red-600 hover:bg-red-700 disabled:opacity-50"
+              disabled={disabled}
+              onClick={async () => {
+                await onDelete(u.id, reassignTo || undefined);
+                setConfirmingDelete(false);
+                setReassignTo("");
+              }}
+            >
+              Confirmar eliminación
+            </button>
+            <button
+              type="button"
+              className="sts-btn-ghost text-sm h-9 px-3"
+              disabled={disabled}
+              onClick={() => {
+                setConfirmingDelete(false);
+                setReassignTo("");
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

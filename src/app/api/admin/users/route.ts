@@ -43,7 +43,13 @@ export async function GET(_req: NextRequest) {
   if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
 
   const users = await prisma.user.findMany({
-    where: { tenantId: ctx.tenantId },
+    where: {
+      tenantId: ctx.tenantId,
+      // Ocultar usuarios "eliminados": llevan el correo a un tombstone
+      // (@deleted.local). Un usuario solo "desactivado" (active:false SIN
+      // tombstone) sigue apareciendo en la lista como Inactivo.
+      NOT: { email: { endsWith: "@deleted.local" } },
+    },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
