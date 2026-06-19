@@ -22,7 +22,8 @@
     "users:capitalbus": "tsx scripts/upsert-capitalbus-users.ts",
     "import:inventory": "tsx scripts/import-inventory-catalog.ts",
     "kpi:recompute": "tsx scripts/recompute-sts-kpis.ts",
-    "backfill:video-cases": "tsx scripts/backfill-video-cases-cerrado.ts"
+    "backfill:video-cases": "tsx scripts/backfill-video-cases-cerrado.ts",
+    "equipos:ensure": "tsx scripts/ensure-new-equipments.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

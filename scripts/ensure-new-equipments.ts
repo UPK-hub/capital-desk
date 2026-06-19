@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 
-const REQUIRED_EQUIPMENT_TYPES = ["Baterias", "Controlador de carga"];
+const REQUIRED_EQUIPMENT_TYPES = [
+  "Baterias",
+  "Controlador de carga",
+  "Tapa STS",
+  "Switch",
+  "Marco STS",
+  "Habitáculo",
+];
 
 async function main() {
   for (const name of REQUIRED_EQUIPMENT_TYPES) {

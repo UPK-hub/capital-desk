@@ -103,15 +103,9 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
   });
   if (!target) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
 
-  try {
-    await prisma.user.delete({ where: { id: userId } });
-    return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      {
-        error: "No se pudo eliminar. Intenta desactivar si tiene registros asociados.",
-      },
-      { status: 400 }
-    );
-  }
+  // "Eliminar" = desactivar el usuario CONSERVANDO todo lo que creó (casos, eventos,
+  // OTs, etc.). No se borra físicamente para no perder su historial ni los registros
+  // que generó. Queda fuera de la mesa de ayuda/chat/listas y no puede iniciar sesión.
+  await prisma.user.update({ where: { id: userId }, data: { active: false } });
+  return NextResponse.json({ ok: true, deactivated: true });
 }

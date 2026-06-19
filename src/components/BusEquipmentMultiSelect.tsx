@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BatteryCharging, HardDrive, Radio, Video, Wrench, X } from "lucide-react";
+import { BatteryCharging, Box, HardDrive, Radio, Video, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -32,13 +32,14 @@ function normalizeEquipments(payload: any): EquipOption[] {
   }));
 }
 
-type EquipmentCategory = "CAMARAS" | "ALMACENAMIENTO" | "CONECTIVIDAD" | "ENERGIA" | "SIN_CLASIFICAR";
+type EquipmentCategory = "CAMARAS" | "ALMACENAMIENTO" | "CONECTIVIDAD" | "ENERGIA" | "ESTRUCTURA" | "SIN_CLASIFICAR";
 
 const CATEGORY_ORDER: EquipmentCategory[] = [
   "CAMARAS",
   "ALMACENAMIENTO",
   "CONECTIVIDAD",
   "ENERGIA",
+  "ESTRUCTURA",
   "SIN_CLASIFICAR",
 ];
 
@@ -54,6 +55,7 @@ const CATEGORY_META: Record<
   ALMACENAMIENTO: { label: "Almacenamiento", icon: HardDrive, tone: "bg-violet-50 text-violet-700" },
   CONECTIVIDAD: { label: "Conectividad", icon: Radio, tone: "bg-emerald-50 text-emerald-700" },
   ENERGIA: { label: "Energia", icon: BatteryCharging, tone: "bg-amber-50 text-amber-700" },
+  ESTRUCTURA: { label: "Estructura / Físico", icon: Box, tone: "bg-zinc-100 text-zinc-700" },
   SIN_CLASIFICAR: { label: "Sin clasificar", icon: Wrench, tone: "bg-slate-100 text-slate-700" },
 };
 
@@ -78,6 +80,9 @@ function categoryFromEquipment(item: EquipOption): EquipmentCategory {
   }
   if (/(^|\s)(disco|discos|hdd|ssd)(\s|$)/.test(source)) return "CONECTIVIDAD";
   if (/(^|\s)(storage|almacenamiento)(\s|$)/.test(source)) return "ALMACENAMIENTO";
+  if (/(^|\s)(tapa|marco|habitaculo|estructura|gabinete|chasis)(\s|$)/.test(source)) {
+    return "ESTRUCTURA";
+  }
   if (/(^|\s)(nvr|router|sim|switch|gps|cms|modulo|modem|lte|4g|5g|colector)(\s|$)/.test(source)) {
     return "CONECTIVIDAD";
   }
