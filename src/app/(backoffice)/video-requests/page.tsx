@@ -182,7 +182,7 @@ export default async function VideoRequestsPage({
       </header>
 
       <div className="mobile-page-content max-w-6xl lg:px-6">
-        <VideoTabs rows={dashData} initialTab={hasFilters ? "solicitudes" : "tablero"}>
+        <VideoTabs rows={dashData} initialTab={hasFilters ? "solicitudes" : "tabla"}>
 
         <section className="mobile-section-card mobile-section-card__body">
           <form className="grid gap-3 md:grid-cols-[1fr_160px_180px_200px_auto]" action="/video-requests">

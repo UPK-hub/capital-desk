@@ -11,6 +11,7 @@ import {
 } from "@/lib/labels";
 import { Select } from "@/components/Field";
 import { useMediaPreview, mediaKindFromPath } from "@/components/MediaPreview";
+import VideoCamerasFolders from "@/app/(backoffice)/cases/[id]/ui/VideoCamerasFolders";
 
 type Item = {
   id: string;
@@ -41,11 +42,13 @@ case: { id: string; caseNo: number | null; title: string; description: string | 
   attachments: Array<{
     id: string;
     kind: VideoAttachmentKind;
+    camera: string | null;
     filePath: string;
     originalName: string | null;
     uploadedById: string | null;
     createdAt: string;
   }>;
+  cameraResults: Array<{ camera: string; status: string; rootCause: string | null }>;
   events: Array<{
     id: string;
     type: string;
@@ -512,6 +515,16 @@ export default function VideoRequestDetailClient({
               </button>
             </div>
           </section>
+
+          <VideoCamerasFolders
+            requestId={item.id}
+            caseNo={item.case.caseNo}
+            busCode={item.case.bus.code}
+            camerasRequested={item.camerasRequested}
+            attachments={item.attachments}
+            cameraResults={item.cameraResults}
+            canManage={canManage}
+          />
 
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Adjuntos</h2>
