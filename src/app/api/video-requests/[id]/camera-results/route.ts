@@ -261,6 +261,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           case: {
             select: { caseNo: true, title: true, description: true, bus: { select: { code: true, plate: true } } },
           },
+          assignedTo: { select: { name: true, email: true, jobTitle: true } },
           cameraResults: { orderBy: { camera: "asc" } },
         },
       });
@@ -291,6 +292,9 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           eventEnd: full.eventEnd,
           deliveryMethod: full.deliveryMethod ?? null,
           observations: full.observationsTechnician,
+          technicianName: full.assignedTo?.name ?? null,
+          technicianRole: full.assignedTo?.jobTitle ?? null,
+          technicianEmail: full.assignedTo?.email ?? null,
           results: full.cameraResults.map((r) => ({ camera: r.camera, status: r.status, rootCause: r.rootCause })),
           corrective,
         });

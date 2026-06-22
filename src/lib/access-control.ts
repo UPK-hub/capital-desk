@@ -52,7 +52,12 @@ export function buildVideoRequestCaseScope(args: {
   capabilities?: string[];
   userId: string;
 }): Prisma.CaseWhereInput {
-  if (isOwnCasesOnlyBackoffice(args.role, args.capabilities)) {
+  // El perfil "Solo módulo Videos" (y "Solo sus casos") ve únicamente las
+  // solicitudes que él mismo creó: tablero, lista, métricas y detalle.
+  if (
+    isOwnCasesOnlyBackoffice(args.role, args.capabilities) ||
+    isVideosOnlyBackoffice(args.role, args.capabilities)
+  ) {
     return ownCasesWhere(args.userId);
   }
   return {};

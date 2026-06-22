@@ -21,7 +21,7 @@ import {
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import GlobalSearchBar from "@/components/GlobalSearchBar";
 import { CAPABILITIES } from "@/lib/capabilities";
-import { isVideosOnlyBackoffice } from "@/lib/access-control";
+import { isVideosOnlyBackoffice, ownCasesWhere } from "@/lib/access-control";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administración",
@@ -69,7 +69,9 @@ export default async function HomePage() {
   const tenantId = (session.user as any).tenantId as string;
   const caps = (session.user as any).capabilities as string[] | undefined;
   const name = (session.user as any).name as string | undefined;
+  const userId = String((session.user as any).id ?? "");
   const videosOnly = isVideosOnlyBackoffice(role, caps);
+  const videoOwnScope = videosOnly ? ownCasesWhere(userId) : {};
 
   const canBackoffice = role === Role.ADMIN || (role === Role.BACKOFFICE && !videosOnly);
   const canRvr = role === Role.ADMIN || role === Role.SUPERVISOR || (role === Role.BACKOFFICE && !videosOnly);
@@ -86,7 +88,10 @@ export default async function HomePage() {
   const [openCases, pendingVideos, availableTechs, openStsTickets, tenant] = await Promise.all([
     prisma.case.count({ where: { tenantId, status: { in: ["NUEVO", "OT_ASIGNADA", "EN_EJECUCION"] } } }),
     prisma.videoDownloadRequest.count({
-      where: { case: { tenantId }, status: { in: [VideoCaseStatus.EN_ESPERA, VideoCaseStatus.EN_CURSO] } },
+      where: {
+        case: { tenantId, ...videoOwnScope },
+        status: { in: [VideoCaseStatus.EN_ESPERA, VideoCaseStatus.EN_CURSO] },
+      },
     }),
     prisma.user.count({ where: { tenantId, role: Role.TECHNICIAN, active: true } }),
     prisma.stsTicket.count({ where: { tenantId, status: { in: [StsTicketStatus.OPEN, StsTicketStatus.IN_PROGRESS] } } }),

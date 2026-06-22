@@ -37,6 +37,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
       case: {
         select: { caseNo: true, title: true, description: true, bus: { select: { code: true, plate: true } } },
       },
+      assignedTo: { select: { name: true, email: true, jobTitle: true } },
       cameraResults: { orderBy: { camera: "asc" } },
     },
   });
@@ -72,6 +73,9 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     eventEnd: request.eventEnd,
     deliveryMethod: request.deliveryMethod ?? null,
     observations: request.observationsTechnician,
+    technicianName: request.assignedTo?.name ?? null,
+    technicianRole: request.assignedTo?.jobTitle ?? null,
+    technicianEmail: request.assignedTo?.email ?? null,
     results: request.cameraResults.map((r) => ({ camera: r.camera, status: r.status, rootCause: r.rootCause })),
     corrective,
     cameraFilter,

@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
 import { videoDownloadStatusLabels, videoOriginLabels, videoDeliveryLabels } from "@/lib/labels";
-import { actionForRootCause } from "@/lib/video-root-causes";
+import { actionForRootCause, technicalForRootCause } from "@/lib/video-root-causes";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -28,6 +28,9 @@ export type RootCauseReportInput = {
   eventEnd: Date | string | null;
   deliveryMethod: string | null;
   observations: string | null;
+  technicianName: string | null;
+  technicianRole: string | null;
+  technicianEmail: string | null;
   results: { camera: string; status: string; rootCause: string | null }[];
   corrective: { caseNo: number | null; workOrderNo: number | null } | null;
   cameraFilter?: string | null;
@@ -65,6 +68,7 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const oblique = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const pageW = 595, pageH = 842, M = 42, cW = pageW - M * 2, BOT = 54;
   const navy = rgb(0.102, 0.122, 0.443),
     lg = rgb(0.955, 0.965, 0.98),
@@ -225,11 +229,14 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
     need(cH + 6);
     page.drawRectangle({ x: M, y: y - cH, width: cW, height: cH, color: redBg, borderColor: redBd, borderWidth: 1 });
     page.drawRectangle({ x: M, y: y - cH, width: 5, height: cH, color: red });
-    page.drawText("CORRECTIVO GENERADO PARA SUBSANAR LA NOVEDAD", { x: M + 16, y: y - 14, size: 7.5, font: bold, color: rgb(0.5, 0.12, 0.12) });
-    page.drawText(
-      `CASO-${corrective.caseNo ?? ""}${corrective.workOrderNo ? `     ·     OT-${corrective.workOrderNo}` : ""}`,
-      { x: M + 16, y: y - 28, size: 11.5, font: bold, color: dark }
-    );
+    page.drawText("SOLICITUD DE MANTENIMIENTO CORRECTIVO", { x: M + 16, y: y - 14, size: 7.5, font: bold, color: rgb(0.5, 0.12, 0.12) });
+    page.drawText(`N° de solicitud: CASO-${corrective.caseNo ?? ""}`, {
+      x: M + 16,
+      y: y - 28,
+      size: 11.5,
+      font: bold,
+      color: dark,
+    });
     y -= cH + 18;
   }
 
@@ -294,22 +301,34 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
   tclose();
   y -= 20;
 
-  // Plan de solución por cámara
+  // Análisis técnico y plan de solución por cámara (asociado al bus)
   const failed = results.filter((r) => r.status === STATUS_FALLIDA);
   if (failed.length) {
-    heading("PLAN DE SOLUCIÓN POR CÁMARA");
+    heading("ANÁLISIS TÉCNICO Y PLAN DE SOLUCIÓN POR CÁMARA");
+    const failedNames = failed.map((r) => r.camera).join(", ");
+    para(
+      `En el bus ${input.busCode ?? "-"} se identificaron ${failed.length} cámara(s) con descarga fallida: ${failedNames}. La descarga fallida indica que el material de estas cámaras NO está disponible de forma definitiva para la ventana solicitada (el video no es recuperable). A continuación, el sustento técnico y la acción correctiva por cámara.`,
+      { gap: 8 }
+    );
     for (const r of failed) {
+      const tecnico = technicalForRootCause(r.rootCause);
       const accion = actionForRootCause(r.rootCause);
-      const accLines = wrap("Acción a realizar: " + accion, font, 9, cW - 28);
-      const blkH = 16 + accLines.length * 13 + 8;
+      const tLines = wrap("Sustento técnico: " + tecnico, font, 9, cW - 28);
+      const aLines = wrap("Acción correctiva: " + accion, font, 9, cW - 28);
+      const blkH = 30 + tLines.length * 12 + 4 + aLines.length * 12 + 8;
       need(blkH + 8);
       page.drawRectangle({ x: M, y: y - blkH, width: cW, height: blkH, color: blueBg, borderColor: bd, borderWidth: 0.5 });
       page.drawRectangle({ x: M, y: y - blkH, width: 4, height: blkH, color: navy });
       page.drawText(`${r.camera}  —  ${r.rootCause ?? ""}`, { x: M + 14, y: y - 15, size: 9.5, font: bold, color: navy });
-      let ay = y - 29;
-      for (const ln of accLines) {
+      let ay = y - 30;
+      for (const ln of tLines) {
         page.drawText(ln, { x: M + 14, y: ay, size: 9, font, color: dark });
-        ay -= 13;
+        ay -= 12;
+      }
+      ay -= 4;
+      for (const ln of aLines) {
+        page.drawText(ln, { x: M + 14, y: ay, size: 9, font, color: dark });
+        ay -= 12;
       }
       y -= blkH + 8;
     }
@@ -325,9 +344,13 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
   );
   if (fail > 0) {
     if (causas.length) para(`Las descargas fallidas obedecen a las siguientes causas raíz: ${causas.join("; ")}.`, { gap: 5 });
+    para(
+      `En el bus ${input.busCode ?? "-"}, el material de las cámaras con descarga fallida no está disponible de forma definitiva para la ventana solicitada; por la naturaleza de la falla, ese video no es recuperable.`,
+      { gap: 5 }
+    );
     if (corrective)
       para(
-        `Para subsanar la novedad se generó automáticamente el caso de mantenimiento correctivo CASO-${corrective.caseNo ?? ""}${corrective.workOrderNo ? ` (OT-${corrective.workOrderNo})` : ""}, con el cual se ejecutarán las acciones descritas en el plan de solución por cámara. Una vez intervenidos los equipos y verificada la grabación, se reintentará la descarga del material solicitado y se notificará al solicitante.`,
+        `Para corregir la causa de fondo y restablecer la grabación de cara a próximos requerimientos, se genera una solicitud de mantenimiento correctivo (N° de solicitud CASO-${corrective.caseNo ?? ""}), con la cual se ejecutarán las acciones del análisis técnico por cámara. Se notificará al solicitante el resultado de la intervención.`,
         { gap: 5 }
       );
   } else {
@@ -340,6 +363,46 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
     heading("OBSERVACIONES DEL TÉCNICO");
     para(input.observations.trim());
   }
+
+  // Firmas digitales
+  y -= 12;
+  need(160);
+  heading("FIRMAS");
+  para(
+    "Documento firmado digitalmente a través de la mesa de ayuda Capital Desk; no requiere firma manuscrita.",
+    { size: 8, gap: 20 }
+  );
+  const colW = (cW - 24) / 2;
+  const blkTop = y;
+  const drawSign = (x: number, nombre: string, cargo: string, contacto: string | null): number => {
+    let yy = blkTop;
+    page.drawText("Firmado digitalmente por", { x, y: yy, size: 7.5, font, color: gray });
+    yy -= 26;
+    // La firma (nombre en estilo manuscrito simulado).
+    page.drawText(nombre || "-", { x, y: yy, size: 17, font: oblique, color: navy });
+    yy -= 8;
+    page.drawLine({ start: { x, y: yy }, end: { x: x + colW, y: yy }, thickness: 0.5, color: bd });
+    yy -= 14;
+    page.drawText(nombre || "-", { x, y: yy, size: 9.5, font: bold, color: dark });
+    yy -= 12;
+    page.drawText(cargo, { x, y: yy, size: 8.5, font, color: gray });
+    yy -= 12;
+    if (contacto) {
+      page.drawText(contacto, { x, y: yy, size: 8, font, color: gray });
+      yy -= 11;
+    }
+    page.drawText(`Firma digital · Validado en Capital Desk · ${fecha}`, { x, y: yy, size: 7, font, color: gray });
+    yy -= 10;
+    return yy;
+  };
+  const sy1 = drawSign(
+    M,
+    input.technicianName ?? "Por asignar",
+    input.technicianRole ? `Técnico asignado · ${input.technicianRole}` : "Técnico asignado a la descarga",
+    input.technicianEmail ?? null
+  );
+  const sy2 = drawSign(M + colW + 24, "Santiago Gil", "Coordinador STS", null);
+  y = Math.min(sy1, sy2) - 6;
 
   footer();
   return pdf.save();

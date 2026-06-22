@@ -75,6 +75,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       section: "main",
       color: "var(--color-planner)",
       roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+      hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
     },
     {
       label: "Videos",

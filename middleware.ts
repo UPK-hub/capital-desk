@@ -49,7 +49,10 @@ export default withAuth(
       if (!canVideo) return deny();
     }
     if (path.startsWith("/work-orders") && !RBAC.techRoutes.includes(role as any)) return deny();
-    if (path.startsWith("/buses") && !RBAC.busesRoutes.includes(role as any)) return deny();
+    if (path.startsWith("/buses")) {
+      if (!RBAC.busesRoutes.includes(role as any)) return deny();
+      if (isVideosOnly) return deny();
+    }
     if (path.startsWith("/technicians/shifts")) {
       if (!RBAC.shiftRoutes.includes(role as any)) return deny();
       if (isRestrictedBackoffice) return deny();
