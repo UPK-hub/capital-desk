@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { buildTmReport } from "@/lib/tm-report";
+import { getTmReportCached, getBusCountsCached } from "@/lib/telemetry/cache";
 import { prisma } from "@/lib/prisma";
 import TelemetryDashboard, {
   type AlarmRow,
@@ -95,8 +95,8 @@ export default async function TelemetryPage({
   const tenantId = (session.user as any).tenantId as string;
   const now = new Date();
 
-  const range = Number(searchParams?.range ?? 30);
-  const safeRange = [7, 30, 90].includes(range) ? range : 30;
+  const range = Number(searchParams?.range ?? 7);
+  const safeRange = [7, 30, 90].includes(range) ? range : 7;
 
   let start = startOfDay(new Date(now.getTime() - safeRange * 24 * 60 * 60 * 1000));
   let end = endOfDay(now);
@@ -118,9 +118,12 @@ export default async function TelemetryPage({
       })
     : null;
 
-  const [generalReport, selectedBusReport, states, busCountsRaw] = await Promise.all([
-    buildTmReport({ tenantId, start, end }),
-    selectedBus ? buildTmReport({ tenantId, start, end, busId: selectedBus.id }) : Promise.resolve(null),
+  const startISO = start.toISOString();
+  const endISO = end.toISOString();
+
+  const [generalReport, selectedBusReport, states, busCounts] = await Promise.all([
+    getTmReportCached(tenantId, startISO, endISO, null),
+    selectedBus ? getTmReportCached(tenantId, startISO, endISO, selectedBus.id) : Promise.resolve(null),
     prisma.busTelemetryState.findMany({
       where: {
         tenantId,
@@ -132,16 +135,7 @@ export default async function TelemetryPage({
       orderBy: { lastSeenAt: "desc" },
       take: selectedBus ? 1 : 500,
     }),
-    prisma.integrationInboundEvent.groupBy({
-      by: ["busCode"],
-      where: {
-        tenantId,
-        OR: [{ eventAt: { gte: start, lt: end } }, { eventAt: null, receivedAt: { gte: start, lt: end } }],
-      },
-      _count: { id: true },
-      orderBy: { _count: { id: "desc" } },
-      take: 100,
-    }),
+    getBusCountsCached(tenantId, startISO, endISO, selectedBus?.id ?? null),
   ]);
 
   const points: TelemetryMapPoint[] = states
@@ -161,11 +155,6 @@ export default async function TelemetryPage({
       } satisfies TelemetryMapPoint;
     })
     .filter((p): p is TelemetryMapPoint => Boolean(p));
-
-  const busCounts: BusCountRow[] = busCountsRaw.map((row) => ({
-    busCode: row.busCode,
-    total: row._count.id ?? 0,
-  }));
 
   // Estado de reporte HOY (flota completa, independiente del rango/filtro):
   // qué buses NO han enviado tramas hoy.

@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { buildTelemetrySeries } from "@/lib/telemetry/series";
+import { getSeriesCached } from "@/lib/telemetry/cache";
 import { parseQualityRange } from "@/lib/telemetry/quality-params";
 
 export async function GET(req: NextRequest) {
@@ -18,6 +18,13 @@ export async function GET(req: NextRequest) {
   const typeParam = req.nextUrl.searchParams.get("type");
   const type = typeParam === "alarmas" ? "alarmas" : typeParam === "periodicas" ? "periodicas" : "eventos";
   const code = req.nextUrl.searchParams.get("code");
-  const data = await buildTelemetrySeries({ tenantId, type, start, end, busId, code });
+  const data = await getSeriesCached({
+    tenantId,
+    type,
+    startISO: start.toISOString(),
+    endISO: end.toISOString(),
+    busId,
+    code: code || null,
+  });
   return NextResponse.json(data);
 }

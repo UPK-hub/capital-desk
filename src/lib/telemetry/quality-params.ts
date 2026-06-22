@@ -10,7 +10,7 @@ export function parseQualityRange(req: NextRequest) {
   let end = endStr ? new Date(`${endStr}T23:59:59.999`) : null;
   if (!start || Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime())) {
     end = new Date();
-    start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
   }
   return { start, end, busId: busId || null };
 }

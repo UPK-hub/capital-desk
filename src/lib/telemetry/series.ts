@@ -59,8 +59,8 @@ export async function buildTelemetrySeries(params: {
   // Filtro por clase de trama
   const kindClause =
     params.type === "periodicas"
-      ? Prisma.sql`AND "kind"::text = 'TRAMAS' AND "tramaType" = 1`
-      : Prisma.sql`AND "kind"::text = ${params.type === "alarmas" ? "ALARMAS" : "EVENTOS"}`;
+      ? Prisma.sql`AND "kind" = 'TRAMAS'::"StsTelemetryKind" AND "tramaType" = 1`
+      : Prisma.sql`AND "kind" = ${params.type === "alarmas" ? "ALARMAS" : "EVENTOS"}::"StsTelemetryKind"`;
 
   // Filtro por código/subtipo seleccionado (opcional)
   let codeFilter = Prisma.empty;
@@ -105,7 +105,7 @@ export async function buildTelemetrySeries(params: {
     const splitRaw = await prisma.$queryRaw<{ d: string; sub: string | null; c: number }[]>(Prisma.sql`
       SELECT to_char(date_trunc('day', ${coalDate}), 'YYYY-MM-DD') AS d, upper("tramaSubtype") AS sub, count(*)::int AS c
       FROM "IntegrationInboundEvent"
-      WHERE "tenantId" = ${tenantId} AND "kind"::text = 'TRAMAS' AND "tramaType" = 1 ${rangeFilter} ${busFilter}
+      WHERE "tenantId" = ${tenantId} AND "kind" = 'TRAMAS'::"StsTelemetryKind" AND "tramaType" = 1 ${rangeFilter} ${busFilter}
       GROUP BY 1, 2
     `);
     const p20 = new Map<string, number>();
