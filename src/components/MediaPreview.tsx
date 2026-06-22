@@ -46,6 +46,13 @@ export function uploadUrl(filePath: string): string {
   return `/api/uploads/${filePath.replace(/^\/+/, "")}`;
 }
 
+/** URL que fuerza la descarga con un nombre dado (Bus_Cámara_Caso, etc.). */
+export function downloadUrl(u: string, name?: string | null): string {
+  if (!u || !u.includes("/api/uploads/") || !name) return u;
+  const sep = u.includes("?") ? "&" : "?";
+  return `${u}${sep}name=${encodeURIComponent(name)}&dl=1`;
+}
+
 export type PreviewTarget = {
   /** URL final del archivo (ya resuelta con uploadUrl si aplica). */
   url: string;
@@ -100,8 +107,7 @@ export function MediaPreviewModal({
           <div className="flex shrink-0 items-center gap-3">
             <a
               className="inline-flex items-center gap-1 text-xs underline"
-              href={target.url}
-              target="_blank"
+              href={downloadUrl(target.url, target.name)}
               rel="noreferrer"
             >
               <Download className="h-3.5 w-3.5" />

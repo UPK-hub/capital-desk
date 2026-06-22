@@ -10,7 +10,7 @@ import {
   videoDownloadStatusLabels,
 } from "@/lib/labels";
 import { Select } from "@/components/Field";
-import { useMediaPreview, mediaKindFromPath } from "@/components/MediaPreview";
+import { useMediaPreview, mediaKindFromPath, downloadUrl } from "@/components/MediaPreview";
 import VideoCamerasFolders from "@/app/(backoffice)/cases/[id]/ui/VideoCamerasFolders";
 
 type Item = {
@@ -633,8 +633,7 @@ export default function VideoRequestDetailClient({
                         ) : null}
                         <a
                           className="text-xs underline"
-                          href={url}
-                          target="_blank"
+                          href={downloadUrl(url, a.originalName ?? a.kind)}
                           rel="noreferrer"
                         >
                           Descargar
