@@ -90,6 +90,14 @@ export async function GET(
     return new Response("Invalid path", { status: 400 });
   }
 
+  // Nombre de descarga opcional (?name=) y forzar descarga (?dl=1).
+  const reqUrl = new URL(req.url);
+  const overrideName = reqUrl.searchParams.get("name");
+  const cleanOverride = overrideName
+    ? overrideName.replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 120)
+    : null;
+  const dispoType = reqUrl.searchParams.get("dl") === "1" ? "attachment" : "inline";
+
   if (!fs.existsSync(filePath)) {
     const backup = await getUploadBackup(rel);
     if (!backup) return new Response("Not found", { status: 404 });
@@ -109,7 +117,7 @@ export async function GET(
           "Content-Length": String(chunk.length),
           "Content-Range": `bytes ${range.start}-${range.end}/${content.length}`,
           "Accept-Ranges": "bytes",
-          "Content-Disposition": `inline; filename="${filename}"`,
+          "Content-Disposition": `${dispoType}; filename="${cleanOverride || filename}"`,
           "Cache-Control": "private, max-age=60",
         },
       });

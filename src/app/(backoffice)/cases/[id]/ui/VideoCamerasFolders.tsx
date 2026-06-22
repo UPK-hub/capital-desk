@@ -75,6 +75,7 @@ export default function VideoCamerasFolders({
   const router = useRouter();
   const { openPreview, previewNode } = useMediaPreview();
   const [uploadingCamera, setUploadingCamera] = React.useState<string | null>(null);
+  const [uploadPct, setUploadPct] = React.useState(0);
   const [savingCamera, setSavingCamera] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
@@ -182,30 +183,59 @@ export default function VideoCamerasFolders({
     }
   }
 
-  async function uploadToCamera(camera: string, files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setUploadingCamera(camera);
-    setError(null);
-    try {
-      for (const file of Array.from(files)) {
-        const form = new FormData();
-        form.append("file", file);
-        form.append("kind", "VIDEO");
-        if (camera !== SIN_CAMARA) form.append("camera", camera);
-        const res = await fetch(`/api/video-requests/${requestId}/attachments`, {
-          method: "POST",
-          body: form,
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data?.error ?? "No se pudo subir el archivo");
+  // Sube un archivo con XHR para mostrar progreso real (los MP4 grandes no se
+  // ven "colgados") y reportar errores del servidor de forma clara.
+  function uploadOne(camera: string, file: File): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `/api/video-requests/${requestId}/attachments`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          let m = `No se pudo subir (error ${xhr.status})`;
+          try {
+            const d = JSON.parse(xhr.responseText);
+            if (d?.error) m = d.error;
+          } catch {
+            /* respuesta no JSON */
+          }
+          reject(new Error(m));
         }
+      };
+      xhr.onerror = () => reject(new Error("Error de red al subir el archivo"));
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "VIDEO");
+      if (camera !== SIN_CAMARA) form.append("camera", camera);
+      xhr.send(form);
+    });
+  }
+
+  async function uploadToCamera(camera: string, input: HTMLInputElement | null) {
+    const files = input?.files;
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    setUploadingCamera(camera);
+    setUploadPct(0);
+    setError(null);
+    setMsg(null);
+    try {
+      for (const file of list) {
+        setUploadPct(0);
+        await uploadOne(camera, file);
       }
+      if (input) input.value = "";
+      setMsg(`Video(s) cargado(s) en ${camera}.`);
       router.refresh();
     } catch (e: any) {
       setError(e?.message ?? "No se pudo subir el archivo");
     } finally {
       setUploadingCamera(null);
+      setUploadPct(0);
     }
   }
 
@@ -395,9 +425,7 @@ export default function VideoCamerasFolders({
                             ) : null}
                             <a
                               className="inline-flex items-center gap-1 text-xs underline"
-                              href={url}
-                              download={att.originalName ?? undefined}
-                              target="_blank"
+                              href={`${url}?name=${encodeURIComponent(att.originalName ?? "video")}&dl=1`}
                               rel="noreferrer"
                             >
                               <Download className="h-3.5 w-3.5" />
@@ -412,14 +440,16 @@ export default function VideoCamerasFolders({
                   {canManage && !isSinCamara ? (
                     <label className="mt-1 inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30">
                       <Upload className="h-3.5 w-3.5" />
-                      {uploadingCamera === camera ? "Subiendo..." : "Adjuntar video a esta cámara"}
+                      {uploadingCamera === camera
+                        ? `Subiendo ${uploadPct}%...`
+                        : "Adjuntar video a esta cámara"}
                       <input
                         type="file"
                         className="hidden"
                         multiple
                         accept="video/*,.zip,.rar,.7z"
                         disabled={uploadingCamera !== null}
-                        onChange={(e) => uploadToCamera(camera, e.target.files)}
+                        onChange={(e) => uploadToCamera(camera, e.currentTarget)}
                       />
                     </label>
                   ) : null}
