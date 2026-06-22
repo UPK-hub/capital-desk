@@ -7,6 +7,7 @@ import TelemetryDashboard, {
   type AlarmRow,
   type BusCountRow,
   type EventRow,
+  type ReportStatus,
   type TelemetryMapPoint,
   type TelemetryTotals,
 } from "./ui/TelemetryDashboard";
@@ -166,6 +167,30 @@ export default async function TelemetryPage({
     total: row._count.id ?? 0,
   }));
 
+  // Estado de reporte HOY (flota completa, independiente del rango/filtro):
+  // qué buses NO han enviado tramas hoy.
+  const startOfToday = startOfDay(now);
+  const [allBuses, allStates] = await Promise.all([
+    prisma.bus.findMany({ where: { tenantId }, select: { id: true, code: true, plate: true } }),
+    prisma.busTelemetryState.findMany({ where: { tenantId }, select: { busId: true, lastSeenAt: true } }),
+  ]);
+  const lastSeenByBus = new Map<string, Date | null>(allStates.map((s) => [s.busId, s.lastSeenAt]));
+  const silentBuses = allBuses
+    .map((b) => ({ code: b.code, plate: b.plate, lastSeenAt: lastSeenByBus.get(b.id) ?? null }))
+    .filter((b) => !b.lastSeenAt || b.lastSeenAt < startOfToday)
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map((b) => ({
+      code: b.code,
+      plate: b.plate,
+      lastSeenAt: b.lastSeenAt ? b.lastSeenAt.toISOString() : null,
+    }));
+  const reportStatus: ReportStatus = {
+    total: allBuses.length,
+    reportedToday: allBuses.length - silentBuses.length,
+    silent: silentBuses.length,
+    silentBuses,
+  };
+
   const events: EventRow[] = (selectedBusReport?.telemetryEvents ?? generalReport.telemetryEvents) as EventRow[];
   const alarms: AlarmRow[] = (selectedBusReport?.telemetryAlarms ?? generalReport.telemetryAlarms) as AlarmRow[];
 
@@ -179,6 +204,7 @@ export default async function TelemetryPage({
       busCounts={busCounts}
       events={events}
       alarms={alarms}
+      reportStatus={reportStatus}
     />
   );
 }
