@@ -158,6 +158,22 @@ export default function NewCasePage() {
         const isVideosOnly =
           data.user.role === "BACKOFFICE" && caps.includes(CAPABILITIES.VIDEOS_ONLY);
         setIsVideosOnlyUser(isVideosOnly);
+
+        // Prediligenciar datos del solicitante con los del usuario logueado.
+        // Solo llena los campos que estén vacíos para no pisar lo que el usuario edite.
+        const u = data.user;
+        setVideo((x) => ({
+          ...x,
+          requesterName: x.requesterName || (u.name ?? ""),
+          requesterDocument: x.requesterDocument || (u.document ?? ""),
+          requesterRole: x.requesterRole || (u.jobTitle ?? ""),
+          requesterPhone: x.requesterPhone || (u.phone ?? ""),
+          requesterEmail: x.requesterEmail || (u.email ?? ""),
+          requesterEmails:
+            Array.isArray(x.requesterEmails) && x.requesterEmails.some((c) => c && c.trim())
+              ? x.requesterEmails
+              : [u.email ?? "", "", ""],
+        }));
       } catch {
         // Best effort.
       }
@@ -1168,6 +1184,7 @@ export default function NewCasePage() {
 
       {config.hasInlineCreateForm ? (
         <FormCard title="Formulario solicitud descarga de video">
+          <p className="text-sm font-semibold text-slate-800">Datos de la solicitud</p>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Procedencia requerimiento">
               <Select
@@ -1201,6 +1218,10 @@ export default function NewCasePage() {
             </Field>
           </div>
 
+          <p className="mt-2 text-sm font-semibold text-slate-800">Datos del solicitante</p>
+          <p className="-mt-1 text-[11px] text-muted-foreground">
+            Se prediligencian con los datos de tu perfil; puedes editarlos.
+          </p>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Solicitante - Nombre">
               <Input value={video.requesterName} onChange={(e) => setVideo((x) => ({ ...x, requesterName: e.target.value }))} />
@@ -1241,6 +1262,7 @@ export default function NewCasePage() {
             </Field>
           </div>
 
+          <p className="mt-2 text-sm font-semibold text-slate-800">Evento, cámaras y entrega</p>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Fecha/hora evento inicio">
               <DateTimeField value={video.eventStartAt} onChange={(v) => setVideo((x) => ({ ...x, eventStartAt: v }))} />
@@ -1295,27 +1317,13 @@ export default function NewCasePage() {
             </Field>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Descripción novedad">
+          <p className="mt-2 text-sm font-semibold text-slate-800">Descripción</p>
+          <div className="grid gap-4">
+            <Field label="Descripción de la novedad">
               <Textarea
                 rows={3}
                 value={video.descriptionNovedad}
                 onChange={(e) => setVideo((x) => ({ ...x, descriptionNovedad: e.target.value }))}
-              />
-            </Field>
-            <Field label="Fin solicitud (separa con ; si hay varias)">
-              <Textarea
-                rows={3}
-                value={video.finSolicitud.join("; ")}
-                onChange={(e) =>
-                  setVideo((x) => ({
-                    ...x,
-                    finSolicitud: e.target.value
-                      .split(";")
-                      .map((v) => v.trim())
-                      .filter(Boolean),
-                  }))
-                }
               />
             </Field>
           </div>

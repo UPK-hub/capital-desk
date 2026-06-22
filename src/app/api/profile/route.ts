@@ -14,6 +14,10 @@ const updateSchema = z.object({
   email: z.string().email().optional(),
   currentPassword: z.string().min(4).optional(),
   newPassword: z.string().min(MIN_PASSWORD_LENGTH).optional(),
+  name: z.string().trim().min(1).optional(),
+  phone: z.string().trim().optional().nullable(),
+  jobTitle: z.string().trim().optional().nullable(),
+  document: z.string().trim().optional().nullable(),
 });
 
 export async function GET() {
@@ -29,6 +33,9 @@ export async function GET() {
       email: true,
       role: true,
       capabilities: true,
+      phone: true,
+      jobTitle: true,
+      document: true,
     },
   });
 
@@ -46,8 +53,13 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Validacion fallida", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const { email, currentPassword, newPassword } = parsed.data;
-  if (!email && !newPassword) {
+  const { email, currentPassword, newPassword, name, phone, jobTitle, document } = parsed.data;
+
+  const profileFieldsProvided =
+    name !== undefined || phone !== undefined || jobTitle !== undefined || document !== undefined;
+  const sensitiveChange = Boolean(email) || Boolean(newPassword);
+
+  if (!email && !newPassword && !profileFieldsProvided) {
     return NextResponse.json({ error: "No hay cambios" }, { status: 400 });
   }
 
@@ -57,7 +69,9 @@ export async function PUT(req: NextRequest) {
   });
   if (!user) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
 
-  if (user.passwordHash) {
+  // La clave actual solo se exige para cambios sensibles (correo o contraseña),
+  // no para completar datos de perfil como teléfono, cargo o documento.
+  if (sensitiveChange && user.passwordHash) {
     if (!currentPassword) {
       return NextResponse.json({ error: "Ingresa tu clave actual" }, { status: 400 });
     }
@@ -70,6 +84,10 @@ export async function PUT(req: NextRequest) {
     passwordHash?: string;
     sessionVersion?: { increment: number };
     capabilities?: string[];
+    name?: string;
+    phone?: string | null;
+    jobTitle?: string | null;
+    document?: string | null;
   } = {};
   if (email && email !== user.email) data.email = email.toLowerCase().trim();
   if (newPassword) {
@@ -79,12 +97,24 @@ export async function PUT(req: NextRequest) {
       (cap) => cap !== CAPABILITIES.FORCE_PASSWORD_CHANGE
     );
   }
+  if (name !== undefined) data.name = name;
+  if (phone !== undefined) data.phone = phone || null;
+  if (jobTitle !== undefined) data.jobTitle = jobTitle || null;
+  if (document !== undefined) data.document = document || null;
 
   try {
     const updated = await prisma.user.update({ where: { id: userId }, data });
     return NextResponse.json({
       ok: true,
-      user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role },
+      user: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        phone: updated.phone,
+        jobTitle: updated.jobTitle,
+        document: updated.document,
+      },
     });
   } catch (err: any) {
     if (String(err?.code) === "P2002") {

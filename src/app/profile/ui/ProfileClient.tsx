@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
 
 type Props = {
-  user: { name: string; email: string; role: string; forcePasswordChange?: boolean };
+  user: {
+    name: string;
+    email: string;
+    role: string;
+    phone?: string;
+    jobTitle?: string;
+    document?: string;
+    forcePasswordChange?: boolean;
+  };
   forcePasswordChange?: boolean;
 };
 
@@ -15,6 +23,10 @@ export default function ProfileClient({ user, forcePasswordChange = false }: Pro
     forcePasswordChange ? "profile" : "profile"
   );
   const [email, setEmail] = React.useState(user.email);
+  const [name, setName] = React.useState(user.name ?? "");
+  const [phone, setPhone] = React.useState(user.phone ?? "");
+  const [jobTitle, setJobTitle] = React.useState(user.jobTitle ?? "");
+  const [documento, setDocumento] = React.useState(user.document ?? "");
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -34,9 +46,13 @@ export default function ProfileClient({ user, forcePasswordChange = false }: Pro
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: email.trim() ? email.trim() : undefined,
+        email: email.trim() && email.trim() !== user.email ? email.trim() : undefined,
         currentPassword: currentPassword.trim() ? currentPassword : undefined,
         newPassword: newPassword.trim() ? newPassword : undefined,
+        name: name.trim() ? name.trim() : undefined,
+        phone: phone.trim(),
+        jobTitle: jobTitle.trim(),
+        document: documento.trim(),
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -113,12 +129,49 @@ export default function ProfileClient({ user, forcePasswordChange = false }: Pro
         {section === "profile" ? (
           <div className="sts-card p-6 space-y-4">
             <div>
-              <h3 className="text-base font-semibold">Datos de cuenta</h3>
-              <p className="text-xs text-muted-foreground">Actualiza tu correo y contraseña.</p>
+              <h3 className="text-base font-semibold">Datos personales y de cuenta</h3>
+              <p className="text-xs text-muted-foreground">
+                Completa tus datos. Se usan para prediligenciar tus solicitudes (nombre, cargo, teléfono, documento y correo).
+              </p>
             </div>
 
             {error ? <div className="sts-card p-3 text-sm text-red-600">{error}</div> : null}
             {msg ? <div className="sts-card p-3 text-sm">{msg}</div> : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Nombre</label>
+                <input
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Documento</label>
+                <input
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
+                  value={documento}
+                  onChange={(e) => setDocumento(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Cargo</label>
+                <input
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Teléfono</label>
+                <input
+                  className="h-10 w-full rounded-xl border border-zinc-200/70 bg-white/90 px-3 text-sm focus-visible:outline-none"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
