@@ -234,6 +234,10 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               createdAt: true,
             },
           },
+          cameraResults: {
+            orderBy: { camera: "asc" },
+            select: { camera: true, status: true, rootCause: true },
+          },
         },
       },
       chatMessages: {
@@ -898,6 +902,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   busCode={c.bus?.code ?? null}
                   camerasRequested={vdr.camerasRequested}
                   attachments={vdr.attachments}
+                  cameraResults={vdr.cameraResults}
                   canManage={canEditNovedad}
                 />
               ) : null}

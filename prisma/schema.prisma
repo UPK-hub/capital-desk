@@ -1281,8 +1281,27 @@ model VideoDownloadRequest {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  attachments VideoAttachment[]
-  events      VideoRequestEvent[]
+  attachments   VideoAttachment[]
+  events        VideoRequestEvent[]
+  cameraResults VideoCameraResult[]
+}
+
+model VideoCameraResult {
+  id        String               @id @default(cuid())
+  requestId String
+  request   VideoDownloadRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  camera          String
+  status          VideoDownloadStatus @default(PENDIENTE)
+  rootCause       String?
+  note            String?
+  generatedCaseId String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([requestId, camera])
+  @@index([requestId])
 }
 
 model VideoAttachment {
