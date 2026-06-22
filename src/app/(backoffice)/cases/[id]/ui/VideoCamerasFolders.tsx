@@ -396,6 +396,7 @@ export default function VideoCamerasFolders({
                             <a
                               className="inline-flex items-center gap-1 text-xs underline"
                               href={url}
+                              download={att.originalName ?? undefined}
                               target="_blank"
                               rel="noreferrer"
                             >
