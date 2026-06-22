@@ -55,6 +55,35 @@ function parseCameras(camerasRequested: string | null): string[] {
 const SIN_CAMARA = "__SIN_CAMARA__";
 const selectCls = "h-9 w-full rounded-md border px-2 text-sm focus-visible:outline-none";
 
+function fileExt(s: string) {
+  const m = /\.[a-z0-9]{1,8}$/i.exec(s || "");
+  return m ? m[0] : "";
+}
+function namePart(s: string) {
+  return String(s ?? "")
+    .trim()
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "X";
+}
+// Descarga el archivo vía blob para forzar el nombre (independiente del servidor).
+async function downloadAs(url: string, filename: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("fetch failed");
+    const blob = await res.blob();
+    const obj = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = obj;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(obj), 1500);
+  } catch {
+    window.open(url, "_blank");
+  }
+}
+
 export default function VideoCamerasFolders({
   requestId,
   caseNo,
@@ -399,9 +428,15 @@ export default function VideoCamerasFolders({
                   {items.length === 0 ? (
                     <p className="text-xs text-muted-foreground">Sin videos en esta cámara.</p>
                   ) : (
-                    items.map((att) => {
+                    items.map((att, idx) => {
                       const url = uploadUrl(att.filePath);
                       const previewable = mediaKindFromPath(att.originalName ?? att.filePath) !== "other";
+                      const ext = fileExt(att.originalName ?? att.filePath);
+                      const dlName = isSinCamara
+                        ? att.originalName ?? "archivo"
+                        : `${namePart(busCode ?? "BUS")}_${namePart(camera)}_CASO-${namePart(
+                            caseNo != null ? String(caseNo) : ""
+                          )}${idx > 0 ? `_${idx + 1}` : ""}${ext}`;
                       return (
                         <div
                           key={att.id}
@@ -417,20 +452,20 @@ export default function VideoCamerasFolders({
                             {previewable ? (
                               <button
                                 type="button"
-                                onClick={() => openPreview({ url, name: att.originalName ?? titulo })}
+                                onClick={() => openPreview({ url, name: dlName })}
                                 className="text-xs underline"
                               >
                                 Ver
                               </button>
                             ) : null}
-                            <a
+                            <button
+                              type="button"
+                              onClick={() => downloadAs(url, dlName)}
                               className="inline-flex items-center gap-1 text-xs underline"
-                              href={`${url}?name=${encodeURIComponent(att.originalName ?? "video")}&dl=1`}
-                              rel="noreferrer"
                             >
                               <Download className="h-3.5 w-3.5" />
                               Descargar
-                            </a>
+                            </button>
                           </div>
                         </div>
                       );
