@@ -20,7 +20,15 @@ import { Activity, AlertTriangle, BarChart3, Bus as BusIcon, CalendarClock, Time
 
 type DayPoint = { date: string; total: number };
 type BusPoint = { busCode: string; total: number };
-type Series = { type: string; code: string | null; total: number; perDay: DayPoint[]; perBus: BusPoint[] };
+type DaySplit = { date: string; P20: number; P60: number };
+type Series = {
+  type: string;
+  code: string | null;
+  total: number;
+  perDay: DayPoint[];
+  perBus: BusPoint[];
+  perDaySplit?: DaySplit[];
+};
 
 type FilterOption = { value: string; label: string };
 type Breakdown = { code: string; label: string; total: number };
@@ -162,6 +170,51 @@ export default function TelemetrySeriesPanel({
   const breakdownHeight = Math.max(180, breakdownData.length * 24 + 24);
   const donutData = (donut ?? []).filter((d) => d.value > 0);
 
+  const p20Total = (data?.perDaySplit ?? []).reduce((a, b) => a + b.P20, 0);
+  const p60Total = (data?.perDaySplit ?? []).reduce((a, b) => a + b.P60, 0);
+
+  const areaBlock = (dataset: any[], key: string, title: string, color: string, hint?: string) => {
+    const name = key === "total" ? selectedLabel ?? titleNoun : key;
+    return (
+      <ChartCard title={title} hint={hint}>
+        <div style={{ width: "100%", height: 260 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={dataset} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickFormatter={dmy}
+                interval={dayTickInterval}
+                tick={{ fontSize: 11, fill: "#64748b" }}
+                tickLine={false}
+                axisLine={{ stroke: gridColor }}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#64748b" }}
+                tickLine={false}
+                axisLine={false}
+                width={48}
+                tickFormatter={(v: number) => nfmt(v)}
+              />
+              <Tooltip
+                formatter={(v: number) => [nfmt(v), name]}
+                labelFormatter={(l: string) => `Día ${dmy(String(l))}`}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${gridColor}` }}
+              />
+              <Area type="monotone" dataKey={key} stroke={color} strokeWidth={2} fill={`url(#grad-${key})`} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </ChartCard>
+    );
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -229,45 +282,20 @@ export default function TelemetrySeriesPanel({
         <div className="sts-card p-6 text-sm text-muted-foreground">Cargando gráficas…</div>
       ) : (
         <>
-          <ChartCard
-            title={selectedLabel ? `Volumen por día · ${selectedLabel}` : `Volumen de ${noun} por día`}
-            hint={`${nfmt(total)} en total`}
-          >
-            <div style={{ width: "100%", height: 290 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={perDay} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id={`grad-${type}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={main} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={main} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={dmy}
-                    interval={dayTickInterval}
-                    tick={{ fontSize: 11, fill: "#64748b" }}
-                    tickLine={false}
-                    axisLine={{ stroke: gridColor }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#64748b" }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={48}
-                    tickFormatter={(v: number) => nfmt(v)}
-                  />
-                  <Tooltip
-                    formatter={(v: number) => [nfmt(v), selectedLabel ?? titleNoun]}
-                    labelFormatter={(l: string) => `Día ${dmy(String(l))}`}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${gridColor}` }}
-                  />
-                  <Area type="monotone" dataKey="total" stroke={main} strokeWidth={2} fill={`url(#grad-${type})`} />
-                </AreaChart>
-              </ResponsiveContainer>
+          {type === "periodicas" && data?.perDaySplit ? (
+            <div className="grid gap-6 xl:grid-cols-2">
+              {areaBlock(data.perDaySplit, "P20", "Volumen P20 por día (cada 20 s)", "#2563eb", `${nfmt(p20Total)} en total`)}
+              {areaBlock(data.perDaySplit, "P60", "Volumen P60 por día (cada 60 s)", "#0891b2", `${nfmt(p60Total)} en total`)}
             </div>
-          </ChartCard>
+          ) : (
+            areaBlock(
+              perDay,
+              "total",
+              selectedLabel ? `Volumen por día · ${selectedLabel}` : `Volumen de ${noun} por día`,
+              main,
+              `${nfmt(total)} en total`
+            )
+          )}
 
           <div className="grid gap-6 xl:grid-cols-2">
             <ChartCard title={`${titleNoun} por bus (top 12)`}>

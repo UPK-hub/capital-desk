@@ -10,6 +10,8 @@ export type SeriesType = "eventos" | "alarmas" | "periodicas";
 export type DayPoint = { date: string; total: number };
 export type BusPoint = { busCode: string; total: number };
 
+export type DaySplitPoint = { date: string; P20: number; P60: number };
+
 export type TelemetrySeries = {
   type: SeriesType;
   code: string | null;
@@ -18,6 +20,7 @@ export type TelemetrySeries = {
   total: number;
   perDay: DayPoint[];
   perBus: BusPoint[];
+  perDaySplit?: DaySplitPoint[];
 };
 
 function dayKey(d: Date) {
@@ -96,5 +99,24 @@ export async function buildTelemetrySeries(params: {
   const perBus: BusPoint[] = perBusRaw.map((r) => ({ busCode: r.busCode, total: Number(r.c) }));
   const total = perDay.reduce((a, b) => a + b.total, 0);
 
-  return { type: params.type, code, range: { start, end }, busId, total, perDay, perBus };
+  // Para Periódicas: desglose diario P20 vs P60 (independiente del filtro de subtipo).
+  let perDaySplit: DaySplitPoint[] | undefined;
+  if (params.type === "periodicas") {
+    const splitRaw = await prisma.$queryRaw<{ d: string; sub: string | null; c: number }[]>(Prisma.sql`
+      SELECT to_char(date_trunc('day', ${coalDate}), 'YYYY-MM-DD') AS d, upper("tramaSubtype") AS sub, count(*)::int AS c
+      FROM "IntegrationInboundEvent"
+      WHERE "tenantId" = ${tenantId} AND "kind"::text = 'TRAMAS' AND "tramaType" = 1 ${rangeFilter} ${busFilter}
+      GROUP BY 1, 2
+    `);
+    const p20 = new Map<string, number>();
+    const p60 = new Map<string, number>();
+    for (const r of splitRaw) {
+      const v = Number(r.c);
+      if (r.sub === "P20") p20.set(r.d, (p20.get(r.d) ?? 0) + v);
+      else if (r.sub === "P60") p60.set(r.d, (p60.get(r.d) ?? 0) + v);
+    }
+    perDaySplit = eachDay(start, end).map((d) => ({ date: d, P20: p20.get(d) ?? 0, P60: p60.get(d) ?? 0 }));
+  }
+
+  return { type: params.type, code, range: { start, end }, busId, total, perDay, perBus, perDaySplit };
 }
