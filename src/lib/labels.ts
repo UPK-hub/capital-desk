@@ -88,6 +88,7 @@ export const videoDeliveryLabels: Record<string, string> = {
   WINSCP: "WinSCP",
   USB: "USB",
   ONEDRIVE: "OneDrive",
+  MESA_AYUDA: "Vía mesa de ayuda",
 };
 
 export const videoAttachmentLabels: Record<string, string> = {

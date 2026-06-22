@@ -10,6 +10,7 @@ import {
   videoDownloadStatusLabels,
 } from "@/lib/labels";
 import { Select } from "@/components/Field";
+import { useMediaPreview, mediaKindFromPath } from "@/components/MediaPreview";
 
 type Item = {
   id: string;
@@ -106,6 +107,7 @@ export default function VideoRequestDetailClient({
   isAdmin?: boolean;
 }) {
   const [item, setItem] = React.useState<Item>(initialItem);
+  const { openPreview, previewNode } = useMediaPreview();
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [assignables, setAssignables] = React.useState<Assignable[]>([]);
@@ -595,6 +597,8 @@ export default function VideoRequestDetailClient({
                 item.attachments.map((a) => {
                   const canDelete =
                     canManage && (isAdmin || (!!a.uploadedById && a.uploadedById === currentUserId));
+                  const url = `/api/uploads/${a.filePath}`;
+                  const previewable = mediaKindFromPath(a.originalName ?? a.filePath) !== "other";
                   return (
                     <div
                       key={a.id}
@@ -605,9 +609,18 @@ export default function VideoRequestDetailClient({
                         <p className="truncate text-xs text-muted-foreground">{a.originalName ?? a.filePath}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
+                        {previewable ? (
+                          <button
+                            type="button"
+                            onClick={() => openPreview({ url, name: a.originalName ?? a.kind })}
+                            className="text-xs underline"
+                          >
+                            Ver
+                          </button>
+                        ) : null}
                         <a
                           className="text-xs underline"
-                          href={`/api/uploads/${a.filePath}`}
+                          href={url}
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -652,6 +665,7 @@ export default function VideoRequestDetailClient({
         </div>
       </div>
       </div>
+      {previewNode}
     </div>
   );
 }

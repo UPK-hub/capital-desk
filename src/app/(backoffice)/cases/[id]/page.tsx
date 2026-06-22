@@ -27,6 +27,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { CheckCircle2, FileText } from "lucide-react";
 import DeleteCaseButton from "./ui/DeleteCaseButton";
+import VideoCamerasFolders from "./ui/VideoCamerasFolders";
 
 function fmtDate(d: Date) {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
@@ -219,7 +220,22 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         },
       },
       events: { orderBy: { createdAt: "asc" }, take: 200 },
-      videoDownloadRequest: true,
+      videoDownloadRequest: {
+        include: {
+          attachments: {
+            where: { active: true },
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              camera: true,
+              kind: true,
+              filePath: true,
+              originalName: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
       chatMessages: {
         orderBy: { createdAt: "asc" },
         take: 300,
@@ -874,6 +890,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   </div>
                 )}
               </section>
+
+              {vdr ? (
+                <VideoCamerasFolders
+                  requestId={vdr.id}
+                  caseNo={c.caseNo}
+                  busCode={c.bus?.code ?? null}
+                  camerasRequested={vdr.camerasRequested}
+                  attachments={vdr.attachments}
+                  canManage={canEditNovedad}
+                />
+              ) : null}
 
               <section className="sts-card overflow-hidden">
                 <div className="border-b border-border/50 bg-muted/20 p-5">

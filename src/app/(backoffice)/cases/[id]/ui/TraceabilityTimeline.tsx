@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CASE_EVENT_LABELS, fmtCaseNo, fmtWoNo } from "@/lib/traceability/labels";
+import { useMediaPreview } from "@/components/MediaPreview";
 
 type TimelineItem = {
   kind: "CASE" | "BUS" | "WO_STEP" | "FORM";
@@ -27,6 +28,7 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
   const [items, setItems] = React.useState<TimelineItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState<string | null>(null);
+  const { openPreview, previewNode } = useMediaPreview();
 
   React.useEffect(() => {
     let alive = true;
@@ -134,12 +136,22 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
               {it.meta?.media?.length ? (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {it.meta.media.map((m: any, idx: number) => (
-                    <img
+                    <button
                       key={`${m.filePath}-${idx}`}
-                      src={`/api/uploads/${m.filePath}`}
-                      alt={m.kind ?? "Evidencia"}
-                      className="h-40 w-full rounded-md border object-cover"
-                    />
+                      type="button"
+                      onClick={() =>
+                        openPreview({ url: `/api/uploads/${m.filePath}`, name: m.kind ?? "Evidencia" })
+                      }
+                      className="block overflow-hidden rounded-md border"
+                      title="Ver evidencia"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/uploads/${m.filePath}`}
+                        alt={m.kind ?? "Evidencia"}
+                        className="h-40 w-full object-cover"
+                      />
+                    </button>
                   ))}
                 </div>
               ) : null}
@@ -164,6 +176,7 @@ export default function TraceabilityTimeline({ caseId }: { caseId: string }) {
           );
         })}
       </div>
+      {previewNode}
     </div>
   );
 }

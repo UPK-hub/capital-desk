@@ -35,6 +35,8 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const kind = String(form.get("kind") ?? "VIDEO") as VideoAttachmentKind;
+  const cameraRaw = form.get("camera");
+  const camera = cameraRaw ? String(cameraRaw).trim() || null : null;
 
   if (!file) return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
 
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     data: {
       requestId,
       kind,
+      camera,
       filePath: relPath,
       originalName: file.name || null,
       size: file.size || null,
@@ -56,8 +59,8 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     data: {
       requestId,
       type: VideoRequestEventType.FILE_UPLOADED,
-      message: `Archivo cargado (${kind})`,
-      meta: { attachmentId: created.id, filePath: created.filePath },
+      message: camera ? `Archivo cargado (${kind} · ${camera})` : `Archivo cargado (${kind})`,
+      meta: { attachmentId: created.id, filePath: created.filePath, camera },
       actorUserId,
     },
   });

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText, ImageIcon, Film, File as FileIcon, X, Download } from "lucide-react";
+import { FileText, ImageIcon, Film, File as FileIcon, Download } from "lucide-react";
+import { useMediaPreview } from "@/components/MediaPreview";
 
 export type EvidenceKind = "image" | "pdf" | "video" | "other";
 export type EvidenceSource =
@@ -55,7 +56,7 @@ const KIND_LABEL: Record<EvidenceKind, string> = {
 export default function EvidenciasCard({ caseId, items: initialItems }: { caseId: string; items: EvidenceItem[] }) {
   const router = useRouter();
   const [items, setItems] = React.useState<EvidenceItem[]>(initialItems);
-  const [preview, setPreview] = React.useState<EvidenceItem | null>(null);
+  const { openPreview, previewNode } = useMediaPreview();
   const [deletingKey, setDeletingKey] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
 
@@ -107,12 +108,21 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
                   {item.kind === "image" ? (
                     <button
                       type="button"
-                      onClick={() => setPreview(item)}
+                      onClick={() => openPreview({ url, name: item.name, kind: "image" })}
                       className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/30"
                       title="Ver imagen"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={url} alt={item.name} className="h-full w-full object-cover" />
+                    </button>
+                  ) : item.kind === "video" || item.kind === "pdf" ? (
+                    <button
+                      type="button"
+                      onClick={() => openPreview({ url, name: item.name, kind: item.kind })}
+                      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                      title={item.kind === "video" ? "Ver video" : "Ver PDF"}
+                    >
+                      <KindIcon kind={item.kind} />
                     </button>
                   ) : (
                     <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/30 text-muted-foreground">
@@ -132,8 +142,12 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
                 </div>
 
                 <div className="flex shrink-0 items-center gap-3">
-                  {item.kind === "image" ? (
-                    <button type="button" onClick={() => setPreview(item)} className="text-xs underline">
+                  {item.kind !== "other" ? (
+                    <button
+                      type="button"
+                      onClick={() => openPreview({ url, name: item.name, kind: item.kind })}
+                      className="text-xs underline"
+                    >
                       Ver
                     </button>
                   ) : null}
@@ -144,7 +158,7 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
                     rel="noreferrer"
                   >
                     <Download className="h-3.5 w-3.5" />
-                    {item.kind === "image" ? "Descargar" : "Ver/Descargar"}
+                    {item.kind === "other" ? "Ver/Descargar" : "Descargar"}
                   </a>
                   {canDelete ? (
                     <button
@@ -163,52 +177,7 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
         )}
       </div>
 
-      {preview ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setPreview(null)}
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-muted/20 p-3">
-              <p className="truncate text-sm font-medium" title={preview.name}>
-                {preview.name}
-              </p>
-              <div className="flex shrink-0 items-center gap-3">
-                <a
-                  className="inline-flex items-center gap-1 text-xs underline"
-                  href={uploadUrl(preview.filePath)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Descargar
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setPreview(null)}
-                  aria-label="Cerrar"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/40"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="flex max-h-[80vh] items-center justify-center overflow-auto bg-black/5 p-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={uploadUrl(preview.filePath)}
-                alt={preview.name}
-                className="max-h-[76vh] w-auto max-w-full object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {previewNode}
     </section>
   );
 }

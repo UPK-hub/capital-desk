@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useMediaPreview, mediaKindFromPath } from "@/components/MediaPreview";
 
 type ChatMessage = {
   id: string;
@@ -44,6 +45,7 @@ export default function DirectChat({
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isAtBottomRef = useRef(true);
+  const { openPreview, previewNode } = useMediaPreview();
 
   useEffect(() => {
     let mounted = true;
@@ -297,21 +299,52 @@ export default function DirectChat({
                     className={`chat-bubble ${isMe ? "chat-bubble--me" : "chat-bubble--other"}`}
                   >
                     {m.meta?.kind === "image" && m.meta.filePath ? (
-                      <img
-                        src={`/api/uploads/${m.meta.filePath}`}
-                        alt={m.meta.filename ?? "imagen"}
-                        className="chat-media"
-                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          m.meta?.filePath &&
+                          openPreview({
+                            url: `/api/uploads/${m.meta.filePath}`,
+                            name: m.meta.filename ?? "imagen",
+                            kind: "image",
+                          })
+                        }
+                        className="block"
+                        title="Ver imagen"
+                      >
+                        <img
+                          src={`/api/uploads/${m.meta.filePath}`}
+                          alt={m.meta.filename ?? "imagen"}
+                          className="chat-media"
+                        />
+                      </button>
                     ) : null}
                     {m.meta?.kind === "file" && m.meta.filePath ? (
-                      <a
-                        href={`/api/uploads/${m.meta.filePath}`}
-                        className="chat-file"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {m.meta.filename ?? "Archivo adjunto"}
-                      </a>
+                      <span className="inline-flex items-center gap-2">
+                        <a
+                          href={`/api/uploads/${m.meta.filePath}`}
+                          className="chat-file"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {m.meta.filename ?? "Archivo adjunto"}
+                        </a>
+                        {mediaKindFromPath(m.meta.filename ?? m.meta.filePath) !== "other" ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              m.meta?.filePath &&
+                              openPreview({
+                                url: `/api/uploads/${m.meta.filePath}`,
+                                name: m.meta.filename ?? "Archivo",
+                              })
+                            }
+                            className="text-xs underline"
+                          >
+                            Ver
+                          </button>
+                        ) : null}
+                      </span>
                     ) : null}
                     {m.meta?.kind ? null : m.message}
                   </div>
@@ -358,6 +391,7 @@ export default function DirectChat({
           </div>
         </div>
       </div>
+      {previewNode}
     </section>
   );
 }

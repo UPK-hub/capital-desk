@@ -10,6 +10,7 @@ import { DateTimeField } from "@/components/DateTimeField";
 import { BusCombobox } from "@/components/BusCombobox";
 import { BusEquipmentSelect } from "@/components/BusEquipmentSelect";
 import { BusEquipmentMultiSelect } from "@/components/BusEquipmentMultiSelect";
+import { RVR_CAMERA_ORDER } from "@/lib/rvr";
 import { StsTicketSeverity } from "@prisma/client";
 type BusOption = { id: string; code: string; plate: string | null };
 type PriorityOption = "BAJA" | "MEDIA" | "ALTA";
@@ -123,7 +124,7 @@ type VideoForm = {
 
 cameras: string[];
   cameraEquipmentIds: string[];
-  deliveryMethod: "WINSCP" | "USB" | "ONEDRIVE";
+  deliveryMethod: "WINSCP" | "USB" | "ONEDRIVE" | "MESA_AYUDA";
 
   descriptionNovedad: string;
   finSolicitud: string[];
@@ -399,7 +400,7 @@ export default function NewCasePage() {
     eventEndAt: "",
     cameras: [],
   cameraEquipmentIds: [],
-    deliveryMethod: "WINSCP",
+    deliveryMethod: "MESA_AYUDA",
     descriptionNovedad: "",
     finSolicitud: [],
   });
@@ -1248,16 +1249,37 @@ export default function NewCasePage() {
               <DateTimeField value={video.eventEndAt} onChange={(v) => setVideo((x) => ({ ...x, eventEndAt: v }))} />
             </Field>
 
-       <Field label="Cámaras solicitadas">
-              <BusEquipmentMultiSelect
-                busId={bus?.id ?? null}
-                value={video.cameraEquipmentIds}
-                onChange={(ids) => {
-                  setVideo((x) => ({ ...x, cameraEquipmentIds: ids }));
-                }}
-                filterCategory="CAMARAS"
-                disabled={!bus?.id}
-              />
+            <Field label="Cámaras solicitadas">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {RVR_CAMERA_ORDER.map((cam) => {
+                  const checked = video.cameras.includes(cam);
+                  return (
+                    <label
+                      key={cam}
+                      className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
+                        checked ? "border-primary bg-primary/5" : "border-border"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setVideo((x) => ({
+                            ...x,
+                            cameras: e.target.checked
+                              ? [...x.cameras, cam]
+                              : x.cameras.filter((c) => c !== cam),
+                          }))
+                        }
+                      />
+                      {cam}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Marca las cámaras de las que se solicita la descarga.
+              </p>
             </Field>
       
             <Field label="Medio de entrega">
@@ -1265,6 +1287,7 @@ export default function NewCasePage() {
                 value={video.deliveryMethod}
                 onChange={(e) => setVideo((x) => ({ ...x, deliveryMethod: e.target.value as any }))}
               >
+                <option value="MESA_AYUDA">Vía mesa de ayuda</option>
                 <option value="WINSCP">WinSCP</option>
                 <option value="USB">USB</option>
                 <option value="ONEDRIVE">OneDrive</option>

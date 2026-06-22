@@ -1205,6 +1205,7 @@ enum VideoDeliveryMethod {
   WINSCP
   USB
   ONEDRIVE
+  MESA_AYUDA
 }
 
 enum VideoCaseStatus {
@@ -1290,6 +1291,7 @@ model VideoAttachment {
   request   VideoDownloadRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   kind         VideoAttachmentKind
+  camera       String?
   filePath     String
   originalName String?
   size         Int?
