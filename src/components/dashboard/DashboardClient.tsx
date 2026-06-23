@@ -29,6 +29,7 @@ import {
   X,
   RotateCcw,
   LayoutDashboard,
+  Settings2,
 } from "lucide-react";
 import {
   type AccessFlags,
@@ -45,7 +46,12 @@ import {
 const ResponsiveGrid = WidthProvider(Responsive);
 
 type WidgetResult =
-  | { kind: "scalar"; value: number }
+  | {
+      kind: "scalar";
+      value: number;
+      spark?: number[];
+      delta?: { pct: number; dir: "up" | "down" };
+    }
   | { kind: "series"; label: string; points: { date: string; value: number }[] }
   | { kind: "breakdown"; items: { label: string; value: number; color: string }[] }
   | { kind: "list"; items: ListItem[] }
@@ -110,6 +116,7 @@ export default function DashboardClient({
   const [editor, setEditor] = useState<{ open: boolean; widget: WidgetConfig | null }>(
     { open: false, widget: null }
   );
+  const [editMode, setEditMode] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -177,7 +184,9 @@ export default function DashboardClient({
   const onLayoutStop = useCallback(
     (current: any[]) => {
       const byId = new Map<string, GridItem>(dash.layout.map((l) => [l.i, l]));
-      const layout: GridItem[] = current.map((c) => {
+      const layout: GridItem[] = current
+        .filter((c) => c.i !== "__add__")
+        .map((c) => {
         const prev = byId.get(c.i);
         return {
           i: c.i,
@@ -253,15 +262,34 @@ export default function DashboardClient({
     [dash, commit]
   );
 
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString("es-CO", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+      }),
+    []
+  );
+
+  const displayLayout = useMemo(() => {
+    if (!editMode) return dash.layout;
+    const my = dash.layout.reduce((a, l) => Math.max(a, l.y + l.h), 0);
+    return [
+      ...dash.layout,
+      { i: "__add__", x: 0, y: my, w: 3, h: 3, static: true },
+    ];
+  }, [dash.layout, editMode]);
+
   const layouts = useMemo(
     () => ({
-      lg: dash.layout,
-      md: dash.layout,
-      sm: dash.layout,
-      xs: dash.layout,
-      xxs: dash.layout,
+      lg: displayLayout,
+      md: displayLayout,
+      sm: displayLayout,
+      xs: displayLayout,
+      xxs: displayLayout,
     }),
-    [dash.layout]
+    [displayLayout]
   );
 
   return (
@@ -275,18 +303,19 @@ export default function DashboardClient({
           `,
         }}
       />
-      {/* Encabezado + barra de filtros */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+      {/* Encabezado */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-white px-4 py-3.5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
             <LayoutDashboard className="h-5 w-5" />
           </span>
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-              Hola{userName ? `, ${userName.split(/\s+/)[0]}` : ""}
+              Tablero de inicio
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Tablero · {tenantName}
+            <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+              Operación en vivo · {todayLabel}
             </p>
           </div>
         </div>
@@ -307,18 +336,32 @@ export default function DashboardClient({
           <button
             type="button"
             onClick={() => setEditor({ open: true, widget: null })}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 text-sm font-medium text-blue-700 transition hover:bg-blue-50"
           >
             <Plus className="h-4 w-4" /> Agregar gráfico
           </button>
           <button
             type="button"
-            onClick={resetDefault}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 text-sm text-slate-600 transition hover:bg-slate-50"
-            title="Restablecer el tablero por defecto"
+            onClick={() => setEditMode((v) => !v)}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition ${
+              editMode
+                ? "bg-blue-600 text-white shadow-sm hover:brightness-95"
+                : "border border-border/70 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+            title="Personalizar el tablero (mover, redimensionar, quitar)"
           >
-            <RotateCcw className="h-4 w-4" /> Restablecer
+            <Settings2 className="h-4 w-4" /> {editMode ? "Listo" : "Personalizar"}
           </button>
+          {editMode ? (
+            <button
+              type="button"
+              onClick={resetDefault}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 text-sm text-slate-600 transition hover:bg-slate-50"
+              title="Restablecer el tablero por defecto"
+            >
+              <RotateCcw className="h-4 w-4" /> Restablecer
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -342,8 +385,8 @@ export default function DashboardClient({
           cols={{ lg: 12, md: 12, sm: 6, xs: 4, xxs: 2 }}
           rowHeight={30}
           margin={[14, 14]}
-          isDraggable
-          isResizable
+          isDraggable={editMode}
+          isResizable={editMode}
           draggableHandle=".widget-handle"
           onDragStop={onLayoutStop}
           onResizeStop={onLayoutStop}
@@ -354,11 +397,17 @@ export default function DashboardClient({
                 widget={w}
                 result={results[w.i]}
                 loading={loading && !results[w.i]}
+                editMode={editMode}
                 onEdit={() => setEditor({ open: true, widget: w })}
                 onRemove={() => removeWidget(w.i)}
               />
             </div>
           ))}
+          {editMode ? (
+            <div key="__add__" className="dashboard-cell">
+              <AddTile onClick={() => setEditor({ open: true, widget: null })} />
+            </div>
+          ) : null}
         </ResponsiveGrid>
       )}
 
@@ -393,42 +442,54 @@ function WidgetCard({
   widget,
   result,
   loading,
+  editMode,
   onEdit,
   onRemove,
 }: {
   widget: WidgetConfig;
   result?: WidgetResult;
   loading: boolean;
+  editMode: boolean;
   onEdit: () => void;
   onRemove: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm">
-      <div className="widget-handle flex cursor-move items-center gap-2 border-b border-border/50 px-3 py-2">
-        <GripVertical className="h-4 w-4 shrink-0 text-slate-300" />
-        <span className="flex-1 truncate text-sm font-semibold text-slate-800">
+    <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm transition hover:shadow-md">
+      <div
+        className={`widget-handle flex items-center gap-2 px-3.5 pt-2.5 pb-1 ${
+          editMode ? "cursor-move" : ""
+        }`}
+      >
+        {editMode ? (
+          <GripVertical className="h-4 w-4 shrink-0 text-slate-300" />
+        ) : null}
+        <span className="flex-1 truncate text-xs font-medium text-slate-500">
           {widget.title}
         </span>
-        <button
-          type="button"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onEdit}
-          className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          title="Editar"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onRemove}
-          className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-          title="Quitar"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {editMode ? (
+          <>
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onEdit}
+              className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              title="Editar"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onRemove}
+              className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+              title="Quitar"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
+        ) : null}
       </div>
-      <div className="min-h-0 flex-1 p-3">
+      <div className="min-h-0 flex-1 px-3.5 pb-3.5 pt-0.5">
         <WidgetBody widget={widget} result={result} loading={loading} />
       </div>
     </div>
@@ -460,17 +521,29 @@ function WidgetBody({
   }
   if (result.kind === "scalar") {
     const accent = getMetric(widget.metric)?.accent ?? "#2563eb";
+    const delta = result.delta;
     return (
-      <div className="flex h-full flex-col items-start justify-center">
-        <div
-          className="text-4xl font-semibold tabular-nums"
-          style={{ color: accent }}
-        >
-          {result.value.toLocaleString("es-CO")}
+      <div className="flex h-full flex-col justify-center">
+        <div className="flex items-baseline gap-2">
+          <span
+            className="text-[26px] font-semibold leading-none tabular-nums"
+            style={{ color: accent }}
+          >
+            {result.value.toLocaleString("es-CO")}
+          </span>
+          {delta ? (
+            <span
+              className={`text-[11px] font-semibold ${
+                delta.dir === "up" ? "text-emerald-600" : "text-red-500"
+              }`}
+            >
+              {delta.dir === "up" ? "▲" : "▼"} {delta.pct}%
+            </span>
+          ) : null}
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          {getMetric(widget.metric)?.hint ?? widget.title}
-        </div>
+        {result.spark && result.spark.length > 1 ? (
+          <Sparkline values={result.spark} accent={accent} />
+        ) : null}
       </div>
     );
   }
@@ -489,6 +562,37 @@ function WidgetBody({
 // ============================================================================
 // Renderers de gráficos
 // ============================================================================
+function Sparkline({ values, accent }: { values: number[]; accent: string }) {
+  const w = 120;
+  const h = 24;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const pts = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * w;
+      const y = h - ((v - min) / range) * h;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      style={{ width: "100%", height: 20, marginTop: 6 }}
+    >
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={accent}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function SeriesChart({
   viz,
   data,
@@ -642,6 +746,24 @@ function ListView({ items }: { items: ListItem[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+// ============================================================================
+// Tarjeta "Agregar gráfico" (modo personalizar)
+// ============================================================================
+function AddTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-blue-200 bg-blue-50/40 p-3 text-center transition hover:border-blue-300 hover:bg-blue-50"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+        <Plus className="h-5 w-5" />
+      </span>
+      <span className="text-xs font-semibold text-slate-600">Agregar gráfico</span>
+    </button>
   );
 }
 

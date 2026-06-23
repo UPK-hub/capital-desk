@@ -42,7 +42,12 @@ export type ListItem = {
 };
 
 export type WidgetResult =
-  | { kind: "scalar"; value: number }
+  | {
+      kind: "scalar";
+      value: number;
+      spark?: number[];
+      delta?: { pct: number; dir: "up" | "down" };
+    }
   | { kind: "series"; label: string; points: { date: string; value: number }[] }
   | { kind: "breakdown"; items: { label: string; value: number; color: string }[] }
   | { kind: "list"; items: ListItem[] }
@@ -80,6 +85,40 @@ function bucketByDay(dates: Date[], n: number): { date: string; value: number }[
 }
 function clampRange(n: number): number {
   return [7, 14, 30, 90].includes(n) ? n : 14;
+}
+
+// Mini-serie (sparkline) de los últimos n días + variación vs. el período
+// anterior de igual duración. Usa el campo de fecha de creación de la entidad.
+async function sparkAndDelta(
+  model: string,
+  where: any,
+  dateField: string,
+  n: number
+): Promise<{ spark: number[]; delta: { pct: number; dir: "up" | "down" } | null }> {
+  const span = n * 2;
+  const rows: any[] = await (prisma as any)[model].findMany({
+    where: { ...where, [dateField]: { gte: startInstant(span) } },
+    select: { [dateField]: true },
+  });
+  const keys = dayLabels(span);
+  const map = new Map<string, number>(keys.map((k) => [k, 0]));
+  for (const r of rows) {
+    const k = cotKey(r[dateField] as Date);
+    if (map.has(k)) map.set(k, (map.get(k) ?? 0) + 1);
+  }
+  const vals = keys.map((k) => map.get(k) ?? 0);
+  const prev = vals.slice(0, n);
+  const cur = vals.slice(n);
+  const curSum = cur.reduce((a, b) => a + b, 0);
+  const prevSum = prev.reduce((a, b) => a + b, 0);
+  let pct = 0;
+  if (prevSum > 0) pct = Math.round(((curSum - prevSum) / prevSum) * 100);
+  else if (curSum > 0) pct = 100;
+  const delta =
+    curSum === 0 && prevSum === 0
+      ? null
+      : { pct: Math.abs(pct), dir: (curSum >= prevSum ? "up" : "down") as "up" | "down" };
+  return { spark: cur, delta };
 }
 
 // ---- Helpers de alcance (qué puede ver el usuario) ----
@@ -223,45 +262,50 @@ export async function resolveWidget(
   try {
     switch (metricKey) {
       // ---- KPIs ----
-      case "casos_abiertos":
-        return {
-          kind: "scalar",
-          value: await prisma.case.count({
-            where: {
-              tenantId: ctx.tenantId,
-              status: {
-                in: [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION],
-              },
+      case "casos_abiertos": {
+        const value = await prisma.case.count({
+          where: {
+            tenantId: ctx.tenantId,
+            status: {
+              in: [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION],
             },
-          }),
-        };
-      case "videos_pendientes":
-        return {
-          kind: "scalar",
-          value: await prisma.videoDownloadRequest.count({
-            where: {
-              case: videoCaseWhere(ctx),
-              status: { in: [VideoCaseStatus.EN_ESPERA, VideoCaseStatus.EN_CURSO] },
-            },
-          }),
-        };
-      case "ots_activas":
-        return {
-          kind: "scalar",
-          value: await prisma.workOrder.count({
-            where: { ...woScope(ctx), status: { not: WorkOrderStatus.FINALIZADA } },
-          }),
-        };
-      case "sts_abiertos":
-        return {
-          kind: "scalar",
-          value: await prisma.stsTicket.count({
-            where: {
-              tenantId: ctx.tenantId,
-              status: { in: [StsTicketStatus.OPEN, StsTicketStatus.IN_PROGRESS] },
-            },
-          }),
-        };
+          },
+        });
+        const sd = await sparkAndDelta("case", { tenantId: ctx.tenantId }, "createdAt", n);
+        return { kind: "scalar", value, spark: sd.spark, delta: sd.delta ?? undefined };
+      }
+      case "videos_pendientes": {
+        const value = await prisma.videoDownloadRequest.count({
+          where: {
+            case: videoCaseWhere(ctx),
+            status: { in: [VideoCaseStatus.EN_ESPERA, VideoCaseStatus.EN_CURSO] },
+          },
+        });
+        const sd = await sparkAndDelta(
+          "videoDownloadRequest",
+          { case: videoCaseWhere(ctx) },
+          "createdAt",
+          n
+        );
+        return { kind: "scalar", value, spark: sd.spark, delta: sd.delta ?? undefined };
+      }
+      case "ots_activas": {
+        const value = await prisma.workOrder.count({
+          where: { ...woScope(ctx), status: { not: WorkOrderStatus.FINALIZADA } },
+        });
+        const sd = await sparkAndDelta("workOrder", woScope(ctx), "createdAt", n);
+        return { kind: "scalar", value, spark: sd.spark, delta: sd.delta ?? undefined };
+      }
+      case "sts_abiertos": {
+        const value = await prisma.stsTicket.count({
+          where: {
+            tenantId: ctx.tenantId,
+            status: { in: [StsTicketStatus.OPEN, StsTicketStatus.IN_PROGRESS] },
+          },
+        });
+        const sd = await sparkAndDelta("stsTicket", { tenantId: ctx.tenantId }, "openedAt", n);
+        return { kind: "scalar", value, spark: sd.spark, delta: sd.delta ?? undefined };
+      }
       case "tecnicos_activos":
         return {
           kind: "scalar",
