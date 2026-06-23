@@ -610,7 +610,7 @@ function Sparkline({ values, accent }: { values: number[]; accent: string }) {
         borderColor: accent,
         backgroundColor: hexToRgba(accent, 0.1),
         borderWidth: 2,
-        tension: 0.4,
+        tension: 0,
         pointRadius: 0,
         pointHoverRadius: 0,
         fill: true,
@@ -698,11 +698,13 @@ function SeriesChart({
     borderColor: color,
     backgroundColor: hexToRgba(color, 0.12),
     borderWidth: 2.5,
-    tension: 0.35,
+    tension: 0,
     fill: viz !== "line",
-    pointRadius: 0,
+    pointRadius: vals.map((_, i) => (i === vals.length - 1 ? 3.5 : 0)),
     pointHoverRadius: 4,
-    pointBackgroundColor: color,
+    pointBackgroundColor: "#ffffff",
+    pointBorderColor: color,
+    pointBorderWidth: 2,
   });
   const datasets = [mkLine(label, data.map((p) => p.value), accent)];
   if (label2) datasets.push(mkLine(label2, data.map((p) => p.value2 ?? 0), c2));
