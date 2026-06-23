@@ -190,7 +190,8 @@ export default function TelemetrySeriesPanel({
               <XAxis
                 dataKey="date"
                 tickFormatter={dmy}
-                interval={dayTickInterval}
+                interval="preserveStartEnd"
+                minTickGap={20}
                 tick={{ fontSize: 11, fill: "#64748b" }}
                 tickLine={false}
                 axisLine={{ stroke: gridColor }}
