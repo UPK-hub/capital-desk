@@ -1,35 +1,15 @@
 import { Prisma, StsTelemetryKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { EVENT_CATALOG, ALARM_CATALOG, ALARM_LEVELS } from "@/lib/telemetry/catalog";
+import { bogDayKey, bogDayStartInstant, bogToday, eachBogDay, bogDayLabel } from "@/lib/telemetry/tz";
 import type { SeriesType, TelemetrySeries, DayPoint, BusPoint, DaySplitPoint } from "@/lib/telemetry/series";
 
-// Resumen diario pre-agregado de telemetría. Los días ya cerrados se calculan
-// una sola vez y quedan fijos; "hoy" se recalcula si lleva más de 10 min sin
-// actualizarse. Los tableros leen este resumen (miles de filas) en vez de la
-// tabla cruda (millones).
+// Resumen diario pre-agregado de telemetría, por día de Colombia (UTC-5).
+// Los días cerrados se calculan una sola vez y quedan fijos; "hoy" (COT) se
+// recalcula si lleva más de 10 min sin actualizarse. Los tableros leen este
+// resumen (miles de filas) en vez de la tabla cruda (millones).
 
 const STALE_TODAY_MS = 10 * 60 * 1000;
-
-function dayStartUTC(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
-
-function dayKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function eachDayUTC(start: Date, end: Date): Date[] {
-  const days: Date[] = [];
-  const cur = dayStartUTC(start);
-  const last = dayStartUTC(end);
-  let guard = 0;
-  while (cur <= last && guard < 400) {
-    days.push(new Date(cur));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-    guard += 1;
-  }
-  return days;
-}
 
 function numCode(prefix: string, raw: string): string {
   const m = String(raw ?? "").match(/(\d+)/);
@@ -49,9 +29,9 @@ type RawGroup = {
 // Evita recalcular el mismo día en paralelo (varias consultas en una carga).
 const inflight = new Map<string, Promise<void>>();
 
-export async function recomputeDay(tenantId: string, dayStart: Date): Promise<void> {
-  const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+export async function recomputeDay(tenantId: string, label: Date): Promise<void> {
+  const dayStart = bogDayStartInstant(label); // 00:00 COT
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
   const groups = await prisma.$queryRaw<RawGroup[]>(Prisma.sql`
     SELECT "busCode",
@@ -92,7 +72,7 @@ export async function recomputeDay(tenantId: string, dayStart: Date): Promise<vo
   const data = Array.from(merged.values()).map((m) => ({
     tenantId,
     busCode: m.busCode,
-    day: dayStart,
+    day: label,
     kind: m.kind as StsTelemetryKind,
     code: m.code,
     level: m.level,
@@ -100,24 +80,24 @@ export async function recomputeDay(tenantId: string, dayStart: Date): Promise<vo
   }));
 
   await prisma.$transaction(async (tx) => {
-    await tx.telemetryDailyRollup.deleteMany({ where: { tenantId, day: dayStart } });
+    await tx.telemetryDailyRollup.deleteMany({ where: { tenantId, day: label } });
     if (data.length) await tx.telemetryDailyRollup.createMany({ data });
   });
 }
 
-function recomputeDayOnce(tenantId: string, dayStart: Date): Promise<void> {
-  const key = `${tenantId}|${dayKey(dayStart)}`;
+function recomputeDayOnce(tenantId: string, label: Date): Promise<void> {
+  const key = `${tenantId}|${bogDayKey(label)}`;
   const existing = inflight.get(key);
   if (existing) return existing;
-  const p = recomputeDay(tenantId, dayStart).finally(() => inflight.delete(key));
+  const p = recomputeDay(tenantId, label).finally(() => inflight.delete(key));
   inflight.set(key, p);
   return p;
 }
 
 export async function ensureRange(tenantId: string, start: Date, end: Date): Promise<void> {
-  const days = eachDayUTC(start, end);
+  const days = eachBogDay(start, end);
   if (days.length === 0) return;
-  const today = dayStartUTC(new Date());
+  const today = bogToday();
   const first = days[0];
   const last = days[days.length - 1];
 
@@ -127,12 +107,12 @@ export async function ensureRange(tenantId: string, start: Date, end: Date): Pro
     _max: { updatedAt: true },
   });
   const presence = new Map<string, Date | null>(
-    existing.map((e) => [dayKey(e.day), e._max.updatedAt ?? null])
+    existing.map((e) => [bogDayKey(e.day), e._max.updatedAt ?? null])
   );
 
   for (const day of days) {
     if (day.getTime() > today.getTime()) continue;
-    const k = dayKey(day);
+    const k = bogDayKey(day);
     const isToday = day.getTime() === today.getTime();
     const updatedAt = presence.get(k) ?? null;
     const present = presence.has(k);
@@ -156,8 +136,8 @@ export async function summaryFromRollup(
   busCode: string | null
 ): Promise<TelemetrySummary> {
   await ensureRange(tenantId, start, end);
-  const first = dayStartUTC(start);
-  const last = dayStartUTC(end);
+  const first = bogDayLabel(start);
+  const last = bogDayLabel(end);
   const baseWhere = { tenantId, day: { gte: first, lte: last }, ...(busCode ? { busCode } : {}) };
 
   const [byKind, tramaSub, events, alarms] = await Promise.all([
@@ -223,8 +203,8 @@ export async function busCountsFromRollup(
   busCode: string | null
 ): Promise<BusPoint[]> {
   await ensureRange(tenantId, start, end);
-  const first = dayStartUTC(start);
-  const last = dayStartUTC(end);
+  const first = bogDayLabel(start);
+  const last = bogDayLabel(end);
   const rows = await prisma.telemetryDailyRollup.groupBy({
     by: ["busCode"],
     where: { tenantId, day: { gte: first, lte: last }, ...(busCode ? { busCode } : {}) },
@@ -244,8 +224,8 @@ export async function seriesFromRollup(p: {
   code: string | null;
 }): Promise<TelemetrySeries> {
   await ensureRange(p.tenantId, p.start, p.end);
-  const first = dayStartUTC(p.start);
-  const last = dayStartUTC(p.end);
+  const first = bogDayLabel(p.start);
+  const last = bogDayLabel(p.end);
   const kind =
     p.type === "eventos"
       ? StsTelemetryKind.EVENTOS
@@ -272,8 +252,8 @@ export async function seriesFromRollup(p: {
     }),
   ]);
 
-  const byDay = new Map(perDayRows.map((r) => [dayKey(r.day), r._sum.count ?? 0]));
-  const perDay: DayPoint[] = eachDayUTC(p.start, p.end).map((d) => ({ date: dayKey(d), total: byDay.get(dayKey(d)) ?? 0 }));
+  const byDay = new Map(perDayRows.map((r) => [bogDayKey(r.day), r._sum.count ?? 0]));
+  const perDay: DayPoint[] = eachBogDay(p.start, p.end).map((d) => ({ date: bogDayKey(d), total: byDay.get(bogDayKey(d)) ?? 0 }));
   const perBus: BusPoint[] = perBusRows.map((r) => ({ busCode: r.busCode, total: r._sum.count ?? 0 }));
   const total = perDay.reduce((a, b) => a + b.total, 0);
 
@@ -292,14 +272,14 @@ export async function seriesFromRollup(p: {
     const p20 = new Map<string, number>();
     const p60 = new Map<string, number>();
     for (const r of splitRows) {
-      const k = dayKey(r.day);
+      const k = bogDayKey(r.day);
       const v = r._sum.count ?? 0;
       const c = (r.code || "").toUpperCase();
       if (c === "P20") p20.set(k, (p20.get(k) ?? 0) + v);
       else if (c === "P60") p60.set(k, (p60.get(k) ?? 0) + v);
     }
-    perDaySplit = eachDayUTC(p.start, p.end).map((d) => {
-      const k = dayKey(d);
+    perDaySplit = eachBogDay(p.start, p.end).map((d) => {
+      const k = bogDayKey(d);
       return { date: k, P20: p20.get(k) ?? 0, P60: p60.get(k) ?? 0 };
     });
   }

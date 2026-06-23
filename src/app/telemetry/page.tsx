@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getTelemetrySummaryCached, getBusCountsCached } from "@/lib/telemetry/cache";
+import { bogToday, bogDayStartInstant, addDaysLabel, bogDayKey } from "@/lib/telemetry/tz";
 import { prisma } from "@/lib/prisma";
 import TelemetryDashboard, {
   type AlarmRow,
@@ -25,7 +26,7 @@ function endOfDay(d: Date) {
 }
 
 function formatInputDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return bogDayKey(d);
 }
 
 function parseCoordinate(value: unknown): number | null {
@@ -98,15 +99,16 @@ export default async function TelemetryPage({
   const range = Number(searchParams?.range ?? 7);
   const safeRange = [7, 30, 90].includes(range) ? range : 7;
 
-  let start = startOfDay(new Date(now.getTime() - safeRange * 24 * 60 * 60 * 1000));
-  let end = endOfDay(now);
+  const todayLabel = bogToday();
+  let start = bogDayStartInstant(addDaysLabel(todayLabel, -safeRange));
+  let end = new Date(bogDayStartInstant(todayLabel).getTime() + 24 * 60 * 60 * 1000 - 1);
 
   if (searchParams?.start && searchParams?.end) {
-    const s = new Date(`${searchParams.start}T00:00:00`);
-    const e = new Date(`${searchParams.end}T23:59:59`);
+    const s = new Date(`${searchParams.start}T00:00:00-05:00`);
+    const e = new Date(`${searchParams.end}T23:59:59.999-05:00`);
     if (!Number.isNaN(s.getTime()) && !Number.isNaN(e.getTime())) {
-      start = startOfDay(s);
-      end = endOfDay(e);
+      start = s;
+      end = e;
     }
   }
 
@@ -158,7 +160,7 @@ export default async function TelemetryPage({
 
   // Estado de reporte HOY (flota completa, independiente del rango/filtro):
   // qué buses NO han enviado tramas hoy.
-  const startOfToday = startOfDay(now);
+  const startOfToday = bogDayStartInstant(bogToday());
   const [allBuses, allStates] = await Promise.all([
     prisma.bus.findMany({ where: { tenantId }, select: { id: true, code: true, plate: true } }),
     prisma.busTelemetryState.findMany({ where: { tenantId }, select: { busId: true, lastSeenAt: true } }),
