@@ -24,7 +24,8 @@
     "kpi:recompute": "tsx scripts/recompute-sts-kpis.ts",
     "backfill:video-cases": "tsx scripts/backfill-video-cases-cerrado.ts",
     "equipos:ensure": "tsx scripts/ensure-new-equipments.ts",
-    "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts"
+    "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
+    "tramas:inspect": "tsx scripts/inspect-trama-payload.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
