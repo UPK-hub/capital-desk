@@ -27,6 +27,9 @@ const patchSchema = z
     // set directo de password por admin (opcional)
     newPassword: z.string().trim().min(MIN_PASSWORD_LENGTH).optional(),
     capabilities: z.array(z.string().trim().min(2)).optional(),
+    videoGroup: z
+      .union([z.enum(["MANTENIMIENTO", "SEGURIDAD_OPERACIONAL", "GENERAL"]), z.null()])
+      .optional(),
   })
   .refine((x) => Object.keys(x).length > 0, { message: "Nada para actualizar" });
 
@@ -65,6 +68,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     shouldIncrementSessionVersion = true;
   }
   if (parsed.data.capabilities) data.capabilities = parsed.data.capabilities;
+  if (parsed.data.videoGroup !== undefined) data.videoGroup = parsed.data.videoGroup;
 
   if (shouldIncrementSessionVersion) {
     data.sessionVersion = { increment: 1 };
@@ -82,6 +86,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
       updatedAt: true,
       passwordHash: true,
       capabilities: true,
+      videoGroup: true,
     },
   });
 

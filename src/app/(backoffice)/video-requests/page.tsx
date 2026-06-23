@@ -67,7 +67,7 @@ export default async function VideoRequestsPage({
   const tenantId = (session.user as any).tenantId as string;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const userId = String((session.user as any).id ?? "");
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId });
   const canCreateRequest = role === Role.ADMIN || role === Role.BACKOFFICE;
 
   // Filtros: búsqueda (móvil/teléfono/bus/placa), estado del caso y estado de descarga.

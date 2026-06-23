@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const tenantId = (session.user as any).tenantId as string;
   const actorUserId = (session.user as any).id as string;
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId: actorUserId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId: actorUserId });
   const requestId = String(ctx.params.id);
 
   const request = await prisma.videoDownloadRequest.findFirst({

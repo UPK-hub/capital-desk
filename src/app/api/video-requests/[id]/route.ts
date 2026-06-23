@@ -59,7 +59,7 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   const tenantId = (session.user as any).tenantId as string;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const userId = String((session.user as any).id ?? "");
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId });
   const requestId = String(ctx.params.id);
 
   const item = await prisma.videoDownloadRequest.findFirst({
@@ -95,7 +95,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const tenantId = (session.user as any).tenantId as string;
   const actorUserId = (session.user as any).id as string;
   const requestId = String(ctx.params.id);
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId: actorUserId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId: actorUserId });
 
   const body = await req.json().catch(() => ({}));
 

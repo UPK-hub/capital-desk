@@ -1,5 +1,6 @@
 import { CaseEventType, Prisma, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
+import { prisma } from "@/lib/prisma";
 
 type MaybeCaps = string[] | undefined;
 
@@ -47,18 +48,34 @@ export function buildCaseAccessWhere(args: {
   return where;
 }
 
-export function buildVideoRequestCaseScope(args: {
+export async function buildVideoRequestCaseScope(args: {
+  tenantId: string;
   role: Role;
   capabilities?: string[];
   userId: string;
-}): Prisma.CaseWhereInput {
-  // El perfil "Solo módulo Videos" (y "Solo sus casos") ve únicamente las
-  // solicitudes que él mismo creó: tablero, lista, métricas y detalle.
-  if (
+}): Promise<Prisma.CaseWhereInput> {
+  const restricted =
     isOwnCasesOnlyBackoffice(args.role, args.capabilities) ||
-    isVideosOnlyBackoffice(args.role, args.capabilities)
-  ) {
-    return ownCasesWhere(args.userId);
-  }
-  return {};
+    isVideosOnlyBackoffice(args.role, args.capabilities);
+
+  // Roles sin restricción (administrador, etc.) ven todas las solicitudes.
+  if (!restricted) return {};
+
+  // Con grupo asignado: ve las solicitudes creadas por cualquier miembro de su
+  // mismo grupo (compartido dentro del grupo, aislado entre grupos distintos).
+  // Sin grupo: ve únicamente las que él mismo creó.
+  const me = await prisma.user.findUnique({
+    where: { id: args.userId },
+    select: { videoGroup: true },
+  });
+  const group = me?.videoGroup ?? null;
+  if (!group) return ownCasesWhere(args.userId);
+
+  const members = await prisma.user.findMany({
+    where: { tenantId: args.tenantId, videoGroup: group },
+    select: { id: true },
+  });
+  const ids = members.map((m) => m.id);
+  if (ids.length === 0) return ownCasesWhere(args.userId);
+  return { OR: ids.map((id) => ownCasesWhere(id)) };
 }

@@ -31,7 +31,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: { id: string; att
 
   const tenantId = (session.user as any).tenantId as string;
   const actorUserId = (session.user as any).id as string;
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId: actorUserId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId: actorUserId });
   const requestId = String(ctx.params.id);
   const attachmentId = String(ctx.params.attachmentId);
 

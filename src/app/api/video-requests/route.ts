@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const tenantId = (session.user as any).tenantId as string;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const userId = String((session.user as any).id ?? "");
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId });
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const downloadStatus = url.searchParams.get("downloadStatus");

@@ -5,6 +5,7 @@ import { Role } from "@prisma/client";
 import { Select } from "@/components/Field";
 import { StatusPill } from "@/components/ui/status-pill";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
+import { VIDEO_GROUPS } from "@/lib/video-groups";
 
 type UserRow = {
   id: string;
@@ -16,6 +17,7 @@ type UserRow = {
   updatedAt: string;
   hasPassword: boolean;
   capabilities?: string[];
+  videoGroup?: string | null;
 };
 
 function clsInput() {
@@ -337,6 +339,23 @@ function UserCardItem({
             <span>{u.active ? "Sí" : "No"}</span>
           </label>
         </div>
+      </div>
+
+      <div className="card-with-dropdown overflow-visible">
+        <label className="text-xs text-muted-foreground">Grupo de videos (visibilidad de gestiones)</label>
+        <Select
+          className="app-field-control h-9 w-full rounded-xl border px-2 text-sm"
+          value={u.videoGroup ?? ""}
+          disabled={disabled}
+          onChange={(e) => onPatch(u.id, { videoGroup: e.target.value === "" ? null : e.target.value })}
+        >
+          <option value="">Sin grupo (solo sus solicitudes)</option>
+          {VIDEO_GROUPS.map((g) => (
+            <option key={g.value} value={g.value}>
+              {g.label}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <div className="space-y-2">

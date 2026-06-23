@@ -33,7 +33,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const actorUserId = String((session.user as any).id ?? "");
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const requestId = String(ctx.params.id);
-  const caseScope = buildVideoRequestCaseScope({ role, capabilities, userId: actorUserId });
+  const caseScope = await buildVideoRequestCaseScope({ tenantId, role, capabilities, userId: actorUserId });
 
   const body = await req.json().catch(() => ({}));
   const rawAssignedToId = body.assignedToId;
