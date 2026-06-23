@@ -5,22 +5,18 @@ import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from "recharts";
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Tooltip as ChartTooltip,
+  Legend as ChartLegend,
+  Filler,
+} from "chart.js";
+import { Line, Bar, Doughnut } from "react-chartjs-2";
 import {
   GripVertical,
   Pencil,
@@ -44,6 +40,26 @@ import {
 } from "@/lib/dashboard/catalog";
 
 const ResponsiveGrid = WidthProvider(Responsive);
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  ChartTooltip,
+  ChartLegend,
+  Filler
+);
+
+function hexToRgba(hex: string, a: number) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
 
 type WidgetResult =
   | {
@@ -586,21 +602,32 @@ function WidgetBody({
 // Renderers de gráficos
 // ============================================================================
 function Sparkline({ values, accent }: { values: number[]; accent: string }) {
-  const data = values.map((v, i) => ({ i, v }));
+  const data = {
+    labels: values.map((_, i) => i),
+    datasets: [
+      {
+        data: values,
+        borderColor: accent,
+        backgroundColor: hexToRgba(accent, 0.1),
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        fill: true,
+      },
+    ],
+  };
+  const options: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    scales: { x: { display: false }, y: { display: false } },
+    elements: { line: { borderCapStyle: "round" } },
+  };
   return (
-    <div style={{ height: 32, marginTop: 8 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 3, left: 3, bottom: 2 }}>
-          <Line
-            type="monotone"
-            dataKey="v"
-            stroke={accent}
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <div style={{ position: "relative", height: 34, marginTop: 8 }}>
+      <Line data={data} options={options} />
     </div>
   );
 }
@@ -620,81 +647,86 @@ function SeriesChart({
   label2?: string;
   accent2?: string;
 }) {
-  const gradId = useMemo(() => `g${Math.random().toString(36).slice(2, 8)}`, []);
-  const gradId2 = useMemo(() => `g${Math.random().toString(36).slice(2, 8)}`, []);
-  const tickStyle = { fontSize: 10, fill: "#aab2bf" };
-  const margin = { top: 14, right: 12, left: 4, bottom: 0 };
   const c2 = accent2 ?? "#16a34a";
-  const lastIndex = data.length - 1;
-  const endDot = (color: string) => (props: any) =>
-    props && props.index === lastIndex ? (
-      <circle key={props.index} cx={props.cx} cy={props.cy} r={3.5} fill="#fff" stroke={color} strokeWidth={2} />
-    ) : (
-      <g key={props?.index} />
-    );
-  const grid = <CartesianGrid vertical={false} stroke="#f1f3f6" />;
-  const xAxis = (
-    <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
-  );
-  const yAxis = <YAxis hide domain={[0, (max: number) => Math.max(4, Math.ceil(max * 1.25))]} />;
-  const legend = label2 ? (
-    <Legend verticalAlign="top" align="right" height={22} iconType="circle" wrapperStyle={{ fontSize: 10, color: "#7c8595" }} />
-  ) : null;
+  const labels = data.map((p) => p.date);
+  const scales: any = {
+    x: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 7, font: { size: 10 }, color: "#aab2bf" },
+    },
+    y: {
+      beginAtZero: true,
+      grace: "18%",
+      grid: { color: "#f1f3f6" },
+      border: { display: false },
+      ticks: { display: false },
+    },
+  };
+  const tooltip = {
+    backgroundColor: "#0f172a",
+    padding: 8,
+    cornerRadius: 8,
+    titleFont: { size: 11 },
+    bodyFont: { size: 11 },
+    usePointStyle: true,
+  };
 
   if (viz === "bar") {
+    const d = {
+      labels,
+      datasets: [
+        { label, data: data.map((p) => p.value), backgroundColor: accent, borderRadius: 5, maxBarThickness: 26 },
+      ],
+    };
+    const o: any = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip },
+      scales,
+    };
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={margin}>
-          {grid}
-          {xAxis}
-          {yAxis}
-          <Tooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
-          <Bar dataKey="value" name={label} fill={accent} radius={[5, 5, 0, 0]} maxBarSize={26} />
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{ position: "relative", height: "100%" }}>
+        <Bar data={d} options={o} />
+      </div>
     );
   }
-  if (viz === "line") {
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={margin}>
-          {grid}
-          {xAxis}
-          {yAxis}
-          {legend}
-          <Tooltip />
-          <Line type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} dot={endDot(accent)} activeDot={{ r: 4 }} />
-          {label2 ? (
-            <Line type="monotone" dataKey="value2" name={label2} stroke={c2} strokeWidth={2.4} dot={endDot(c2)} activeDot={{ r: 4 }} />
-          ) : null}
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  }
+
+  const mkLine = (lbl: string, vals: number[], color: string) => ({
+    label: lbl,
+    data: vals,
+    borderColor: color,
+    backgroundColor: hexToRgba(color, 0.12),
+    borderWidth: 2.5,
+    tension: 0.35,
+    fill: viz !== "line",
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    pointBackgroundColor: color,
+  });
+  const datasets = [mkLine(label, data.map((p) => p.value), accent)];
+  if (label2) datasets.push(mkLine(label2, data.map((p) => p.value2 ?? 0), c2));
+
+  const o: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: label2
+        ? {
+            position: "top",
+            align: "end",
+            labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, color: "#7c8595" },
+          }
+        : { display: false },
+      tooltip,
+    },
+    scales,
+  };
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={margin}>
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={accent} stopOpacity={0.2} />
-            <stop offset="100%" stopColor={accent} stopOpacity={0.02} />
-          </linearGradient>
-          <linearGradient id={gradId2} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={c2} stopOpacity={0.16} />
-            <stop offset="100%" stopColor={c2} stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        {grid}
-        {xAxis}
-        {yAxis}
-        {legend}
-        <Tooltip />
-        <Area type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} fill={`url(#${gradId})`} dot={endDot(accent)} activeDot={{ r: 4 }} />
-        {label2 ? (
-          <Area type="monotone" dataKey="value2" name={label2} stroke={c2} strokeWidth={2.4} fill={`url(#${gradId2})`} dot={endDot(c2)} activeDot={{ r: 4 }} />
-        ) : null}
-      </AreaChart>
-    </ResponsiveContainer>
+    <div style={{ position: "relative", height: "100%" }}>
+      <Line data={{ labels, datasets }} options={o} />
+    </div>
   );
 }
 
@@ -713,47 +745,69 @@ function BreakdownChart({
       </div>
     );
   }
+  const tooltip = {
+    backgroundColor: "#0f172a",
+    padding: 8,
+    cornerRadius: 8,
+    titleFont: { size: 11 },
+    bodyFont: { size: 11 },
+    usePointStyle: true,
+  };
   if (viz === "bar") {
+    const d = {
+      labels: items.map((i) => i.label),
+      datasets: [
+        {
+          data: items.map((i) => i.value),
+          backgroundColor: items.map((i) => i.color),
+          borderRadius: 5,
+          maxBarThickness: 36,
+        },
+      ],
+    };
+    const o: any = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10 }, color: "#aab2bf" } },
+        y: { beginAtZero: true, grace: "18%", grid: { color: "#f1f3f6" }, border: { display: false }, ticks: { display: false } },
+      },
+    };
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={items} margin={{ top: 8, right: 10, left: 4, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#f1f3f6" />
-          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#aab2bf" }} tickLine={false} axisLine={false} interval={0} />
-          <Tooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
-          <Bar dataKey="value" radius={[5, 5, 0, 0]} maxBarSize={34}>
-            {items.map((it, idx) => (
-              <Cell key={idx} fill={it.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{ position: "relative", height: "100%" }}>
+        <Bar data={d} options={o} />
+      </div>
     );
   }
+  const d = {
+    labels: items.map((i) => i.label),
+    datasets: [
+      {
+        data: items.map((i) => i.value),
+        backgroundColor: items.map((i) => i.color),
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 4,
+      },
+    ],
+  };
+  const o: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "62%",
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, color: "#64748b", padding: 10 },
+      },
+      tooltip,
+    },
+  };
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Pie
-          data={items}
-          dataKey="value"
-          nameKey="label"
-          cx="50%"
-          cy="50%"
-          innerRadius="55%"
-          outerRadius="80%"
-          paddingAngle={2}
-        >
-          {items.map((it, idx) => (
-            <Cell key={idx} fill={it.color} />
-          ))}
-        </Pie>
-        <Tooltip />
-        <Legend
-          verticalAlign="bottom"
-          height={28}
-          wrapperStyle={{ fontSize: 11 }}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div style={{ position: "relative", height: "100%" }}>
+      <Doughnut data={d} options={o} />
+    </div>
   );
 }
 

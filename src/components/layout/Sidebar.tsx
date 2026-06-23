@@ -204,10 +204,6 @@ export function SidebarContent({
                     >
                       <span
                         className={`app-nav-link__icon ${active ? "app-nav-link__icon--active" : ""}`}
-                        style={{
-                          color: iconColor,
-                          backgroundColor: `color-mix(in srgb, ${iconColor} 22%, transparent)`,
-                        }}
                       >
                         {isTmItem ? (
                           <Image
