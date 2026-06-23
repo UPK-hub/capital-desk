@@ -5,7 +5,6 @@ import { Role } from "@prisma/client";
 import { Select } from "@/components/Field";
 import { StatusPill } from "@/components/ui/status-pill";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
-import { VIDEO_GROUPS } from "@/lib/video-groups";
 
 type UserRow = {
   id: string;
@@ -341,23 +340,6 @@ function UserCardItem({
         </div>
       </div>
 
-      <div className="card-with-dropdown overflow-visible">
-        <label className="text-xs text-muted-foreground">Grupo de videos (visibilidad de gestiones)</label>
-        <Select
-          className="app-field-control h-9 w-full rounded-xl border px-2 text-sm"
-          value={u.videoGroup ?? ""}
-          disabled={disabled}
-          onChange={(e) => onPatch(u.id, { videoGroup: e.target.value === "" ? null : e.target.value })}
-        >
-          <option value="">Sin grupo (solo sus solicitudes)</option>
-          {VIDEO_GROUPS.map((g) => (
-            <option key={g.value} value={g.value}>
-              {g.label}
-            </option>
-          ))}
-        </Select>
-      </div>
-
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">Acciones habilitadas</p>
         <div className="grid gap-2 text-xs sm:grid-cols-2">
@@ -365,6 +347,7 @@ function UserCardItem({
             { cap: "BACKOFFICE_RESTRICTED", label: "Backoffice restringido" },
             { cap: "OWN_CASES_ONLY", label: "Solo sus casos" },
             { cap: "VIDEOS_ONLY", label: "Solo módulo Videos" },
+            { cap: "VIDEO_GROUPS_ADMIN", label: "Admin de grupos de video" },
             { cap: "PLANNER", label: "Planner" },
             { cap: "STS_ADMIN", label: "Supervisor STS" },
             { cap: "STS_WRITE", label: "Helpdesk STS" },

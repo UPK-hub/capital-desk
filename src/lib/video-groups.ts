@@ -1,17 +1,16 @@
-// Grupos de gestión de videos. Cada grupo ve las solicitudes/gestiones/respuestas
-// creadas por cualquier miembro de su mismo grupo (aislado entre grupos).
-export const VIDEO_GROUPS = [
-  { value: "MANTENIMIENTO", label: "Mantenimiento" },
-  { value: "SEGURIDAD_OPERACIONAL", label: "Seguridad operacional" },
-  { value: "GENERAL", label: "General" },
-] as const;
+import { Role } from "@prisma/client";
+import { CAPABILITIES } from "@/lib/capabilities";
 
-export type VideoGroupValue = (typeof VIDEO_GROUPS)[number]["value"];
+// Grupos de gestión de videos (dinámicos, en BD: modelo VideoGroup). Cada grupo
+// ve las solicitudes/gestiones/respuestas creadas por cualquier miembro de su
+// mismo grupo (aislado entre grupos). En User.videoGroup se guarda el NOMBRE del
+// grupo.
+export const DEFAULT_VIDEO_GROUPS = ["Mantenimiento", "Seguridad operacional", "General"];
 
-export function videoGroupLabel(value?: string | null): string {
-  return VIDEO_GROUPS.find((g) => g.value === value)?.label ?? "—";
-}
-
-export function isValidVideoGroup(value: unknown): value is VideoGroupValue {
-  return typeof value === "string" && VIDEO_GROUPS.some((g) => g.value === value);
+// ¿Puede gestionar (crear/editar/eliminar) grupos de video y asignar usuarios?
+// El administrador general siempre puede; también quien tenga el permiso
+// específico VIDEO_GROUPS_ADMIN sin ser administrador de todo.
+export function canManageVideoGroups(role: Role, capabilities?: string[] | null): boolean {
+  if (role === Role.ADMIN) return true;
+  return Array.isArray(capabilities) && capabilities.includes(CAPABILITIES.VIDEO_GROUPS_ADMIN);
 }

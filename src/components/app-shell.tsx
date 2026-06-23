@@ -161,6 +161,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       color: "var(--color-admin)",
       roles: [Role.ADMIN],
     },
+    {
+      label: "Grupos de video",
+      href: "/video-groups",
+      icon: "user",
+      section: "admin",
+      color: "var(--color-admin)",
+      capabilities: [CAPABILITIES.VIDEO_GROUPS_ADMIN],
+    },
     { label: "Perfil", href: "/profile", icon: "user", section: "admin", color: "var(--color-admin)" },
   ];
 

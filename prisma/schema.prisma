@@ -250,6 +250,18 @@ document       String?
   @@index([tenantId, active])
 }
 
+// Grupos de gestión de videos (dinámicos). El nombre se guarda en User.videoGroup.
+model VideoGroup {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
 model TechnicianShiftLog {
   id       String @id @default(cuid())
   tenantId String

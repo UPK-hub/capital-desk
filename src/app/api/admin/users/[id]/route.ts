@@ -27,9 +27,7 @@ const patchSchema = z
     // set directo de password por admin (opcional)
     newPassword: z.string().trim().min(MIN_PASSWORD_LENGTH).optional(),
     capabilities: z.array(z.string().trim().min(2)).optional(),
-    videoGroup: z
-      .union([z.enum(["MANTENIMIENTO", "SEGURIDAD_OPERACIONAL", "GENERAL"]), z.null()])
-      .optional(),
+    videoGroup: z.string().trim().max(64).nullable().optional(),
   })
   .refine((x) => Object.keys(x).length > 0, { message: "Nada para actualizar" });
 

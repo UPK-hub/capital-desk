@@ -48,6 +48,10 @@ export default withAuth(
       const canVideo = role === "ADMIN" || role === "BACKOFFICE" || role === "TECHNICIAN";
       if (!canVideo) return deny();
     }
+    if (path.startsWith("/video-groups")) {
+      const ok = role === "ADMIN" || capabilities?.includes(CAPABILITIES.VIDEO_GROUPS_ADMIN);
+      if (!ok) return deny();
+    }
     if (path.startsWith("/work-orders") && !RBAC.techRoutes.includes(role as any)) return deny();
     if (path.startsWith("/buses")) {
       if (!RBAC.busesRoutes.includes(role as any)) return deny();
