@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   CaseStatus,
+  CaseType,
   Role,
   StsTelemetryKind,
   StsTicketStatus,
@@ -368,6 +369,39 @@ export async function resolveWidget(
           label2: "Resueltos",
           accent2: "#16a34a",
           points,
+        };
+      }
+      case "preventivos_mes": {
+        const monthKey = cotKey(new Date()).slice(0, 7); // YYYY-MM (Colombia)
+        const monthStart = new Date(`${monthKey}-01T05:00:00.000Z`);
+        const value = await prisma.case.count({
+          where: {
+            tenantId: ctx.tenantId,
+            type: CaseType.PREVENTIVO,
+            createdAt: { gte: monthStart },
+          },
+        });
+        const sd = await sparkAndDelta(
+          "case",
+          { tenantId: ctx.tenantId, type: CaseType.PREVENTIVO },
+          "createdAt",
+          n
+        );
+        return { kind: "scalar", value, spark: sd.spark, delta: sd.delta ?? undefined };
+      }
+      case "preventivos_series": {
+        const rows = await prisma.case.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            type: CaseType.PREVENTIVO,
+            createdAt: { gte: startInstant(n) },
+          },
+          select: { createdAt: true },
+        });
+        return {
+          kind: "series",
+          label: "Preventivos",
+          points: bucketByDay(rows.map((r) => r.createdAt), n),
         };
       }
       case "videos_creados_series": {

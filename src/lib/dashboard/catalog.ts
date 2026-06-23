@@ -196,6 +196,30 @@ export const METRICS: MetricDef[] = [
     can: (f) => f.canBackoffice,
   },
   {
+    key: "preventivos_mes",
+    label: "Preventivos del mes",
+    group: "Mantenimiento",
+    kind: "scalar",
+    defaultViz: "number",
+    allowedViz: ["number"],
+    supportsRange: false,
+    accent: "#16a34a",
+    hint: "Mantenimientos preventivos creados este mes.",
+    can: (f) => f.canBackoffice,
+  },
+  {
+    key: "preventivos_series",
+    label: "Mantenimientos preventivos por día",
+    group: "Mantenimiento",
+    kind: "series",
+    defaultViz: "area",
+    allowedViz: ["area", "line", "bar"],
+    supportsRange: true,
+    accent: "#16a34a",
+    hint: "Mantenimientos preventivos creados por día.",
+    can: (f) => f.canBackoffice,
+  },
+  {
     key: "videos_creados_series",
     label: "Videos solicitados por día",
     group: "Videos",
@@ -438,8 +462,13 @@ export function defaultDashboard(f: AccessFlags): DashboardData {
   }
   if (hasMain || hasSide) y += 9;
 
-  // 3) Pendientes (lista a todo el ancho)
+  // 3) Mantenimientos preventivos (gráfica establecida por defecto)
+  if (push("preventivos_series", "area", { x: 0, y, w: 12, h: 8, minW: 4, minH: 6 })) {
+    y += 8;
+  }
+
+  // 4) Pendientes (lista a todo el ancho)
   push("mis_pendientes", "list", { x: 0, y, w: 12, h: 8, minW: 4, minH: 5 });
 
-  return { version: 3, widgets, layout, filters: { rangeDays: 14 } };
+  return { version: 4, widgets, layout, filters: { rangeDays: 14 } };
 }

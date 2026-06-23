@@ -134,7 +134,7 @@ export default function DashboardClient({
     // Si el tablero guardado es de una versión anterior, se actualiza al
     // nuevo diseño por defecto (4 KPIs + actividad + dona).
     const base =
-      initialData && initialData.version === 3 ? initialData : defaultDashboard(flags);
+      initialData && initialData.version === 4 ? initialData : defaultDashboard(flags);
     return sanitize(base, flags);
   });
   const [results, setResults] = useState<Record<string, WidgetResult>>({});
