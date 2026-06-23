@@ -2030,3 +2030,116 @@
     padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
   }
 }
+
+/* ======================================================
+   Refresh visual 2026 — look profesional
+   Azul CapitalBus refinado · sidebar claro · botones planos
+   · tarjetas y chips suaves. Overrides al final (ganan por
+   orden en modo claro). El sidebar claro se acota a :not(.dark)
+   para conservar el modo oscuro.
+====================================================== */
+
+/* --- Sidebar azul oscuro (modo claro) --- */
+.app-layout:not(.dark) .app-sidebar {
+  background:
+    radial-gradient(150% 120% at 0% 0%, rgba(37, 99, 235, 0.28) 0%, transparent 55%),
+    linear-gradient(180deg, #16304e 0%, #0f2138 100%);
+  color: #e8eef6;
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 1px 0 0 0 rgba(15, 23, 42, 0.12);
+}
+.app-layout:not(.dark) .app-sidebar-brand__meta {
+  color: rgba(232, 238, 246, 0.66);
+}
+.app-layout:not(.dark) .app-sidebar-profile {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+.app-layout:not(.dark) .app-sidebar-profile__avatar {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(37, 99, 235, 0.3);
+  color: #ffffff;
+}
+.app-layout:not(.dark) .app-nav-link {
+  color: rgba(232, 238, 246, 0.78);
+  border-color: transparent;
+  border-radius: 10px;
+}
+.app-layout:not(.dark) .app-nav-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
+  transform: none;
+}
+.app-layout:not(.dark) .app-nav-link--active {
+  color: #ffffff;
+  background: rgba(37, 99, 235, 0.32);
+  border-color: transparent;
+  box-shadow: inset 3px 0 0 0 #60a5fa;
+}
+.app-layout:not(.dark) .app-nav-link__icon {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border-radius: 9px;
+}
+.app-layout:not(.dark) .app-nav-link--active .app-nav-link__icon {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(37, 99, 235, 0.38);
+  color: #ffffff;
+}
+
+/* --- Botones planos, radio sobrio --- */
+.sts-btn,
+.sts-btn-primary,
+.sts-btn-ghost,
+.sts-btn-soft {
+  border-radius: 10px;
+  font-weight: 500;
+}
+.sts-btn-primary {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  box-shadow: var(--shadow-xs);
+}
+.sts-btn-primary:hover:not(:disabled) {
+  transform: none;
+  filter: brightness(0.94);
+  box-shadow: var(--shadow-sm);
+}
+.sts-btn-primary:active:not(:disabled) {
+  transform: none;
+  filter: brightness(0.9);
+}
+.sts-btn-ghost:hover:not(:disabled) {
+  transform: none;
+}
+.sts-btn-soft {
+  background: hsl(var(--muted) / 0.5);
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+.sts-btn-soft:hover:not(:disabled) {
+  transform: none;
+  background: hsl(var(--muted) / 0.8);
+  box-shadow: none;
+}
+
+/* --- Tarjetas suaves (sin saltos) --- */
+.sts-card {
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-xs);
+}
+.sts-card--interactive:hover,
+.admin-module-card:hover {
+  transform: none;
+  border-color: var(--border-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+/* --- Chips suaves --- */
+.sts-chip {
+  border-color: var(--border-subtle);
+  background: hsl(var(--muted) / 0.55);
+  font-weight: 500;
+}

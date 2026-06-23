@@ -1395,6 +1395,20 @@ model VideoDownloadToken {
   @@index([attachmentId, expiresAt])
 }
 
+// Tablero de inicio personalizable por usuario.
+// `data` (JSON) guarda: { widgets: [...], layout: [...], filters: {...} }.
+// Sin relaciones para no tocar User/Tenant; se acota por userId/tenantId.
+model DashboardLayout {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tenantId  String
+  data      Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([tenantId])
+}
+
 enum NotificationType {
   CASE_CREATED
   CASE_ASSIGNED
