@@ -1,41 +1,39 @@
 import { unstable_cache } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { buildTmReport } from "@/lib/tm-report";
-import { buildTelemetrySeries, type SeriesType, type TelemetrySeries } from "@/lib/telemetry/series";
 import { buildTramaQuality, type TramaQuality } from "@/lib/telemetry/quality";
+import {
+  summaryFromRollup,
+  busCountsFromRollup,
+  seriesFromRollup,
+  type TelemetrySummary,
+} from "@/lib/telemetry/rollup";
+import type { SeriesType, TelemetrySeries, BusPoint } from "@/lib/telemetry/series";
 
-// Caché de resultados de telemetría. Los datos son de solo-anexado y los
-// tableros no necesitan tiempo real, así que cacheamos ~5 min por
-// tenant + rango + bus (+ tipo/código). Las cargas repetidas son instantáneas.
+// Caché de resultados de telemetría (~5 min). Los tableros no necesitan tiempo
+// real; las cargas repetidas y los cambios de pestaña son instantáneos.
 const TTL = 300;
 
-export function getTmReportCached(tenantId: string, startISO: string, endISO: string, busId: string | null) {
+export function getTelemetrySummaryCached(
+  tenantId: string,
+  startISO: string,
+  endISO: string,
+  busCode: string | null
+): Promise<TelemetrySummary> {
   return unstable_cache(
-    async () => buildTmReport({ tenantId, start: new Date(startISO), end: new Date(endISO), busId }),
-    ["tm-report", tenantId, startISO, endISO, busId ?? "all"],
+    async () => summaryFromRollup(tenantId, new Date(startISO), new Date(endISO), busCode),
+    ["tm-summary", tenantId, startISO, endISO, busCode ?? "all"],
     { revalidate: TTL }
   )();
 }
 
-export function getBusCountsCached(tenantId: string, startISO: string, endISO: string, busId: string | null) {
+export function getBusCountsCached(
+  tenantId: string,
+  startISO: string,
+  endISO: string,
+  busCode: string | null
+): Promise<BusPoint[]> {
   return unstable_cache(
-    async () => {
-      const start = new Date(startISO);
-      const end = new Date(endISO);
-      const raw = await prisma.integrationInboundEvent.groupBy({
-        by: ["busCode"],
-        where: {
-          tenantId,
-          ...(busId ? { busId } : {}),
-          OR: [{ eventAt: { gte: start, lt: end } }, { eventAt: null, receivedAt: { gte: start, lt: end } }],
-        },
-        _count: { id: true },
-        orderBy: { _count: { id: "desc" } },
-        take: 100,
-      });
-      return raw.map((r) => ({ busCode: r.busCode, total: r._count.id ?? 0 }));
-    },
-    ["tm-buscounts", tenantId, startISO, endISO, busId ?? "all"],
+    async () => busCountsFromRollup(tenantId, new Date(startISO), new Date(endISO), busCode),
+    ["tm-buscounts", tenantId, startISO, endISO, busCode ?? "all"],
     { revalidate: TTL }
   )();
 }
@@ -45,20 +43,20 @@ export function getSeriesCached(p: {
   type: SeriesType;
   startISO: string;
   endISO: string;
-  busId: string | null;
+  busCode: string | null;
   code: string | null;
 }): Promise<TelemetrySeries> {
   return unstable_cache(
     async () =>
-      buildTelemetrySeries({
+      seriesFromRollup({
         tenantId: p.tenantId,
         type: p.type,
         start: new Date(p.startISO),
         end: new Date(p.endISO),
-        busId: p.busId,
+        busCode: p.busCode,
         code: p.code,
       }),
-    ["telemetry-series", p.tenantId, p.type, p.startISO, p.endISO, p.busId ?? "all", p.code ?? "all"],
+    ["telemetry-series", p.tenantId, p.type, p.startISO, p.endISO, p.busCode ?? "all", p.code ?? "all"],
     { revalidate: TTL }
   )();
 }

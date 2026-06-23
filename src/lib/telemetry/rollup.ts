@@ -1,0 +1,317 @@
+import { Prisma, StsTelemetryKind } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { EVENT_CATALOG, ALARM_CATALOG, ALARM_LEVELS } from "@/lib/telemetry/catalog";
+import type { SeriesType, TelemetrySeries, DayPoint, BusPoint, DaySplitPoint } from "@/lib/telemetry/series";
+
+// Resumen diario pre-agregado de telemetría. Los días ya cerrados se calculan
+// una sola vez y quedan fijos; "hoy" se recalcula si lleva más de 10 min sin
+// actualizarse. Los tableros leen este resumen (miles de filas) en vez de la
+// tabla cruda (millones).
+
+const STALE_TODAY_MS = 10 * 60 * 1000;
+
+function dayStartUTC(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function eachDayUTC(start: Date, end: Date): Date[] {
+  const days: Date[] = [];
+  const cur = dayStartUTC(start);
+  const last = dayStartUTC(end);
+  let guard = 0;
+  while (cur <= last && guard < 400) {
+    days.push(new Date(cur));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+    guard += 1;
+  }
+  return days;
+}
+
+function numCode(prefix: string, raw: string): string {
+  const m = String(raw ?? "").match(/(\d+)/);
+  return m ? `${prefix}${Number(m[1])}` : "";
+}
+
+type RawGroup = {
+  busCode: string;
+  kind: string;
+  subtype: string;
+  eventCode: string;
+  alarmCode: string;
+  alarmLevelCode: string;
+  c: number;
+};
+
+// Evita recalcular el mismo día en paralelo (varias consultas en una carga).
+const inflight = new Map<string, Promise<void>>();
+
+export async function recomputeDay(tenantId: string, dayStart: Date): Promise<void> {
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+  const groups = await prisma.$queryRaw<RawGroup[]>(Prisma.sql`
+    SELECT "busCode",
+           "kind"::text AS kind,
+           upper(coalesce("tramaSubtype", '')) AS subtype,
+           coalesce("eventCode", '') AS "eventCode",
+           coalesce("alarmCode", '') AS "alarmCode",
+           coalesce("alarmLevelCode", '') AS "alarmLevelCode",
+           count(*)::int AS c
+    FROM "IntegrationInboundEvent"
+    WHERE "tenantId" = ${tenantId}
+      AND (("eventAt" >= ${dayStart} AND "eventAt" < ${dayEnd})
+        OR ("eventAt" IS NULL AND "receivedAt" >= ${dayStart} AND "receivedAt" < ${dayEnd}))
+    GROUP BY 1, 2, 3, 4, 5, 6
+  `);
+
+  const merged = new Map<string, { busCode: string; kind: string; code: string; level: string; count: number }>();
+  for (const g of groups) {
+    let code = "";
+    let level = "";
+    if (g.kind === "TRAMAS") code = (g.subtype || "").toUpperCase();
+    else if (g.kind === "EVENTOS") code = numCode("EV", g.eventCode);
+    else if (g.kind === "ALARMAS") {
+      code = numCode("ALA", g.alarmCode);
+      level = g.alarmLevelCode || "";
+    }
+    const key = `${g.busCode}|${g.kind}|${code}|${level}`;
+    const prev = merged.get(key);
+    merged.set(key, {
+      busCode: g.busCode,
+      kind: g.kind,
+      code,
+      level,
+      count: (prev?.count ?? 0) + Number(g.c),
+    });
+  }
+
+  const data = Array.from(merged.values()).map((m) => ({
+    tenantId,
+    busCode: m.busCode,
+    day: dayStart,
+    kind: m.kind as StsTelemetryKind,
+    code: m.code,
+    level: m.level,
+    count: m.count,
+  }));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.telemetryDailyRollup.deleteMany({ where: { tenantId, day: dayStart } });
+    if (data.length) await tx.telemetryDailyRollup.createMany({ data });
+  });
+}
+
+function recomputeDayOnce(tenantId: string, dayStart: Date): Promise<void> {
+  const key = `${tenantId}|${dayKey(dayStart)}`;
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const p = recomputeDay(tenantId, dayStart).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+export async function ensureRange(tenantId: string, start: Date, end: Date): Promise<void> {
+  const days = eachDayUTC(start, end);
+  if (days.length === 0) return;
+  const today = dayStartUTC(new Date());
+  const first = days[0];
+  const last = days[days.length - 1];
+
+  const existing = await prisma.telemetryDailyRollup.groupBy({
+    by: ["day"],
+    where: { tenantId, day: { gte: first, lte: last } },
+    _max: { updatedAt: true },
+  });
+  const presence = new Map<string, Date | null>(
+    existing.map((e) => [dayKey(e.day), e._max.updatedAt ?? null])
+  );
+
+  for (const day of days) {
+    if (day.getTime() > today.getTime()) continue;
+    const k = dayKey(day);
+    const isToday = day.getTime() === today.getTime();
+    const updatedAt = presence.get(k) ?? null;
+    const present = presence.has(k);
+    const staleToday = isToday && (!updatedAt || Date.now() - updatedAt.getTime() > STALE_TODAY_MS);
+    if (!present || staleToday) {
+      await recomputeDayOnce(tenantId, day);
+    }
+  }
+}
+
+export type TelemetrySummary = {
+  telemetryTotals: { total: number; tramas: number; eventos: number; alarmas: number; p20: number; p60: number };
+  telemetryEvents: { code: string; label: string; total: number }[];
+  telemetryAlarms: { code: string; label: string; levelCode: string; levelLabel: string; total: number }[];
+};
+
+export async function summaryFromRollup(
+  tenantId: string,
+  start: Date,
+  end: Date,
+  busCode: string | null
+): Promise<TelemetrySummary> {
+  await ensureRange(tenantId, start, end);
+  const first = dayStartUTC(start);
+  const last = dayStartUTC(end);
+  const baseWhere = { tenantId, day: { gte: first, lte: last }, ...(busCode ? { busCode } : {}) };
+
+  const [byKind, tramaSub, events, alarms] = await Promise.all([
+    prisma.telemetryDailyRollup.groupBy({ by: ["kind"], where: baseWhere, _sum: { count: true } }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["code"],
+      where: { ...baseWhere, kind: StsTelemetryKind.TRAMAS },
+      _sum: { count: true },
+    }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["code"],
+      where: { ...baseWhere, kind: StsTelemetryKind.EVENTOS },
+      _sum: { count: true },
+    }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["code", "level"],
+      where: { ...baseWhere, kind: StsTelemetryKind.ALARMAS },
+      _sum: { count: true },
+    }),
+  ]);
+
+  const kindTotal = (k: StsTelemetryKind) => byKind.find((r) => r.kind === k)?._sum.count ?? 0;
+  const tramas = kindTotal(StsTelemetryKind.TRAMAS);
+  const eventos = kindTotal(StsTelemetryKind.EVENTOS);
+  const alarmas = kindTotal(StsTelemetryKind.ALARMAS);
+  const subVal = (c: string) => tramaSub.find((r) => (r.code || "").toUpperCase() === c)?._sum.count ?? 0;
+
+  const telemetryTotals = {
+    total: tramas + eventos + alarmas,
+    tramas,
+    eventos,
+    alarmas,
+    p20: subVal("P20"),
+    p60: subVal("P60"),
+  };
+
+  const eventLabel = (code: string) => EVENT_CATALOG.find((c) => c.code === code)?.label ?? code;
+  const telemetryEvents = events
+    .filter((r) => (r._sum.count ?? 0) > 0)
+    .map((r) => ({ code: r.code || "SIN_CODIGO", label: eventLabel(r.code), total: r._sum.count ?? 0 }))
+    .sort((a, b) => b.total - a.total);
+
+  const alarmLabel = (code: string) => ALARM_CATALOG.find((c) => c.code === code)?.label ?? code;
+  const levelLabel = (lvl: string) => ALARM_LEVELS.find((l) => l.code === lvl)?.label ?? (lvl || "Sin nivel");
+  const telemetryAlarms = alarms
+    .filter((r) => (r._sum.count ?? 0) > 0)
+    .map((r) => ({
+      code: r.code || "SIN_CODIGO",
+      label: alarmLabel(r.code),
+      levelCode: r.level || "SIN_NIVEL",
+      levelLabel: levelLabel(r.level),
+      total: r._sum.count ?? 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  return { telemetryTotals, telemetryEvents, telemetryAlarms };
+}
+
+export async function busCountsFromRollup(
+  tenantId: string,
+  start: Date,
+  end: Date,
+  busCode: string | null
+): Promise<BusPoint[]> {
+  await ensureRange(tenantId, start, end);
+  const first = dayStartUTC(start);
+  const last = dayStartUTC(end);
+  const rows = await prisma.telemetryDailyRollup.groupBy({
+    by: ["busCode"],
+    where: { tenantId, day: { gte: first, lte: last }, ...(busCode ? { busCode } : {}) },
+    _sum: { count: true },
+    orderBy: { _sum: { count: "desc" } },
+    take: 100,
+  });
+  return rows.map((r) => ({ busCode: r.busCode, total: r._sum.count ?? 0 }));
+}
+
+export async function seriesFromRollup(p: {
+  tenantId: string;
+  type: SeriesType;
+  start: Date;
+  end: Date;
+  busCode: string | null;
+  code: string | null;
+}): Promise<TelemetrySeries> {
+  await ensureRange(p.tenantId, p.start, p.end);
+  const first = dayStartUTC(p.start);
+  const last = dayStartUTC(p.end);
+  const kind =
+    p.type === "eventos"
+      ? StsTelemetryKind.EVENTOS
+      : p.type === "alarmas"
+        ? StsTelemetryKind.ALARMAS
+        : StsTelemetryKind.TRAMAS;
+  const code = p.code && p.code.trim() ? p.code.trim().toUpperCase() : null;
+  const where = {
+    tenantId: p.tenantId,
+    kind,
+    day: { gte: first, lte: last },
+    ...(p.busCode ? { busCode: p.busCode } : {}),
+    ...(code ? { code } : {}),
+  };
+
+  const [perDayRows, perBusRows] = await Promise.all([
+    prisma.telemetryDailyRollup.groupBy({ by: ["day"], where, _sum: { count: true } }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["busCode"],
+      where,
+      _sum: { count: true },
+      orderBy: { _sum: { count: "desc" } },
+      take: 20,
+    }),
+  ]);
+
+  const byDay = new Map(perDayRows.map((r) => [dayKey(r.day), r._sum.count ?? 0]));
+  const perDay: DayPoint[] = eachDayUTC(p.start, p.end).map((d) => ({ date: dayKey(d), total: byDay.get(dayKey(d)) ?? 0 }));
+  const perBus: BusPoint[] = perBusRows.map((r) => ({ busCode: r.busCode, total: r._sum.count ?? 0 }));
+  const total = perDay.reduce((a, b) => a + b.total, 0);
+
+  let perDaySplit: DaySplitPoint[] | undefined;
+  if (p.type === "periodicas") {
+    const splitRows = await prisma.telemetryDailyRollup.groupBy({
+      by: ["day", "code"],
+      where: {
+        tenantId: p.tenantId,
+        kind: StsTelemetryKind.TRAMAS,
+        day: { gte: first, lte: last },
+        ...(p.busCode ? { busCode: p.busCode } : {}),
+      },
+      _sum: { count: true },
+    });
+    const p20 = new Map<string, number>();
+    const p60 = new Map<string, number>();
+    for (const r of splitRows) {
+      const k = dayKey(r.day);
+      const v = r._sum.count ?? 0;
+      const c = (r.code || "").toUpperCase();
+      if (c === "P20") p20.set(k, (p20.get(k) ?? 0) + v);
+      else if (c === "P60") p60.set(k, (p60.get(k) ?? 0) + v);
+    }
+    perDaySplit = eachDayUTC(p.start, p.end).map((d) => {
+      const k = dayKey(d);
+      return { date: k, P20: p20.get(k) ?? 0, P60: p60.get(k) ?? 0 };
+    });
+  }
+
+  return {
+    type: p.type,
+    code: p.code ?? null,
+    range: { start: p.start, end: p.end },
+    busId: null,
+    total,
+    perDay,
+    perBus,
+    perDaySplit,
+  };
+}

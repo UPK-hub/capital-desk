@@ -607,6 +607,28 @@ model BusTelemetryState {
   @@index([tenantId, lastSeenAt])
 }
 
+// Resumen diario de telemetría (pre-agregado) para tableros rápidos.
+// Una fila = conteo de tramas por tenant/bus/día/clase/código/nivel.
+//  - kind=TRAMAS  -> code = subtipo (P20/P60), level = ""
+//  - kind=EVENTOS -> code = EV{n}, level = ""
+//  - kind=ALARMAS -> code = ALA{n}, level = N1..N5
+model TelemetryDailyRollup {
+  id        String           @id @default(cuid())
+  tenantId  String
+  busCode   String
+  day       DateTime         @db.Date
+  kind      StsTelemetryKind
+  code      String           @default("")
+  level     String           @default("")
+  count     Int              @default(0)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, busCode, day, kind, code, level])
+  @@index([tenantId, day, kind])
+  @@index([tenantId, kind, code, day])
+  @@index([tenantId, busCode, kind, day])
+}
+
 model ThemeSettings {
   id       String @id @default(cuid())
   tenantId String @unique

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { getTmReportCached, getBusCountsCached } from "@/lib/telemetry/cache";
+import { getTelemetrySummaryCached, getBusCountsCached } from "@/lib/telemetry/cache";
 import { prisma } from "@/lib/prisma";
 import TelemetryDashboard, {
   type AlarmRow,
@@ -121,9 +121,9 @@ export default async function TelemetryPage({
   const startISO = start.toISOString();
   const endISO = end.toISOString();
 
-  const [generalReport, selectedBusReport, states, busCounts] = await Promise.all([
-    getTmReportCached(tenantId, startISO, endISO, null),
-    selectedBus ? getTmReportCached(tenantId, startISO, endISO, selectedBus.id) : Promise.resolve(null),
+  const [generalSummary, busSummary, states, busCounts] = await Promise.all([
+    getTelemetrySummaryCached(tenantId, startISO, endISO, null),
+    selectedBus ? getTelemetrySummaryCached(tenantId, startISO, endISO, selectedBus.code) : Promise.resolve(null),
     prisma.busTelemetryState.findMany({
       where: {
         tenantId,
@@ -135,7 +135,7 @@ export default async function TelemetryPage({
       orderBy: { lastSeenAt: "desc" },
       take: selectedBus ? 1 : 500,
     }),
-    getBusCountsCached(tenantId, startISO, endISO, selectedBus?.id ?? null),
+    getBusCountsCached(tenantId, startISO, endISO, selectedBus?.code ?? null),
   ]);
 
   const points: TelemetryMapPoint[] = states
@@ -180,15 +180,15 @@ export default async function TelemetryPage({
     silentBuses,
   };
 
-  const events: EventRow[] = (selectedBusReport?.telemetryEvents ?? generalReport.telemetryEvents) as EventRow[];
-  const alarms: AlarmRow[] = (selectedBusReport?.telemetryAlarms ?? generalReport.telemetryAlarms) as AlarmRow[];
+  const events: EventRow[] = (busSummary?.telemetryEvents ?? generalSummary.telemetryEvents) as EventRow[];
+  const alarms: AlarmRow[] = (busSummary?.telemetryAlarms ?? generalSummary.telemetryAlarms) as AlarmRow[];
 
   return (
     <TelemetryDashboard
       range={{ start: formatInputDate(start), end: formatInputDate(end), rangeDays: safeRange }}
       selectedBus={selectedBus}
-      generalTotals={toTotals(generalReport.telemetryTotals)}
-      busTotals={selectedBusReport ? toTotals(selectedBusReport.telemetryTotals) : null}
+      generalTotals={toTotals(generalSummary.telemetryTotals)}
+      busTotals={busSummary ? toTotals(busSummary.telemetryTotals) : null}
       points={points}
       busCounts={busCounts}
       events={events}
