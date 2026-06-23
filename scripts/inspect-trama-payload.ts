@@ -89,6 +89,28 @@ async function main() {
   );
   console.log("  duplicados idRegistro (top 5):", JSON.stringify(dup));
 
+  console.log("\n===== RESUMEN CALIDAD =====");
+  const retCount = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT count(*)::int AS c FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND lower(coalesce(payload->>'tramaRetransmitida','')) = 'true'`,
+    tenantId
+  );
+  console.log("  filas con tramaRetransmitida=true:", retCount[0]?.c);
+  const retVals = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT lower(coalesce(payload->>'tramaRetransmitida','(sin campo)')) AS v, count(*)::int AS c FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 GROUP BY 1 ORDER BY c DESC LIMIT 6`,
+    tenantId
+  );
+  console.log("  valores de tramaRetransmitida:", JSON.stringify(retVals));
+  const idreg = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT count(*)::int AS total, count(DISTINCT payload->>'idRegistro')::int AS distintos FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'idRegistro' IS NOT NULL`,
+    tenantId
+  );
+  console.log("  idRegistro total vs distintos:", JSON.stringify(idreg[0]));
+  const logicdup = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT count(*)::int AS grupos FROM (SELECT "busCode", payload->>'fechaHoraLecturaDato' AS f, "tramaType" FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'fechaHoraLecturaDato' IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1) t`,
+    tenantId
+  );
+  console.log("  grupos de lectura duplicada (bus+fechaLectura+tipo):", JSON.stringify(logicdup[0]));
+
   await prisma.$disconnect();
 }
 
