@@ -50,9 +50,15 @@ type WidgetResult =
       kind: "scalar";
       value: number;
       spark?: number[];
-      delta?: { pct: number; dir: "up" | "down" };
+      delta?: { value: number; unit: "%" | "abs"; dir: "up" | "down" | "flat" };
     }
-  | { kind: "series"; label: string; points: { date: string; value: number }[] }
+  | {
+      kind: "series";
+      label: string;
+      label2?: string;
+      accent2?: string;
+      points: { date: string; value: number; value2?: number }[];
+    }
   | { kind: "breakdown"; items: { label: string; value: number; color: string }[] }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };
@@ -112,7 +118,7 @@ export default function DashboardClient({
     // Si el tablero guardado es de una versión anterior, se actualiza al
     // nuevo diseño por defecto (4 KPIs + actividad + dona).
     const base =
-      initialData && initialData.version === 2 ? initialData : defaultDashboard(flags);
+      initialData && initialData.version === 3 ? initialData : defaultDashboard(flags);
     return sanitize(base, flags);
   });
   const [results, setResults] = useState<Record<string, WidgetResult>>({});
@@ -525,23 +531,27 @@ function WidgetBody({
   }
   if (result.kind === "scalar") {
     const accent = getMetric(widget.metric)?.accent ?? "#2563eb";
-    const delta = result.delta;
+    const d = result.delta;
+    const arrow = d ? (d.dir === "up" ? "▲" : d.dir === "down" ? "▼" : "→") : "";
+    const dColor = d
+      ? d.dir === "up"
+        ? "text-emerald-600"
+        : d.dir === "down"
+        ? "text-red-500"
+        : "text-slate-400"
+      : "";
     return (
       <div className="flex h-full flex-col justify-center">
         <div className="flex items-baseline gap-2">
           <span
-            className="text-[26px] font-semibold leading-none tabular-nums"
+            className="text-[22px] font-semibold leading-none tabular-nums"
             style={{ color: accent }}
           >
             {result.value.toLocaleString("es-CO")}
           </span>
-          {delta ? (
-            <span
-              className={`text-[11px] font-semibold ${
-                delta.dir === "up" ? "text-emerald-600" : "text-red-500"
-              }`}
-            >
-              {delta.dir === "up" ? "▲" : "▼"} {delta.pct}%
+          {d ? (
+            <span className={`text-[11px] font-semibold ${dColor}`}>
+              {arrow} {d.unit === "%" ? `${d.value}%` : d.value}
             </span>
           ) : null}
         </div>
@@ -552,7 +562,16 @@ function WidgetBody({
     );
   }
   if (result.kind === "series") {
-    return <SeriesChart viz={widget.viz} data={result.points} label={result.label} accent={getMetric(widget.metric)?.accent ?? "#2563eb"} />;
+    return (
+      <SeriesChart
+        viz={widget.viz}
+        data={result.points}
+        label={result.label}
+        accent={getMetric(widget.metric)?.accent ?? "#2563eb"}
+        label2={result.label2}
+        accent2={result.accent2}
+      />
+    );
   }
   if (result.kind === "breakdown") {
     return <BreakdownChart viz={widget.viz} items={result.items} />;
@@ -591,21 +610,44 @@ function SeriesChart({
   data,
   label,
   accent,
+  label2,
+  accent2,
 }: {
   viz: Viz;
-  data: { date: string; value: number }[];
+  data: { date: string; value: number; value2?: number }[];
   label: string;
   accent: string;
+  label2?: string;
+  accent2?: string;
 }) {
   const gradId = useMemo(() => `g${Math.random().toString(36).slice(2, 8)}`, []);
+  const gradId2 = useMemo(() => `g${Math.random().toString(36).slice(2, 8)}`, []);
   const tickStyle = { fontSize: 10, fill: "#aab2bf" };
-  const margin = { top: 8, right: 10, left: 4, bottom: 0 };
+  const margin = { top: 14, right: 12, left: 4, bottom: 0 };
+  const c2 = accent2 ?? "#16a34a";
+  const lastIndex = data.length - 1;
+  const endDot = (color: string) => (props: any) =>
+    props && props.index === lastIndex ? (
+      <circle key={props.index} cx={props.cx} cy={props.cy} r={3.5} fill="#fff" stroke={color} strokeWidth={2} />
+    ) : (
+      <g key={props?.index} />
+    );
+  const grid = <CartesianGrid vertical={false} stroke="#f1f3f6" />;
+  const xAxis = (
+    <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
+  );
+  const yAxis = <YAxis hide domain={[0, (max: number) => Math.max(4, Math.ceil(max * 1.25))]} />;
+  const legend = label2 ? (
+    <Legend verticalAlign="top" align="right" height={22} iconType="circle" wrapperStyle={{ fontSize: 10, color: "#7c8595" }} />
+  ) : null;
+
   if (viz === "bar") {
     return (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={margin}>
-          <CartesianGrid vertical={false} stroke="#f1f3f6" />
-          <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
+          {grid}
+          {xAxis}
+          {yAxis}
           <Tooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
           <Bar dataKey="value" name={label} fill={accent} radius={[5, 5, 0, 0]} maxBarSize={26} />
         </BarChart>
@@ -616,10 +658,15 @@ function SeriesChart({
     return (
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={margin}>
-          <CartesianGrid vertical={false} stroke="#f1f3f6" />
-          <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
+          {grid}
+          {xAxis}
+          {yAxis}
+          {legend}
           <Tooltip />
-          <Line type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} dot={false} activeDot={{ r: 4 }} />
+          <Line type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} dot={endDot(accent)} activeDot={{ r: 4 }} />
+          {label2 ? (
+            <Line type="monotone" dataKey="value2" name={label2} stroke={c2} strokeWidth={2.4} dot={endDot(c2)} activeDot={{ r: 4 }} />
+          ) : null}
         </LineChart>
       </ResponsiveContainer>
     );
@@ -632,11 +679,20 @@ function SeriesChart({
             <stop offset="0%" stopColor={accent} stopOpacity={0.2} />
             <stop offset="100%" stopColor={accent} stopOpacity={0.02} />
           </linearGradient>
+          <linearGradient id={gradId2} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={c2} stopOpacity={0.16} />
+            <stop offset="100%" stopColor={c2} stopOpacity={0.02} />
+          </linearGradient>
         </defs>
-        <CartesianGrid vertical={false} stroke="#f1f3f6" />
-        <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
+        {grid}
+        {xAxis}
+        {yAxis}
+        {legend}
         <Tooltip />
-        <Area type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} fill={`url(#${gradId})`} dot={false} activeDot={{ r: 4 }} />
+        <Area type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} fill={`url(#${gradId})`} dot={endDot(accent)} activeDot={{ r: 4 }} />
+        {label2 ? (
+          <Area type="monotone" dataKey="value2" name={label2} stroke={c2} strokeWidth={2.4} fill={`url(#${gradId2})`} dot={endDot(c2)} activeDot={{ r: 4 }} />
+        ) : null}
       </AreaChart>
     </ResponsiveContainer>
   );

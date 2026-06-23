@@ -184,6 +184,18 @@ export const METRICS: MetricDef[] = [
     can: (f) => f.canBackoffice,
   },
   {
+    key: "casos_actividad_series",
+    label: "Actividad de casos",
+    group: "Casos",
+    kind: "series",
+    defaultViz: "area",
+    allowedViz: ["area", "line"],
+    supportsRange: true,
+    accent: "#2563eb",
+    hint: "Casos creados vs. resueltos por día.",
+    can: (f) => f.canBackoffice,
+  },
+  {
     key: "videos_creados_series",
     label: "Videos solicitados por día",
     group: "Videos",
@@ -381,7 +393,7 @@ export function defaultDashboard(f: AccessFlags): DashboardData {
 
   // 2) Serie principal + distribución lateral
   const mainSeries = f.canBackoffice
-    ? "casos_creados_series"
+    ? "casos_actividad_series"
     : f.canVideo
     ? "videos_creados_series"
     : f.canTech || f.isAdmin
@@ -429,5 +441,5 @@ export function defaultDashboard(f: AccessFlags): DashboardData {
   // 3) Pendientes (lista a todo el ancho)
   push("mis_pendientes", "list", { x: 0, y, w: 12, h: 8, minW: 4, minH: 5 });
 
-  return { version: 2, widgets, layout, filters: { rangeDays: 14 } };
+  return { version: 3, widgets, layout, filters: { rangeDays: 14 } };
 }

@@ -46,9 +46,15 @@ export type WidgetResult =
       kind: "scalar";
       value: number;
       spark?: number[];
-      delta?: { pct: number; dir: "up" | "down" };
+      delta?: { value: number; unit: "%" | "abs"; dir: "up" | "down" | "flat" };
     }
-  | { kind: "series"; label: string; points: { date: string; value: number }[] }
+  | {
+      kind: "series";
+      label: string;
+      label2?: string;
+      accent2?: string;
+      points: { date: string; value: number; value2?: number }[];
+    }
   | { kind: "breakdown"; items: { label: string; value: number; color: string }[] }
   | { kind: "list"; items: ListItem[] }
   | { kind: "error"; message: string };
@@ -94,7 +100,10 @@ async function sparkAndDelta(
   where: any,
   dateField: string,
   n: number
-): Promise<{ spark: number[]; delta: { pct: number; dir: "up" | "down" } | null }> {
+): Promise<{
+  spark: number[];
+  delta: { value: number; unit: "%" | "abs"; dir: "up" | "down" | "flat" } | null;
+}> {
   const span = n * 2;
   const rows: any[] = await (prisma as any)[model].findMany({
     where: { ...where, [dateField]: { gte: startInstant(span) } },
@@ -111,13 +120,21 @@ async function sparkAndDelta(
   const cur = vals.slice(n);
   const curSum = cur.reduce((a, b) => a + b, 0);
   const prevSum = prev.reduce((a, b) => a + b, 0);
-  let pct = 0;
-  if (prevSum > 0) pct = Math.round(((curSum - prevSum) / prevSum) * 100);
-  else if (curSum > 0) pct = 100;
-  const delta =
-    curSum === 0 && prevSum === 0
-      ? null
-      : { pct: Math.abs(pct), dir: (curSum >= prevSum ? "up" : "down") as "up" | "down" };
+  const absChange = curSum - prevSum;
+  const dir: "up" | "down" | "flat" =
+    absChange > 0 ? "up" : absChange < 0 ? "down" : "flat";
+  let value: number;
+  let unit: "%" | "abs";
+  if (prevSum >= 4) {
+    // Base suficiente: porcentaje (con tope para que no salga gigante).
+    value = Math.min(Math.round((Math.abs(absChange) / prevSum) * 100), 999);
+    unit = "%";
+  } else {
+    // Base muy pequeña: el porcentaje engaña, mejor el cambio absoluto.
+    value = Math.abs(absChange);
+    unit = "abs";
+  }
+  const delta = curSum === 0 && prevSum === 0 ? null : { value, unit, dir };
   return { spark: cur, delta };
 }
 
@@ -321,6 +338,37 @@ export async function resolveWidget(
           select: { createdAt: true },
         });
         return { kind: "series", label: "Casos", points: bucketByDay(rows.map((r) => r.createdAt), n) };
+      }
+      case "casos_actividad_series": {
+        const start = startInstant(n);
+        const [creados, resueltos] = await Promise.all([
+          prisma.case.findMany({
+            where: { tenantId: ctx.tenantId, createdAt: { gte: start } },
+            select: { createdAt: true },
+          }),
+          prisma.case.findMany({
+            where: {
+              tenantId: ctx.tenantId,
+              status: { in: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
+              updatedAt: { gte: start },
+            },
+            select: { updatedAt: true },
+          }),
+        ]);
+        const a = bucketByDay(creados.map((r) => r.createdAt), n);
+        const b = bucketByDay(resueltos.map((r) => r.updatedAt), n);
+        const points = a.map((p, i) => ({
+          date: p.date,
+          value: p.value,
+          value2: b[i]?.value ?? 0,
+        }));
+        return {
+          kind: "series",
+          label: "Creados",
+          label2: "Resueltos",
+          accent2: "#16a34a",
+          points,
+        };
       }
       case "videos_creados_series": {
         const rows = await prisma.videoDownloadRequest.findMany({
