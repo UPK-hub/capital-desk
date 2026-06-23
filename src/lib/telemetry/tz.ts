@@ -9,9 +9,14 @@ export function bogDayLabel(instant: Date): Date {
   return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()));
 }
 
-/** Clave YYYY-MM-DD (fecha COT) de un instante o etiqueta. */
+/** Clave YYYY-MM-DD (fecha COT) de un INSTANTE (timestamp). Aplica el desfase. */
 export function bogDayKey(instant: Date): string {
   return bogDayLabel(instant).toISOString().slice(0, 10);
+}
+
+/** Clave YYYY-MM-DD de una ETIQUETA de día (ya a medianoche UTC). NO aplica desfase. */
+export function labelKey(label: Date): string {
+  return label.toISOString().slice(0, 10);
 }
 
 /** Instante UTC de las 00:00 COT del día representado por la etiqueta. */

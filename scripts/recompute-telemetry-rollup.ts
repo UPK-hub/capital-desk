@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { recomputeDay } from "@/lib/telemetry/rollup";
-import { bogToday, addDaysLabel, bogDayKey } from "@/lib/telemetry/tz";
+import { bogToday, addDaysLabel, labelKey } from "@/lib/telemetry/tz";
 
 // Backfill del resumen diario de telemetría (por día de Colombia, UTC-5).
 // Uso: npm run rollup:backfill            -> últimos 90 días
@@ -18,7 +18,7 @@ async function main() {
       const label = addDaysLabel(today, -i);
       const t0 = Date.now();
       await recomputeDay(t.id, label);
-      console.log(`[${t.code}] ${bogDayKey(label)} ok (${Date.now() - t0} ms)`);
+      console.log(`[${t.code}] ${labelKey(label)} ok (${Date.now() - t0} ms)`);
     }
   }
   console.log("Backfill completo.");

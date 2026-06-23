@@ -1,7 +1,7 @@
 import { Prisma, StsTelemetryKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { EVENT_CATALOG, ALARM_CATALOG, ALARM_LEVELS } from "@/lib/telemetry/catalog";
-import { bogDayKey, bogDayStartInstant, bogToday, eachBogDay, bogDayLabel } from "@/lib/telemetry/tz";
+import { labelKey, bogDayStartInstant, bogToday, eachBogDay, bogDayLabel } from "@/lib/telemetry/tz";
 import type { SeriesType, TelemetrySeries, DayPoint, BusPoint, DaySplitPoint } from "@/lib/telemetry/series";
 
 // Resumen diario pre-agregado de telemetría, por día de Colombia (UTC-5).
@@ -86,7 +86,7 @@ export async function recomputeDay(tenantId: string, label: Date): Promise<void>
 }
 
 function recomputeDayOnce(tenantId: string, label: Date): Promise<void> {
-  const key = `${tenantId}|${bogDayKey(label)}`;
+  const key = `${tenantId}|${labelKey(label)}`;
   const existing = inflight.get(key);
   if (existing) return existing;
   const p = recomputeDay(tenantId, label).finally(() => inflight.delete(key));
@@ -107,12 +107,12 @@ export async function ensureRange(tenantId: string, start: Date, end: Date): Pro
     _max: { updatedAt: true },
   });
   const presence = new Map<string, Date | null>(
-    existing.map((e) => [bogDayKey(e.day), e._max.updatedAt ?? null])
+    existing.map((e) => [labelKey(e.day), e._max.updatedAt ?? null])
   );
 
   for (const day of days) {
     if (day.getTime() > today.getTime()) continue;
-    const k = bogDayKey(day);
+    const k = labelKey(day);
     const isToday = day.getTime() === today.getTime();
     const updatedAt = presence.get(k) ?? null;
     const present = presence.has(k);
@@ -252,8 +252,8 @@ export async function seriesFromRollup(p: {
     }),
   ]);
 
-  const byDay = new Map(perDayRows.map((r) => [bogDayKey(r.day), r._sum.count ?? 0]));
-  const perDay: DayPoint[] = eachBogDay(p.start, p.end).map((d) => ({ date: bogDayKey(d), total: byDay.get(bogDayKey(d)) ?? 0 }));
+  const byDay = new Map(perDayRows.map((r) => [labelKey(r.day), r._sum.count ?? 0]));
+  const perDay: DayPoint[] = eachBogDay(p.start, p.end).map((d) => ({ date: labelKey(d), total: byDay.get(labelKey(d)) ?? 0 }));
   const perBus: BusPoint[] = perBusRows.map((r) => ({ busCode: r.busCode, total: r._sum.count ?? 0 }));
   const total = perDay.reduce((a, b) => a + b.total, 0);
 
@@ -272,14 +272,14 @@ export async function seriesFromRollup(p: {
     const p20 = new Map<string, number>();
     const p60 = new Map<string, number>();
     for (const r of splitRows) {
-      const k = bogDayKey(r.day);
+      const k = labelKey(r.day);
       const v = r._sum.count ?? 0;
       const c = (r.code || "").toUpperCase();
       if (c === "P20") p20.set(k, (p20.get(k) ?? 0) + v);
       else if (c === "P60") p60.set(k, (p60.get(k) ?? 0) + v);
     }
     perDaySplit = eachBogDay(p.start, p.end).map((d) => {
-      const k = bogDayKey(d);
+      const k = labelKey(d);
       return { date: k, P20: p20.get(k) ?? 0, P60: p60.get(k) ?? 0 };
     });
   }
