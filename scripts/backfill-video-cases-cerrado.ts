@@ -58,13 +58,13 @@ async function main() {
   console.log("");
   console.log(`Modo:   ${apply ? "APLICAR (se escribirán cambios)" : "DRY-RUN (solo lectura)"}`);
   console.log(`Tenant: ${tenantCode ?? "(todos)"}`);
-  console.log(`Casos por cerrar (video COMPLETADO + caso no cerrado): ${requests.length}`);
+  console.log(`Casos por resolver (video COMPLETADO + caso no resuelto): ${requests.length}`);
   console.log("");
 
   for (const vr of requests) {
     const c = vr.case;
     console.log(
-      `  Caso #${c.caseNo ?? c.id}  bus=${c.bus.code}  estado=${c.status} -> CERRADO  | ${c.title}`
+      `  Caso #${c.caseNo ?? c.id}  bus=${c.bus.code}  estado=${c.status} -> RESUELTO  | ${c.title}`
     );
   }
 
@@ -89,18 +89,18 @@ async function main() {
     await prisma.$transaction([
       prisma.case.update({
         where: { id: vr.caseId },
-        data: { status: CaseStatus.CERRADO },
+        data: { status: CaseStatus.RESUELTO },
       }),
       prisma.caseEvent.create({
         data: {
           caseId: vr.caseId,
           type: CaseEventType.STATUS_CHANGE,
           message:
-            "Caso cerrado automáticamente (backfill) al detectar solicitud de video completada",
+            "Caso resuelto automáticamente (backfill) al detectar solicitud de video completada",
           meta: {
             backfill: true,
             from: fromStatus,
-            to: CaseStatus.CERRADO,
+            to: CaseStatus.RESUELTO,
             source: "backfill-video-cases-cerrado",
           },
         },
@@ -110,7 +110,7 @@ async function main() {
   }
 
   console.log("");
-  console.log(`✓ Listo. Casos cerrados: ${updated}.`);
+  console.log(`✓ Listo. Casos resueltos: ${updated}.`);
   await prisma.$disconnect();
 }
 

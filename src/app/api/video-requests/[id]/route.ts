@@ -165,13 +165,13 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   if (nextStatus === VideoCaseStatus.COMPLETADO && current.status !== VideoCaseStatus.COMPLETADO) {
     await prisma.case.update({
       where: { id: current.caseId },
-      data: { status: "CERRADO" },
+      data: { status: "RESUELTO" },
     });
     await prisma.caseEvent.create({
       data: {
         caseId: current.caseId,
         type: "STATUS_CHANGE",
-        message: "Caso cerrado automáticamente al completar la solicitud de video",
+        message: "Caso resuelto automáticamente al completar la solicitud de video",
         meta: { by: actorUserId },
       },
     });
