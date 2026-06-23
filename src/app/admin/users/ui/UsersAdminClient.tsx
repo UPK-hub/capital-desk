@@ -17,6 +17,9 @@ type UserRow = {
   hasPassword: boolean;
   capabilities?: string[];
   videoGroup?: string | null;
+  phone?: string | null;
+  jobTitle?: string | null;
+  document?: string | null;
 };
 
 function clsInput() {
@@ -301,6 +304,21 @@ function UserCardItem({
           ) : (
             <StatusPill status="cancelado" label="Inactivo" />
           )}
+        </div>
+      </div>
+
+      <div className="grid gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2 text-xs sm:grid-cols-3">
+        <div>
+          <span className="text-muted-foreground">Teléfono: </span>
+          <span className="font-medium">{u.phone || "—"}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Cargo: </span>
+          <span className="font-medium">{u.jobTitle || "—"}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Documento: </span>
+          <span className="font-medium">{u.document || "—"}</span>
         </div>
       </div>
 
