@@ -108,9 +108,13 @@ export default function DashboardClient({
   tenantName,
 }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [dash, setDash] = useState<DashboardData>(() =>
-    sanitize(initialData ?? defaultDashboard(flags), flags)
-  );
+  const [dash, setDash] = useState<DashboardData>(() => {
+    // Si el tablero guardado es de una versión anterior, se actualiza al
+    // nuevo diseño por defecto (4 KPIs + actividad + dona).
+    const base =
+      initialData && initialData.version === 2 ? initialData : defaultDashboard(flags);
+    return sanitize(base, flags);
+  });
   const [results, setResults] = useState<Record<string, WidgetResult>>({});
   const [loading, setLoading] = useState(true);
   const [editor, setEditor] = useState<{ open: boolean; widget: WidgetConfig | null }>(
@@ -563,33 +567,30 @@ function WidgetBody({
 // Renderers de gráficos
 // ============================================================================
 function Sparkline({ values, accent }: { values: number[]; accent: string }) {
-  const w = 120;
-  const h = 24;
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const range = max - min || 1;
-  const pts = values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * w;
-      const y = h - ((v - min) / range) * h;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  const gid = useMemo(() => `sp${Math.random().toString(36).slice(2, 8)}`, []);
+  const data = values.map((v, i) => ({ i, v }));
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      style={{ width: "100%", height: 20, marginTop: 6 }}
-    >
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={accent}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div style={{ height: 38, marginTop: 8 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={accent} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={accent} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="v"
+            stroke={accent}
+            strokeWidth={2}
+            fill={`url(#${gid})`}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 

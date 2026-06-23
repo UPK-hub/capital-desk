@@ -359,9 +359,8 @@ export function defaultDashboard(f: AccessFlags): DashboardData {
   const kpiKeys = [
     "casos_abiertos",
     "videos_pendientes",
-    "sts_abiertos",
     "ots_activas",
-    "tecnicos_activos",
+    "sts_abiertos",
   ];
   let x = 0;
   let y = 0;
@@ -430,5 +429,5 @@ export function defaultDashboard(f: AccessFlags): DashboardData {
   // 3) Pendientes (lista a todo el ancho)
   push("mis_pendientes", "list", { x: 0, y, w: 12, h: 8, minW: 4, minH: 5 });
 
-  return { version: 1, widgets, layout, filters: { rangeDays: 14 } };
+  return { version: 2, widgets, layout, filters: { rangeDays: 14 } };
 }
