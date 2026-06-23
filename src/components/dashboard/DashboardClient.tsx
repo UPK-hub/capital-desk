@@ -567,28 +567,20 @@ function WidgetBody({
 // Renderers de gráficos
 // ============================================================================
 function Sparkline({ values, accent }: { values: number[]; accent: string }) {
-  const gid = useMemo(() => `sp${Math.random().toString(36).slice(2, 8)}`, []);
   const data = values.map((v, i) => ({ i, v }));
   return (
-    <div style={{ height: 38, marginTop: 8 }}>
+    <div style={{ height: 32, marginTop: 8 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
-          <defs>
-            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={accent} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <Area
+        <LineChart data={data} margin={{ top: 4, right: 3, left: 3, bottom: 2 }}>
+          <Line
             type="monotone"
             dataKey="v"
             stroke={accent}
             strokeWidth={2}
-            fill={`url(#${gid})`}
             dot={false}
             isAnimationActive={false}
           />
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
@@ -606,16 +598,16 @@ function SeriesChart({
   accent: string;
 }) {
   const gradId = useMemo(() => `g${Math.random().toString(36).slice(2, 8)}`, []);
-  const axis = { fontSize: 11, fill: "#94a3b8" };
+  const tickStyle = { fontSize: 10, fill: "#aab2bf" };
+  const margin = { top: 8, right: 10, left: 4, bottom: 0 };
   if (viz === "bar") {
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f5" />
-          <XAxis dataKey="date" tick={axis} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-          <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} width={32} />
-          <Tooltip />
-          <Bar dataKey="value" name={label} fill={accent} radius={[4, 4, 0, 0]} />
+        <BarChart data={data} margin={margin}>
+          <CartesianGrid vertical={false} stroke="#f1f3f6" />
+          <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
+          <Tooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
+          <Bar dataKey="value" name={label} fill={accent} radius={[5, 5, 0, 0]} maxBarSize={26} />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -623,30 +615,28 @@ function SeriesChart({
   if (viz === "line") {
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f5" />
-          <XAxis dataKey="date" tick={axis} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-          <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} width={32} />
+        <LineChart data={data} margin={margin}>
+          <CartesianGrid vertical={false} stroke="#f1f3f6" />
+          <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
           <Tooltip />
-          <Line type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.2} dot={false} />
+          <Line type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} dot={false} activeDot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     );
   }
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
+      <AreaChart data={data} margin={margin}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={accent} stopOpacity={0.25} />
+            <stop offset="0%" stopColor={accent} stopOpacity={0.2} />
             <stop offset="100%" stopColor={accent} stopOpacity={0.02} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f5" />
-        <XAxis dataKey="date" tick={axis} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-        <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} width={32} />
+        <CartesianGrid vertical={false} stroke="#f1f3f6" />
+        <XAxis dataKey="date" tick={tickStyle} interval="preserveStartEnd" tickLine={false} axisLine={false} minTickGap={24} />
         <Tooltip />
-        <Area type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.2} fill={`url(#${gradId})`} />
+        <Area type="monotone" dataKey="value" name={label} stroke={accent} strokeWidth={2.4} fill={`url(#${gradId})`} dot={false} activeDot={{ r: 4 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -670,12 +660,11 @@ function BreakdownChart({
   if (viz === "bar") {
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={items} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f5" />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} width={32} />
-          <Tooltip />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+        <BarChart data={items} margin={{ top: 8, right: 10, left: 4, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="#f1f3f6" />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#aab2bf" }} tickLine={false} axisLine={false} interval={0} />
+          <Tooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
+          <Bar dataKey="value" radius={[5, 5, 0, 0]} maxBarSize={34}>
             {items.map((it, idx) => (
               <Cell key={idx} fill={it.color} />
             ))}
