@@ -9,6 +9,7 @@ import {
   Briefcase,
   BusFront,
   CalendarDays,
+  ChevronsLeft,
   Clock3,
   Flag,
   Home,
@@ -124,6 +125,7 @@ export function SidebarContent({
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
+  const { toggle } = useSidebar();
   const roleLabel = userRoleLabel || "Backoffice";
   const sections = (["main", "reports", "admin"] as const)
     .map((section) => ({
@@ -135,22 +137,33 @@ export function SidebarContent({
 
   return (
     <div className={`flex min-h-full min-w-0 flex-col overflow-hidden ${collapsed ? "px-2 py-3" : "px-3 py-4"}`}>
-      <motion.div
-        variants={fadeInRight}
-        initial="initial"
-        animate="animate"
-        className={`app-sidebar-profile min-w-0 ${collapsed ? "justify-center" : ""}`}
+      <div
+        className={`mb-1.5 flex items-center gap-2 px-1 ${
+          collapsed ? "justify-center" : "justify-between"
+        }`}
       >
-        <div className="app-sidebar-profile__avatar">{initials(userName)}</div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2563eb] text-white shadow-[0_2px_10px_rgba(37,99,235,0.5)]">
+            <BusFront className="h-4 w-4" />
+          </span>
+          {!collapsed ? (
+            <span className="truncate text-sm font-semibold tracking-tight text-white">
+              Capital Desk
+            </span>
+          ) : null}
+        </div>
         {!collapsed ? (
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold leading-tight text-white">{userName}</p>
-            <p className="truncate text-xs text-white/65">
-              {roleLabel} - CapitalBus
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => toggle()}
+            className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white lg:flex"
+            title="Ocultar barra"
+            aria-label="Ocultar barra"
+          >
+            <ChevronsLeft className="h-3.5 w-3.5" />
+          </button>
         ) : null}
-      </motion.div>
+      </div>
 
       <motion.nav
         className="app-sidebar-nav mt-4 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-0.5"
@@ -231,9 +244,24 @@ export function SidebarContent({
         ))}
       </motion.nav>
 
-      <div className="app-sidebar-footer mt-auto pt-2">
+      <div className="app-sidebar-footer mt-auto flex flex-col gap-1 border-t border-white/10 pt-2">
+        {!collapsed ? (
+          <div className="flex items-center gap-2.5 px-1 py-1">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-[10px] font-semibold text-white">
+              {initials(userName)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[12.5px] font-medium leading-tight text-white">{userName}</p>
+              <p className="truncate text-[11px] text-white/55">{roleLabel}</p>
+            </div>
+          </div>
+        ) : (
+          <span className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-[#2563eb] text-[10px] font-semibold text-white">
+            {initials(userName)}
+          </span>
+        )}
         <Link
-          className={`app-nav-link ${collapsed ? "mx-auto h-11 w-11 items-center justify-center gap-0 rounded-xl p-0" : "h-11 gap-3 rounded-xl px-3 py-2.5"}`}
+          className={`app-nav-link ${collapsed ? "mx-auto h-11 w-11 items-center justify-center gap-0 rounded-xl p-0" : "h-10 gap-3 rounded-xl px-3 py-2"}`}
           href="/api/auth/signout?callbackUrl=/login"
           onClick={() => onNavigate?.()}
           title={collapsed ? "Salir" : undefined}

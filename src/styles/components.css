@@ -2042,8 +2042,8 @@
 /* --- Sidebar azul oscuro (modo claro) --- */
 .app-layout:not(.dark) .app-sidebar {
   background:
-    radial-gradient(150% 120% at 0% 0%, rgba(37, 99, 235, 0.28) 0%, transparent 55%),
-    linear-gradient(180deg, #16304e 0%, #0f2138 100%);
+    radial-gradient(150% 120% at 0% 0%, rgba(37, 99, 235, 0.22) 0%, transparent 55%),
+    linear-gradient(180deg, #1f3c61 0%, #16273f 100%);
   color: #e8eef6;
   border-color: rgba(255, 255, 255, 0.06);
   box-shadow: 1px 0 0 0 rgba(15, 23, 42, 0.12);
