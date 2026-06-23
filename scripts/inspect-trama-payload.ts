@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
-// Diagnóstico de SOLO LECTURA: muestra los nombres/valores reales de los campos
-// de la trama cruda, para configurar bien "retransmitidas" y "duplicadas".
+// Diagnóstico de SOLO LECTURA y RÁPIDO: muestrea las 50.000 tramas más recientes
+// para ver los campos reales y la calidad (retransmitidas / lecturas duplicadas).
 function elide(obj: unknown): unknown {
   if (typeof obj === "string") return obj.length > 80 ? `${obj.slice(0, 80)}… (${obj.length} chars)` : obj;
   if (Array.isArray(obj)) return obj.slice(0, 3).map(elide);
@@ -26,90 +26,45 @@ async function main() {
     where: { tenantId },
     orderBy: { receivedAt: "desc" },
     take: 5,
-    select: { externalId: true, kind: true, tramaType: true, payload: true },
+    select: { externalId: true, kind: true, payload: true },
   });
-
   if (recent.length === 0) {
     console.log("No hay tramas registradas.");
     await prisma.$disconnect();
     return;
   }
 
-  console.log("===== EJEMPLO DE PAYLOAD (más reciente, valores largos recortados) =====");
+  console.log("===== EJEMPLO DE PAYLOAD (más reciente) =====");
   console.log(JSON.stringify(elide(recent[0].payload), null, 2));
 
-  const keyset = new Set<string>();
-  recent.forEach((r) => {
-    if (r.payload && typeof r.payload === "object") Object.keys(r.payload as any).forEach((k) => keyset.add(k));
-  });
-  console.log("\n===== CLAVES DE PAYLOAD (muestra de 5) =====");
-  console.log(Array.from(keyset).sort().join(", "));
-
-  console.log("\n===== CAMPOS CANDIDATOS (retransmi/registr/reenvi/duplicad) =====");
-  recent.forEach((r, i) => {
-    const p = (r.payload || {}) as any;
-    const cand: any = {};
-    for (const k of Object.keys(p)) {
-      if (/retransmi|reenvi|registr|duplicad|consecut/i.test(k)) cand[k] = p[k];
-    }
-    console.log(`fila ${i} (${r.kind}): ${JSON.stringify(cand)}`);
-  });
-
-  console.log("\n===== ¿EXISTEN CAMPOS DE RETRANSMISIÓN? =====");
-  const names = [
-    "retransmision",
-    "retransmisión",
-    "retransmitido",
-    "retransmitida",
-    "esRetransmision",
-    "reenvio",
-    "reEnvio",
-    "tramaRetransmitida",
-    "indicadorRetransmision",
-  ];
-  for (const n of names) {
-    const c = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT count(*)::int AS c FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'${n}' IS NOT NULL`,
-      tenantId
-    );
-    const cnt = Number(c[0]?.c ?? 0);
-    if (cnt > 0) {
-      const sample = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT DISTINCT payload->>'${n}' AS v FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'${n}' IS NOT NULL LIMIT 6`,
-        tenantId
-      );
-      console.log(`  '${n}': ${cnt} filas · valores: ${JSON.stringify(sample.map((s) => s.v))}`);
-    }
-  }
-
-  console.log("\n===== ¿HAY DUPLICADOS POR idRegistro? =====");
-  const dup = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT payload->>'idRegistro' AS rid, count(*)::int AS c FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'idRegistro' IS NOT NULL GROUP BY 1 HAVING count(*) > 1 ORDER BY c DESC LIMIT 5`,
+  console.log("\n===== RESUMEN CALIDAD (muestra: 50.000 tramas más recientes) =====");
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    `WITH muestra AS (
+       SELECT "busCode", "tramaType", payload
+       FROM "IntegrationInboundEvent"
+       WHERE "tenantId" = $1
+       ORDER BY "receivedAt" DESC
+       LIMIT 50000
+     )
+     SELECT
+       (SELECT count(*)::int FROM muestra) AS total_muestra,
+       (SELECT count(*)::int FROM muestra WHERE lower(coalesce(payload->>'tramaRetransmitida','')) = 'true') AS retrans_true,
+       (SELECT count(payload->>'idRegistro')::int FROM muestra) AS idreg_total,
+       (SELECT count(DISTINCT payload->>'idRegistro')::int FROM muestra) AS idreg_distintos,
+       (SELECT count(*)::int FROM (
+          SELECT 1 FROM muestra
+          WHERE payload->>'fechaHoraLecturaDato' IS NOT NULL
+          GROUP BY "busCode", payload->>'fechaHoraLecturaDato', "tramaType"
+          HAVING count(*) > 1
+       ) d) AS dup_grupos`,
     tenantId
   );
-  console.log("  duplicados idRegistro (top 5):", JSON.stringify(dup));
-
-  console.log("\n===== RESUMEN CALIDAD =====");
-  const retCount = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT count(*)::int AS c FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND lower(coalesce(payload->>'tramaRetransmitida','')) = 'true'`,
-    tenantId
-  );
-  console.log("  filas con tramaRetransmitida=true:", retCount[0]?.c);
-  const retVals = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT lower(coalesce(payload->>'tramaRetransmitida','(sin campo)')) AS v, count(*)::int AS c FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 GROUP BY 1 ORDER BY c DESC LIMIT 6`,
-    tenantId
-  );
-  console.log("  valores de tramaRetransmitida:", JSON.stringify(retVals));
-  const idreg = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT count(*)::int AS total, count(DISTINCT payload->>'idRegistro')::int AS distintos FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'idRegistro' IS NOT NULL`,
-    tenantId
-  );
-  console.log("  idRegistro total vs distintos:", JSON.stringify(idreg[0]));
-  const logicdup = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT count(*)::int AS grupos FROM (SELECT "busCode", payload->>'fechaHoraLecturaDato' AS f, "tramaType" FROM "IntegrationInboundEvent" WHERE "tenantId" = $1 AND payload->>'fechaHoraLecturaDato' IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1) t`,
-    tenantId
-  );
-  console.log("  grupos de lectura duplicada (bus+fechaLectura+tipo):", JSON.stringify(logicdup[0]));
+  const r = rows[0] || {};
+  console.log("  total en la muestra            :", r.total_muestra);
+  console.log("  tramaRetransmitida = true      :", r.retrans_true);
+  console.log("  idRegistro total               :", r.idreg_total);
+  console.log("  idRegistro distintos           :", r.idreg_distintos, "(si == total => único, se deduplica)");
+  console.log("  grupos de lectura duplicada    :", r.dup_grupos, "(mismo bus + fechaLectura + tipo)");
 
   await prisma.$disconnect();
 }
