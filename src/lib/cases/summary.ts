@@ -1,6 +1,7 @@
 // Datos del panel "Resumen" de Casos (solo servidor: usa prisma).
 import { prisma } from "@/lib/prisma";
 import { CaseStatus } from "@prisma/client";
+import { slaDeadlineMs } from "@/lib/cases/sla";
 
 const DAY = 86400000;
 const COT_MS = 5 * 3600 * 1000;
@@ -16,7 +17,7 @@ function fmtLabel(key: string): string {
 export type CasesSummary = {
   atendidos: number;
   pendientes: number;
-  sinAsignar: number;
+  vencidos: number;
   series: { date: string; creados: number; resueltos: number }[];
   porEstado: { label: string; value: number; color: string }[];
 };
@@ -39,17 +40,14 @@ export async function getCasesSummary(opts: {
 
   const seriesStart = new Date(Date.now() - 29 * DAY);
 
-  const [atendidos, pendientes, sinAsignar, grouped, creadosRows, resueltosRows] = await Promise.all([
+  const [atendidos, pendientes, openRows, grouped, creadosRows, resueltosRows] = await Promise.all([
     prisma.case.count({
       where: { ...base, status: { in: doneStatuses }, updatedAt: { gte: monthStart, lt: monthEnd } },
     }),
     prisma.case.count({ where: { ...base, status: { in: openStatuses } } }),
-    prisma.case.count({
-      where: {
-        ...base,
-        status: { in: openStatuses },
-        OR: [{ workOrder: null }, { workOrder: { assignedToId: null } }],
-      },
+    prisma.case.findMany({
+      where: { ...base, status: { in: openStatuses } },
+      select: { createdAt: true, priority: true },
     }),
     prisma.case.groupBy({ by: ["status"], where: base, _count: { _all: true } }),
     prisma.case.findMany({
@@ -81,6 +79,9 @@ export async function getCasesSummary(opts: {
     resueltos: rMap.get(k) ?? 0,
   }));
 
+  const nowMs = Date.now();
+  const vencidos = openRows.filter((r) => slaDeadlineMs(r.createdAt, r.priority) < nowMs).length;
+
   const cnt: Record<string, number> = {};
   for (const g of grouped) cnt[g.status] = g._count._all;
   const ESTADO = [
@@ -94,7 +95,7 @@ export async function getCasesSummary(opts: {
     (x) => x.value > 0
   );
 
-  return { atendidos, pendientes, sinAsignar, series, porEstado };
+  return { atendidos, pendientes, vencidos, series, porEstado };
 }
 
 // Etiquetas de meses recientes (para el selector del Resumen), en hora Colombia.

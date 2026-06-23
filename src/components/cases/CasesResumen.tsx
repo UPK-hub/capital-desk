@@ -37,7 +37,7 @@ function hexToRgba(hex: string, a: number) {
 type Summary = {
   atendidos: number;
   pendientes: number;
-  sinAsignar: number;
+  vencidos: number;
   series: { date: string; creados: number; resueltos: number }[];
   porEstado: { label: string; value: number; color: string }[];
 };
@@ -155,8 +155,8 @@ export default function CasesResumen({
           <div className="text-[22px] font-semibold tabular-nums text-amber-600">{summary.pendientes.toLocaleString("es-CO")}</div>
         </div>
         <div className="rounded-xl border border-red-100 bg-red-50/40 p-3">
-          <div className="text-[10.5px] text-red-400">Sin asignar</div>
-          <div className="text-[22px] font-semibold tabular-nums text-red-600">{summary.sinAsignar.toLocaleString("es-CO")}</div>
+          <div className="text-[10.5px] text-red-400">Vencidos (SLA)</div>
+          <div className="text-[22px] font-semibold tabular-nums text-red-600">{summary.vencidos.toLocaleString("es-CO")}</div>
         </div>
       </div>
 
