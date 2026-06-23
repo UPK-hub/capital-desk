@@ -65,7 +65,7 @@ export function getQualityCached(p: {
   tenantId: string;
   startISO: string;
   endISO: string;
-  busId: string | null;
+  busCode: string | null;
   limit: number;
 }): Promise<TramaQuality> {
   return unstable_cache(
@@ -74,10 +74,10 @@ export function getQualityCached(p: {
         tenantId: p.tenantId,
         start: new Date(p.startISO),
         end: new Date(p.endISO),
-        busId: p.busId,
+        busCode: p.busCode,
         limit: p.limit,
       }),
-    ["telemetry-quality", p.tenantId, p.startISO, p.endISO, p.busId ?? "all", String(p.limit)],
+    ["telemetry-quality", p.tenantId, p.startISO, p.endISO, p.busCode ?? "all", String(p.limit)],
     { revalidate: TTL }
   )();
 }

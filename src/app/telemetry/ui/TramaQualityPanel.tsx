@@ -16,15 +16,15 @@ type RetransmittedRow = {
   busCode: string;
   idRegistro: string | null;
   tramaType: number | null;
-  kind: string;
+  kind: string | null;
+  lecturaAt: string | null;
   eventAt: string | null;
   receivedAt: string;
 };
 
 type DuplicatedGroup = {
+  idRegistro: string | null;
   busCode: string;
-  lecturaAt: string;
-  tramaType: number | null;
   count: number;
   firstReceived: string | null;
   lastReceived: string | null;
@@ -131,7 +131,7 @@ export default function TramaQualityPanel({
         <div>
           <h2 className="text-base font-semibold">Calidad de tramas</h2>
           <p className="text-xs text-muted-foreground">
-            Retransmitidas y lecturas duplicadas · {busLabel ? busLabel : "toda la flota"}
+            Capturadas al recibir (desde la activación) · {busLabel ? busLabel : "toda la flota"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -160,7 +160,7 @@ export default function TramaQualityPanel({
           value={data?.counts.duplicatedGroups ?? 0}
           color="#b91c1c"
           Icon={Copy}
-          sub="misma lectura repetida"
+          sub="idRegistro repetido"
         />
         <Stat
           label="Duplicadas adicionales"
@@ -214,8 +214,8 @@ export default function TramaQualityPanel({
                         <DataTableCell className="font-medium">{r.busCode}</DataTableCell>
                         <DataTableCell className="tabular-nums">{r.idRegistro ?? "—"}</DataTableCell>
                         <DataTableCell>{r.tramaType ?? "—"}</DataTableCell>
-                        <DataTableCell>{r.kind}</DataTableCell>
-                        <DataTableCell>{fmtDate(r.eventAt)}</DataTableCell>
+                        <DataTableCell>{r.kind ?? "—"}</DataTableCell>
+                        <DataTableCell>{r.lecturaAt ?? "—"}</DataTableCell>
                         <DataTableCell>{fmtDate(r.receivedAt)}</DataTableCell>
                       </DataTableRow>
                     ))
@@ -227,7 +227,7 @@ export default function TramaQualityPanel({
 
           <div className="sts-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Tramas duplicadas (misma lectura)</h3>
+              <h3 className="text-sm font-semibold">Tramas duplicadas (idRegistro repetido)</h3>
               <span className="text-xs text-muted-foreground">
                 {nfmt(data?.duplicated.length ?? 0)} grupos
               </span>
@@ -236,27 +236,27 @@ export default function TramaQualityPanel({
               <DataTable>
                 <DataTableHeader>
                   <DataTableRow>
-                    <DataTableHead>Bus</DataTableHead>
-                    <DataTableHead>Fecha/hora lectura</DataTableHead>
-                    <DataTableHead>Tipo</DataTableHead>
+                    <DataTableHead>idRegistro</DataTableHead>
                     <DataTableHead>Repeticiones</DataTableHead>
-                    <DataTableHead>Última recepción</DataTableHead>
+                    <DataTableHead>Bus</DataTableHead>
+                    <DataTableHead>Primera</DataTableHead>
+                    <DataTableHead>Última</DataTableHead>
                   </DataTableRow>
                 </DataTableHeader>
                 <DataTableBody>
                   {(data?.duplicated.length ?? 0) === 0 ? (
                     <DataTableRow>
                       <DataTableCell colSpan={5} className="text-sm text-muted-foreground">
-                        Sin lecturas duplicadas en el rango seleccionado.
+                        Sin tramas duplicadas en el rango seleccionado.
                       </DataTableCell>
                     </DataTableRow>
                   ) : (
                     data!.duplicated.map((r, i) => (
-                      <DataTableRow key={`${r.busCode}-${r.lecturaAt}-${r.tramaType}-${i}`}>
-                        <DataTableCell className="font-medium">{r.busCode ?? "—"}</DataTableCell>
-                        <DataTableCell className="tabular-nums">{r.lecturaAt}</DataTableCell>
-                        <DataTableCell>{r.tramaType ?? "—"}</DataTableCell>
+                      <DataTableRow key={`${r.idRegistro ?? "x"}-${i}`}>
+                        <DataTableCell className="font-medium tabular-nums">{r.idRegistro ?? "—"}</DataTableCell>
                         <DataTableCell className="font-semibold tabular-nums">{nfmt(r.count)}</DataTableCell>
+                        <DataTableCell>{r.busCode ?? "—"}</DataTableCell>
+                        <DataTableCell>{fmtDate(r.firstReceived)}</DataTableCell>
                         <DataTableCell>{fmtDate(r.lastReceived)}</DataTableCell>
                       </DataTableRow>
                     ))

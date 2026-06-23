@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import ExcelJS from "exceljs";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { buildTramaQuality } from "@/lib/telemetry/quality";
 import { parseQualityRange } from "@/lib/telemetry/quality-params";
 
@@ -24,7 +25,12 @@ export async function GET(req: NextRequest) {
   }
   const tenantId = (session.user as any).tenantId as string;
   const { start, end, busId } = parseQualityRange(req);
-  const data = await buildTramaQuality({ tenantId, start, end, busId, limit: 10000 });
+  let busCode: string | null = null;
+  if (busId) {
+    const bus = await prisma.bus.findFirst({ where: { id: busId, tenantId }, select: { code: true } });
+    busCode = bus?.code ?? null;
+  }
+  const data = await buildTramaQuality({ tenantId, start, end, busCode, limit: 10000 });
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Capital Desk";
@@ -39,7 +45,7 @@ export async function GET(req: NextRequest) {
   resumen.addRows([
     { k: "Rango (desde)", v: fmt(start) },
     { k: "Rango (hasta)", v: fmt(end) },
-    { k: "Filtro por bus", v: busId ? busId : "Toda la flota" },
+    { k: "Filtro por bus", v: busCode ? busCode : "Toda la flota" },
     { k: "Tramas retransmitidas", v: data.counts.retransmittedTotal },
     { k: "Grupos duplicados (mismo idRegistro)", v: data.counts.duplicatedGroups },
     { k: "Tramas duplicadas adicionales", v: data.counts.duplicatedExtraRows },
@@ -51,7 +57,7 @@ export async function GET(req: NextRequest) {
     { header: "idRegistro", key: "idRegistro", width: 28 },
     { header: "Tipo trama", key: "tramaType", width: 12 },
     { header: "Clase", key: "kind", width: 14 },
-    { header: "Fecha lectura", key: "eventAt", width: 22 },
+    { header: "Fecha lectura", key: "lecturaAt", width: 22 },
     { header: "Recibido", key: "receivedAt", width: 22 },
   ];
   s1.getRow(1).font = { bold: true };
@@ -60,28 +66,26 @@ export async function GET(req: NextRequest) {
       busCode: r.busCode,
       idRegistro: r.idRegistro ?? "",
       tramaType: r.tramaType ?? "",
-      kind: r.kind,
-      eventAt: fmt(r.eventAt),
+      kind: r.kind ?? "",
+      lecturaAt: r.lecturaAt ?? "",
       receivedAt: fmt(r.receivedAt),
     })
   );
 
   const s2 = wb.addWorksheet("Duplicadas");
   s2.columns = [
-    { header: "Bus", key: "busCode", width: 14 },
-    { header: "Fecha/hora lectura", key: "lecturaAt", width: 24 },
-    { header: "Tipo trama", key: "tramaType", width: 12 },
+    { header: "idRegistro", key: "idRegistro", width: 28 },
     { header: "Repeticiones", key: "count", width: 14 },
+    { header: "Bus", key: "busCode", width: 14 },
     { header: "Primera recepción", key: "firstReceived", width: 22 },
     { header: "Última recepción", key: "lastReceived", width: 22 },
   ];
   s2.getRow(1).font = { bold: true };
   data.duplicated.forEach((r) =>
     s2.addRow({
-      busCode: r.busCode ?? "",
-      lecturaAt: r.lecturaAt,
-      tramaType: r.tramaType ?? "",
+      idRegistro: r.idRegistro ?? "",
       count: r.count,
+      busCode: r.busCode ?? "",
       firstReceived: fmt(r.firstReceived),
       lastReceived: fmt(r.lastReceived),
     })

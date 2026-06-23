@@ -542,8 +542,10 @@ model IntegrationInboundEvent {
   retries     Int                      @default(0)
   error       String?
   requestMeta Json?
+  retransmitida Boolean                @default(false)
 
-  @@unique([tenantId, externalId])
+  @@index([tenantId, externalId])
+  @@index([tenantId, retransmitida, eventAt])
   @@index([tenantId, status, receivedAt])
   @@index([tenantId, busId, eventAt])
   @@index([tenantId, busCode, eventAt])

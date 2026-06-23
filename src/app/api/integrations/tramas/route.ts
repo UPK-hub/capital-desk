@@ -499,24 +499,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const uniqueByExternalId = new Map<string, CanonicalEvent>();
-  for (const item of normalizedEvents) {
-    uniqueByExternalId.set(item.externalId, item);
-  }
-  const dedupedEvents = Array.from(uniqueByExternalId.values());
-  const externalIds = dedupedEvents.map((item) => item.externalId);
-
-  const existing = await prisma.integrationInboundEvent.findMany({
-    where: {
-      tenantId: tenant.id,
-      externalId: { in: externalIds },
-    },
-    select: { externalId: true },
-  });
-  const existingSet = new Set(existing.map((row) => row.externalId));
-
+  // Se guarda TODA trama recibida tal cual, SIN deduplicar (repetidas y
+  // retransmitidas incluidas), para tener paridad con el centro de gestión.
   const busCodes = Array.from(
-    new Set(dedupedEvents.map((item) => normalizeBusCode(item.busCode)).filter(Boolean))
+    new Set(normalizedEvents.map((item) => normalizeBusCode(item.busCode)).filter(Boolean))
   );
   const buses = busCodes.length
     ? await prisma.bus.findMany({
@@ -534,9 +520,10 @@ export async function POST(req: NextRequest) {
     sourceHeader: req.headers.get("x-source"),
   };
 
-  const rowsToCreate = dedupedEvents
-    .filter((item) => !existingSet.has(item.externalId))
-    .map((item) => {
+  const isTrue = (v: unknown) =>
+    v === true || ["true", "1", "si", "sí"].includes(String(v ?? "").trim().toLowerCase());
+
+  const rowsToCreate = normalizedEvents.map((item) => {
       const busCode = normalizeBusCode(item.busCode);
       const busId = busByCode.get(busCode) ?? null;
       const payloadBase =
@@ -598,14 +585,12 @@ export async function POST(req: NextRequest) {
         payload,
         status: IntegrationInboundStatus.RECEIVED,
         requestMeta,
+        retransmitida: isTrue((payloadBase as Record<string, unknown>).tramaRetransmitida),
       };
     });
 
   if (rowsToCreate.length) {
-    await prisma.integrationInboundEvent.createMany({
-      data: rowsToCreate,
-      skipDuplicates: true,
-    });
+    await prisma.integrationInboundEvent.createMany({ data: rowsToCreate });
   }
 
   let processing: Awaited<ReturnType<typeof processInboundTelemetryBatch>> | null = null;
@@ -620,9 +605,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     tenant: tenant.code,
     received: envelope.events.length,
-    deduped: dedupedEvents.length,
     inserted: rowsToCreate.length,
-    duplicates: existingSet.size,
     unknownBusCodes: Array.from(
       new Set(rowsToCreate.filter((row) => !row.busId).map((row) => row.busCode))
     ),
