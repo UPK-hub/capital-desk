@@ -68,20 +68,22 @@ export async function GET(req: NextRequest) {
 
   const s2 = wb.addWorksheet("Duplicadas");
   s2.columns = [
-    { header: "idRegistro", key: "idRegistro", width: 28 },
-    { header: "Repeticiones", key: "count", width: 14 },
     { header: "Bus", key: "busCode", width: 14 },
-    { header: "Primera", key: "firstAt", width: 22 },
-    { header: "Última", key: "lastAt", width: 22 },
+    { header: "Fecha/hora lectura", key: "lecturaAt", width: 24 },
+    { header: "Tipo trama", key: "tramaType", width: 12 },
+    { header: "Repeticiones", key: "count", width: 14 },
+    { header: "Primera recepción", key: "firstReceived", width: 22 },
+    { header: "Última recepción", key: "lastReceived", width: 22 },
   ];
   s2.getRow(1).font = { bold: true };
   data.duplicated.forEach((r) =>
     s2.addRow({
-      idRegistro: r.idRegistro,
-      count: r.count,
       busCode: r.busCode ?? "",
-      firstAt: fmt(r.firstAt),
-      lastAt: fmt(r.lastAt),
+      lecturaAt: r.lecturaAt,
+      tramaType: r.tramaType ?? "",
+      count: r.count,
+      firstReceived: fmt(r.firstReceived),
+      lastReceived: fmt(r.lastReceived),
     })
   );
 

@@ -2,9 +2,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // Calidad de tramas:
-//  - Retransmitidas: tramas con bandera de retransmisión = verdadero en el payload.
-//  - Duplicadas: tramas que comparten el mismo idRegistro (registro id) en más de una fila.
-// Los campos viven en el payload crudo de ETB (payload->>'idRegistro', payload->>'retransmision').
+//  - Retransmitidas: tramas con la bandera real "tramaRetransmitida" = true.
+//  - Duplicadas: misma lectura repetida = mismo bus + misma fechaHoraLecturaDato
+//    + mismo tipo de trama en más de una fila (el idRegistro es único por diseño,
+//    así que la repetición real se detecta por la lectura, no por el id).
 
 export type RetransmittedRow = {
   id: string;
@@ -17,11 +18,12 @@ export type RetransmittedRow = {
 };
 
 export type DuplicatedGroup = {
-  idRegistro: string;
+  busCode: string;
+  lecturaAt: string;
+  tramaType: number | null;
   count: number;
-  busCode: string | null;
-  firstAt: Date | null;
-  lastAt: Date | null;
+  firstReceived: Date | null;
+  lastReceived: Date | null;
 };
 
 export type TramaQuality = {
@@ -50,9 +52,7 @@ export async function buildTramaQuality(params: {
 
   const busFilter = busId ? Prisma.sql`AND "busId" = ${busId}` : Prisma.empty;
   const rangeFilter = Prisma.sql`AND (("eventAt" >= ${start} AND "eventAt" <= ${end}) OR ("eventAt" IS NULL AND "receivedAt" >= ${start} AND "receivedAt" <= ${end}))`;
-  // Bandera de retransmisión tolerante a variantes de nombre/idioma.
-  const retransExpr = Prisma.sql`lower(coalesce(payload->>'retransmision', payload->>'retransmisión', payload->>'retransmitido', payload->>'esRetransmision', payload->>'reenvio', ''))`;
-  const truthy = Prisma.sql`('true','1','si','sí','t','yes','y')`;
+  const retrans = Prisma.sql`lower(coalesce(payload->>'tramaRetransmitida', '')) IN ('true', '1', 't', 'si', 'sí')`;
 
   const [retransmitted, retransCount, duplicated] = await Promise.all([
     prisma.$queryRaw<RetransmittedRow[]>(Prisma.sql`
@@ -64,26 +64,26 @@ export async function buildTramaQuality(params: {
       WHERE "tenantId" = ${tenantId}
         ${rangeFilter}
         ${busFilter}
-        AND ${retransExpr} IN ${truthy}
+        AND ${retrans}
       ORDER BY "eventAt" DESC NULLS LAST, "receivedAt" DESC
       LIMIT ${limit}
     `),
     prisma.$queryRaw<{ c: bigint }[]>(Prisma.sql`
       SELECT count(*)::bigint AS c
       FROM "IntegrationInboundEvent"
-      WHERE "tenantId" = ${tenantId} ${rangeFilter} ${busFilter}
-        AND ${retransExpr} IN ${truthy}
+      WHERE "tenantId" = ${tenantId} ${rangeFilter} ${busFilter} AND ${retrans}
     `),
     prisma.$queryRaw<DuplicatedGroup[]>(Prisma.sql`
-      SELECT payload->>'idRegistro' AS "idRegistro",
+      SELECT "busCode",
+             payload->>'fechaHoraLecturaDato' AS "lecturaAt",
+             "tramaType",
              count(*)::int AS "count",
-             min("busCode") AS "busCode",
-             min("eventAt") AS "firstAt",
-             max("eventAt") AS "lastAt"
+             min("receivedAt") AS "firstReceived",
+             max("receivedAt") AS "lastReceived"
       FROM "IntegrationInboundEvent"
       WHERE "tenantId" = ${tenantId} ${rangeFilter} ${busFilter}
-        AND payload->>'idRegistro' IS NOT NULL
-      GROUP BY payload->>'idRegistro'
+        AND payload->>'fechaHoraLecturaDato' IS NOT NULL
+      GROUP BY "busCode", payload->>'fechaHoraLecturaDato', "tramaType"
       HAVING count(*) > 1
       ORDER BY count(*) DESC
       LIMIT ${limit}
