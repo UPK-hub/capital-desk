@@ -39,7 +39,7 @@ function arg(flag: string): string | null {
 async function main() {
   const apply = process.argv.includes("--apply");
   const tenantCode = arg("--tenant") || "CAPITALBUS";
-  const byEmail = (arg("--by") || "gerenciatactica@upkeepservices.com.co").toLowerCase();
+  const byEmail = (arg("--by") || "anderson.rueda@upk.local").toLowerCase();
 
   console.log(`\n=== Crear novedad de origen para correctivos "Sin P20/P60" ===`);
   console.log(`Modo:   ${apply ? "APLICAR (escribe en BD)" : "PRUEBA (no toca nada)"}`);
@@ -55,9 +55,19 @@ async function main() {
   }
   const tenantId = tenant.id;
 
-  const operator = await prisma.user.findFirst({ where: { tenantId, email: byEmail }, select: { id: true, name: true } });
-  const operatorId = operator?.id;
-  console.log(`Operador del registro: ${operator ? operator.name : `(no encontrado ${byEmail}; se omite "by")`}\n`);
+  let creator = await prisma.user.findFirst({ where: { tenantId, email: byEmail }, select: { id: true, name: true, email: true } });
+  if (!creator) {
+    creator = await prisma.user.findFirst({
+      where: { tenantId, name: { contains: "Anderson", mode: "insensitive" } },
+      select: { id: true, name: true, email: true },
+    });
+  }
+  const operatorId = creator?.id;
+  console.log(`Creador de las novedades: ${creator ? `${creator.name} <${creator.email}>` : `✗ NO encontrado (${byEmail})`}\n`);
+  if (!creator && apply) {
+    console.error("✗ No se encontró el usuario creador (Anderson Rueda). Verifica con --by. (Abortado.)");
+    process.exit(1);
+  }
 
   // Candidatos: correctivos cuyo título menciona P20 o P60
   const candidates = await prisma.case.findMany({
