@@ -59,6 +59,27 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
   const { openPreview, previewNode } = useMediaPreview();
   const [deletingKey, setDeletingKey] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    setUploading(true);
+    setMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/cases/${caseId}/chat/attachments`, { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo subir");
+      setMsg("Archivo subido.");
+      router.refresh();
+    } catch (e: any) {
+      setMsg(e?.message ?? "No se pudo subir");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   React.useEffect(() => {
     setItems(initialItems);
@@ -87,7 +108,26 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
     <section className="sts-card overflow-hidden">
       <div className="flex items-center justify-between border-b border-border/50 bg-muted/20 p-5">
         <h2 className="text-base font-semibold">Evidencias y adjuntos</h2>
-        <span className="text-xs text-muted-foreground">{items.length} archivo(s)</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{items.length} archivo(s)</span>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="sts-btn-primary h-8 px-3 text-xs disabled:opacity-50"
+          >
+            {uploading ? "Subiendo..." : "Subir archivo"}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2 p-5">

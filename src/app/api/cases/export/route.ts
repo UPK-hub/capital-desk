@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
     take: 5000,
     include: {
       bus: { select: { code: true, plate: true } },
+      assignedTo: { select: { name: true } },
       workOrder: { select: { workOrderNo: true, assignedTo: { select: { name: true } } } },
     },
   });
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
     Estado: labelFromMap(c.status, caseStatusLabels),
     Prioridad: c.priority,
     OT: c.workOrder?.workOrderNo ?? "",
-    Asignado: c.workOrder?.assignedTo?.name ?? "Sin asignar",
+    Asignado: c.assignedTo?.name ?? c.workOrder?.assignedTo?.name ?? "Sin asignar",
     Creado: fmt(c.createdAt),
     Actualizado: fmt(c.updatedAt),
   }));

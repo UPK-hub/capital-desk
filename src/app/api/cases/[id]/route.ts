@@ -315,6 +315,50 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ ok: true, caseId: target.id, title: nextTitle });
   }
 
+  // ---- Responsable del caso (cualquier estado; NO reabre ni requiere OT) ----
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "assignedToId")) {
+    const raw = body?.assignedToId;
+    const newAssignee = raw ? String(raw).trim() : null;
+    const target = await prisma.case.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!target) return NextResponse.json({ error: "Caso no encontrado." }, { status: 404 });
+
+    if (newAssignee) {
+      const u = await prisma.user.findFirst({
+        where: { id: newAssignee, tenantId, active: true },
+        select: { id: true, name: true },
+      });
+      if (!u) return NextResponse.json({ error: "Usuario inválido o inactivo." }, { status: 400 });
+      await prisma.$transaction([
+        prisma.case.update({ where: { id: target.id }, data: { assignedToId: u.id } }),
+        prisma.caseEvent.create({
+          data: {
+            caseId: target.id,
+            type: CaseEventType.ASSIGNED,
+            message: `Responsable del caso: ${u.name}`,
+            meta: { assignedToId: u.id, by: userId },
+          },
+        }),
+      ]);
+      return NextResponse.json({ ok: true, caseId: target.id, assignedToId: u.id });
+    }
+
+    await prisma.$transaction([
+      prisma.case.update({ where: { id: target.id }, data: { assignedToId: null } }),
+      prisma.caseEvent.create({
+        data: {
+          caseId: target.id,
+          type: CaseEventType.COMMENT,
+          message: "Responsable del caso removido",
+          meta: { by: userId },
+        },
+      }),
+    ]);
+    return NextResponse.json({ ok: true, caseId: target.id, assignedToId: null });
+  }
+
   const nextStatus = String(body?.status ?? "").trim().toUpperCase();
 
   // Por ahora solo se admite el cierre manual de una NOVEDAD.

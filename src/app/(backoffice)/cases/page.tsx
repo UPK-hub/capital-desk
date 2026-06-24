@@ -57,6 +57,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       take: 500,
       include: {
         bus: { select: { code: true, plate: true } },
+        assignedTo: { select: { name: true } },
         workOrder: { select: { workOrderNo: true, assignedTo: { select: { name: true } } } },
       },
     }),
@@ -105,7 +106,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     type: c.type,
     status: c.status,
     priority: c.priority,
-    assignee: c.workOrder?.assignedTo?.name ?? null,
+    assignee: c.assignedTo?.name ?? c.workOrder?.assignedTo?.name ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   }));

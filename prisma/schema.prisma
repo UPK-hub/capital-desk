@@ -228,6 +228,7 @@ document       String?
   updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
   assignedWorkOrders       WorkOrder[]              @relation("WOAssignedTo")
+  casesAssigned            Case[]                   @relation("CaseAssignedTo")
   notifications            Notification[]
   passwordResetTokens      PasswordResetToken[]
   assignedVideoRequests    VideoDownloadRequest[]
@@ -773,6 +774,9 @@ model Case {
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  assignedToId String?
+  assignedTo   User?   @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
 
   workOrder WorkOrder?
   events    CaseEvent[]

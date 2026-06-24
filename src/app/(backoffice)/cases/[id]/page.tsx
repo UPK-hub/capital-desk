@@ -15,6 +15,7 @@ import {
   workOrderStatusLabels,
 } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
+import ResponsableCard from "./ui/ResponsableCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
@@ -194,6 +195,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           },
         },
       },
+      assignedTo: { select: { id: true, name: true } },
       workOrder: {
         include: {
           assignedTo: { select: { id: true, name: true, email: true, role: true } },
@@ -1111,6 +1113,18 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                     ))}
                   </div>
                 </section>
+              ) : null}
+
+              {role === Role.ADMIN ||
+              role === Role.BACKOFFICE ||
+              role === Role.SUPERVISOR ||
+              role === Role.PLANNER ? (
+                <ResponsableCard
+                  caseId={c.id}
+                  currentId={c.assignedTo?.id ?? null}
+                  currentName={c.assignedTo?.name ?? null}
+                  users={users.map((u) => ({ id: u.id, name: u.name ?? "" }))}
+                />
               ) : null}
 
               {canAssign ? (
