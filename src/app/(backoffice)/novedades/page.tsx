@@ -2,78 +2,48 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType, Role, StsTicketStatus, WorkOrderStatus } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { ownCasesWhere } from "@/lib/access-control";
-import {
-  caseStatusLabels,
-  labelFromMap,
-  stsStatusLabels,
-  workOrderStatusLabels,
-} from "@/lib/labels";
-import { DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeader, DataTableRow } from "@/components/ui/data-table";
-import { ScrollReveal } from "@/components/animations/ScrollReveal";
-
-type NovedadState = {
-  batchRef?: string | null;
-  catalogCode?: string | null;
-  affectedEquipment?: string | null;
-  reportedNovelty?: string | null;
-  observations?: string | null;
-};
+import { buildCasesWhere } from "@/lib/cases/filters";
+import { getCasesSummary, recentMonths } from "@/lib/cases/summary";
+import { Select } from "@/components/Field";
+import { FileSpreadsheet, Plus } from "lucide-react";
+import CasesResumen from "@/components/cases/CasesResumen";
+import NovedadesTable, { NovedadRow } from "@/components/novedades/NovedadesTable";
 
 type EventLike = { createdAt: Date; meta: unknown };
 
-function toStr(value: unknown) {
-  const v = String(value ?? "").trim();
-  return v || null;
+const EQUIPO_LABEL: Record<string, string> = {
+  NVR: "NVR / Grabador",
+  CAMARAS: "Cámaras",
+  ROUTER_SIM: "Router / SIM",
+  SWITCH_POE: "Switch PoE",
+  GPS: "GPS",
+  CMS: "Centro de Gestión (CMS)",
+};
+function equipoLabel(v?: string | null): string | null {
+  const k = String(v ?? "").trim();
+  if (!k) return null;
+  return EQUIPO_LABEL[k.toUpperCase()] ?? k;
 }
 
-function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "short" }).format(value);
-}
-
-function fmtCaseNo(value?: number | null) {
-  if (!value) return "CASO--";
-  return `CASO-${String(value).padStart(3, "0")}`;
-}
-
-function fmtWorkOrderNo(value?: number | null) {
-  if (!value) return "OT--";
-  return `OT-${String(value).padStart(3, "0")}`;
-}
-
-function extractLatestNovedadState(events: EventLike[]): NovedadState | null {
+function extractLatestNovedadState(events: EventLike[]): any | null {
   for (let i = events.length - 1; i >= 0; i -= 1) {
     const meta = (events[i].meta ?? {}) as any;
     const state = meta?.noveltyState;
-    if (state && typeof state === "object") return state as NovedadState;
+    if (state && typeof state === "object") return state;
   }
   return null;
 }
-
-function extractTraceabilityEdits(events: EventLike[]) {
-  let count = 0;
-  let lastEditedAt: Date | null = null;
-  for (const event of events) {
-    const meta = (event.meta ?? {}) as any;
-    if (meta?.noveltyStateAfter && meta?.noveltyStateBefore) {
-      count += 1;
-      lastEditedAt = event.createdAt;
-    }
-  }
-  return { count, lastEditedAt };
-}
-
-function extractSourceCaseId(events: EventLike[]) {
+function extractSourceCaseId(events: EventLike[]): string | null {
   for (const event of events) {
     const meta = (event.meta ?? {}) as any;
     if (meta?.sourceCaseId) return String(meta.sourceCaseId);
   }
   return null;
 }
-
-function extractBatchRefFromEvents(events: EventLike[]) {
+function extractBatchRefFromEvents(events: EventLike[]): string | null {
   for (let i = events.length - 1; i >= 0; i -= 1) {
     const meta = (events[i].meta ?? {}) as any;
     if (meta?.noveltyState?.batchRef) return String(meta.noveltyState.batchRef);
@@ -82,75 +52,15 @@ function extractBatchRefFromEvents(events: EventLike[]) {
   return null;
 }
 
-function badgeClass(kind: "case" | "wo" | "ticket", value: string | null | undefined) {
-  const base = "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium";
-  if (!value) return `${base} border-border text-muted-foreground`;
-  if (kind === "case") {
-    if (value === CaseStatus.NUEVO) return `${base} border-blue-200 bg-blue-50 text-blue-700`;
-    if (value === CaseStatus.OT_ASIGNADA || value === CaseStatus.EN_EJECUCION)
-      return `${base} border-amber-200 bg-amber-50 text-amber-700`;
-    if (value === CaseStatus.RESUELTO || value === CaseStatus.CERRADO)
-      return `${base} border-green-200 bg-green-50 text-green-700`;
-    return `${base} border-border text-muted-foreground`;
-  }
-  if (kind === "wo") {
-    if (value === WorkOrderStatus.EN_VALIDACION)
-      return `${base} border-amber-200 bg-amber-50 text-amber-700`;
-    if (value === WorkOrderStatus.FINALIZADA)
-      return `${base} border-green-200 bg-green-50 text-green-700`;
-    if (value === WorkOrderStatus.EN_CAMPO)
-      return `${base} border-blue-200 bg-blue-50 text-blue-700`;
-    return `${base} border-border text-muted-foreground`;
-  }
-  if (value === StsTicketStatus.OPEN || value === StsTicketStatus.IN_PROGRESS)
-    return `${base} border-amber-200 bg-amber-50 text-amber-700`;
-  if (value === StsTicketStatus.RESOLVED || value === StsTicketStatus.CLOSED)
-    return `${base} border-green-200 bg-green-50 text-green-700`;
-  return `${base} border-border text-muted-foreground`;
-}
-
-type NovedadRow = {
-  batchRef: string;
-  novelty: {
-    id: string;
-    caseNo: number | null;
-    status: CaseStatus;
-    createdAt: Date;
-    busCode: string;
-    busPlate: string | null;
-  };
-      state: {
-        catalogCode: string;
-        affectedEquipment: string;
-        reportedNovelty: string;
-      };
-  traceability: {
-    edits: number;
-    lastEditedAt: Date | null;
-  };
-  corrective: null | {
-    id: string;
-    caseNo: number | null;
-    status: CaseStatus;
-    workOrderId: string | null;
-    workOrderNo: number | null;
-    workOrderStatus: WorkOrderStatus | null;
-    ticketId: string | null;
-    ticketStatus: StsTicketStatus | null;
-  };
-};
-
 export default async function NovedadesPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return (
-      <div className="mx-auto max-w-6xl p-6">
-        <div className="sts-card p-4">
-          <p className="text-sm">Debes iniciar sesión.</p>
-          <Link className="text-sm underline" href="/login">
-            Ir a login
-          </Link>
-        </div>
+      <div className="sts-card p-4">
+        <p className="text-sm">Debes iniciar sesión.</p>
+        <Link className="text-sm underline" href="/login">
+          Ir a login
+        </Link>
       </div>
     );
   }
@@ -158,455 +68,323 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   const role = (session.user as any).role as Role;
   const caps = (session.user as any).capabilities as string[] | undefined;
   const userId = String((session.user as any).id ?? "");
+  const tenantId = (session.user as any).tenantId as string;
   const isVideosOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.VIDEOS_ONLY);
   if (
     isVideosOnly ||
-    role !== Role.ADMIN &&
-    role !== Role.BACKOFFICE &&
-    role !== Role.SUPERVISOR &&
-    role !== Role.PLANNER
+    (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.SUPERVISOR && role !== Role.PLANNER)
   ) {
     return (
-      <div className="mx-auto max-w-6xl p-6">
-        <div className="sts-card p-4">
-          <p className="text-sm">No autorizado.</p>
-        </div>
+      <div className="sts-card p-4">
+        <p className="text-sm">No autorizado.</p>
       </div>
     );
   }
 
-  const tenantId = (session.user as any).tenantId as string;
-  const ownOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
-  const q = toStr(searchParams?.q);
-  const batchRefFilter = toStr(searchParams?.batchRef);
+  const ownOnly = role === Role.BACKOFFICE && !!caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
+  const ownWhere = ownOnly ? ownCasesWhere(userId) : {};
+  const { baseWhere, statusWhere, params } = buildCasesWhere(searchParams, { tenantId, ownOnly, userId });
+  // Forzamos tipo NOVEDAD (esta bandeja es solo de novedades).
+  const novBase: any = { ...baseWhere, type: CaseType.NOVEDAD };
 
-  const numericQuery = q && /^\d+$/.test(q) ? Number(q) : null;
+  const months = recentMonths(6);
+  const rmonth = (searchParams?.rmonth ? String(searchParams.rmonth) : "") || months[0].key;
 
-  const noveltyCases = await prisma.case.findMany({
-    where: {
-      tenantId,
-      type: CaseType.NOVEDAD,
-      ...(ownOnly ? ownCasesWhere(userId) : {}),
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
-              { bus: { code: { contains: q, mode: "insensitive" } } },
-              { bus: { plate: { contains: q, mode: "insensitive" } } },
-              ...(numericQuery ? [{ caseNo: numericQuery }] : []),
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 250,
-    include: {
-      bus: { select: { code: true, plate: true } },
-      events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
-    },
-  });
+  const [noveltyCases, grouped, summary] = await Promise.all([
+    prisma.case.findMany({
+      where: { ...novBase, ...statusWhere },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      include: {
+        bus: { select: { code: true, plate: true } },
+        events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
+      },
+    }),
+    prisma.case.groupBy({ by: ["status"], where: novBase, _count: { _all: true } }),
+    getCasesSummary({ tenantId, extraWhere: { type: CaseType.NOVEDAD, ...ownWhere }, monthKey: rmonth }),
+  ]);
 
+  // Correctivos / preventivos enlazados a una novedad (por sourceCaseId o batchRef)
   const since = noveltyCases.length
     ? noveltyCases[noveltyCases.length - 1].createdAt
     : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-
   const correctiveCases = await prisma.case.findMany({
-    where: {
-      tenantId,
-      // Incluye correctivos y preventivos enlazados a una novedad.
-      type: { in: [CaseType.CORRECTIVO, CaseType.PREVENTIVO] },
-      createdAt: { gte: since },
-    },
+    where: { tenantId, type: { in: [CaseType.CORRECTIVO, CaseType.PREVENTIVO] }, createdAt: { gte: since } },
     orderBy: { createdAt: "desc" },
     take: 800,
     include: {
-      workOrder: { select: { id: true, workOrderNo: true, status: true } },
-      stsTicket: { select: { id: true, status: true } },
+      workOrder: { select: { id: true, workOrderNo: true } },
       events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
     },
   });
-
-  const correctiveBySourceCaseId = new Map<string, typeof correctiveCases[number]>();
-  const correctiveByBatchRef = new Map<string, typeof correctiveCases[number]>();
-
-  for (const corrective of correctiveCases) {
-    const sourceCaseId = extractSourceCaseId(corrective.events);
-    const batchRef = extractBatchRefFromEvents(corrective.events);
-    if (sourceCaseId && !correctiveBySourceCaseId.has(sourceCaseId)) {
-      correctiveBySourceCaseId.set(sourceCaseId, corrective);
-    }
-    if (batchRef && !correctiveByBatchRef.has(batchRef)) {
-      correctiveByBatchRef.set(batchRef, corrective);
-    }
+  const corrBySource = new Map<string, (typeof correctiveCases)[number]>();
+  const corrByBatch = new Map<string, (typeof correctiveCases)[number]>();
+  for (const corr of correctiveCases) {
+    const src = extractSourceCaseId(corr.events);
+    const batch = extractBatchRefFromEvents(corr.events);
+    if (src && !corrBySource.has(src)) corrBySource.set(src, corr);
+    if (batch && !corrByBatch.has(batch)) corrByBatch.set(batch, corr);
   }
 
-  const rows: NovedadRow[] = noveltyCases.map((noveltyCase) => {
-    const state = extractLatestNovedadState(noveltyCase.events);
-    const batchRef =
-      state?.batchRef?.trim() ||
-      `NVD-${String(noveltyCase.caseNo ?? 0).padStart(4, "0")}`;
-    const linkedCorrective =
-      correctiveBySourceCaseId.get(noveltyCase.id) || correctiveByBatchRef.get(batchRef) || null;
-    const traceability = extractTraceabilityEdits(noveltyCase.events);
+  // Creadores (para el filtro)
+  const creatorIds = new Set<string>();
+  for (const c of noveltyCases) {
+    for (const ev of c.events) {
+      const meta = (ev.meta ?? {}) as any;
+      if (ev.meta && (ev.meta as any)) {
+        const uid = meta?.userId;
+        if (typeof uid === "string" && uid.trim()) creatorIds.add(uid.trim());
+      }
+    }
+  }
+  const creators = creatorIds.size
+    ? await prisma.user.findMany({
+        where: { tenantId, active: true, id: { in: Array.from(creatorIds) } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
+  const rows: NovedadRow[] = noveltyCases.map((c) => {
+    const state = extractLatestNovedadState(c.events);
+    const batchRef = state?.batchRef?.trim() || `NVD-${String(c.caseNo ?? 0).padStart(4, "0")}`;
+    const linked = corrBySource.get(c.id) || corrByBatch.get(batchRef) || null;
+    const reported =
+      String(state?.reportedNovelty ?? "").trim() ||
+      c.title.replace(/^Novedad\s+[^\-]+-\s*/i, "").trim() ||
+      c.title;
     return {
-      batchRef,
-      novelty: {
-        id: noveltyCase.id,
-        caseNo: noveltyCase.caseNo,
-        status: noveltyCase.status,
-        createdAt: noveltyCase.createdAt,
-        busCode: noveltyCase.bus.code,
-        busPlate: noveltyCase.bus.plate,
-      },
-      state: {
-        catalogCode: String(state?.catalogCode ?? ""),
-        affectedEquipment: String(state?.affectedEquipment ?? ""),
-        reportedNovelty:
-          String(state?.reportedNovelty ?? "") ||
-          noveltyCase.title.replace(/^Novedad\s+[^\-]+-\s*/i, "").trim(),
-      },
-      traceability: {
-        edits: traceability.count,
-        lastEditedAt: traceability.lastEditedAt,
-      },
-      corrective: linkedCorrective
-        ? {
-            id: linkedCorrective.id,
-            caseNo: linkedCorrective.caseNo,
-            status: linkedCorrective.status,
-            workOrderId: linkedCorrective.workOrder?.id ?? null,
-            workOrderNo: linkedCorrective.workOrder?.workOrderNo ?? null,
-            workOrderStatus: linkedCorrective.workOrder?.status ?? null,
-            ticketId: linkedCorrective.stsTicket?.id ?? null,
-            ticketStatus: linkedCorrective.stsTicket?.status ?? null,
-          }
-        : null,
+      id: c.id,
+      caseNo: c.caseNo ?? null,
+      title: reported,
+      busCode: c.bus.code,
+      busPlate: c.bus.plate ?? null,
+      status: c.status,
+      priority: c.priority,
+      equipo: equipoLabel(state?.affectedEquipment),
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+      corrId: linked?.id ?? null,
+      corrCaseNo: linked?.caseNo ?? null,
+      corrStatus: linked?.status ?? null,
+      corrWorkOrderNo: linked?.workOrder?.workOrderNo ?? null,
     };
   });
 
-  const filteredRows = rows.filter((row) =>
-    batchRefFilter ? row.batchRef.toUpperCase().includes(batchRefFilter.toUpperCase()) : true
-  );
+  const cnt: Record<string, number> = {};
+  for (const g of grouped) cnt[g.status] = g._count._all;
+  const cNuevo = cnt["NUEVO"] ?? 0;
+  const cProceso = (cnt["OT_ASIGNADA"] ?? 0) + (cnt["EN_EJECUCION"] ?? 0);
+  const cResuelto = (cnt["RESUELTO"] ?? 0) + (cnt["CERRADO"] ?? 0);
+  const cAll = grouped.reduce((s, g) => s + g._count._all, 0);
+  const filteredTotal =
+    params.statusParam === "NUEVO"
+      ? cNuevo
+      : params.statusParam === "PROCESO"
+      ? cProceso
+      : params.statusParam === "RESUELTO"
+      ? cResuelto
+      : cAll;
 
-  const grouped = new Map<string, NovedadRow[]>();
-  for (const row of filteredRows) {
-    if (!grouped.has(row.batchRef)) grouped.set(row.batchRef, []);
-    grouped.get(row.batchRef)!.push(row);
-  }
+  const cur: Record<string, string | null | undefined> = {
+    q: params.q,
+    status: params.statusParam,
+    priority: params.priority,
+    creator: params.creator,
+    dateFrom: params.dateFromStr,
+    dateTo: params.dateToStr,
+    rmonth,
+  };
+  const qs = (obj: Record<string, string | null | undefined>) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(obj)) if (v) p.set(k, String(v));
+    return p.toString();
+  };
+  const hrefWith = (ov: Record<string, string | null | undefined>) => {
+    const s = qs({ ...cur, ...ov });
+    return `/novedades${s ? `?${s}` : ""}`;
+  };
+  const exportHref = (() => {
+    const s = qs({ ...cur, type: "NOVEDAD", rmonth: undefined });
+    return `/api/cases/export${s ? `?${s}` : ""}`;
+  })();
 
-  const groups = Array.from(grouped.entries())
-    .map(([batchRef, items]) => {
-      const sortedItems = [...items].sort(
-        (a, b) => b.novelty.createdAt.getTime() - a.novelty.createdAt.getTime()
-      );
-      const createdAt = sortedItems[0]?.novelty.createdAt ?? new Date();
-      const total = sortedItems.length;
-      const closed = sortedItems.filter(
-        (item) =>
-          item.corrective?.status === CaseStatus.CERRADO ||
-          item.corrective?.status === CaseStatus.RESUELTO
-      ).length;
-      const pendingValidation = sortedItems.filter(
-        (item) => item.corrective?.workOrderStatus === WorkOrderStatus.EN_VALIDACION
-      ).length;
-      return {
-        batchRef,
-        createdAt,
-        total,
-        closed,
-        pendingValidation,
-        items: sortedItems,
-      };
-    })
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const views = [
+    { key: "", label: "Todas", count: cAll, dot: "" },
+    { key: "NUEVO", label: "Nuevas", count: cNuevo, dot: "#2563eb" },
+    { key: "PROCESO", label: "En proceso", count: cProceso, dot: "#f59e0b" },
+    { key: "RESUELTO", label: "Resueltas", count: cResuelto, dot: "#16a34a" },
+  ];
+  const statusActive = (key: string) => (params.statusParam ?? "") === key;
+  const misActive = params.creator === userId;
 
   return (
-    <div className="mobile-page-shell">
-      <header className="mobile-page-header">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-start gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6 lg:py-0">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 lg:text-4xl">Novedades</h1>
-            <p className="text-sm text-muted-foreground">
-              Lotes reportados con seguimiento de casos y tickets asociados.
-            </p>
-          </div>
-          <Link
-            className="sts-btn-primary inline-flex h-10 items-center justify-center self-start px-4 text-sm"
-            href="/cases/new?type=NOVEDAD"
+    <div className="space-y-4">
+      {/* Encabezado */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-white px-4 py-3.5 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight text-slate-900">Novedades</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {filteredTotal} {filteredTotal === 1 ? "novedad" : "novedades"} · Reportes del cliente
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={exportHref}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
           >
-            Reportar novedad
+            <FileSpreadsheet className="h-4 w-4" /> Exportar
+          </a>
+          <Link
+            href="/cases/new?type=NOVEDAD"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
+          >
+            <Plus className="h-4 w-4" /> Reportar novedad
           </Link>
         </div>
-      </header>
+      </div>
 
-      <div className="mobile-page-content max-w-[1600px] lg:px-6">
-        <ScrollReveal>
-          <div className="mobile-section-card mobile-section-card__body">
-            <form className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap" method="get">
-              <input
-                name="q"
-                placeholder="Buscar por bus, caso o novedad"
-                className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[18rem]"
-                defaultValue={searchParams?.q ?? ""}
-              />
-              <input
-                name="batchRef"
-                placeholder="ID lote (ej: NVD-0048)"
-                className="app-field-control h-10 w-full rounded-xl px-3 text-sm sm:w-[14rem]"
-                defaultValue={searchParams?.batchRef ?? ""}
-              />
-              <div className="flex w-full items-center gap-2 sm:w-auto">
-                <button className="sts-btn-primary h-10 flex-1 px-4 text-sm sm:flex-none">Filtrar</button>
+      {/* Vistas (mobile: chips) */}
+      <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
+        {views.map((v) => (
+          <Link
+            key={v.key || "all"}
+            href={hrefWith({ status: v.key || undefined, creator: undefined })}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+              statusActive(v.key) && !misActive ? "bg-blue-600 text-white" : "border border-border/60 bg-white text-slate-600"
+            }`}
+          >
+            {v.dot ? <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: v.dot }} /> : null}
+            {v.label}
+            <span className="rounded-full bg-black/10 px-1.5 text-[11px] tabular-nums">{v.count}</span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[176px_1fr]">
+        {/* Vistas (desktop) */}
+        <aside className="hidden lg:block">
+          <div className="rounded-2xl border border-border/60 bg-white p-2 shadow-sm">
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Vistas</p>
+            {views.map((v) => {
+              const active = statusActive(v.key) && !misActive;
+              return (
                 <Link
-                  className="sts-btn-ghost inline-flex h-10 flex-1 items-center justify-center px-4 text-sm sm:flex-none"
-                  href="/novedades"
+                  key={v.key || "all"}
+                  href={hrefWith({ status: v.key || undefined, creator: undefined })}
+                  className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
+                    active ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
-                  Limpiar
+                  <span className="flex items-center gap-2">
+                    {v.dot ? (
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: v.dot }} />
+                    ) : (
+                      <span className="h-1.5 w-1.5" />
+                    )}
+                    {v.label}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-slate-400">{v.count}</span>
                 </Link>
+              );
+            })}
+            <p className="mt-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Personales</p>
+            <Link
+              href={hrefWith({ creator: userId })}
+              className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
+                misActive ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <span>Mis novedades</span>
+            </Link>
+          </div>
+        </aside>
+
+        {/* Contenido */}
+        <main className="min-w-0 space-y-3">
+          {/* Resumen */}
+          <CasesResumen summary={summary} currentMonth={rmonth} months={months} basePath="/novedades" />
+
+          {/* Filtros */}
+          <form method="get" className="space-y-3 rounded-2xl border border-border/60 bg-white p-3 shadow-sm">
+            <input type="hidden" name="status" value={params.statusParam ?? ""} />
+            <input type="hidden" name="rmonth" value={rmonth} />
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
+              <div className="sm:col-span-2 lg:col-span-2">
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Buscar</label>
+                <input
+                  name="q"
+                  placeholder="Bus, placa, novedad, # caso"
+                  className="app-field-control h-9 w-full rounded-lg px-3 text-sm"
+                  defaultValue={searchParams?.q ?? ""}
+                />
               </div>
-            </form>
-          </div>
-        </ScrollReveal>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Prioridad</label>
+                <Select name="priority" className="h-9 w-full" defaultValue={searchParams?.priority ?? ""}>
+                  <option value="">Todas</option>
+                  <option value="1">1 (Alta)</option>
+                  <option value="2">2</option>
+                  <option value="3">3 (Normal)</option>
+                  <option value="4">4</option>
+                  <option value="5">5 (Baja)</option>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Creador</label>
+                <Select name="creator" className="h-9 w-full" defaultValue={searchParams?.creator ?? ""}>
+                  <option value="">Todos</option>
+                  {creators.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Desde</label>
+                <input
+                  type="date"
+                  name="dateFrom"
+                  aria-label="Fecha desde"
+                  className="app-field-control h-9 w-full rounded-lg px-2 text-sm"
+                  defaultValue={searchParams?.dateFrom ?? ""}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Hasta</label>
+                <input
+                  type="date"
+                  name="dateTo"
+                  aria-label="Fecha hasta"
+                  className="app-field-control h-9 w-full rounded-lg px-2 text-sm"
+                  defaultValue={searchParams?.dateTo ?? ""}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Link className="sts-btn-ghost inline-flex h-9 items-center justify-center px-4 text-sm" href="/novedades">
+                Limpiar
+              </Link>
+              <button className="inline-flex h-9 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white shadow-sm transition hover:brightness-95">
+                Filtrar
+              </button>
+            </div>
+          </form>
 
-        {groups.length === 0 ? (
-          <div className="mobile-section-card mobile-section-card__body text-sm text-muted-foreground">
-            No hay novedades para los filtros seleccionados.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {groups.map((group, index) => (
-              <ScrollReveal key={group.batchRef} delay={index * 0.04}>
-                <section className="mobile-section-card">
-                <div className="mobile-section-card__header">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Lote</p>
-                      <h2 className="text-base font-semibold lg:text-lg">{group.batchRef}</h2>
-                      <p className="text-xs text-muted-foreground">
-                        Creado: {formatDate(group.createdAt)} · {group.total} bus(es) reportados
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                        Cerrados: {group.closed}/{group.total}
-                      </span>
-                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
-                        Por validar: {group.pendingValidation}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+          {/* Tabla interactiva */}
+          {rows.length === 0 ? (
+            <div className="rounded-2xl border border-border/60 bg-white p-6 text-center text-sm text-muted-foreground shadow-sm">
+              No hay novedades con estos filtros.
+            </div>
+          ) : (
+            <NovedadesTable rows={rows} />
+          )}
 
-                <div className="lg:hidden">
-                  <div className="mobile-list-stack p-3">
-                    {group.items.map((item) => (
-                      <article key={item.novelty.id} className="rounded-xl border border-border/60 p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold">
-                              {item.novelty.busCode}{" "}
-                              <span className="text-xs font-normal text-muted-foreground">
-                                {item.novelty.busPlate ?? "Sin placa"}
-                              </span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {fmtCaseNo(item.novelty.caseNo)} · {formatDate(item.novelty.createdAt)}
-                            </p>
-                          </div>
-                          <span className={badgeClass("case", item.novelty.status)}>
-                            {labelFromMap(item.novelty.status, caseStatusLabels)}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm font-medium break-words">
-                          {item.state.reportedNovelty || "Novedad sin detalle"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {item.state.affectedEquipment || "Equipo no especificado"}
-                          {item.state.catalogCode ? ` · ${item.state.catalogCode}` : ""}
-                        </p>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <p className="text-muted-foreground">Correctivo</p>
-                            {item.corrective ? (
-                              <span className={badgeClass("case", item.corrective.status)}>
-                                {labelFromMap(item.corrective.status, caseStatusLabels)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">Pendiente</span>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Ticket</p>
-                            {item.corrective?.ticketStatus ? (
-                              <span className={badgeClass("ticket", item.corrective.ticketStatus)}>
-                                {labelFromMap(item.corrective.ticketStatus, stsStatusLabels)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">Sin ticket</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Link
-                            className="sts-btn-ghost inline-flex h-8 items-center justify-center px-3 text-xs"
-                            href={`/cases/${item.novelty.id}`}
-                          >
-                            Abrir novedad
-                          </Link>
-                          {item.corrective?.id ? (
-                            <Link
-                              className="sts-btn-ghost inline-flex h-8 items-center justify-center px-3 text-xs"
-                              href={`/cases/${item.corrective.id}`}
-                            >
-                              Abrir correctivo
-                            </Link>
-                          ) : null}
-                          {item.corrective?.workOrderId ? (
-                            <Link
-                              className="sts-btn-ghost inline-flex h-8 items-center justify-center px-3 text-xs"
-                              href={`/work-orders/${item.corrective.workOrderId}`}
-                            >
-                              Abrir OT
-                            </Link>
-                          ) : null}
-                          {item.corrective?.ticketId ? (
-                            <Link
-                              className="sts-btn-ghost inline-flex h-8 items-center justify-center px-3 text-xs"
-                              href={`/sts/tickets/${item.corrective.ticketId}`}
-                            >
-                              Abrir ticket
-                            </Link>
-                          ) : null}
-                        </div>
-
-                        <p className="mt-2 text-[11px] text-muted-foreground">
-                          Trazabilidad: {item.traceability.edits} cambio(s)
-                          {item.traceability.lastEditedAt
-                            ? ` · último ${formatDate(item.traceability.lastEditedAt)}`
-                            : ""}
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="hidden lg:block p-3">
-                  <DataTable tableClassName="table-fixed">
-                    <DataTableHeader>
-                      <DataTableRow>
-                        <DataTableHead className="w-[12%]">Bus</DataTableHead>
-                        <DataTableHead className="w-[28%]">Novedad reportada</DataTableHead>
-                        <DataTableHead className="w-[14%]">Caso novedad</DataTableHead>
-                        <DataTableHead className="w-[14%]">Correctivo</DataTableHead>
-                        <DataTableHead className="w-[12%]">OT</DataTableHead>
-                        <DataTableHead className="w-[12%]">Ticket STS</DataTableHead>
-                        <DataTableHead className="w-[8%] text-right">Acción</DataTableHead>
-                      </DataTableRow>
-                    </DataTableHeader>
-                    <DataTableBody>
-                      {group.items.map((item) => (
-                        <DataTableRow key={item.novelty.id} clickable>
-                          <DataTableCell>
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-sm font-medium">{item.novelty.busCode}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {item.novelty.busPlate ?? "Sin placa"}
-                              </span>
-                            </div>
-                          </DataTableCell>
-                          <DataTableCell>
-                            <div className="space-y-1">
-                              <p className="text-sm font-medium break-words">
-                                {item.state.reportedNovelty || "Novedad sin detalle"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.state.affectedEquipment || "Equipo no especificado"}
-                                {item.state.catalogCode ? ` · ${item.state.catalogCode}` : ""}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Trazabilidad: {item.traceability.edits}
-                                {item.traceability.lastEditedAt ? ` · ${formatDate(item.traceability.lastEditedAt)}` : ""}
-                              </p>
-                            </div>
-                          </DataTableCell>
-                          <DataTableCell>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground">{fmtCaseNo(item.novelty.caseNo)}</p>
-                              <span className={badgeClass("case", item.novelty.status)}>
-                                {labelFromMap(item.novelty.status, caseStatusLabels)}
-                              </span>
-                            </div>
-                          </DataTableCell>
-                          <DataTableCell>
-                            {item.corrective ? (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">
-                                  {fmtCaseNo(item.corrective.caseNo)}
-                                </p>
-                                <span className={badgeClass("case", item.corrective.status)}>
-                                  {labelFromMap(item.corrective.status, caseStatusLabels)}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Pendiente</span>
-                            )}
-                          </DataTableCell>
-                          <DataTableCell>
-                            {item.corrective?.workOrderStatus ? (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">
-                                  {fmtWorkOrderNo(item.corrective.workOrderNo)}
-                                </p>
-                                <span className={badgeClass("wo", item.corrective.workOrderStatus)}>
-                                  {labelFromMap(item.corrective.workOrderStatus, workOrderStatusLabels)}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Sin OT</span>
-                            )}
-                          </DataTableCell>
-                          <DataTableCell>
-                            <div className="space-y-1">
-                              {item.corrective?.ticketStatus ? (
-                                <span className={badgeClass("ticket", item.corrective.ticketStatus)}>
-                                  {labelFromMap(item.corrective.ticketStatus, stsStatusLabels)}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Sin ticket</span>
-                              )}
-                              {item.corrective?.ticketId ? (
-                                <Link
-                                  className="inline-flex text-xs text-primary underline-offset-2 hover:underline"
-                                  href={`/sts/tickets/${item.corrective.ticketId}`}
-                                >
-                                  Ver ticket
-                                </Link>
-                              ) : null}
-                            </div>
-                          </DataTableCell>
-                          <DataTableCell className="text-right">
-                            <div className="flex items-center justify-end">
-                              <Link
-                                className="sts-btn-ghost inline-flex h-8 items-center justify-center px-3 text-xs"
-                                href={`/cases/${item.novelty.id}`}
-                              >
-                                Abrir
-                              </Link>
-                            </div>
-                          </DataTableCell>
-                        </DataTableRow>
-                      ))}
-                    </DataTableBody>
-                  </DataTable>
-                </div>
-                </section>
-              </ScrollReveal>
-            ))}
-          </div>
-        )}
+          <p className="px-1 text-xs text-muted-foreground">
+            Mostrando {rows.length} de {filteredTotal} {filteredTotal === 1 ? "novedad" : "novedades"}
+          </p>
+        </main>
       </div>
     </div>
   );

@@ -46,10 +46,12 @@ export default function CasesResumen({
   summary,
   currentMonth,
   months,
+  basePath = "/cases",
 }: {
   summary: Summary;
   currentMonth: string;
   months: { key: string; label: string }[];
+  basePath?: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -57,7 +59,7 @@ export default function CasesResumen({
   const onMonth = (m: string) => {
     const p = new URLSearchParams(sp?.toString() ?? "");
     p.set("rmonth", m);
-    router.push(`/cases?${p.toString()}`);
+    router.push(`${basePath}?${p.toString()}`);
   };
 
   const labels = summary.series.map((p) => p.date);
