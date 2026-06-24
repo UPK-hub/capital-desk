@@ -25,7 +25,7 @@ import { CaseEventType } from "@prisma/client";
 const TECH_MAP: Record<string, { email?: string; tokens: string[] }> = {
   "King Anderson": { email: "anderson.rueda@upk.local", tokens: ["Anderson Rueda", "Anderson"] },
   Diego: { email: "diego.hernandez@upk.local", tokens: ["Diego Hernández", "Diego Hernandez", "Diego"] },
-  Leonardo: { tokens: ["Leonardo Corredor", "Corredor", "Leonardo"] },
+  Leonardo: { email: "leonardo.corredor@upk.local", tokens: ["Leonardo Corredor", "Corredor", "Leonardo"] },
 };
 
 // [caseNo, bus, tecnico(Excel)] — 58 casos
@@ -154,10 +154,9 @@ async function main() {
   for (const label of Object.keys(TECH_MAP)) {
     const { user, error } = await resolveTech(tenantId, label);
     if (user) {
-      const inactive = user.active ? "" : "  ⚠ INACTIVO";
+      const inactive = user.active ? "" : "  ⚠ INACTIVO (se asigna igual)";
       console.log(`  "${label}"  ->  ${user.name} <${user.email}> [${user.role}]${inactive}`);
       resolved.set(label, user);
-      if (!user.active) resolveError = true;
     } else {
       console.log(`  "${label}"  ->  ✗ ${error}`);
       resolveError = true;
