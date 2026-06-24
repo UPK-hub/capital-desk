@@ -226,7 +226,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
         </aside>
 
         {/* Contenido */}
-        <main className="space-y-3">
+        <main className="min-w-0 space-y-3">
           {/* Resumen */}
           <CasesResumen summary={summary} currentMonth={rmonth} months={months} />
 
