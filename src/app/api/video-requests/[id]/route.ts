@@ -162,7 +162,14 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
     });
   }
 
-  if (nextStatus === VideoCaseStatus.COMPLETADO && current.status !== VideoCaseStatus.COMPLETADO) {
+  const becameCompleted =
+    nextStatus === VideoCaseStatus.COMPLETADO && current.status !== VideoCaseStatus.COMPLETADO;
+  const becameDownloaded =
+    nextDownloadStatus === VideoDownloadStatus.DESCARGA_REALIZADA &&
+    current.downloadStatus !== VideoDownloadStatus.DESCARGA_REALIZADA;
+  const caseAlreadyDone =
+    current.case.status === "RESUELTO" || current.case.status === "CERRADO";
+  if ((becameCompleted || becameDownloaded) && !caseAlreadyDone) {
     await prisma.case.update({
       where: { id: current.caseId },
       data: { status: "RESUELTO" },
@@ -171,7 +178,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       data: {
         caseId: current.caseId,
         type: "STATUS_CHANGE",
-        message: "Caso resuelto automáticamente al completar la solicitud de video",
+        message: "Caso resuelto automáticamente al completar la descarga de video",
         meta: { by: actorUserId },
       },
     });
