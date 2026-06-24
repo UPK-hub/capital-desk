@@ -3,7 +3,8 @@
  * (que en realidad eran novedades "NVR no reporta al centro de gestión") y enlaza
  * el correctivo a esa novedad.
  *
- *   - El correctivo NO se toca: conserva tipo, OT y toda su información.
+ *   - El correctivo conserva tipo, OT e información; solo se reasigna su creador
+ *     a Anderson Rueda (metadato del evento de creación).
  *   - La novedad se clasifica estandarizada con el catálogo:
  *       equipo afectado = NVR
  *       novedad reportada = "NVR no reporta al centro de gestión"
@@ -75,6 +76,24 @@ async function main() {
     process.exit(1);
   }
 
+  // Creador a reasignar a los CORRECTIVOS = Anderson Rueda
+  let corrCreator = await prisma.user.findFirst({
+    where: { tenantId, email: "anderson.rueda@upk.local" },
+    select: { id: true, name: true, email: true },
+  });
+  if (!corrCreator) {
+    corrCreator = await prisma.user.findFirst({
+      where: { tenantId, name: { contains: "Anderson", mode: "insensitive" } },
+      select: { id: true, name: true, email: true },
+    });
+  }
+  const corrCreatorId = corrCreator?.id;
+  console.log(`Creador a asignar a los correctivos: ${corrCreator ? `${corrCreator.name} <${corrCreator.email}>` : "✗ NO encontrado (Anderson Rueda)"}\n`);
+  if (!corrCreator && apply) {
+    console.error("✗ No se encontró el usuario Anderson Rueda para reasignar los correctivos. (Abortado.)");
+    process.exit(1);
+  }
+
   // Candidatos: correctivos cuyo título menciona P20 o P60
   const candidates = await prisma.case.findMany({
     where: {
@@ -88,7 +107,7 @@ async function main() {
     orderBy: { caseNo: "asc" },
     include: {
       bus: { select: { code: true, plate: true } },
-      events: { orderBy: { createdAt: "asc" }, select: { meta: true } },
+      events: { orderBy: { createdAt: "asc" }, select: { id: true, type: true, meta: true } },
     },
   });
 
@@ -176,11 +195,23 @@ async function main() {
             },
           },
         });
+
+        // Reasignar el creador del correctivo a Anderson Rueda (solo metadato del evento de creación).
+        if (corrCreatorId) {
+          for (const ev of corr.events) {
+            if (ev.type !== CaseEventType.CREATED) continue;
+            const m = (ev.meta ?? {}) as any;
+            await tx.caseEvent.update({
+              where: { id: ev.id },
+              data: { meta: { ...m, userId: corrCreatorId, creatorReassigned: true } },
+            });
+          }
+        }
       });
     }
 
     creadas++;
-    detalle.push(`#${corr.caseNo} ${corr.bus.code} [${corr.status}] "${corr.title}"`);
+    detalle.push(`#${corr.caseNo} ${corr.bus.code} [${corr.status}] "${corr.title}" → novedad nueva + correctivo→Anderson`);
   }
 
   console.log(`--- ${apply ? "Novedades creadas y enlazadas" : "Se crearían/enlazarían"} (${detalle.length}) ---`);
@@ -193,6 +224,7 @@ async function main() {
   console.log(`\n=== Totales ===`);
   console.log(`  Correctivos encontrados (P20/P60): ${targets.length}`);
   console.log(`  ${apply ? "Novedades creadas:" : "Novedades a crear:"}        ${creadas}`);
+  console.log(`  ${apply ? "Correctivos reasignados a Anderson:" : "Correctivos a reasignar (Anderson):"} ${creadas}`);
   if (yaEnlazados) console.log(`  Ya estaban enlazados (saltados):   ${yaEnlazados}`);
   if (!apply) console.log(`\n(Modo PRUEBA: no se escribió nada. Agrega --apply para aplicar.)`);
   console.log("");
