@@ -79,7 +79,7 @@ function relTime(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
 }
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 function venceClass(state: string) {
   if (state === "overdue") return "text-red-600 font-semibold";
@@ -333,6 +333,17 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
 
   return (
     <div className="space-y-2.5">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .cases-xscroll{scrollbar-width:thin;scrollbar-color:#cbd5e1 #eef1f5;}
+            .cases-xscroll::-webkit-scrollbar{height:11px;}
+            .cases-xscroll::-webkit-scrollbar-track{background:#eef1f5;}
+            .cases-xscroll::-webkit-scrollbar-thumb{background:#c2ccd9;border-radius:8px;border:2px solid #eef1f5;}
+            .cases-xscroll::-webkit-scrollbar-thumb:hover{background:#94a3b8;}
+          `,
+        }}
+      />
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex overflow-hidden rounded-lg border border-border/70 text-xs">
@@ -427,7 +438,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
 
       {/* Vista Tabla / Por tipo */}
       {view !== "kanban" ? (
-        <div className="overflow-x-auto rounded-2xl border border-border/60 bg-white shadow-sm">
+        <div className="cases-xscroll overflow-x-auto rounded-2xl border border-border/60 bg-white shadow-sm">
           <table className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr className="border-b border-border/50 bg-slate-50/60">
