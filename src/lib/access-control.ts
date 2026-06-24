@@ -156,13 +156,14 @@ export async function buildVideoRequestCaseScope(args: {
     isOwnCasesOnlyBackoffice(args.role, args.capabilities) ||
     isVideosOnlyBackoffice(args.role, args.capabilities);
 
-  // Visibilidad de equipo (admin de equipo con permiso de ver solicitudes de video).
+  // Roles sin restricción (administrador, etc.) ven todas las solicitudes:
+  // salimos temprano para NO hacer consultas extra de equipo (rendimiento).
+  if (!restricted) return {};
+
+  // Visibilidad de equipo (solo aplica a usuarios restringidos).
   const scope = await getTeamAdminScope({ tenantId: args.tenantId, userId: args.userId });
   const teamWhere =
     scope && scope.videoMemberIds.length > 0 ? casesOfMembersWhere(scope.videoMemberIds) : null;
-
-  // Roles sin restricción (administrador, etc.) ven todas las solicitudes.
-  if (!restricted) return {};
 
   // Con grupo asignado: ve las solicitudes creadas por cualquier miembro de su
   // mismo grupo (compartido dentro del grupo, aislado entre grupos distintos).
