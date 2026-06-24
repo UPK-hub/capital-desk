@@ -121,7 +121,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
   }, [colsOpen]);
 
   const visible = (key: string) =>
-    view === "tipo" && key === "descripcion" ? true : !hidden.has(key);
+    view === "correctivo" && key === "descripcion" ? true : !hidden.has(key);
   const toggleCol = (key: string) => {
     const next = new Set(hidden);
     if (next.has(key)) next.delete(key);
@@ -175,9 +175,21 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
     return sortDir === "asc" ? r : -r;
   };
 
-  const sorted = useMemo(() => [...rows].sort(cmp), [rows, sortKey, sortDir]);
+  const typeFilter =
+    view === "preventivo"
+      ? "PREVENTIVO"
+      : view === "correctivo"
+      ? "CORRECTIVO"
+      : view === "video"
+      ? "SOLICITUD_DESCARGA_VIDEO"
+      : null;
+  const baseRows = useMemo(
+    () => (typeFilter ? rows.filter((r) => r.type === typeFilter) : rows),
+    [rows, typeFilter]
+  );
+  const sorted = useMemo(() => [...baseRows].sort(cmp), [baseRows, sortKey, sortDir]);
 
-  const activeGroup = view === "tipo" ? "type" : groupBy;
+  const activeGroup = groupBy;
   const groups = useMemo(() => {
     if (activeGroup === "none") return [{ key: "", label: "", rows: sorted }];
     const map = new Map<string, CaseRow[]>();
@@ -346,7 +358,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
       />
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex overflow-hidden rounded-lg border border-border/70 text-xs">
+        <div className="inline-flex flex-wrap overflow-hidden rounded-lg border border-border/70 text-xs">
           <button
             type="button"
             onClick={() => setView("tabla")}
@@ -359,7 +371,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
           <button
             type="button"
             onClick={() => setView("kanban")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium ${
+            className={`inline-flex items-center gap-1.5 border-l border-border/60 px-3 py-1.5 font-medium ${
               view === "kanban" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -367,34 +379,50 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
           </button>
           <button
             type="button"
-            onClick={() => setView("tipo")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium ${
-              view === "tipo" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+            onClick={() => setView("preventivo")}
+            className={`border-l border-border/60 px-3 py-1.5 font-medium ${
+              view === "preventivo" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
             }`}
           >
-            <LayoutList className="h-3.5 w-3.5" /> Por tipo
+            Preventivos
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("correctivo")}
+            className={`border-l border-border/60 px-3 py-1.5 font-medium ${
+              view === "correctivo" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Correctivos
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("video")}
+            className={`border-l border-border/60 px-3 py-1.5 font-medium ${
+              view === "video" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Sol. video
           </button>
         </div>
 
         {view !== "kanban" ? (
           <>
-            {view === "tabla" ? (
-              <label className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-white px-2.5 py-1.5 text-xs text-slate-600">
-                <Layers className="h-3.5 w-3.5" />
-                Agrupar:
-                <select
-                  value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value)}
-                  className="bg-transparent text-xs font-medium text-slate-700 outline-none"
-                >
-                  <option value="none">Ninguno</option>
-                  <option value="status">Estado</option>
-                  <option value="type">Tipo</option>
-                  <option value="bus">Bus</option>
-                  <option value="assignee">Responsable</option>
-                </select>
-              </label>
-            ) : null}
+            <label className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-white px-2.5 py-1.5 text-xs text-slate-600">
+              <Layers className="h-3.5 w-3.5" />
+              Agrupar:
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value)}
+                className="bg-transparent text-xs font-medium text-slate-700 outline-none"
+              >
+                <option value="none">Ninguno</option>
+                <option value="status">Estado</option>
+                <option value="type">Tipo</option>
+                <option value="bus">Bus</option>
+                <option value="assignee">Responsable</option>
+              </select>
+            </label>
 
             <div className="relative" ref={colsRef}>
               <button
@@ -456,7 +484,17 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
               </tr>
             </thead>
             {activeGroup === "none" ? (
-              <tbody>{groups[0].rows.map(renderRow)}</tbody>
+              <tbody>
+                {groups[0].rows.length ? (
+                  groups[0].rows.map(renderRow)
+                ) : (
+                  <tr>
+                    <td colSpan={colCount} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                      No hay casos de este tipo (en lo cargado).
+                    </td>
+                  </tr>
+                )}
+              </tbody>
             ) : (
               groups.map((g) => (
                 <tbody key={g.key}>

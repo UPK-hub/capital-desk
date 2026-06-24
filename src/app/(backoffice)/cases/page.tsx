@@ -54,7 +54,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     prisma.case.findMany({
       where: { ...baseWhere, ...statusWhere },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 500,
       include: {
         bus: { select: { code: true, plate: true } },
         workOrder: { select: { workOrderNo: true, assignedTo: { select: { name: true } } } },
