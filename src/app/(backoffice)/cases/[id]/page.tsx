@@ -17,6 +17,7 @@ import {
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ResponsableCard from "./ui/ResponsableCard";
 import OtNumberEditor from "./ui/OtNumberEditor";
+import ChecklistCard from "./ui/ChecklistCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
@@ -27,7 +28,15 @@ import EvidenciasCard, { type EvidenceItem, type EvidenceKind } from "./ui/Evide
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
-import { CheckCircle2, FileText } from "lucide-react";
+import { slaInfo, SLA_HOURS } from "@/lib/cases/sla";
+import {
+  ChevronLeft,
+  Bus as BusIcon,
+  MapPin,
+  Wrench,
+  Zap,
+  ArrowRight,
+} from "lucide-react";
 import DeleteCaseButton from "./ui/DeleteCaseButton";
 import VideoCamerasFolders from "./ui/VideoCamerasFolders";
 
@@ -43,6 +52,12 @@ function fmtCaseNo(n?: number | null) {
 function fmtWoNo(n?: number | null) {
   if (!n) return "OT--";
   return `OT-${String(n).padStart(3, "0")}`;
+}
+
+function initials(name?: string | null) {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "··";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif", ".svg"]);
@@ -197,6 +212,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         },
       },
       assignedTo: { select: { id: true, name: true } },
+      checklist: { orderBy: [{ position: "asc" }, { createdAt: "asc" }] },
       workOrder: {
         include: {
           assignedTo: { select: { id: true, name: true, email: true, role: true } },
@@ -314,10 +330,15 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       : "No aplica / No seleccionado";
 
   const hasWo = Boolean(c.workOrder?.id);
+  const sla = slaInfo(c.createdAt.toISOString(), c.priority, c.status);
+  const slaHours = SLA_HOURS[c.priority] ?? 24;
+  const slaPct =
+    sla.state === "overdue" || sla.state === "done"
+      ? 100
+      : sla.state === "soon"
+      ? 85
+      : 45;
   const isVideoCase = c.type === "SOLICITUD_DESCARGA_VIDEO";
-  const contextBoxClass = "rounded-lg border-2 border-border/60 bg-muted/30 p-4";
-
-  const refs = `${fmtCaseNo(c.caseNo)}${c.workOrder?.workOrderNo ? ` | ${fmtWoNo(c.workOrder.workOrderNo)}` : ""}`;
   const renewalActaLabel = "Descargar acta de cambios";
   const equipmentItems = equipmentLabel
     .split("|")
@@ -341,11 +362,13 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
       return {
         kind: "CASE" as const,
+        eventType: e.type as CaseEventType | null,
         at: e.createdAt,
         title: label,
         message: e.message ?? "",
         extra,
         actor: actor ? `${actor.name} (${actor.role})` : null,
+        actorName: actor?.name ?? null,
         meta,
       };
     }),
@@ -361,11 +384,13 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
       return {
         kind: "BUS" as const,
+        eventType: null as CaseEventType | null,
         at: e.occurredAt,
         title: label,
         message: e.summary ?? "",
         extra: null as string | null,
         actor: null as string | null,
+        actorName: null as string | null,
         meta: { caseId: e.caseId, workOrderId: e.workOrderId, busEquipmentId: e.busEquipmentId },
       };
     }),
@@ -608,225 +633,304 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header sticky top-16 lg:static lg:top-auto">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-0">
-          <div className="min-w-0 space-y-2">
-            <EditCaseTitleCard caseId={c.id} initialTitle={c.title} canEdit={canEditTitle} />
-            <p className="truncate text-xs leading-tight text-muted-foreground lg:text-sm">
-              {fmtCaseNo(c.caseNo)} | Caso <span className="font-mono">{c.id}</span> | Creado {fmtDate(c.createdAt)}
-            </p>
+        <div className="mx-auto w-full max-w-[1600px] px-4 py-4 lg:px-6 lg:py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href="/cases"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground lg:text-[13px]"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 text-blue-600" />
+              <span className="font-medium text-blue-600">Casos</span>
+              <span className="px-1 text-muted-foreground/60">/</span>
+              <span className="font-medium">{fmtCaseNo(c.caseNo)}</span>
+            </Link>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} />
+              <StatusPill
+                status={mapCaseStatusForPill(c.status)}
+                label={labelFromMap(c.status, caseStatusLabels)}
+              />
+              <PriorityBadge priority={c.priority} />
+              {sla.state !== "done" ? (
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                    sla.overdue
+                      ? "bg-red-50 text-red-700"
+                      : sla.state === "soon"
+                      ? "bg-amber-50 text-amber-700"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {sla.label}
+                </span>
+              ) : null}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} />
-            <StatusPill
-              status={mapCaseStatusForPill(c.status)}
-              label={labelFromMap(c.status, caseStatusLabels)}
-            />
-            <PriorityBadge priority={c.priority} />
+          <div className="mt-3 min-w-0">
+            <EditCaseTitleCard caseId={c.id} initialTitle={c.title} canEdit={canEditTitle} />
+            <p className="mt-1 truncate text-xs leading-tight text-muted-foreground lg:text-[13px]">
+              {fmtCaseNo(c.caseNo)} · Caso <span className="font-mono">{c.id}</span> · Creado {fmtDate(c.createdAt)}
+            </p>
           </div>
         </div>
       </header>
 
       <div className="mobile-page-content max-w-[1600px] lg:px-6">
-        <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
-          <section className="sts-card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border/50 bg-muted/20 p-4 lg:p-5">
-              <h2 className="text-base font-semibold">Contexto</h2>
-              <Link className="text-xs underline lg:text-sm" href={`/buses/${c.bus.id}`}>
-                Ver hoja de vida del bus
-              </Link>
-            </div>
-
-            <div className="divide-y divide-border/30 lg:hidden">
-              <div className="p-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Bus</p>
-                <p className="text-sm font-medium">
-                  {c.bus.code} {c.bus.plate ? `| ${c.bus.plate}` : ""}
-                </p>
-              </div>
-
-              <div className="p-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Equipos</p>
-                {equipmentItems.length === 0 ? (
-                  <p className="text-sm font-medium">No aplica / No seleccionado</p>
-                ) : (
-                  <div className="max-h-40 overflow-y-auto rounded-lg bg-muted/30 p-3">
-                    <ul className="space-y-1 text-xs">
-                      {equipmentItems.map((item, idx) => (
-                        <li key={`${item}-${idx}`} className="flex items-start gap-2">
-                          <span className="mt-0.5 text-muted-foreground">•</span>
-                          <span className="break-all">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Descripción</p>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{c.description}</p>
-              </div>
-            </div>
-
-            <div className="hidden gap-4 p-5 md:grid md:grid-cols-2">
-              <div className={contextBoxClass}>
-                <p className="text-xs text-muted-foreground">Bus</p>
-                <p className="mt-1 text-sm font-medium">
-                  {c.bus.code} {c.bus.plate ? `| ${c.bus.plate}` : ""}
-                </p>
-              </div>
-
-              <div className={contextBoxClass}>
-                <p className="text-xs text-muted-foreground">Equipo</p>
-                {equipmentItems.length === 0 ? (
-                  <p className="mt-1 text-sm font-medium">No aplica / No seleccionado</p>
-                ) : (
-                  <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-lg border border-border/60 bg-card/80 p-2">
-                    {equipmentItems.map((item, idx) => (
-                      <p key={`${item}-${idx}`} className="text-xs leading-relaxed">
-                        • {item}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className={`${contextBoxClass} md:col-span-2`}>
-                <p className="text-xs text-muted-foreground">Descripcion</p>
-                <p className="mt-1 text-sm whitespace-pre-wrap">{c.description}</p>
-              </div>
-            </div>
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4 lg:space-y-5">
+          <section className="sts-card p-4 lg:p-5">
+            <p className="mb-1.5 text-xs font-semibold text-slate-600">Descripción</p>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-600">{c.description}</p>
           </section>
 
+          {!isVideoCase ? (
+            <ChecklistCard
+              caseId={c.id}
+              initial={c.checklist.map((it) => ({ id: it.id, text: it.text, done: it.done }))}
+            />
+          ) : null}
+
           <section className="sts-card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border/50 bg-muted/20 p-4 lg:p-5">
-              <h2 className="text-base font-semibold">Trazabilidad</h2>
-              <p className="text-xs text-muted-foreground">
-                {c.events.length} eventos de caso | {lifecycle.length} eventos de bus
+            <div className="flex items-center justify-between border-b border-border/50 bg-muted/20 px-4 py-3 lg:px-5">
+              <h2 className="text-[13px] font-semibold text-slate-700">Actividad</h2>
+              <p className="text-[11px] text-muted-foreground">
+                {c.events.length} de caso · {lifecycle.length} de bus
               </p>
             </div>
 
-            <div className="divide-y divide-border/30 lg:hidden">
-              {timeline.map((it, idx) => (
-                <div key={`${it.kind}-${idx}`} className="relative">
-                  {idx !== timeline.length - 1 ? (
-                    <div className="absolute bottom-0 left-7 top-12 w-px bg-border/80" />
-                  ) : null}
+            <div className="p-4 lg:p-5">
+              <CaseCommentsCard caseId={c.id} comments={caseComments} composerOnly />
 
-                  <div className="flex items-start gap-3 p-4">
-                    <div
-                      className={`relative z-10 mt-1 rounded-full p-1.5 ${
-                        it.kind === "CASE" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
-                      }`}
-                    >
-                      {it.kind === "CASE" ? <FileText className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-                    </div>
+              <div className="mt-4 flex flex-col gap-3">
+                {sla.state === "overdue" || sla.state === "soon" ? (
+                  <div className="flex items-center gap-2.5 text-[11.5px]">
+                    <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                      <Zap className="h-3 w-3" />
+                    </span>
+                    <span className="text-amber-700">
+                      <b className="font-semibold text-amber-800">Automatización</b> · {sla.label} — objetivo de resolución P{c.priority}
+                    </span>
+                  </div>
+                ) : null}
 
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <span
-                          className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium ${
-                            it.kind === "CASE" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"
-                          }`}
-                        >
-                          {it.kind}
+                {[...timeline].reverse().map((it, idx) => {
+                  if (it.eventType === "COMMENT") {
+                    return (
+                      <div key={`act-${idx}`} className="flex gap-2.5">
+                        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-blue-600/10 text-[10px] font-semibold text-blue-700">
+                          {initials(it.actorName)}
                         </span>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{fmtDate(it.at)}</span>
-                      </div>
-
-                      <p className="text-sm font-semibold leading-snug">{it.title}</p>
-                      {it.message ? <p className="text-xs leading-relaxed text-muted-foreground">{it.message}</p> : null}
-                      {it.extra ? <p className="text-xs leading-relaxed text-muted-foreground">{it.extra}</p> : null}
-                      {it.actor ? (
-                        <p className="text-xs text-muted-foreground">
-                          Por: <span className="font-medium text-foreground">{it.actor}</span>
-                        </p>
-                      ) : null}
-
-                      {debug && it.meta ? (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-xs text-muted-foreground">Ver detalles tecnicos</summary>
-                          <pre className="mt-2 max-h-56 overflow-auto rounded bg-zinc-50 p-2 text-xs">
-                            {JSON.stringify(it.meta, null, 2)}
-                          </pre>
-                        </details>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="hidden space-y-3 p-5 lg:block">
-              {timeline.map((it, idx) => (
-                <div key={`${it.kind}-${idx}`} className="flex gap-3">
-                  <div
-                    className={`mt-1 inline-flex h-9 w-9 items-center justify-center rounded-xl ${
-                      it.kind === "CASE" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
-                    }`}
-                  >
-                    {it.kind === "CASE" ? <FileText className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                  </div>
-                  <div className="flex-1 rounded-2xl border border-border/65 bg-white p-4 shadow-[var(--shadow-card)]">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium ${
-                              it.kind === "CASE"
-                                ? "border-blue-200/90 bg-blue-50 text-blue-700"
-                                : "border-emerald-200/90 bg-emerald-50 text-emerald-700"
-                            }`}
-                          >
-                            {it.kind}
-                          </span>
-                          <p className="text-sm font-semibold">{it.title}</p>
-                          <span className="text-xs text-muted-foreground">{refs}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 text-[11px] text-muted-foreground">
+                            {it.actorName ? (
+                              <b className="font-semibold text-slate-700">{it.actorName}</b>
+                            ) : (
+                              "Comentario"
+                            )}{" "}
+                            · comentario · {fmtDate(it.at)}
+                          </div>
+                          <div className="whitespace-pre-wrap rounded-[10px] border border-border/60 bg-slate-50/70 px-3 py-2 text-[12.5px] text-slate-700">
+                            {it.message || "—"}
+                          </div>
                         </div>
-
-                        {it.message ? <p className="mt-1 text-sm text-muted-foreground">{it.message}</p> : null}
-                        {it.extra ? <p className="mt-1 text-sm text-muted-foreground">{it.extra}</p> : null}
-
-                        {it.actor ? (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Por: <span className="font-medium text-foreground">{it.actor}</span>
-                          </p>
-                        ) : null}
                       </div>
-
-                      <p className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(it.at)}</p>
+                    );
+                  }
+                  return (
+                    <div key={`act-${idx}`} className="flex items-start gap-2.5 text-[11.5px]">
+                      <span
+                        className={`mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full ${
+                          it.kind === "CASE" ? "bg-slate-100 text-slate-500" : "bg-emerald-50 text-emerald-600"
+                        }`}
+                      >
+                        {it.kind === "CASE" ? <ArrowRight className="h-3 w-3" /> : <Wrench className="h-3 w-3" />}
+                      </span>
+                      <span className="min-w-0 flex-1 leading-relaxed">
+                        {it.actorName ? <b className="font-semibold text-slate-700">{it.actorName} </b> : null}
+                        <span className="text-slate-600">{it.title}</span>
+                        {it.message ? <span className="text-muted-foreground"> — {it.message}</span> : null}
+                        {it.extra ? <span className="text-muted-foreground"> · {it.extra}</span> : null}
+                        <span className="text-muted-foreground/70"> · {fmtDate(it.at)}</span>
+                        {debug && it.meta ? (
+                          <details className="mt-1">
+                            <summary className="cursor-pointer text-[11px] text-muted-foreground">meta</summary>
+                            <pre className="mt-1 max-h-56 overflow-auto rounded bg-zinc-50 p-2 text-[11px]">
+                              {JSON.stringify(it.meta, null, 2)}
+                            </pre>
+                          </details>
+                        ) : null}
+                      </span>
                     </div>
+                  );
+                })}
 
-                    {debug && it.meta ? (
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-xs text-muted-foreground">Ver detalles tecnicos</summary>
-                        <pre className="mt-2 max-h-56 overflow-auto rounded bg-zinc-50 p-2 text-xs">
-                          {JSON.stringify(it.meta, null, 2)}
-                        </pre>
-                      </details>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
+                {timeline.length === 0 ? (
+                  <p className="text-[12px] text-muted-foreground">Sin actividad registrada todavía.</p>
+                ) : null}
+              </div>
             </div>
-
-            {!debug ? (
-              <p className="p-4 text-xs text-muted-foreground lg:px-5 lg:pb-5 lg:pt-0">
-                Detalles tecnicos ocultos. Para ver meta: agrega <span className="font-mono">?debug=1</span> a la URL.
-              </p>
-            ) : null}
           </section>
 
           {showEvidenceCard ? <EvidenciasCard caseId={c.id} items={evidenceItems} /> : null}
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-4 lg:space-y-5">
+          {/* Propiedades */}
+          <section className="sts-card p-4 lg:p-5">
+            <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[.04em] text-slate-400">Propiedades</p>
+            <div className="flex flex-col gap-2.5 text-[12.5px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Estado</span>
+                <StatusPill
+                  status={mapCaseStatusForPill(c.status)}
+                  label={labelFromMap(c.status, caseStatusLabels)}
+                  size="sm"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Prioridad</span>
+                <PriorityBadge priority={c.priority} size="sm" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Tipo</span>
+                <TypeBadge type={c.type} label={labelFromMap(c.type, caseTypeLabels)} size="sm" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Responsable</span>
+                {c.assignedTo?.name ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600/10 text-[9px] font-semibold text-blue-700">
+                      {initials(c.assignedTo.name)}
+                    </span>
+                    {c.assignedTo.name}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Sin asignar</span>
+                )}
+              </div>
+              {isVideoCase && vdr?.requesterName ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Solicitante</span>
+                  <span className="font-medium text-slate-700">{vdr.requesterName}</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Bus</span>
+                <Link href={`/buses/${c.bus.id}`} className="font-medium text-slate-700 transition hover:text-blue-600">
+                  {c.bus.code}
+                  {c.bus.plate ? ` · ${c.bus.plate}` : ""}
+                </Link>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Creado</span>
+                <span className="text-slate-600">{fmtDate(c.createdAt)}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* SLA */}
+          <section className="sts-card p-4 lg:p-5">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[.04em] text-slate-400">SLA</p>
+              <span
+                className={`text-[11px] font-semibold ${
+                  sla.overdue
+                    ? "text-red-600"
+                    : sla.state === "soon"
+                    ? "text-amber-600"
+                    : sla.state === "done"
+                    ? "text-emerald-600"
+                    : "text-slate-500"
+                }`}
+              >
+                {sla.state === "done" ? "Sin SLA pendiente" : sla.label}
+              </span>
+            </div>
+            <div className="mb-2.5 h-[5px] w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full ${
+                  sla.overdue
+                    ? "bg-red-500"
+                    : sla.state === "soon"
+                    ? "bg-amber-500"
+                    : sla.state === "done"
+                    ? "bg-emerald-500"
+                    : "bg-blue-600"
+                }`}
+                style={{ width: `${slaPct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11.5px] text-slate-600">
+              <span>
+                Resolución (P{c.priority}: {slaHours} h)
+              </span>
+              <span
+                className={`font-semibold ${
+                  sla.overdue ? "text-red-600" : sla.state === "done" ? "text-emerald-600" : "text-slate-600"
+                }`}
+              >
+                {sla.overdue ? "Excedida" : sla.state === "done" ? "Cumplida" : "En curso"}
+              </span>
+            </div>
+          </section>
+
+          {/* Contexto del bus */}
+          <section className="sts-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 pt-4 lg:px-5">
+              <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-slate-700">
+                <BusIcon className="h-4 w-4 text-blue-600" /> Bus {c.bus.code}
+              </span>
+              <Link href={`/buses/${c.bus.id}`} className="text-[11px] font-medium text-blue-600 hover:underline">
+                Ver ficha ›
+              </Link>
+            </div>
+            <div
+              className="relative mx-4 mt-3 h-[84px] overflow-hidden rounded-[10px] lg:mx-5"
+              style={{ background: "linear-gradient(135deg,#eaf0f7 0%,#dde8f3 100%)" }}
+            >
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(#ffffff55 1px,transparent 1px),linear-gradient(90deg,#ffffff55 1px,transparent 1px)",
+                  backgroundSize: "20px 20px",
+                }}
+              />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-red-600">
+                <MapPin className="h-5 w-5" />
+              </div>
+              {c.bus.plate ? (
+                <span className="absolute bottom-1.5 left-2 rounded bg-white/80 px-1.5 py-0.5 text-[10px] text-slate-600">
+                  {c.bus.plate}
+                </span>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1.5 p-4 lg:p-5">
+              {equipmentItems.length === 0 ? (
+                <p className="text-[11.5px] text-muted-foreground">Sin equipos asociados.</p>
+              ) : (
+                equipmentItems.slice(0, 6).map((item, idx) => (
+                  <div key={`eq-${idx}`} className="flex items-center gap-2 text-[11.5px] text-slate-600">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
+                    <span className="truncate">{item}</span>
+                  </div>
+                ))
+              )}
+              <Link
+                href="/telemetry"
+                className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-blue-600 hover:underline"
+              >
+                <Zap className="h-3 w-3" /> Ver telemetría ›
+              </Link>
+            </div>
+          </section>
+
           {isVideoCase ? (
             <>
               <section className="sts-card overflow-hidden">
-                <div className="border-b border-border/50 bg-muted/20 p-5">
+                <div className="border-b border-border/50 bg-slate-50/60 p-5">
                   <h2 className="text-base font-semibold">Solicitud de video</h2>
                 </div>
 
@@ -911,7 +1015,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               ) : null}
 
               <section className="sts-card overflow-hidden">
-                <div className="border-b border-border/50 bg-muted/20 p-5">
+                <div className="border-b border-border/50 bg-slate-50/60 p-5">
                   <h2 className="text-base font-semibold">Gestión de video</h2>
                 </div>
 
@@ -942,8 +1046,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           ) : (
             <>
               <section className="sts-card overflow-hidden">
-                <div className="border-b border-border/50 bg-muted/20 p-5">
-                  <h2 className="text-xl font-semibold">Orden de trabajo</h2>
+                <div className="flex items-center gap-1.5 border-b border-border/50 bg-muted/20 px-4 py-3 lg:px-5">
+                  <Wrench className="h-4 w-4 text-indigo-500" />
+                  <h2 className="text-[13px] font-semibold text-slate-700">Orden de trabajo</h2>
                 </div>
 
                 <div className="space-y-2 p-5">
@@ -1094,7 +1199,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
               {c.stsTicket ? (
                 <section className="sts-card overflow-hidden">
-                  <div className="border-b border-border/50 bg-muted/20 p-5">
+                  <div className="border-b border-border/50 bg-slate-50/60 p-5">
                     <h2 className="text-xl font-semibold">Ticket STS</h2>
                   </div>
                   <div className="space-y-2 p-5">
@@ -1118,7 +1223,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
               {c.stsTicket?.events?.length ? (
                 <section className="sts-card overflow-hidden">
-                  <div className="border-b border-border/50 bg-muted/20 p-5">
+                  <div className="border-b border-border/50 bg-slate-50/60 p-5">
                     <h2 className="text-base font-semibold">Timeline STS</h2>
                   </div>
                   <div className="space-y-2 p-5">
@@ -1158,7 +1263,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                 />
               ) : (
                 <section className="sts-card overflow-hidden">
-                  <div className="border-b border-border/50 bg-muted/20 p-5">
+                  <div className="border-b border-border/50 bg-slate-50/60 p-5">
                     <h2 className="text-base font-semibold">Asignación</h2>
                   </div>
                   <div className="p-5">
@@ -1175,11 +1280,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </>
           )}
 
-          <CaseCommentsCard caseId={c.id} comments={caseComments} />
-
           <section className="sts-card overflow-hidden">
-            <div className="border-b border-border/50 bg-muted/20 p-5">
-              <h2 className="text-base font-semibold">Acciones</h2>
+            <div className="border-b border-border/50 bg-muted/20 px-4 py-3 lg:px-5">
+              <h2 className="text-[13px] font-semibold text-slate-700">Acciones</h2>
             </div>
             <div className="space-y-2 p-5">
               <Link

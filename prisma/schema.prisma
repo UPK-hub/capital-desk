@@ -781,6 +781,7 @@ model Case {
   workOrder WorkOrder?
   events    CaseEvent[]
   stsTicket StsTicket?
+  checklist CaseChecklistItem[]
 
   videoDownloadRequest VideoDownloadRequest?
   caseEquipments       CaseEquipment[]
@@ -1411,6 +1412,20 @@ model DashboardLayout {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([tenantId])
+}
+
+// Checklist de diagnóstico por caso (pasos/subtareas marcables).
+model CaseChecklistItem {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  text      String
+  done      Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([caseId])
 }
 
 enum NotificationType {
