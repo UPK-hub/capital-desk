@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { generateRawToken, hashToken } from "@/lib/reset-token";
+import { getTeamAdminScope } from "@/lib/access-control";
 import { sendPasswordResetEmail } from "@/lib/security/password-reset-email";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { ADMIN_RESET_RATE_LIMIT } from "@/lib/security/constants";
@@ -16,11 +17,26 @@ export async function POST(_req: NextRequest, ctx: { params: { id: string } }) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const tenantId = (session.user as any).tenantId as string;
   const adminId = (session.user as any).id as string | undefined;
   const userId = String(ctx.params.id);
+
+  // Autorización: ADMIN global, o admin de equipo (con permiso "gestionar
+  // usuarios") sobre un miembro de su equipo — nunca sobre otro ADMIN, para
+  // evitar escalamiento de privilegios.
+  let allowed = role === Role.ADMIN;
+  if (!allowed) {
+    const scope = adminId ? await getTeamAdminScope({ tenantId, userId: String(adminId) }) : null;
+    if (scope && scope.manageMemberIds.includes(userId)) {
+      const target = await prisma.user.findFirst({
+        where: { id: userId, tenantId },
+        select: { role: true },
+      });
+      allowed = !!target && target.role !== Role.ADMIN;
+    }
+  }
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const ip = getClientIp(_req);
 
   const rate = consumeRateLimit({
