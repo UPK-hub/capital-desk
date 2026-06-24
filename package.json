@@ -31,7 +31,8 @@
     "backfill:preventivo-ot": "tsx scripts/backfill-preventivo-ot.ts",
     "import:evidencias": "tsx scripts/import-evidencias-preventivo.ts",
     "asignar:responsable": "tsx scripts/asignar-responsable-preventivo.ts",
-    "novedad:desde-correctivo": "tsx scripts/novedad-desde-correctivo.ts"
+    "novedad:desde-correctivo": "tsx scripts/novedad-desde-correctivo.ts",
+    "fix:creadores": "tsx scripts/fix-creadores-novedad-correctivo.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
