@@ -27,7 +27,8 @@
     "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
     "tramas:inspect": "tsx scripts/inspect-trama-payload.ts",
     "import:preventivos": "tsx scripts/import-preventivos.ts",
-    "export:preventivos": "tsx scripts/export-preventivos-import.ts"
+    "export:preventivos": "tsx scripts/export-preventivos-import.ts",
+    "backfill:preventivo-ot": "tsx scripts/backfill-preventivo-ot.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

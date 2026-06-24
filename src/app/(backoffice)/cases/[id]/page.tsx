@@ -16,6 +16,7 @@ import {
 } from "@/lib/labels";
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ResponsableCard from "./ui/ResponsableCard";
+import OtNumberEditor from "./ui/OtNumberEditor";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
@@ -952,6 +953,16 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                       {c.workOrder?.workOrderNo ? fmtWoNo(c.workOrder.workOrderNo) : "-"}
                     </p>
                   </div>
+
+                  {hasWo &&
+                  (role === Role.ADMIN ||
+                    role === Role.BACKOFFICE ||
+                    role === Role.SUPERVISOR ||
+                    role === Role.PLANNER) ? (
+                    <div className="sts-card p-3">
+                      <OtNumberEditor caseId={c.id} current={c.workOrder?.workOrderNo ?? null} />
+                    </div>
+                  ) : null}
 
                   <div className="sts-card p-3">
                     <p className="text-xs text-muted-foreground">Estado OT</p>

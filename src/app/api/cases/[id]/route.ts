@@ -316,12 +316,14 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   // ---- Responsable del caso (cualquier estado; NO reabre ni requiere OT) ----
+  // También sincroniza el "Técnico asignado" de la OT (si existe) para que el
+  // panel "Orden de trabajo" lo refleje.
   if (Object.prototype.hasOwnProperty.call(body ?? {}, "assignedToId")) {
     const raw = body?.assignedToId;
     const newAssignee = raw ? String(raw).trim() : null;
     const target = await prisma.case.findFirst({
       where: { id, tenantId },
-      select: { id: true },
+      select: { id: true, workOrder: { select: { id: true } } },
     });
     if (!target) return NextResponse.json({ error: "Caso no encontrado." }, { status: 404 });
 
@@ -331,7 +333,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
         select: { id: true, name: true },
       });
       if (!u) return NextResponse.json({ error: "Usuario inválido o inactivo." }, { status: 400 });
-      await prisma.$transaction([
+      const ops: any[] = [
         prisma.case.update({ where: { id: target.id }, data: { assignedToId: u.id } }),
         prisma.caseEvent.create({
           data: {
@@ -341,11 +343,15 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
             meta: { assignedToId: u.id, by: userId },
           },
         }),
-      ]);
+      ];
+      if (target.workOrder) {
+        ops.push(prisma.workOrder.update({ where: { id: target.workOrder.id }, data: { assignedToId: u.id } }));
+      }
+      await prisma.$transaction(ops);
       return NextResponse.json({ ok: true, caseId: target.id, assignedToId: u.id });
     }
 
-    await prisma.$transaction([
+    const ops: any[] = [
       prisma.case.update({ where: { id: target.id }, data: { assignedToId: null } }),
       prisma.caseEvent.create({
         data: {
@@ -355,8 +361,47 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
           meta: { by: userId },
         },
       }),
-    ]);
+    ];
+    if (target.workOrder) {
+      ops.push(prisma.workOrder.update({ where: { id: target.workOrder.id }, data: { assignedToId: null } }));
+    }
+    await prisma.$transaction(ops);
     return NextResponse.json({ ok: true, caseId: target.id, assignedToId: null });
+  }
+
+  // ---- Número de OT (lo asigna CapitalBus; editable) ----
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "workOrderNo")) {
+    const rawNo = body?.workOrderNo;
+    const target = await prisma.case.findFirst({
+      where: { id, tenantId },
+      select: { id: true, workOrder: { select: { id: true } } },
+    });
+    if (!target) return NextResponse.json({ error: "Caso no encontrado." }, { status: 404 });
+    if (!target.workOrder) {
+      return NextResponse.json({ error: "Este caso no tiene OT. Genérala primero." }, { status: 400 });
+    }
+    const digits = rawNo === null || rawNo === undefined ? "" : String(rawNo).replace(/\D/g, "");
+    const num = digits ? Number(digits) : null;
+    if (num !== null && (!Number.isFinite(num) || num <= 0)) {
+      return NextResponse.json({ error: "Número de OT inválido." }, { status: 400 });
+    }
+    if (num !== null) {
+      const dup = await prisma.workOrder.findFirst({
+        where: { tenantId, workOrderNo: num, NOT: { id: target.workOrder.id } },
+        select: { id: true },
+      });
+      if (dup) return NextResponse.json({ error: `La OT #${num} ya existe en otro caso.` }, { status: 409 });
+    }
+    await prisma.workOrder.update({ where: { id: target.workOrder.id }, data: { workOrderNo: num } });
+    await prisma.caseEvent.create({
+      data: {
+        caseId: target.id,
+        type: CaseEventType.COMMENT,
+        message: num ? `Número de OT actualizado: ${num}` : "Número de OT removido",
+        meta: { by: userId, workOrderNo: num },
+      },
+    });
+    return NextResponse.json({ ok: true, caseId: target.id, workOrderNo: num });
   }
 
   const nextStatus = String(body?.status ?? "").trim().toUpperCase();
