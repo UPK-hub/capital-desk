@@ -28,7 +28,8 @@
     "tramas:inspect": "tsx scripts/inspect-trama-payload.ts",
     "import:preventivos": "tsx scripts/import-preventivos.ts",
     "export:preventivos": "tsx scripts/export-preventivos-import.ts",
-    "backfill:preventivo-ot": "tsx scripts/backfill-preventivo-ot.ts"
+    "backfill:preventivo-ot": "tsx scripts/backfill-preventivo-ot.ts",
+    "import:evidencias": "tsx scripts/import-evidencias-preventivo.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

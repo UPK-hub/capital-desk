@@ -44,3 +44,8 @@ next-env.d.ts
 
 # Artefactos de montaje (sandbox)
 .fuse_hidden*
+
+# Evidencias de mantenimiento (NO versionar: son cientos de imágenes)
+/evidencias/
+/6.Junio/
+*.Junio.zip
