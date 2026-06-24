@@ -1,5 +1,5 @@
 /**
- * Crea una NOVEDAD de origen para cada CORRECTIVO cuyo título menciona P20/P60
+ * Crea una NOVEDAD de origen para cada CORRECTIVO creado por Daniel Osorio
  * (que en realidad eran novedades "NVR no reporta al centro de gestión") y enlaza
  * el correctivo a esa novedad.
  *
@@ -29,9 +29,6 @@ const CATALOG_CODE = "NVD-200";
 const AFFECTED_EQUIPMENT = "NVR";
 const REPORTED_NOVELTY = "NVR no reporta al centro de gestión";
 
-// El título debe mencionar P20 o P60 (con o sin "sin"): "Sin P60;P20", "P20 Y P60", etc.
-const POS_REGEX = /\bp\s?(20|60)\b/i;
-
 function arg(flag: string): string | null {
   const i = process.argv.indexOf(flag);
   return i >= 0 ? String(process.argv[i + 1] ?? "") : null;
@@ -42,7 +39,7 @@ async function main() {
   const tenantCode = arg("--tenant") || "CAPITALBUS";
   const byEmail = (arg("--by") || "").toLowerCase(); // correo opcional del creador de las novedades (Daniel Osorio)
 
-  console.log(`\n=== Crear novedad de origen para correctivos "Sin P20/P60" ===`);
+  console.log(`\n=== Crear novedad de origen para correctivos creados por Daniel Osorio ===`);
   console.log(`Modo:   ${apply ? "APLICAR (escribe en BD)" : "PRUEBA (no toca nada)"}`);
   console.log(`Tenant: ${tenantCode}`);
   console.log(`Estándar: equipo=${AFFECTED_EQUIPMENT} · "${REPORTED_NOVELTY}" · código ${CATALOG_CODE}\n`);
@@ -71,10 +68,11 @@ async function main() {
   }
   const operatorId = creator?.id;
   console.log(`Creador de las novedades: ${creator ? `${creator.name} <${creator.email}>` : "✗ NO encontrado (Daniel Osorio)"}\n`);
-  if (!creator && apply) {
+  if (!creator) {
     console.error("✗ No se encontró el usuario creador (Daniel Osorio). Pásalo con --by <correo>. (Abortado.)");
     process.exit(1);
   }
+  const danielId = creator.id;
 
   // Creador a reasignar a los CORRECTIVOS = Anderson Rueda
   let corrCreator = await prisma.user.findFirst({
@@ -94,14 +92,14 @@ async function main() {
     process.exit(1);
   }
 
-  // Candidatos: correctivos cuyo título menciona P20 o P60
-  const candidates = await prisma.case.findMany({
+  // Objetivo: correctivos creados por Daniel Osorio (evento CREATED con su userId o by).
+  const targets = await prisma.case.findMany({
     where: {
       tenantId,
       type: CaseType.CORRECTIVO,
       OR: [
-        { title: { contains: "P20", mode: "insensitive" } },
-        { title: { contains: "P60", mode: "insensitive" } },
+        { events: { some: { type: CaseEventType.CREATED, meta: { path: ["userId"], equals: danielId } } } },
+        { events: { some: { type: CaseEventType.CREATED, meta: { path: ["by"], equals: danielId } } } },
       ],
     },
     orderBy: { caseNo: "asc" },
@@ -110,8 +108,6 @@ async function main() {
       events: { orderBy: { createdAt: "asc" }, select: { id: true, type: true, meta: true } },
     },
   });
-
-  const targets = candidates.filter((c) => POS_REGEX.test(c.title));
 
   let creadas = 0;
   let yaEnlazados = 0;
@@ -232,7 +228,7 @@ async function main() {
   }
 
   console.log(`\n=== Totales ===`);
-  console.log(`  Correctivos encontrados (P20/P60): ${targets.length}`);
+  console.log(`  Correctivos de Daniel encontrados: ${targets.length}`);
   console.log(`  ${apply ? "Novedades creadas:" : "Novedades a crear:"}        ${creadas}`);
   console.log(`  ${apply ? "Correctivos reasignados a Anderson:" : "Correctivos a reasignar (Anderson):"} ${reasignados}`);
   if (yaEnlazados) console.log(`  Ya estaban enlazados (saltados):   ${yaEnlazados}`);
