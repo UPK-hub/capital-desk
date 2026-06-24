@@ -25,7 +25,8 @@
     "backfill:video-cases": "tsx scripts/backfill-video-cases-cerrado.ts",
     "equipos:ensure": "tsx scripts/ensure-new-equipments.ts",
     "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
-    "tramas:inspect": "tsx scripts/inspect-trama-payload.ts"
+    "tramas:inspect": "tsx scripts/inspect-trama-payload.ts",
+    "import:preventivos": "tsx scripts/import-preventivos.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
