@@ -11,6 +11,7 @@ import { Select } from "@/components/Field";
 import { FileSpreadsheet, Plus } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
 import NovedadesTable, { NovedadRow } from "@/components/novedades/NovedadesTable";
+import PorEquipoChart from "@/components/novedades/PorEquipoChart";
 
 type EventLike = { createdAt: Date; meta: unknown };
 
@@ -164,12 +165,22 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       equipo: equipoLabel(state?.affectedEquipment),
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
+      resolvedAt:
+        c.status === CaseStatus.RESUELTO || c.status === CaseStatus.CERRADO ? c.updatedAt.toISOString() : null,
       corrId: linked?.id ?? null,
       corrCaseNo: linked?.caseNo ?? null,
       corrStatus: linked?.status ?? null,
       corrWorkOrderNo: linked?.workOrder?.workOrderNo ?? null,
     };
   });
+
+  // Conteo por equipo afectado (para el gráfico de barras)
+  const equipoCount = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.equipo) continue;
+    equipoCount.set(r.equipo, (equipoCount.get(r.equipo) ?? 0) + 1);
+  }
+  const porEquipo = Array.from(equipoCount.entries()).map(([label, value]) => ({ label, value }));
 
   const cnt: Record<string, number> = {};
   for (const g of grouped) cnt[g.status] = g._count._all;
@@ -304,6 +315,9 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
         <main className="min-w-0 space-y-3">
           {/* Resumen */}
           <CasesResumen summary={summary} currentMonth={rmonth} months={months} basePath="/novedades" />
+
+          {/* Por equipo afectado */}
+          {porEquipo.length ? <PorEquipoChart data={porEquipo} /> : null}
 
           {/* Filtros */}
           <form method="get" className="space-y-3 rounded-2xl border border-border/60 bg-white p-3 shadow-sm">
