@@ -39,7 +39,7 @@ function arg(flag: string): string | null {
 async function main() {
   const apply = process.argv.includes("--apply");
   const tenantCode = arg("--tenant") || "CAPITALBUS";
-  const byEmail = (arg("--by") || "anderson.rueda@upk.local").toLowerCase();
+  const byEmail = (arg("--by") || "").toLowerCase(); // correo opcional del creador de las novedades (Daniel Osorio)
 
   console.log(`\n=== Crear novedad de origen para correctivos "Sin P20/P60" ===`);
   console.log(`Modo:   ${apply ? "APLICAR (escribe en BD)" : "PRUEBA (no toca nada)"}`);
@@ -55,17 +55,23 @@ async function main() {
   }
   const tenantId = tenant.id;
 
-  let creator = await prisma.user.findFirst({ where: { tenantId, email: byEmail }, select: { id: true, name: true, email: true } });
+  // Creador de las NOVEDADES = Daniel Osorio (por correo si se pasa --by, si no por nombre)
+  let creator = byEmail
+    ? await prisma.user.findFirst({ where: { tenantId, email: byEmail }, select: { id: true, name: true, email: true } })
+    : null;
   if (!creator) {
-    creator = await prisma.user.findFirst({
-      where: { tenantId, name: { contains: "Anderson", mode: "insensitive" } },
-      select: { id: true, name: true, email: true },
-    });
+    for (const token of ["Daniel Osorio", "Osorio"]) {
+      creator = await prisma.user.findFirst({
+        where: { tenantId, name: { contains: token, mode: "insensitive" } },
+        select: { id: true, name: true, email: true },
+      });
+      if (creator) break;
+    }
   }
   const operatorId = creator?.id;
-  console.log(`Creador de las novedades: ${creator ? `${creator.name} <${creator.email}>` : `✗ NO encontrado (${byEmail})`}\n`);
+  console.log(`Creador de las novedades: ${creator ? `${creator.name} <${creator.email}>` : "✗ NO encontrado (Daniel Osorio)"}\n`);
   if (!creator && apply) {
-    console.error("✗ No se encontró el usuario creador (Anderson Rueda). Verifica con --by. (Abortado.)");
+    console.error("✗ No se encontró el usuario creador (Daniel Osorio). Pásalo con --by <correo>. (Abortado.)");
     process.exit(1);
   }
 
