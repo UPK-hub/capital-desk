@@ -19,6 +19,8 @@ export type CaseRow = {
   status: string;
   priority: number;
   assignee: string | null;
+  workOrderNo: number | null;
+  description: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -31,11 +33,14 @@ const COLUMNS: { key: string; label: string; always?: boolean; sortable?: boolea
   { key: "status", label: "Estado", sortable: true },
   { key: "vence", label: "Vence (SLA)", sortable: true },
   { key: "assignee", label: "Asignado", sortable: true },
+  { key: "ot", label: "# OT", sortable: true },
+  { key: "descripcion", label: "Descripción" },
   { key: "createdAt", label: "Creado", sortable: true },
   { key: "updatedAt", label: "Actualizado", sortable: true },
 ];
 
-const STORAGE_KEY = "capitaldesk.cases.hiddenCols";
+const STORAGE_KEY = "capitaldesk.cases.hiddenCols.v2";
+const DEFAULT_HIDDEN = ["ot", "descripcion"];
 const STATUS_ORDER: Record<string, number> = {
   NUEVO: 0,
   OT_ASIGNADA: 1,
@@ -73,6 +78,9 @@ function relTime(iso: string) {
   if (days < 7) return `hace ${days} d`;
   return new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
 }
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+}
 function venceClass(state: string) {
   if (state === "overdue") return "text-red-600 font-semibold";
   if (state === "soon") return "text-amber-600";
@@ -82,7 +90,7 @@ function venceClass(state: string) {
 
 export default function CasesTable({ rows }: { rows: CaseRow[] }) {
   const router = useRouter();
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [hidden, setHidden] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [sortKey, setSortKey] = useState<string>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [groupBy, setGroupBy] = useState<string>("none");
@@ -156,6 +164,9 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
         break;
       case "assignee":
         r = (a.assignee ?? "~").localeCompare(b.assignee ?? "~");
+        break;
+      case "ot":
+        r = (a.workOrderNo ?? 0) - (b.workOrderNo ?? 0);
         break;
       default:
         r = 0;
@@ -257,9 +268,29 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
             )}
           </td>
         )}
-        {visible("createdAt") && <td className="px-3 py-2.5 text-xs text-muted-foreground">{relTime(c.createdAt)}</td>}
+        {visible("ot") && (
+          <td className="px-3 py-2.5 text-xs tabular-nums text-slate-500">
+            {c.workOrderNo ? `#${c.workOrderNo}` : "—"}
+          </td>
+        )}
+        {visible("descripcion") && (
+          <td className="px-3 py-2.5">
+            <span className="block max-w-[280px] truncate text-xs text-muted-foreground" title={c.description}>
+              {c.description || "—"}
+            </span>
+          </td>
+        )}
+        {visible("createdAt") && (
+          <td className="px-3 py-2.5">
+            <div className="text-xs text-slate-600">{fmtDate(c.createdAt)}</div>
+            <div className="text-[10.5px] text-slate-400">{relTime(c.createdAt)}</div>
+          </td>
+        )}
         {visible("updatedAt") && (
-          <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{relTime(c.updatedAt)}</td>
+          <td className="px-3 py-2.5 text-right">
+            <div className="text-xs text-slate-600">{fmtDate(c.updatedAt)}</div>
+            <div className="text-[10.5px] text-slate-400">{relTime(c.updatedAt)}</div>
+          </td>
         )}
       </tr>
     );
@@ -394,6 +425,8 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
                 {visible("status") && <SortHead ck="status" label="Estado" />}
                 {visible("vence") && <SortHead ck="vence" label="Vence (SLA)" />}
                 {visible("assignee") && <SortHead ck="assignee" label="Asignado" />}
+                {visible("ot") && <SortHead ck="ot" label="# OT" />}
+                {visible("descripcion") && <SortHead ck="descripcion" label="Descripción" />}
                 {visible("createdAt") && <SortHead ck="createdAt" label="Creado" />}
                 {visible("updatedAt") && <SortHead ck="updatedAt" label="Actualizado" align="right" />}
               </tr>
