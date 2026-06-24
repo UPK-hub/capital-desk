@@ -14,7 +14,17 @@ import { RVR_CAMERA_ORDER } from "@/lib/rvr";
 import { StsTicketSeverity } from "@prisma/client";
 type BusOption = { id: string; code: string; plate: string | null };
 type PriorityOption = "BAJA" | "MEDIA" | "ALTA";
-type AffectedEquipmentType = "NVR" | "CAMARAS" | "ROUTER_SIM" | "SWITCH_POE" | "GPS" | "CMS" | "IO_SENSORES";
+type AffectedEquipmentType =
+  | "NVR"
+  | "CAMARAS"
+  | "ROUTER_SIM"
+  | "SWITCH_POE"
+  | "GPS"
+  | "CMS"
+  | "IO_SENSORES"
+  | "FIRMWARE"
+  | "SOFTWARE"
+  | "PARAMETRIZACION";
 
 const AFFECTED_EQUIPMENT_OPTIONS: Array<{ value: AffectedEquipmentType; label: string }> = [
   { value: "NVR", label: "NVR / Grabador" },
@@ -24,6 +34,9 @@ const AFFECTED_EQUIPMENT_OPTIONS: Array<{ value: AffectedEquipmentType; label: s
   { value: "GPS", label: "GPS" },
   { value: "CMS", label: "Centro de Gestión (CMS)" },
   { value: "IO_SENSORES", label: "Botón de pánico / Sensores" },
+  { value: "FIRMWARE", label: "Firmware" },
+  { value: "SOFTWARE", label: "Software" },
+  { value: "PARAMETRIZACION", label: "Parametrización" },
 ];
 
 const NOVEDAD_OPTIONS_BY_EQUIPMENT: Record<AffectedEquipmentType, string[]> = {
@@ -34,6 +47,9 @@ const NOVEDAD_OPTIONS_BY_EQUIPMENT: Record<AffectedEquipmentType, string[]> = {
   GPS: ["Sin posición GPS", "Posición errática", "GPS desconectado", "Sin actualización de ubicación"],
   CMS: ["Bus no visible en CMS", "Evento no registrado en CMS", "Datos incompletos en CMS", "Sin sincronización CMS"],
   IO_SENSORES: ["Botón de pánico no funciona", "Botón de pánico obturado", "Sensor no reporta", "Micrófono sin audio"],
+  FIRMWARE: ["Firmware desactualizado", "Falla tras actualización de firmware", "Requiere actualización de firmware", "Firmware corrupto"],
+  SOFTWARE: ["Aplicación no responde", "Error de software", "Software desactualizado", "Reinstalación de software requerida"],
+  PARAMETRIZACION: ["Parámetros incorrectos", "Configuración perdida", "Requiere reparametrización", "Parametrización pendiente"],
 };
 
 // Patrón de regex (string, case-insensitive y sin acentos) para autoseleccionar el
@@ -48,6 +64,9 @@ const AFFECTED_EQUIPMENT_AUTOSELECT_PATTERN: Record<AffectedEquipmentType, strin
   IO_SENSORES: "panico|boton|sensor|microfono",
   CMS: null,
   CAMARAS: null,
+  FIRMWARE: null,
+  SOFTWARE: null,
+  PARAMETRIZACION: null,
 };
 
 type NovedadItem = {

@@ -22,6 +22,10 @@ const EQUIPO_LABEL: Record<string, string> = {
   SWITCH_POE: "Switch PoE",
   GPS: "GPS",
   CMS: "Centro de Gestión (CMS)",
+  IO_SENSORES: "Botón de pánico / Sensores",
+  FIRMWARE: "Firmware",
+  SOFTWARE: "Software",
+  PARAMETRIZACION: "Parametrización",
 };
 function equipoLabel(v?: string | null): string | null {
   const k = String(v ?? "").trim();

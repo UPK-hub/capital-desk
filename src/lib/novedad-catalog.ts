@@ -8,7 +8,10 @@ export type AffectedEquipmentType =
   | "SWITCH_POE"
   | "GPS"
   | "CMS"
-  | "IO_SENSORES";
+  | "IO_SENSORES"
+  | "FIRMWARE"
+  | "SOFTWARE"
+  | "PARAMETRIZACION";
 
 export type NovedadCatalogItem = {
   code: string;
@@ -66,6 +69,9 @@ const FALLBACK_OPTIONS: Record<AffectedEquipmentType, string[]> = {
   GPS: ["Sin posicion GPS", "Posicion erratica", "GPS desconectado", "Sin actualizacion de ubicacion"],
   CMS: ["Bus no visible en CMS", "Evento no registrado en CMS", "Datos incompletos en CMS", "Sin sincronizacion CMS"],
   IO_SENSORES: ["Boton de panico no funciona", "Boton de panico obturado", "Sensor no reporta", "Microfono sin audio"],
+  FIRMWARE: ["Firmware desactualizado", "Falla tras actualizacion de firmware", "Requiere actualizacion de firmware", "Firmware corrupto"],
+  SOFTWARE: ["Aplicacion no responde", "Error de software", "Software desactualizado", "Reinstalacion de software requerida"],
+  PARAMETRIZACION: ["Parametros incorrectos", "Configuracion perdida", "Requiere reparametrizacion", "Parametrizacion pendiente"],
 };
 
 let cache: { signature: string; items: NovedadCatalogItem[] } | null = null;
@@ -164,6 +170,9 @@ function mapEquipmentToType(equipmentLabel: string): AffectedEquipmentType | nul
     key.includes("IO ")
   )
     return "IO_SENSORES";
+  if (key.includes("FIRMWARE")) return "FIRMWARE";
+  if (key.includes("PARAMETR") || key.includes("CONFIGURACION")) return "PARAMETRIZACION";
+  if (key.includes("SOFTWARE") || key.includes("APLICACION") || key.includes("APLICATIVO")) return "SOFTWARE";
   return null;
 }
 
