@@ -1029,9 +1029,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                         currentFileName={(c.workOrder as any).orderFileName ?? null}
                       />
                     </div>
+                  ) : c.type === CaseType.NOVEDAD || c.type === CaseType.SOLICITUD_DESCARGA_VIDEO ? (
+                    <p className="text-xs text-muted-foreground">
+                      Este tipo de caso no requiere OT.
+                    </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Este tipo de caso no requiere OT (segun registry) o aun no se genero.
+                      Aún no se ha generado la OT. Asigna un técnico en la tarjeta{" "}
+                      <a href="#asignacion" className="font-medium text-blue-600 underline">
+                        Asignación
+                      </a>{" "}
+                      (más abajo) para crearla; el caso pasará a “OT asignada”.
                     </p>
                   )}
                 </div>
@@ -1127,6 +1135,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                 />
               ) : null}
 
+              <div id="asignacion" />
               {canAssign ? (
                 <AssignTechnicianCard
                   caseId={c.id}
