@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Columns3, Layers, List, LayoutGrid, ChevronUp, ChevronDown } from "lucide-react";
+import { Columns3, Layers, List, LayoutGrid, LayoutList, ChevronUp, ChevronDown } from "lucide-react";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { TypeBadge } from "@/components/ui/TypeBadge";
@@ -95,7 +95,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [groupBy, setGroupBy] = useState<string>("none");
   const [colsOpen, setColsOpen] = useState(false);
-  const [view, setView] = useState<"tabla" | "kanban">("tabla");
+  const [view, setView] = useState<"tabla" | "kanban" | "tipo">("tabla");
   const colsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -120,7 +120,8 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [colsOpen]);
 
-  const visible = (key: string) => !hidden.has(key);
+  const visible = (key: string) =>
+    view === "tipo" && key === "descripcion" ? true : !hidden.has(key);
   const toggleCol = (key: string) => {
     const next = new Set(hidden);
     if (next.has(key)) next.delete(key);
@@ -176,21 +177,22 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
 
   const sorted = useMemo(() => [...rows].sort(cmp), [rows, sortKey, sortDir]);
 
+  const activeGroup = view === "tipo" ? "type" : groupBy;
   const groups = useMemo(() => {
-    if (groupBy === "none") return [{ key: "", label: "", rows: sorted }];
+    if (activeGroup === "none") return [{ key: "", label: "", rows: sorted }];
     const map = new Map<string, CaseRow[]>();
     for (const r of sorted) {
       let k = "";
-      if (groupBy === "status") k = labelFromMap(r.status, caseStatusLabels);
-      else if (groupBy === "type") k = labelFromMap(r.type, caseTypeLabels);
-      else if (groupBy === "bus") k = r.busCode;
-      else if (groupBy === "assignee") k = r.assignee ?? "Sin asignar";
+      if (activeGroup === "status") k = labelFromMap(r.status, caseStatusLabels);
+      else if (activeGroup === "type") k = labelFromMap(r.type, caseTypeLabels);
+      else if (activeGroup === "bus") k = r.busCode;
+      else if (activeGroup === "assignee") k = r.assignee ?? "Sin asignar";
       const arr = map.get(k) ?? [];
       arr.push(r);
       map.set(k, arr);
     }
     return Array.from(map.entries()).map(([label, rs]) => ({ key: label, label, rows: rs }));
-  }, [sorted, groupBy]);
+  }, [sorted, activeGroup]);
 
   const colCount = COLUMNS.filter((c) => visible(c.key)).length;
 
@@ -352,25 +354,36 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
           >
             <LayoutGrid className="h-3.5 w-3.5" /> Kanban
           </button>
+          <button
+            type="button"
+            onClick={() => setView("tipo")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium ${
+              view === "tipo" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <LayoutList className="h-3.5 w-3.5" /> Por tipo
+          </button>
         </div>
 
-        {view === "tabla" ? (
+        {view !== "kanban" ? (
           <>
-            <label className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-white px-2.5 py-1.5 text-xs text-slate-600">
-              <Layers className="h-3.5 w-3.5" />
-              Agrupar:
-              <select
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value)}
-                className="bg-transparent text-xs font-medium text-slate-700 outline-none"
-              >
-                <option value="none">Ninguno</option>
-                <option value="status">Estado</option>
-                <option value="type">Tipo</option>
-                <option value="bus">Bus</option>
-                <option value="assignee">Responsable</option>
-              </select>
-            </label>
+            {view === "tabla" ? (
+              <label className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-white px-2.5 py-1.5 text-xs text-slate-600">
+                <Layers className="h-3.5 w-3.5" />
+                Agrupar:
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                  className="bg-transparent text-xs font-medium text-slate-700 outline-none"
+                >
+                  <option value="none">Ninguno</option>
+                  <option value="status">Estado</option>
+                  <option value="type">Tipo</option>
+                  <option value="bus">Bus</option>
+                  <option value="assignee">Responsable</option>
+                </select>
+              </label>
+            ) : null}
 
             <div className="relative" ref={colsRef}>
               <button
@@ -412,8 +425,8 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
         ) : null}
       </div>
 
-      {/* Vista Tabla */}
-      {view === "tabla" ? (
+      {/* Vista Tabla / Por tipo */}
+      {view !== "kanban" ? (
         <div className="overflow-x-auto rounded-2xl border border-border/60 bg-white shadow-sm">
           <table className="w-full min-w-[760px] border-collapse">
             <thead>
@@ -431,7 +444,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
                 {visible("updatedAt") && <SortHead ck="updatedAt" label="Actualizado" align="right" />}
               </tr>
             </thead>
-            {groupBy === "none" ? (
+            {activeGroup === "none" ? (
               <tbody>{groups[0].rows.map(renderRow)}</tbody>
             ) : (
               groups.map((g) => (
