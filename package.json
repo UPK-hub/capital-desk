@@ -26,7 +26,8 @@
     "equipos:ensure": "tsx scripts/ensure-new-equipments.ts",
     "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
     "tramas:inspect": "tsx scripts/inspect-trama-payload.ts",
-    "import:preventivos": "tsx scripts/import-preventivos.ts"
+    "import:preventivos": "tsx scripts/import-preventivos.ts",
+    "export:preventivos": "tsx scripts/export-preventivos-import.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
