@@ -17,6 +17,7 @@ export type NovedadRow = {
   priority: number;
   equipo: string | null;
   creator: string | null;
+  assignee: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -37,12 +38,13 @@ const COLUMNS: Col[] = [
   { key: "status", label: "Estado", sortable: true },
   { key: "correctivo", label: "Correctivo", sortable: true },
   { key: "creador", label: "Creador", sortable: true },
+  { key: "asignado", label: "Asignado", sortable: true },
   { key: "ot", label: "# OT", sortable: true },
   { key: "updatedAt", label: "Actualizado", sortable: true },
   { key: "resolvedAt", label: "Resolución", sortable: true },
 ];
 const ALL_KEYS = COLUMNS.map((c) => c.key);
-const DEFAULT_ORDER = ["caseNo", "createdAt", "asunto", "equipo", "priority", "status", "correctivo", "creador", "resolvedAt", "ot", "updatedAt"];
+const DEFAULT_ORDER = ["caseNo", "createdAt", "asunto", "equipo", "priority", "status", "correctivo", "creador", "asignado", "resolvedAt", "ot", "updatedAt"];
 const DEFAULT_HIDDEN = ["ot", "updatedAt"];
 const ORDER_KEY = "capitaldesk.novedades.colOrder.v1";
 const HIDDEN_KEY = "capitaldesk.novedades.hiddenCols.v2";
@@ -170,6 +172,7 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
       case "status": r = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9); break;
       case "correctivo": r = (a.corrCaseNo ?? 0) - (b.corrCaseNo ?? 0); break;
       case "creador": r = (a.creator ?? "~").localeCompare(b.creator ?? "~"); break;
+      case "asignado": r = (a.assignee ?? "~").localeCompare(b.assignee ?? "~"); break;
       case "ot": r = (a.corrWorkOrderNo ?? 0) - (b.corrWorkOrderNo ?? 0); break;
       default: r = 0;
     }
@@ -261,6 +264,17 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
           </span>
         ) : (
           <span className="text-xs text-slate-400">—</span>
+        );
+      case "asignado":
+        return c.assignee ? (
+          <span className="flex items-center gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-700">
+              {initials(c.assignee)}
+            </span>
+            <span className="truncate text-xs text-slate-600">{c.assignee}</span>
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">Sin asignar</span>
         );
       case "ot": return <span className="text-xs tabular-nums text-slate-500">{c.corrWorkOrderNo ? `#${c.corrWorkOrderNo}` : "—"}</span>;
       case "updatedAt": return dateCell(c.updatedAt);

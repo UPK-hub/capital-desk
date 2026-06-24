@@ -111,6 +111,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       take: 500,
       include: {
         bus: { select: { code: true, plate: true } },
+        assignedTo: { select: { name: true } },
         events: { orderBy: { createdAt: "asc" }, select: { type: true, createdAt: true, meta: true } },
       },
     }),
@@ -177,6 +178,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       priority: c.priority,
       equipo: equipoLabel(state?.affectedEquipment),
       creator: userNameById.get(creatorByCaseId.get(c.id) ?? "") ?? null,
+      assignee: c.assignedTo?.name ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       resolvedAt:
