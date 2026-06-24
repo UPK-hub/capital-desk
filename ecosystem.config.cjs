@@ -6,10 +6,10 @@ module.exports = {
       script: "C:/Program Files/nodejs/node.exe",
       args: "node_modules/next/dist/bin/next start -p 3000 --hostname 0.0.0.0",
 
-      // --- Estabilidad de memoria ---
-      // Reciclado: PM2 reinicia la app (de forma limpia) si supera este uso,
-      // ANTES de que Node se quede sin memoria (~4 GB) y se caiga de golpe.
-      max_memory_restart: "3500M",
+      // --- Estabilidad de memoria (servidor con 32 GB de RAM) ---
+      // Reciclado de seguridad: si por una fuga la app supera 6 GB, PM2 la
+      // reinicia LIMPIO (antes del techo de 8 GB), en vez de caerse de golpe.
+      max_memory_restart: "6G",
 
       // Tolerancia: que PM2 la siga levantando y NO la deje "stopped" si se
       // reinicia varias veces seguidas.
@@ -20,8 +20,9 @@ module.exports = {
 
       env: {
         NODE_ENV: "production",
-        // Techo de heap explícito y predecible para Node.
-        NODE_OPTIONS: "--max-old-space-size=4096",
+        // Techo de heap de Node = 8 GB (el default ~4 GB era lo que la tumbaba).
+        // Con 32 GB físicos sobra margen.
+        NODE_OPTIONS: "--max-old-space-size=8192",
       },
     },
   ],

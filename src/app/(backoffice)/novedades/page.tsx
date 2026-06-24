@@ -56,6 +56,15 @@ function extractBatchRefFromEvents(events: EventLike[]): string | null {
   }
   return null;
 }
+function extractCreatedById(events: Array<{ type?: any; meta: unknown }>): string | null {
+  for (const ev of events) {
+    if (ev.type !== "CREATED") continue;
+    const meta = (ev.meta ?? {}) as any;
+    const id = meta?.userId ?? meta?.by ?? meta?.actorUserId;
+    if (id && String(id).trim()) return String(id).trim();
+  }
+  return null;
+}
 
 export default async function NovedadesPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions);
@@ -102,7 +111,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       take: 500,
       include: {
         bus: { select: { code: true, plate: true } },
-        events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
+        events: { orderBy: { createdAt: "asc" }, select: { type: true, createdAt: true, meta: true } },
       },
     }),
     prisma.case.groupBy({ by: ["status"], where: novBase, _count: { _all: true } }),
@@ -131,24 +140,24 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
     if (batch && !corrByBatch.has(batch)) corrByBatch.set(batch, corr);
   }
 
-  // Creadores (para el filtro)
+  // Creador de cada novedad (evento CREATED) + resolución de nombres para la tabla y el filtro
+  const creatorByCaseId = new Map<string, string>();
   const creatorIds = new Set<string>();
   for (const c of noveltyCases) {
-    for (const ev of c.events) {
-      const meta = (ev.meta ?? {}) as any;
-      if (ev.meta && (ev.meta as any)) {
-        const uid = meta?.userId;
-        if (typeof uid === "string" && uid.trim()) creatorIds.add(uid.trim());
-      }
+    const cid = extractCreatedById(c.events);
+    if (cid) {
+      creatorByCaseId.set(c.id, cid);
+      creatorIds.add(cid);
     }
   }
-  const creators = creatorIds.size
+  const creatorUsers = creatorIds.size
     ? await prisma.user.findMany({
-        where: { tenantId, active: true, id: { in: Array.from(creatorIds) } },
+        where: { tenantId, id: { in: Array.from(creatorIds) } },
         select: { id: true, name: true },
-        orderBy: { name: "asc" },
       })
     : [];
+  const userNameById = new Map(creatorUsers.map((u) => [u.id, u.name] as const));
+  const creators = [...creatorUsers].sort((a, b) => a.name.localeCompare(b.name));
 
   const rows: NovedadRow[] = noveltyCases.map((c) => {
     const state = extractLatestNovedadState(c.events);
@@ -167,6 +176,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       status: c.status,
       priority: c.priority,
       equipo: equipoLabel(state?.affectedEquipment),
+      creator: userNameById.get(creatorByCaseId.get(c.id) ?? "") ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       resolvedAt:
