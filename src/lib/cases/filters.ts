@@ -11,6 +11,9 @@ export type CasesFilterCtx = {
   tenantId: string;
   ownOnly: boolean;
   userId: string;
+  // Filtro ya calculado para el alcance restringido (propios + equipo si es
+  // admin de equipo). Si se provee, reemplaza a ownCasesWhere(userId).
+  ownWhere?: Record<string, unknown>;
 };
 
 export function parseCasesParams(sp: any) {
@@ -64,7 +67,7 @@ export function buildCasesWhere(sp: any, ctx: CasesFilterCtx) {
 
   const baseWhere: any = {
     tenantId: ctx.tenantId,
-    ...(ctx.ownOnly ? ownCasesWhere(ctx.userId) : {}),
+    ...(ctx.ownOnly ? ctx.ownWhere ?? ownCasesWhere(ctx.userId) : {}),
     ...(p.type ? { type: p.type } : {}),
     ...(priorityInt ? { priority: priorityInt } : {}),
     ...createdAtWhere,

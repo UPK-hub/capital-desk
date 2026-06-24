@@ -20,6 +20,7 @@ import {
   TrendingUp,
   UserCircle,
   UserCog,
+  Users,
   Video,
   Wrench,
 } from "lucide-react";
@@ -41,6 +42,7 @@ export type SidebarIconKey =
   | "telemetry"
   | "settings"
   | "admin"
+  | "team"
   | "user";
 
 export type SidebarNavItem = {
@@ -85,6 +87,8 @@ function iconFor(name: SidebarIconKey) {
       return UserCog;
     case "user":
       return UserCircle;
+    case "team":
+      return Users;
     default:
       return LayoutDashboard;
   }

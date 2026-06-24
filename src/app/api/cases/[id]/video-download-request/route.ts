@@ -31,7 +31,7 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   const userId = String((session.user as any).id ?? "");
 
   const c = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({
+    where: await buildCaseAccessWhere({
       caseId: String(ctx.params.id),
       tenantId,
       role,
@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const c = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
+    where: await buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
     include: { bus: true },
   });
   if (!c) return NextResponse.json({ error: "No encontrado" }, { status: 404 });

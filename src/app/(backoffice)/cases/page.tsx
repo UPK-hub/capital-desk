@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
-import { ownCasesWhere } from "@/lib/access-control";
+import { restrictedCasesWhere } from "@/lib/access-control";
 import { buildCasesWhere } from "@/lib/cases/filters";
 import { getCasesSummary, recentMonths } from "@/lib/cases/summary";
 import { caseTypeLabels } from "@/lib/labels";
@@ -40,11 +40,12 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   }
 
   const ownOnly = role === Role.BACKOFFICE && !!caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
-  const ownWhere = ownOnly ? ownCasesWhere(userId) : {};
+  const ownWhere = ownOnly ? await restrictedCasesWhere({ tenantId, userId }) : {};
   const { baseWhere, statusWhere, params } = buildCasesWhere(searchParams, {
     tenantId,
     ownOnly,
     userId,
+    ownWhere,
   });
 
   const months = recentMonths(6);

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { buildCasesWhere } from "@/lib/cases/filters";
+import { restrictedCasesWhere } from "@/lib/access-control";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import { utils, write } from "xlsx";
 
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
     sp[k] = v;
   });
 
-  const { baseWhere, statusWhere } = buildCasesWhere(sp, { tenantId, ownOnly, userId });
+  const ownWhere = ownOnly ? await restrictedCasesWhere({ tenantId, userId }) : {};
+  const { baseWhere, statusWhere } = buildCasesWhere(sp, { tenantId, ownOnly, userId, ownWhere });
 
   const cases = await prisma.case.findMany({
     where: { ...baseWhere, ...statusWhere },

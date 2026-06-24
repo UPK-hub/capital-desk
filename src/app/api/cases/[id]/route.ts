@@ -11,7 +11,7 @@ import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { CAPABILITIES } from "@/lib/capabilities";
-import { ownCasesWhere } from "@/lib/access-control";
+import { restrictedCasesWhere } from "@/lib/access-control";
 
 function normalizePriority(input: any): number | undefined {
   if (input === null || input === undefined || input === "") return undefined;
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   const ownOnly = role === Role.BACKOFFICE && caps.includes(CAPABILITIES.OWN_CASES_ONLY);
 
   const items = await prisma.case.findMany({
-    where: { tenantId, ...(ownOnly ? ownCasesWhere(userId) : {}) },
+    where: { tenantId, ...(ownOnly ? await restrictedCasesWhere({ tenantId, userId }) : {}) },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {

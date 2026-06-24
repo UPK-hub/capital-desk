@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const caseId = String(ctx.params.id);
 
   const c = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
+    where: await buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
     select: {
       id: true,
       caseNo: true,

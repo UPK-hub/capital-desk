@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
-import { isOwnCasesOnlyBackoffice, isVideosOnlyBackoffice, ownCasesWhere } from "@/lib/access-control";
+import { isOwnCasesOnlyBackoffice, isVideosOnlyBackoffice, restrictedCasesWhere } from "@/lib/access-control";
 
 function canAccessModules(role: Role, caps: string[] | undefined) {
   const videosOnly = isVideosOnlyBackoffice(role, caps);
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
   const role = session.user.role as Role;
   const caps = (session.user as any).capabilities as string[] | undefined;
   const ownOnly = isOwnCasesOnlyBackoffice(role, caps);
+  const restricted = ownOnly ? await restrictedCasesWhere({ tenantId, userId }) : {};
   const { canBackoffice, canTech, canVideo, canSts, canTm, isAdmin } = canAccessModules(role, caps);
   const isNumeric = /^\d+$/.test(term);
   const numericValue = isNumeric ? Number(term) : null;
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
     const cases = await prisma.case.findMany({
       where: {
         tenantId,
-        ...(ownOnly ? ownCasesWhere(userId) : {}),
+        ...(ownOnly ? restricted : {}),
         OR: [
           { title: { contains: term, mode: "insensitive" } },
           { description: { contains: term, mode: "insensitive" } },
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
     const workOrders = await prisma.workOrder.findMany({
       where: {
         tenantId,
-        ...(ownOnly ? { case: ownCasesWhere(userId) } : {}),
+        ...(ownOnly ? { case: restricted } : {}),
         OR: [
           ...(numericValue ? [{ workOrderNo: numericValue }] : []),
           { case: { is: { title: { contains: term, mode: "insensitive" } } } },
@@ -142,7 +143,7 @@ export async function GET(req: NextRequest) {
   if (canVideo) {
     const videos = await prisma.videoDownloadRequest.findMany({
       where: {
-        case: { tenantId, ...(ownOnly ? ownCasesWhere(userId) : {}) },
+        case: { tenantId, ...(ownOnly ? restricted : {}) },
         OR: [
           { case: { is: { title: { contains: term, mode: "insensitive" } } } },
           { case: { is: { bus: { is: { code: { contains: term, mode: "insensitive" } } } } } },

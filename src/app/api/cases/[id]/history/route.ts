@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const id = String(ctx.params.id);
 
   const c = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({ caseId: id, tenantId, role, capabilities, userId }),
+    where: await buildCaseAccessWhere({ caseId: id, tenantId, role, capabilities, userId }),
     select: { id: true, busId: true, busEquipmentId: true },
   });
   if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -171,6 +171,7 @@ model Tenant {
   integrationVideos        IntegrationVideo[]
   busTelemetryStates       BusTelemetryState[]
   remoteVisualReviews      RemoteVisualReview[]
+  teams                    Team[]
 
   sequence TenantSequence?
 }
@@ -1426,6 +1427,31 @@ model CaseChecklistItem {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([caseId])
+}
+
+// Equipo: agrupa usuarios por dominio de correo. Los administradores del equipo
+// (adminUserIds) pueden ver el contenido de los usuarios de su equipo según los flags.
+model Team {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name         String
+  domains      String[] @default([])
+  adminUserIds String[] @default([])
+
+  // Permisos de visualización del administrador del equipo:
+  viewCases         Boolean @default(true)
+  viewVideoRequests Boolean @default(true)
+  viewWorkOrders    Boolean @default(true)
+  viewTelemetry     Boolean @default(false)
+  manageUsers       Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 enum NotificationType {

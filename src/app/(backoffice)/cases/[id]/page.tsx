@@ -181,7 +181,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const debug = String(searchParams?.debug ?? "") === "1";
 
   const c = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({
+    where: await buildCaseAccessWhere({
       caseId: params.id,
       tenantId,
       role,

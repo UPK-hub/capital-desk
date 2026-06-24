@@ -103,7 +103,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const userId = (session.user as any).id as string;
 
   const found = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({
+    where: await buildCaseAccessWhere({
       caseId: String(ctx.params.id),
       tenantId,
       role,

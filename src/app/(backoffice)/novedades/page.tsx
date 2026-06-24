@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseStatus, CaseType, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
-import { ownCasesWhere } from "@/lib/access-control";
+import { restrictedCasesWhere } from "@/lib/access-control";
 import { buildCasesWhere } from "@/lib/cases/filters";
 import { getCasesSummary, recentMonths } from "@/lib/cases/summary";
 import { Select } from "@/components/Field";
@@ -87,8 +87,8 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   }
 
   const ownOnly = role === Role.BACKOFFICE && !!caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
-  const ownWhere = ownOnly ? ownCasesWhere(userId) : {};
-  const { baseWhere, statusWhere, params } = buildCasesWhere(searchParams, { tenantId, ownOnly, userId });
+  const ownWhere = ownOnly ? await restrictedCasesWhere({ tenantId, userId }) : {};
+  const { baseWhere, statusWhere, params } = buildCasesWhere(searchParams, { tenantId, ownOnly, userId, ownWhere });
   // Forzamos tipo NOVEDAD (esta bandeja es solo de novedades).
   const novBase: any = { ...baseWhere, type: CaseType.NOVEDAD };
 

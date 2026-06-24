@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const found = await prisma.case.findFirst({
-    where: buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
+    where: await buildCaseAccessWhere({ caseId, tenantId, role, capabilities, userId }),
     select: { id: true },
   });
   if (!found) return NextResponse.json({ error: "Caso no encontrado." }, { status: 404 });
