@@ -115,18 +115,39 @@ async function main() {
 
   let creadas = 0;
   let yaEnlazados = 0;
+  let reasignados = 0;
   const detalle: string[] = [];
   const omitidos: string[] = [];
 
   for (const corr of targets) {
-    // Idempotencia: ¿ya está enlazado a una novedad?
-    const alreadyLinked = corr.events.some((e) => {
-      const meta = (e.meta ?? {}) as any;
-      return Boolean(meta?.sourceCaseId);
-    });
+    const alreadyLinked = corr.events.some((e) => Boolean(((e.meta ?? {}) as any)?.sourceCaseId));
+
+    // 1) Reasignar el creador del correctivo a Anderson Rueda (siempre, aunque la novedad ya exista).
+    //    Sobrescribe todas las llaves de actor (userId/by/actorUserId) para que la UI lo refleje.
+    const createdEvents = corr.events.filter((e) => e.type === CaseEventType.CREATED);
+    const needsReassign =
+      corrCreatorId != null &&
+      createdEvents.some((e) => {
+        const m = (e.meta ?? {}) as any;
+        return m?.userId !== corrCreatorId || m?.by !== corrCreatorId;
+      });
+    if (apply && needsReassign && corrCreatorId) {
+      await prisma.$transaction(async (tx) => {
+        for (const ev of createdEvents) {
+          const m = (ev.meta ?? {}) as any;
+          await tx.caseEvent.update({
+            where: { id: ev.id },
+            data: { meta: { ...m, userId: corrCreatorId, by: corrCreatorId, actorUserId: corrCreatorId, creatorReassigned: true } },
+          });
+        }
+      });
+    }
+    if (needsReassign) reasignados++;
+
+    // 2) Crear la novedad de origen + enlazar (solo si el correctivo aún no tiene novedad).
     if (alreadyLinked) {
       yaEnlazados++;
-      omitidos.push(`#${corr.caseNo} ${corr.bus.code} (ya enlazado)`);
+      omitidos.push(`#${corr.caseNo} ${corr.bus.code} (novedad ya existe${needsReassign ? "; creador→Anderson" : ""})`);
       continue;
     }
 
@@ -196,17 +217,6 @@ async function main() {
           },
         });
 
-        // Reasignar el creador del correctivo a Anderson Rueda (solo metadato del evento de creación).
-        if (corrCreatorId) {
-          for (const ev of corr.events) {
-            if (ev.type !== CaseEventType.CREATED) continue;
-            const m = (ev.meta ?? {}) as any;
-            await tx.caseEvent.update({
-              where: { id: ev.id },
-              data: { meta: { ...m, userId: corrCreatorId, creatorReassigned: true } },
-            });
-          }
-        }
       });
     }
 
@@ -224,7 +234,7 @@ async function main() {
   console.log(`\n=== Totales ===`);
   console.log(`  Correctivos encontrados (P20/P60): ${targets.length}`);
   console.log(`  ${apply ? "Novedades creadas:" : "Novedades a crear:"}        ${creadas}`);
-  console.log(`  ${apply ? "Correctivos reasignados a Anderson:" : "Correctivos a reasignar (Anderson):"} ${creadas}`);
+  console.log(`  ${apply ? "Correctivos reasignados a Anderson:" : "Correctivos a reasignar (Anderson):"} ${reasignados}`);
   if (yaEnlazados) console.log(`  Ya estaban enlazados (saltados):   ${yaEnlazados}`);
   if (!apply) console.log(`\n(Modo PRUEBA: no se escribió nada. Agrega --apply para aplicar.)`);
   console.log("");
