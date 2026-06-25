@@ -72,6 +72,7 @@ export async function POST(req: Request) {
     rejected: number;
     errored: number;
     lifecycleCreated: number;
+    duplicates: number;
   }> = [];
 
   for (const tenant of tenants) {

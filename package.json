@@ -26,6 +26,7 @@
     "equipos:ensure": "tsx scripts/ensure-new-equipments.ts",
     "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
     "tramas:inspect": "tsx scripts/inspect-trama-payload.ts",
+    "tramas:purge": "tsx scripts/purge-tramas.ts",
     "import:preventivos": "tsx scripts/import-preventivos.ts",
     "export:preventivos": "tsx scripts/export-preventivos-import.ts",
     "backfill:preventivo-ot": "tsx scripts/backfill-preventivo-ot.ts",

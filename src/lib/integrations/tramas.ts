@@ -88,6 +88,7 @@ export type ProcessInboundResult = {
   rejected: number;
   errored: number;
   lifecycleCreated: number;
+  duplicates: number;
 };
 
 export async function processInboundTelemetryBatch(params: {
@@ -112,9 +113,48 @@ export async function processInboundTelemetryBatch(params: {
     rejected: 0,
     errored: 0,
     lifecycleCreated: 0,
+    duplicates: 0,
   };
 
+  // Dedup por externalId (= idRegistro): si una lectura YA fue procesada de
+  // verdad (PROCESSED y sin marca de error), las repeticiones NO se reprocesan:
+  // se marcan como duplicadas y se saltan. Evita rehacer el trabajo pesado y
+  // crear eventos de línea de tiempo repetidos. La trama igual queda guardada
+  // (se conserva la visibilidad y la paridad con el centro de gestión).
+  const batchExternalIds = Array.from(
+    new Set(pending.map((r) => r.externalId).filter((id): id is string => Boolean(id)))
+  );
+  const alreadyProcessed = batchExternalIds.length
+    ? await prisma.integrationInboundEvent.findMany({
+        where: {
+          tenantId: params.tenantId,
+          externalId: { in: batchExternalIds },
+          status: IntegrationInboundStatus.PROCESSED,
+          error: null,
+        },
+        select: { externalId: true },
+        distinct: ["externalId"],
+      })
+    : [];
+  const processedExternalIds = new Set(alreadyProcessed.map((r) => r.externalId));
+  const seenInBatch = new Set<string>();
+
   for (const row of pending) {
+    if (
+      row.externalId &&
+      (processedExternalIds.has(row.externalId) || seenInBatch.has(row.externalId))
+    ) {
+      await prisma.integrationInboundEvent.update({
+        where: { id: row.id },
+        data: {
+          status: IntegrationInboundStatus.PROCESSED,
+          processedAt: new Date(),
+          error: "DUPLICATE",
+        },
+      });
+      result.duplicates += 1;
+      continue;
+    }
     try {
       if (!row.busId) {
         await prisma.integrationInboundEvent.update({
@@ -188,6 +228,7 @@ export async function processInboundTelemetryBatch(params: {
 
       result.processed += 1;
       if (shouldTimeline) result.lifecycleCreated += 1;
+      if (row.externalId) seenInBatch.add(row.externalId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error procesando evento";
       await prisma.integrationInboundEvent.update({
