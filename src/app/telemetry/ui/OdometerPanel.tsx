@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
+  Download,
   Gauge,
   RefreshCw,
   Search,
@@ -202,9 +203,17 @@ export default function OdometerPanel() {
             Último kilometraje por bus (campo kilometrosOdometro de las tramas P60 · últimos 3 días)
           </p>
         </div>
-        <button className="sts-btn-ghost text-sm inline-flex items-center gap-1" onClick={load}>
-          <RefreshCw className="h-4 w-4" /> Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            className="sts-btn-primary text-sm inline-flex items-center gap-1"
+            href="/api/telemetry/odometer/export"
+          >
+            <Download className="h-4 w-4" /> Exportar a Excel
+          </a>
+          <button className="sts-btn-ghost text-sm inline-flex items-center gap-1" onClick={load}>
+            <RefreshCw className="h-4 w-4" /> Actualizar
+          </button>
+        </div>
       </div>
 
       {error ? (
