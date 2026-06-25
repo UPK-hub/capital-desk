@@ -11,7 +11,7 @@ export type OdometerRow = {
 };
 
 // Último kilometraje (campo kilometrosOdometro) reportado por cada bus.
-// Acotado a los últimos 2 días para no escanear toda la tabla: por cada bus se
+// Acotado a los últimos 3 días para no escanear toda la tabla: por cada bus se
 // toma su trama más reciente con odómetro usando el índice (tenantId, busCode,
 // eventAt) + LIMIT 1. El resultado se cachea (ver getLatestOdometer) para que
 // la consulta NO corra en cada carga y no sature el pool de conexiones.
@@ -38,7 +38,7 @@ async function queryLatestOdometer(tenantId: string): Promise<OdometerRow[]> {
       FROM "IntegrationInboundEvent" e
       WHERE e."tenantId" = b."tenantId"
         AND e."busCode" = b."code"
-        AND e."eventAt" >= now() - interval '2 days'
+        AND e."eventAt" >= now() - interval '3 days'
         AND e.payload->>'kilometrosOdometro' IS NOT NULL
         AND e.payload->>'kilometrosOdometro' <> ''
       ORDER BY e."eventAt" DESC
