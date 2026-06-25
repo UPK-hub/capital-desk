@@ -10,15 +10,7 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   DataTable,
   DataTableBody,
@@ -38,6 +30,7 @@ type OdometerRow = {
 
 type Row = OdometerRow & { km: number | null };
 type SortKey = "bus" | "km" | "fecha";
+type StatusFilter = "todos" | "valido" | "cero" | "sin";
 
 function nfmt(n: number) {
   return new Intl.NumberFormat("es-CO").format(n ?? 0);
@@ -57,6 +50,12 @@ function fmtDate(s: string | null) {
   if (!s) return "—";
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("es-CO");
+}
+
+function statusOf(km: number | null): StatusFilter {
+  if (km == null) return "sin";
+  if (km === 0) return "cero";
+  return "valido";
 }
 
 function Kpi({
@@ -96,6 +95,7 @@ export default function OdometerPanel() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("todos");
   const [sort, setSort] = React.useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "bus", dir: "asc" });
 
   const load = React.useCallback(async () => {
@@ -122,23 +122,41 @@ export default function OdometerPanel() {
     [rawRows]
   );
 
-  const zeroBuses = React.useMemo(() => rows.filter((r) => r.km === 0), [rows]);
-
   const stats = React.useMemo(() => {
     const withKm = rows.filter((r) => r.km != null) as Array<Row & { km: number }>;
-    const positive = withKm.filter((r) => r.km > 0).map((r) => r.km);
-    const avg = positive.length ? Math.round(positive.reduce((a, b) => a + b, 0) / positive.length) : 0;
-    const max = withKm.length ? Math.max(...withKm.map((r) => r.km)) : 0;
-    return { total: rows.length, zeros: zeroBuses.length, avg, max };
-  }, [rows, zeroBuses]);
+    const zeros = withKm.filter((r) => r.km === 0).length;
+    const validos = withKm.filter((r) => r.km > 0);
+    const avg = validos.length ? Math.round(validos.reduce((a, b) => a + b.km, 0) / validos.length) : 0;
+    return {
+      total: rows.length,
+      conDato: withKm.length,
+      validos: validos.length,
+      sinDato: rows.length - withKm.length,
+      zeros,
+      avg,
+    };
+  }, [rows]);
+
+  const zeroBuses = React.useMemo(() => rows.filter((r) => r.km === 0), [rows]);
+
+  const donutData = React.useMemo(
+    () =>
+      [
+        { key: "valido" as const, name: "Con odómetro (>0)", value: stats.validos, color: "#15803d" },
+        { key: "cero" as const, name: "En 0", value: stats.zeros, color: "#b91c1c" },
+        { key: "sin" as const, name: "Sin reportar", value: stats.sinDato, color: "#94a3b8" },
+      ].filter((d) => d.value > 0),
+    [stats]
+  );
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) => r.busCode.toLowerCase().includes(q) || (r.plate ?? "").toLowerCase().includes(q)
-    );
-  }, [rows, query]);
+    return rows.filter((r) => {
+      if (statusFilter !== "todos" && statusOf(r.km) !== statusFilter) return false;
+      if (q && !(r.busCode.toLowerCase().includes(q) || (r.plate ?? "").toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [rows, query, statusFilter]);
 
   const sorted = React.useMemo(() => {
     const arr = [...filtered];
@@ -153,18 +171,9 @@ export default function OdometerPanel() {
     return arr;
   }, [filtered, sort]);
 
-  const chartData = React.useMemo(() => {
-    return (rows.filter((r) => r.km != null && (r.km as number) > 0) as Array<Row & { km: number }>)
-      .sort((a, b) => b.km - a.km)
-      .slice(0, 12)
-      .map((r) => ({ busCode: r.busCode, km: r.km }));
-  }, [rows]);
-
   const toggleSort = (key: SortKey) => {
     setSort((s) =>
-      s.key === key
-        ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: key === "km" ? "desc" : "asc" }
+      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "km" ? "desc" : "asc" }
     );
   };
 
@@ -176,6 +185,13 @@ export default function OdometerPanel() {
     ) : (
       <ArrowDown className="h-3 w-3" />
     );
+
+  const chips: Array<{ key: StatusFilter; label: string; count: number; color: string }> = [
+    { key: "todos", label: "Todos", count: stats.total, color: "#2563eb" },
+    { key: "valido", label: "Con dato (>0)", count: stats.validos, color: "#15803d" },
+    { key: "cero", label: "En 0", count: stats.zeros, color: "#b91c1c" },
+    { key: "sin", label: "Sin reportar", count: stats.sinDato, color: "#94a3b8" },
+  ];
 
   return (
     <div className="space-y-5">
@@ -200,7 +216,14 @@ export default function OdometerPanel() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Kpi label="Buses con dato" value={nfmt(stats.total)} color="#2563eb" Icon={Gauge} />
+            <Kpi label="Flota (activos)" value={nfmt(stats.total)} color="#2563eb" Icon={Gauge} />
+            <Kpi
+              label="Con odómetro"
+              value={nfmt(stats.conDato)}
+              color="#0891b2"
+              Icon={Gauge}
+              sub={`${nfmt(stats.sinDato)} sin reportar`}
+            />
             <Kpi
               label="Odómetro en 0"
               value={nfmt(stats.zeros)}
@@ -208,8 +231,7 @@ export default function OdometerPanel() {
               Icon={AlertTriangle}
               sub="posible falla de sensor"
             />
-            <Kpi label="Promedio km" value={fmtKm(stats.avg)} color="#15803d" Icon={Gauge} sub="excluye los que están en 0" />
-            <Kpi label="Máximo km" value={fmtKm(stats.max)} color="#7c3aed" Icon={Gauge} />
+            <Kpi label="Promedio km" value={fmtKm(stats.avg)} color="#15803d" Icon={Gauge} sub="solo válidos (>0)" />
           </div>
 
           {zeroBuses.length > 0 ? (
@@ -222,120 +244,138 @@ export default function OdometerPanel() {
                 </p>
               </div>
               <p className="mt-1 text-xs text-red-700/80">
-                Suele indicar falla del sensor o dato incorrecto. Buses:{" "}
-                {zeroBuses.map((b) => b.busCode).join(", ")}
+                Suele indicar falla del sensor o dato incorrecto. Buses: {zeroBuses.map((b) => b.busCode).join(", ")}
               </p>
             </div>
           ) : null}
 
-          {chartData.length > 0 ? (
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,360px)_1fr]">
+            {/* Dona de estado */}
             <div className="sts-card p-5">
-              <h3 className="mb-3 text-sm font-semibold">Top 12 buses por kilometraje</h3>
-              <div style={{ width: "100%", height: 320 }}>
+              <h3 className="text-sm font-semibold">Estado del odómetro de la flota</h3>
+              <p className="text-[11px] text-muted-foreground">Clic en una porción para filtrar la tabla</p>
+              <div style={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                    <XAxis
-                      type="number"
-                      tick={{ fontSize: 11, fill: "#64748b" }}
-                      tickLine={false}
-                      axisLine={{ stroke: "#e2e8f0" }}
-                      tickFormatter={(v: number) => nfmt(v)}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="busCode"
-                      width={70}
-                      tick={{ fontSize: 11, fill: "#334155" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
+                  <PieChart>
+                    <Pie
+                      data={donutData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={100}
+                      paddingAngle={2}
+                    >
+                      {donutData.map((d) => (
+                        <Cell
+                          key={d.key}
+                          fill={statusFilter === "todos" || statusFilter === d.key ? d.color : "#e2e8f0"}
+                          cursor="pointer"
+                          onClick={() => setStatusFilter((p) => (p === d.key ? "todos" : d.key))}
+                        />
+                      ))}
+                    </Pie>
                     <Tooltip
-                      formatter={(v: number) => [`${nfmt(v)} km`, "Odómetro"]}
+                      formatter={(v: number, n: any) => [`${nfmt(v)} buses`, n]}
                       contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
                     />
-                    <Bar dataKey="km" fill="#2563eb" radius={[0, 4, 4, 0]} barSize={14} />
-                  </BarChart>
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          ) : null}
 
-          <div className="sts-card p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="inline-flex items-center gap-1 text-sm font-semibold">
-                <Gauge className="h-4 w-4" /> Kilometraje por bus
-              </h3>
-              <div className="flex items-center gap-2">
+            {/* Tabla con filtros */}
+            <div className="sts-card p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {chips.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setStatusFilter(c.key)}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        statusFilter === c.key
+                          ? "border-transparent text-white"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                      style={statusFilter === c.key ? { backgroundColor: c.color } : undefined}
+                    >
+                      {c.label} ({nfmt(c.count)})
+                    </button>
+                  ))}
+                </div>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Filtrar por bus o placa…"
-                    className="h-8 w-56 rounded-md border border-border bg-transparent pl-8 pr-2 text-sm outline-none focus:border-foreground"
+                    placeholder="Buscar bus o placa…"
+                    className="h-8 w-52 rounded-md border border-border bg-transparent pl-8 pr-2 text-sm outline-none focus:border-foreground"
                   />
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {sorted.length} de {rows.length}
-                </span>
               </div>
-            </div>
-            <div className="max-h-[560px] overflow-auto">
-              <DataTable>
-                <DataTableHeader>
-                  <DataTableRow>
-                    <DataTableHead>
-                      <button onClick={() => toggleSort("bus")} className="inline-flex items-center gap-1">
-                        Bus <SortIcon k="bus" />
-                      </button>
-                    </DataTableHead>
-                    <DataTableHead>Placa</DataTableHead>
-                    <DataTableHead>
-                      <button onClick={() => toggleSort("km")} className="inline-flex items-center gap-1">
-                        Último odómetro <SortIcon k="km" />
-                      </button>
-                    </DataTableHead>
-                    <DataTableHead>
-                      <button onClick={() => toggleSort("fecha")} className="inline-flex items-center gap-1">
-                        Fecha lectura <SortIcon k="fecha" />
-                      </button>
-                    </DataTableHead>
-                    <DataTableHead>Recibido</DataTableHead>
-                  </DataTableRow>
-                </DataTableHeader>
-                <DataTableBody>
-                  {sorted.length === 0 ? (
+
+              <div className="max-h-[520px] overflow-auto">
+                <DataTable>
+                  <DataTableHeader>
                     <DataTableRow>
-                      <DataTableCell colSpan={5} className="text-sm text-muted-foreground">
-                        Sin resultados.
-                      </DataTableCell>
+                      <DataTableHead>
+                        <button onClick={() => toggleSort("bus")} className="inline-flex items-center gap-1">
+                          Bus <SortIcon k="bus" />
+                        </button>
+                      </DataTableHead>
+                      <DataTableHead>Placa</DataTableHead>
+                      <DataTableHead>
+                        <button onClick={() => toggleSort("km")} className="inline-flex items-center gap-1">
+                          Último odómetro <SortIcon k="km" />
+                        </button>
+                      </DataTableHead>
+                      <DataTableHead>
+                        <button onClick={() => toggleSort("fecha")} className="inline-flex items-center gap-1">
+                          Fecha lectura <SortIcon k="fecha" />
+                        </button>
+                      </DataTableHead>
+                      <DataTableHead>Recibido</DataTableHead>
                     </DataTableRow>
-                  ) : (
-                    sorted.map((r) => {
-                      const zero = r.km === 0;
-                      return (
-                        <DataTableRow key={r.busCode}>
-                          <DataTableCell className={`font-medium ${zero ? "text-red-700" : ""}`}>
-                            {r.busCode}
-                          </DataTableCell>
-                          <DataTableCell className={zero ? "text-red-700" : undefined}>
-                            {r.plate ?? "—"}
-                          </DataTableCell>
-                          <DataTableCell className={`font-semibold tabular-nums ${zero ? "text-red-700" : ""}`}>
-                            <span className="inline-flex items-center gap-1">
-                              {zero ? <AlertTriangle className="h-3.5 w-3.5" /> : null}
-                              {fmtKm(r.km)}
-                            </span>
-                          </DataTableCell>
-                          <DataTableCell>{fmtDate(r.eventAt)}</DataTableCell>
-                          <DataTableCell>{fmtDate(r.receivedAt)}</DataTableCell>
-                        </DataTableRow>
-                      );
-                    })
-                  )}
-                </DataTableBody>
-              </DataTable>
+                  </DataTableHeader>
+                  <DataTableBody>
+                    {sorted.length === 0 ? (
+                      <DataTableRow>
+                        <DataTableCell colSpan={5} className="text-sm text-muted-foreground">
+                          Sin resultados.
+                        </DataTableCell>
+                      </DataTableRow>
+                    ) : (
+                      sorted.map((r) => {
+                        const zero = r.km === 0;
+                        const sin = r.km == null;
+                        return (
+                          <DataTableRow key={r.busCode}>
+                            <DataTableCell className={`font-medium ${zero ? "text-red-700" : ""}`}>
+                              {r.busCode}
+                            </DataTableCell>
+                            <DataTableCell className={zero ? "text-red-700" : undefined}>
+                              {r.plate ?? "—"}
+                            </DataTableCell>
+                            <DataTableCell
+                              className={`font-semibold tabular-nums ${zero ? "text-red-700" : sin ? "text-muted-foreground" : ""}`}
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                {zero ? <AlertTriangle className="h-3.5 w-3.5" /> : null}
+                                {fmtKm(r.km)}
+                              </span>
+                            </DataTableCell>
+                            <DataTableCell>{fmtDate(r.eventAt)}</DataTableCell>
+                            <DataTableCell>{fmtDate(r.receivedAt)}</DataTableCell>
+                          </DataTableRow>
+                        );
+                      })
+                    )}
+                  </DataTableBody>
+                </DataTable>
+              </div>
             </div>
           </div>
         </>

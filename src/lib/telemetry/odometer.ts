@@ -31,7 +31,7 @@ async function queryLatestOdometer(tenantId: string): Promise<OdometerRow[]> {
            t."eventAt" AS "eventAt",
            t."receivedAt" AS "receivedAt"
     FROM "Bus" b
-    JOIN LATERAL (
+    LEFT JOIN LATERAL (
       SELECT e.payload->>'kilometrosOdometro' AS odometer,
              e."eventAt",
              e."receivedAt"
@@ -45,6 +45,7 @@ async function queryLatestOdometer(tenantId: string): Promise<OdometerRow[]> {
       LIMIT 1
     ) t ON true
     WHERE b."tenantId" = ${tenantId}
+      AND b."active" = true
     ORDER BY b."code"
   `);
   return rows;

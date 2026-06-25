@@ -138,20 +138,15 @@ export async function processInboundTelemetryBatch(params: {
     : [];
   const processedExternalIds = new Set(alreadyProcessed.map((r) => r.externalId));
   const seenInBatch = new Set<string>();
+  const duplicateIds: string[] = [];
 
   for (const row of pending) {
     if (
       row.externalId &&
       (processedExternalIds.has(row.externalId) || seenInBatch.has(row.externalId))
     ) {
-      await prisma.integrationInboundEvent.update({
-        where: { id: row.id },
-        data: {
-          status: IntegrationInboundStatus.PROCESSED,
-          processedAt: new Date(),
-          error: "DUPLICATE",
-        },
-      });
+      // Se marcan en bloque al final (1 sola consulta) para que el catch-up vuele.
+      duplicateIds.push(row.id);
       result.duplicates += 1;
       continue;
     }
@@ -241,6 +236,19 @@ export async function processInboundTelemetryBatch(params: {
       });
       result.errored += 1;
     }
+  }
+
+  // Marca TODAS las duplicadas del lote en UNA sola consulta (no una por una).
+  // Es lo que acelera el catch-up cuando hay muchísimos duplicados.
+  if (duplicateIds.length) {
+    await prisma.integrationInboundEvent.updateMany({
+      where: { id: { in: duplicateIds } },
+      data: {
+        status: IntegrationInboundStatus.PROCESSED,
+        processedAt: new Date(),
+        error: "DUPLICATE",
+      },
+    });
   }
 
   return result;
