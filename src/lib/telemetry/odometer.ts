@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export type OdometerRow = {
@@ -10,11 +11,11 @@ export type OdometerRow = {
 };
 
 // Último kilometraje (campo kilometrosOdometro) reportado por cada bus.
-// El dato llega dentro del payload de las tramas P60 (periódicas extendidas) y
-// ya se guarda tal cual; aquí solo se lee. Por cada bus se busca la trama más
-// reciente que traiga el campo, usando el índice (tenantId, busCode, eventAt)
-// vía JOIN LATERAL. Solo aparecen los buses que tienen al menos una lectura.
-export async function getLatestOdometer(tenantId: string): Promise<OdometerRow[]> {
+// Acotado a los últimos 2 días para no escanear toda la tabla: por cada bus se
+// toma su trama más reciente con odómetro usando el índice (tenantId, busCode,
+// eventAt) + LIMIT 1. El resultado se cachea (ver getLatestOdometer) para que
+// la consulta NO corra en cada carga y no sature el pool de conexiones.
+async function queryLatestOdometer(tenantId: string): Promise<OdometerRow[]> {
   const rows = await prisma.$queryRaw<
     Array<{
       busCode: string;
@@ -37,14 +38,23 @@ export async function getLatestOdometer(tenantId: string): Promise<OdometerRow[]
       FROM "IntegrationInboundEvent" e
       WHERE e."tenantId" = b."tenantId"
         AND e."busCode" = b."code"
-        AND e."receivedAt" >= now() - interval '30 days'
+        AND e."eventAt" >= now() - interval '2 days'
         AND e.payload->>'kilometrosOdometro' IS NOT NULL
         AND e.payload->>'kilometrosOdometro' <> ''
-      ORDER BY e."eventAt" DESC NULLS LAST, e."receivedAt" DESC
+      ORDER BY e."eventAt" DESC
       LIMIT 1
     ) t ON true
     WHERE b."tenantId" = ${tenantId}
     ORDER BY b."code"
   `);
   return rows;
+}
+
+// Cacheado 5 minutos: protege la base de que la consulta corra en cada carga.
+export function getLatestOdometer(tenantId: string): Promise<OdometerRow[]> {
+  return unstable_cache(
+    () => queryLatestOdometer(tenantId),
+    ["telemetry-odometer", tenantId],
+    { revalidate: 300 }
+  )();
 }
