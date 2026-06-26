@@ -19,7 +19,7 @@ import { prisma } from "@/lib/prisma";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { saveUpload } from "@/lib/uploads";
 import { notifyTenantUsers } from "@/lib/notifications";
-import { autoGroupNovedad } from "@/lib/novedades/duplicates-server";
+import { autoGroupNovedad, findSimilarOtherCreator } from "@/lib/novedades/duplicates-server";
 import { loadNovedadCatalog } from "@/lib/novedad-catalog";
 import { CaseEventType, CaseStatus, NotificationType, Role } from "@prisma/client";
 
@@ -382,6 +382,18 @@ export async function POST(req: NextRequest) {
       console.error("NOVEDAD_AUTOGROUP_FAILED", e);
     }
 
+    // Detectar novedades IGUALES de OTRO usuario (alerta "ya reportada").
+    let similar: Array<{ caseNo: number | null }> = [];
+    try {
+      similar = await findSimilarOtherCreator(prisma, { tenantId: tenant.id, caseId: created.id });
+    } catch (e) {
+      console.error("NOVEDAD_SIMILAR_FAILED", e);
+    }
+    const similarRefs = similar.map((s) => `CASO-${String(s.caseNo ?? "").padStart(3, "0")}`);
+    const similarMessage = similar.length
+      ? `Ya hay ${similar.length} novedad(es) igual(es) reportada(s) para el bus ${bus.code}: ${similarRefs.join(", ")}.`
+      : null;
+
     // Avisar a quienes triagean. In-app por defecto; correo si se activa.
     const sendEmail =
       String(process.env.NOVEDADES_NOTIFY_EMAIL ?? "false").toLowerCase() === "true";
@@ -410,6 +422,7 @@ export async function POST(req: NextRequest) {
       reportedNovelty,
       associated: Boolean(matched),
       matchedUser: matched ? { id: matched.id, name: matched.name } : null,
+      similar: similar.length ? { count: similar.length, caseRefs: similarRefs, message: similarMessage } : null,
     });
   } catch (e: any) {
     return NextResponse.json(

@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, Role } from "@prisma/client";
 import { buildCaseAccessWhere } from "@/lib/access-control";
+import { propagateCommentToGroup } from "@/lib/novedades/duplicates-server";
 
 const ALLOWED = new Set<Role>([
   Role.ADMIN,
@@ -50,5 +51,20 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     select: { id: true, message: true, createdAt: true, meta: true },
   });
 
-  return NextResponse.json({ ok: true, comment: event });
+  // Si la novedad es parte de un grupo "mismo caso", la respuesta se carga
+  // también a los demás miembros (principal y dependientes). No rompe el flujo.
+  let propagated = 0;
+  try {
+    propagated = await propagateCommentToGroup(prisma, {
+      tenantId,
+      fromCaseId: found.id,
+      message: comment,
+      byUserId: userId,
+      sourceEventId: event.id,
+    });
+  } catch (e) {
+    console.error("COMMENT_PROPAGATE_FAILED", e);
+  }
+
+  return NextResponse.json({ ok: true, comment: event, propagated });
 }

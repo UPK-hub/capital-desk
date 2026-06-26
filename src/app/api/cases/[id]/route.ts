@@ -10,6 +10,7 @@ import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
+import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { restrictedCasesWhere } from "@/lib/access-control";
 
@@ -435,7 +436,20 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     });
   });
 
-  return NextResponse.json({ ok: true, caseId: found.id, status: CaseStatus.CERRADO });
+  // Si es parte de un grupo "mismo caso", se cierran también las dependientes.
+  let propagated = 0;
+  try {
+    propagated = await propagateStatusToGroup(prisma, {
+      tenantId,
+      fromCaseId: found.id,
+      status: CaseStatus.CERRADO,
+      byUserId: userId,
+    });
+  } catch (e) {
+    console.error("CLOSE_PROPAGATE_FAILED", e);
+  }
+
+  return NextResponse.json({ ok: true, caseId: found.id, status: CaseStatus.CERRADO, propagated });
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {

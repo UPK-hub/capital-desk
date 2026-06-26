@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseType, Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { deterministicGroupId, issueKeyForCase, resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
+import { copyGroupResponsesTo } from "@/lib/novedades/duplicates-server";
 
 function isAllowedRole(role: Role) {
   return (
@@ -109,6 +110,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         meta: { duplicateAction: "link", duplicateGroupId: gid, linkedBy: userId, manual: true },
       })),
     });
+
+    // Al enlazar, cargar a cada caso la respuesta de la principal y sincronizar estado.
+    try {
+      for (const c of toLink) {
+        await copyGroupResponsesTo(prisma, { tenantId, groupId: gid, targetCaseId: c.id, byUserId: userId });
+      }
+    } catch (e) {
+      console.error("LINK_COPY_RESPONSES_FAILED", e);
+    }
   }
 
   return NextResponse.json({ ok: true, groupId: gid, sourceCaseId: source.id, targetCaseId: target.id });

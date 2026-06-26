@@ -58,9 +58,41 @@ export function issueKeyForCase(input: { title: string; events: EventLike[] }): 
   return slug(base || normalizeText(input.title));
 }
 
-/** Id de grupo determinista para un bus + clave de caso. */
-export function deterministicGroupId(busCode: string | null | undefined, issueKey: string): string {
-  return `${DUPLICATE_GROUP_PREFIX}-${slug(busCode).toUpperCase()}-${issueKey}`;
+/**
+ * Id de grupo determinista para bus + clave de caso (+ creador, opcional).
+ * El agrupado automático es POR USUARIO (creador), así que el creador entra en
+ * la clave; el enlace manual reusa el id del grupo de la principal.
+ */
+export function deterministicGroupId(
+  busCode: string | null | undefined,
+  issueKey: string,
+  creatorKey?: string | null
+): string {
+  const base = `${DUPLICATE_GROUP_PREFIX}-${slug(busCode).toUpperCase()}-${issueKey}`;
+  const ck = String(creatorKey ?? "").trim();
+  return ck ? `${base}-U${slug(ck)}` : base;
+}
+
+/** Id del creador de un caso, leído del evento CREATED (userId/by/actorUserId). */
+export function extractCreatorId(events: Array<{ type?: any; meta: unknown }>): string | null {
+  for (const ev of events) {
+    if (ev.type && ev.type !== "CREATED") continue;
+    const meta = (ev.meta ?? {}) as any;
+    const id = meta?.userId ?? meta?.by ?? meta?.actorUserId;
+    if (id && String(id).trim()) return String(id).trim();
+  }
+  return null;
+}
+
+/** Principal de un grupo = la novedad más antigua (menor createdAt). */
+export function principalIdOf<T extends { id: string; createdAt: Date | string }>(
+  members: T[]
+): string | null {
+  if (!members.length) return null;
+  const sorted = [...members].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+  return sorted[0].id;
 }
 
 /**

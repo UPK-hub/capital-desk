@@ -60,7 +60,6 @@ type State =
   | "ASK_FAULT"
   | "ASK_DETAIL"
   | "ASK_NAME"
-  | "ASK_PHONE"
   | "ASK_PHOTO";
 
 type SessionData = {
@@ -145,11 +144,6 @@ function equipmentKeyboard(opts: EquipmentOpt[]) {
   };
 }
 
-const phoneKeyboard = () => ({
-  keyboard: [[{ text: "📱 Compartir mi número", request_contact: true }]],
-  resize_keyboard: true,
-  one_time_keyboard: true,
-});
 const removeKeyboard = () => ({ remove_keyboard: true });
 
 function buildPayload(data: SessionData) {
@@ -178,7 +172,7 @@ function buildGroupSummary(data: SessionData, resp: any): string {
     `🧩 Equipo: ${data.equipmentLabel ?? data.equipment}`,
     `⚠️ Falla: ${data.catalogCode ?? "—"} · ${data.reportedNovelty ?? ""}`,
     data.observations ? `📝 Detalle: ${data.observations}` : null,
-    `👤 Reporta: ${data.reporterName ?? "—"}${data.reporterPhone ? ` · ${data.reporterPhone}` : ""}`,
+    `👤 Reporta: ${data.reporterName ?? "—"}${data.telegram?.username ? ` (@${data.telegram.username})` : ""}`,
     assoc,
   ]
     .filter(Boolean)
@@ -342,7 +336,6 @@ async function handleUpdate(update: any) {
   let callbackId: string | undefined;
   let text = "";
   let photoFileId = "";
-  let contactPhone = "";
   let callbackData = "";
 
   if (update.callback_query) {
@@ -355,8 +348,7 @@ async function handleUpdate(update: any) {
     const msg = update.message;
     chatId = msg.chat?.id;
     from = msg.from;
-    if (msg.contact?.phone_number) contactPhone = String(msg.contact.phone_number);
-    else if (Array.isArray(msg.photo) && msg.photo.length)
+    if (Array.isArray(msg.photo) && msg.photo.length)
       photoFileId = String(msg.photo[msg.photo.length - 1].file_id);
     else text = String(msg.text || "").trim();
   }
@@ -457,7 +449,7 @@ async function handleUpdate(update: any) {
         session.state = "ASK_DETAIL";
         await sendMessage(
           chatId,
-          "*Paso 4.* ¿Quieres agregar algún *detalle*? Escríbelo, o pon *omitir*."
+          "¿Quieres agregar algún *detalle*? Escríbelo, o pon *omitir*."
         );
         return;
       }
@@ -476,8 +468,25 @@ async function handleUpdate(update: any) {
         return;
       }
       data.observations = SKIP_WORDS.has(text.toLowerCase()) ? "" : text.slice(0, 500);
-      session.state = "ASK_NAME";
-      await sendMessage(chatId, "*Paso 5.* ¿Cuál es tu *nombre completo*?");
+
+      // Identificar por el nombre de Telegram; preguntar solo si no coincide.
+      const tgName = data.telegram?.name || "";
+      const m = tgName ? await intakeGet({ matchName: tgName }) : { matched: false };
+      if (m?.matched && m.user?.name) {
+        data.reporterName = m.user.name;
+        session.state = "ASK_PHOTO";
+        await sendMessage(
+          chatId,
+          `Te identifiqué como *${m.user.name}* ✅\n\nÚltimo paso: envía una *foto* de la novedad, o escribe *omitir*.`,
+          removeKeyboard()
+        );
+      } else {
+        session.state = "ASK_NAME";
+        await sendMessage(
+          chatId,
+          `No te reconocí por tu nombre de Telegram${tgName ? ` (*${tgName}*)` : ""}.\n*Último dato:* escribe tu *nombre completo* tal como está registrado en la mesa.`
+        );
+      }
       return;
     }
 
@@ -487,26 +496,10 @@ async function handleUpdate(update: any) {
         return;
       }
       data.reporterName = text.slice(0, 120);
-      session.state = "ASK_PHONE";
-      await sendMessage(
-        chatId,
-        "*Paso 6.* ¿Tu *teléfono* de contacto? Toca el botón o escríbelo.",
-        phoneKeyboard()
-      );
-      return;
-    }
-
-    case "ASK_PHONE": {
-      const phone = contactPhone || text;
-      if (!phone) {
-        await sendMessage(chatId, "Comparte tu número con el botón o escríbelo.", phoneKeyboard());
-        return;
-      }
-      if (!SKIP_WORDS.has(phone.toLowerCase())) data.reporterPhone = phone.slice(0, 40);
       session.state = "ASK_PHOTO";
       await sendMessage(
         chatId,
-        "*Paso 7.* Envía una *foto* de la novedad, o escribe *omitir*.",
+        "Gracias. Último paso: envía una *foto* de la novedad, o escribe *omitir*.",
         removeKeyboard()
       );
       return;
@@ -525,9 +518,14 @@ async function handleUpdate(update: any) {
       if (result.ok) {
         const ref = result.resp?.caseRef ?? "tu caso";
         const code = data.catalogCode ? ` (${data.catalogCode})` : "";
+        const similar = result.resp?.similar;
+        const similarNote =
+          similar?.count > 0
+            ? `\n\n⚠️ Nota: ya había ${similar.count} novedad(es) igual(es) para este bus (${(similar.caseRefs ?? []).join(", ")}). La registramos y la dejamos asociada al mismo caso.`
+            : "";
         await sendMessage(
           chatId,
-          `✅ ¡Listo! Tu novedad quedó registrada como *${ref}*${code}.\nNuestro equipo la revisará. Escribe /start para reportar otra.`,
+          `✅ ¡Listo! Tu novedad quedó registrada como *${ref}*${code}.${similarNote}\nNuestro equipo la revisará. Escribe /start para reportar otra.`,
           removeKeyboard()
         );
         if (GROUP_CHAT_ID) {

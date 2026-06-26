@@ -15,7 +15,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseType } from "@prisma/client";
-import { deterministicGroupId, issueKeyForCase, resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
+import { deterministicGroupId, extractCreatorId, issueKeyForCase, resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
 
 function arg(flag: string): string | null {
   const i = process.argv.indexOf(flag);
@@ -47,7 +47,7 @@ async function main() {
       caseNo: true,
       title: true,
       bus: { select: { code: true } },
-      events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
+      events: { orderBy: { createdAt: "asc" }, select: { type: true, createdAt: true, meta: true } },
     },
   });
 
@@ -56,7 +56,12 @@ async function main() {
   const groups = new Map<string, Item[]>();
   for (const n of novedades) {
     const busCode = n.bus?.code ?? "SIN-BUS";
-    const gid = deterministicGroupId(busCode, issueKeyForCase({ title: n.title, events: n.events }));
+    // Agrupado POR CREADOR: mismo usuario + mismo bus + misma novedad.
+    const gid = deterministicGroupId(
+      busCode,
+      issueKeyForCase({ title: n.title, events: n.events }),
+      extractCreatorId(n.events)
+    );
     const item: Item = { id: n.id, caseNo: n.caseNo, busCode, currentGroup: resolveDuplicateGroupId(n.events) };
     const arr = groups.get(gid) ?? [];
     arr.push(item);

@@ -20,6 +20,7 @@ import {
 import { CASE_TYPE_REGISTRY } from "@/lib/case-type-registry";
 import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { autoGroupNovedad } from "@/lib/novedades/duplicates-server";
 import { ensureTenantSequence } from "@/lib/tenant-sequence";
 import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
@@ -575,6 +576,15 @@ export async function POST(req: NextRequest) {
         meta: { kind: "NOVEDAD_BATCH", batchRef: created.batchRef, count: created.items.length },
         sendEmail: false,
       });
+
+      // Auto-agrupar cada novedad con las del mismo usuario + bus + novedad. No rompe el flujo.
+      try {
+        for (const item of created.items) {
+          await autoGroupNovedad(prisma, { tenantId, caseId: item.noveltyCaseId });
+        }
+      } catch (e) {
+        console.error("NOVEDAD_AUTOGROUP_FAILED", e);
+      }
 
       const escapeHtml = (value: string) =>
         String(value ?? "")

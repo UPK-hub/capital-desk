@@ -23,7 +23,7 @@ import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
 import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
-import { resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
+import { getDuplicateGroup, findSimilarOtherCreator, type DuplicateGroup } from "@/lib/novedades/duplicates-server";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
 import EditCaseTitleCard from "./ui/EditCaseTitleCard";
 import EvidenciasCard, { type EvidenceItem, type EvidenceKind } from "./ui/EvidenciasCard";
@@ -453,39 +453,36 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         })
       : [];
 
-  // Novedades duplicadas (mismo caso): grupo actual + otros miembros del grupo.
-  const duplicateGroupId =
-    c.type === CaseType.NOVEDAD ? resolveDuplicateGroupId(c.events) : null;
-  const duplicateMembers = duplicateGroupId
-    ? (
-        await prisma.case.findMany({
-          where: {
-            tenantId,
-            type: CaseType.NOVEDAD,
-            id: { not: c.id },
-            events: { some: { meta: { path: ["duplicateGroupId"], equals: duplicateGroupId } } },
-          },
-          orderBy: { caseNo: "asc" },
-          select: {
-            id: true,
-            caseNo: true,
-            status: true,
-            createdAt: true,
-            bus: { select: { code: true } },
-            events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
-          },
-        })
-      )
-        .filter((m) => resolveDuplicateGroupId(m.events) === duplicateGroupId)
-        .map((m) => ({
-          id: m.id,
-          caseNo: m.caseNo,
-          status: m.status,
-          statusLabel: labelFromMap(m.status, caseStatusLabels),
-          createdAt: m.createdAt.toISOString(),
-          busCode: m.bus?.code ?? "",
-        }))
-    : [];
+  // Novedades duplicadas (mismo caso): principal + dependientes + similares de otro usuario.
+  // Defensivo: si algo falla, no debe romper el detalle del caso.
+  let duplicateGroup: DuplicateGroup = { groupId: null, members: [], principalId: null };
+  let duplicateSimilar: Array<{ id: string; caseNo: number | null; status: string; statusLabel: string }> = [];
+  if (c.type === CaseType.NOVEDAD) {
+    try {
+      duplicateGroup = await getDuplicateGroup(prisma, { tenantId, caseId: c.id });
+      duplicateSimilar = (await findSimilarOtherCreator(prisma, { tenantId, caseId: c.id })).map((s) => ({
+        id: s.id,
+        caseNo: s.caseNo,
+        status: s.status,
+        statusLabel: labelFromMap(s.status, caseStatusLabels),
+      }));
+    } catch (e) {
+      console.error("DUPLICATES_DETAIL_FAILED", e);
+    }
+  }
+  const duplicateMembers = duplicateGroup.members
+    .filter((m) => m.id !== c.id)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((m) => ({
+      id: m.id,
+      caseNo: m.caseNo,
+      status: m.status,
+      statusLabel: labelFromMap(m.status, caseStatusLabels),
+      createdAt: m.createdAt.toISOString(),
+      busCode: m.busCode,
+      isPrincipal: m.id === duplicateGroup.principalId,
+    }));
+  const duplicatePrincipal = duplicateGroup.members.find((m) => m.id === duplicateGroup.principalId) ?? null;
 
   const linkedCasesView = linkedCasesForNovedad.map((lc) => {
     const manual = lc.events.some((ev) => {
@@ -1239,8 +1236,11 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   novedadCaseNo={c.caseNo}
                   busCode={c.bus?.code ?? null}
                   canManage={canEditNovedad}
-                  groupId={duplicateGroupId}
+                  groupId={duplicateGroup.groupId}
+                  selfIsPrincipal={duplicateGroup.principalId === c.id}
+                  principalCaseNo={duplicatePrincipal?.caseNo ?? null}
                   members={duplicateMembers}
+                  similar={duplicateSimilar}
                 />
               ) : null}
 

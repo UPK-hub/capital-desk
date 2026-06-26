@@ -2,14 +2,16 @@
 
 Permite que un cliente le escriba a un bot de Telegram, responda unas preguntas
 (código de bus, equipo afectado, **falla del catálogo** —con su código NVD-xxx—,
-detalle, nombre, teléfono y una foto opcional) y la novedad quede registrada
-**automáticamente** en el apartado **Novedades** de la mesa, en estado **NUEVO**,
-para que el equipo la revise.
+detalle y una foto opcional) y la novedad quede registrada **automáticamente** en
+el apartado **Novedades** de la mesa, en estado **NUEVO**, para que el equipo la
+revise.
 
-La novedad se **asocia al usuario de la mesa** cuyo nombre coincida (queda como
-creador del caso); si ninguno coincide, se registra igual con una alerta. El bus
-se acepta **con o sin la "K"** (1402 = K1402). Y cada novedad puede publicarse en
-un **grupo de Telegram** (ver más abajo).
+La persona se **identifica por su nombre de Telegram**: el bot lo toma
+automáticamente y lo asocia al usuario de la mesa que coincida (queda como
+**creador** del caso). Solo pregunta el nombre si el de Telegram no coincide; si
+aun así no coincide, registra igual con una alerta. No pide teléfono (guarda el
+**@usuario de Telegram** para contacto). El bus se acepta **con o sin la "K"**
+(1402 = K1402). Y cada novedad puede publicarse en un **grupo de Telegram**.
 
 > El bot **solo crea la novedad**. No genera correctivo ni OT automáticamente:
 > eso lo decide tu equipo desde la mesa, como hasta ahora.

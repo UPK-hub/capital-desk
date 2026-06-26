@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
+import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
 
 /**
  * Lee los CaseEvent de un caso y devuelve el id de la novedad de origen
@@ -87,6 +88,18 @@ export async function maybeAutoCloseLinkedNovedad(
         },
       });
     });
+
+    // Si esta novedad es parte de un grupo "mismo caso", cerrar las dependientes.
+    try {
+      await propagateStatusToGroup(prisma, {
+        tenantId,
+        fromCaseId: novedad.id,
+        status: CaseStatus.CERRADO,
+        byUserId,
+      });
+    } catch (error) {
+      console.error("AUTO_CLOSE_PROPAGATE_FAILED", { tenantId, novedadId: novedad.id, error });
+    }
 
     return true;
   } catch (error) {
