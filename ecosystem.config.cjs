@@ -25,5 +25,26 @@ module.exports = {
         NODE_OPTIONS: "--max-old-space-size=8192",
       },
     },
+
+    // --- Bot de Telegram para reportar novedades ---
+    // Proceso aparte que conversa con el cliente y registra la novedad llamando
+    // a /api/integrations/novedades de la app. Lee su configuración del archivo
+    // .env (TELEGRAM_BOT_TOKEN, NOVEDADES_INTAKE_URL, NOVEDADES_INTAKE_SECRET).
+    {
+      name: "novedades-bot",
+      cwd: "D:/apps/capital-desk",
+      script: "C:/Program Files/nodejs/node.exe",
+      args: "node_modules/tsx/dist/cli.mjs scripts/telegram-novedades-bot.ts",
+
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "20s",
+      restart_delay: 3000,
+      max_memory_restart: "500M",
+
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };
