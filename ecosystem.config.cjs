@@ -67,5 +67,47 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+
+    // --- Procesador CONTINUO de tramas ---
+    // Mantiene al día la tabla BusTelemetryState (última posición / lastSeenAt que
+    // muestra el módulo de Telemetría). Sin esto, las tramas crudas llegan pero el
+    // estado por bus queda congelado. Adaptativo: se pone al día y luego descansa.
+    {
+      name: "tramas-processor",
+      cwd: "D:/apps/capital-desk",
+      script: "C:/Program Files/nodejs/node.exe",
+      args: "node_modules/tsx/dist/cli.mjs scripts/tramas-processor.ts",
+
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "20s",
+      restart_delay: 3000,
+      max_memory_restart: "1G",
+
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+
+    // --- Bot de Telegram de CONSULTA de preventivos ---
+    // Recibe un código de bus y responde su último preventivo consultando
+    // /api/integrations/preventivo-last. Lee del .env:
+    // TELEGRAM_PREVENTIVOS_BOT_TOKEN, PREVENTIVO_QUERY_URL, NOVEDADES_INTAKE_SECRET.
+    {
+      name: "preventivos-bot",
+      cwd: "D:/apps/capital-desk",
+      script: "C:/Program Files/nodejs/node.exe",
+      args: "node_modules/tsx/dist/cli.mjs scripts/telegram-preventivos-bot.ts",
+
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "20s",
+      restart_delay: 3000,
+      max_memory_restart: "500M",
+
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };
