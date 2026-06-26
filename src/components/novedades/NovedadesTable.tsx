@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Columns3, Layers, List, LayoutGrid, ChevronUp, ChevronDown, Link2, GripVertical } from "lucide-react";
+import { Columns3, Layers, List, LayoutGrid, ChevronUp, ChevronDown, Link2, GripVertical, Copy, Crown } from "lucide-react";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { caseStatusLabels, labelFromMap } from "@/lib/labels";
@@ -29,6 +29,10 @@ export type NovedadRow = {
   // Duplicados: novedades que son el mismo caso (mismo bus)
   dupGroupId: string | null;
   dupCount: number;
+  dupRole: "principal" | "dependiente" | null;
+  dupPrincipalId: string | null;
+  dupPrincipalCaseNo: number | null;
+  dupRelated: Array<{ id: string; caseNo: number | null }>;
 };
 
 type Col = { key: string; label: string; always?: boolean; sortable?: boolean };
@@ -41,6 +45,7 @@ const COLUMNS: Col[] = [
   { key: "equipo", label: "Equipo afectado", sortable: true },
   { key: "priority", label: "Prioridad", sortable: true },
   { key: "status", label: "Estado", sortable: true },
+  { key: "duplicada", label: "Duplicada", sortable: true },
   { key: "correctivo", label: "Correctivo", sortable: true },
   { key: "creador", label: "Creador", sortable: true },
   { key: "asignado", label: "Asignado", sortable: true },
@@ -49,10 +54,10 @@ const COLUMNS: Col[] = [
   { key: "resolvedAt", label: "Resolución", sortable: true },
 ];
 const ALL_KEYS = COLUMNS.map((c) => c.key);
-const DEFAULT_ORDER = ["caseNo", "createdAt", "bus", "placa", "asunto", "equipo", "priority", "status", "correctivo", "creador", "asignado", "resolvedAt", "ot", "updatedAt"];
+const DEFAULT_ORDER = ["caseNo", "createdAt", "bus", "placa", "asunto", "equipo", "priority", "status", "duplicada", "correctivo", "creador", "asignado", "resolvedAt", "ot", "updatedAt"];
 const DEFAULT_HIDDEN = ["ot", "updatedAt"];
-const ORDER_KEY = "capitaldesk.novedades.colOrder.v2";
-const HIDDEN_KEY = "capitaldesk.novedades.hiddenCols.v3";
+const ORDER_KEY = "capitaldesk.novedades.colOrder.v3";
+const HIDDEN_KEY = "capitaldesk.novedades.hiddenCols.v4";
 
 const STATUS_ORDER: Record<string, number> = { NUEVO: 0, OT_ASIGNADA: 1, EN_EJECUCION: 2, RESUELTO: 3, CERRADO: 4 };
 const KCOLS = [
@@ -177,6 +182,11 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
       case "resolvedAt": r = t(a.resolvedAt) - t(b.resolvedAt); break;
       case "equipo": r = (a.equipo ?? "~").localeCompare(b.equipo ?? "~"); break;
       case "status": r = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9); break;
+      case "duplicada": {
+        const rank = (x: NovedadRow) => (x.dupRole === "principal" ? 0 : x.dupRole === "dependiente" ? 1 : 2);
+        r = rank(a) - rank(b);
+        break;
+      }
       case "correctivo": r = (a.corrCaseNo ?? 0) - (b.corrCaseNo ?? 0); break;
       case "creador": r = (a.creator ?? "~").localeCompare(b.creator ?? "~"); break;
       case "asignado": r = (a.assignee ?? "~").localeCompare(b.assignee ?? "~"); break;
@@ -256,17 +266,7 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
       case "asunto":
         return (
           <div className="max-w-[300px]">
-            <div className="flex items-center gap-1.5">
-              <span className="truncate text-sm font-medium text-slate-800">{c.title}</span>
-              {c.dupGroupId && c.dupCount > 1 ? (
-                <span
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
-                  title="Mismo caso reportado varias veces"
-                >
-                  <Layers className="h-2.5 w-2.5" /> ×{c.dupCount} mismo caso
-                </span>
-              ) : null}
-            </div>
+            <div className="truncate text-sm font-medium text-slate-800">{c.title}</div>
             <div className="truncate text-xs text-muted-foreground">{c.busCode} · {c.busPlate ?? "Sin placa"}</div>
           </div>
         );
@@ -280,6 +280,49 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
             pulse={c.status === "EN_EJECUCION" || c.status === "OT_ASIGNADA"}
           />
         );
+      case "duplicada": {
+        if (c.dupRole === "dependiente") {
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (c.dupPrincipalId) router.push(`/cases/${c.dupPrincipalId}`);
+              }}
+              title="Esta novedad es un duplicado: depende de la principal"
+              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100"
+            >
+              <Copy className="h-3 w-3" /> Duplicada de{" "}
+              {c.dupPrincipalCaseNo ? `CASO-${String(c.dupPrincipalCaseNo).padStart(3, "0")}` : "—"}
+            </button>
+          );
+        }
+        if (c.dupRole === "principal") {
+          const shown = c.dupRelated.slice(0, 2);
+          const extra = c.dupRelated.length - shown.length;
+          return (
+            <span className="inline-flex flex-wrap items-center gap-1 text-[11px] text-slate-600" title="Otras novedades la duplican">
+              <Crown className="h-3 w-3 text-amber-600" />
+              <span className="text-slate-400">Duplicada por</span>
+              {shown.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/cases/${m.id}`);
+                  }}
+                  className="rounded border border-border/60 bg-white px-1 tabular-nums text-slate-600 transition hover:bg-slate-50"
+                >
+                  {m.caseNo ? `CASO-${String(m.caseNo).padStart(3, "0")}` : "caso"}
+                </button>
+              ))}
+              {extra > 0 ? <span className="text-slate-400">+{extra}</span> : null}
+            </span>
+          );
+        }
+        return <span className="text-xs text-slate-400">—</span>;
+      }
       case "correctivo": return <CorrectivoCell c={c} />;
       case "creador":
         return c.creator ? (

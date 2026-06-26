@@ -170,17 +170,42 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   const creators = [...creatorUsers].sort((a, b) => a.name.localeCompare(b.name));
 
   // Grupos de "mismo caso" (novedades duplicadas) dentro del conjunto cargado.
+  type DupMember = { id: string; caseNo: number | null; createdAt: Date };
   const dupGroupByCase = new Map<string, string | null>();
-  const dupGroupCount = new Map<string, number>();
+  const dupGroupMembers = new Map<string, DupMember[]>();
   for (const c of noveltyCases) {
     const gid = resolveDuplicateGroupId(c.events);
     dupGroupByCase.set(c.id, gid);
-    if (gid) dupGroupCount.set(gid, (dupGroupCount.get(gid) ?? 0) + 1);
+    if (gid) {
+      const arr = dupGroupMembers.get(gid) ?? [];
+      arr.push({ id: c.id, caseNo: c.caseNo ?? null, createdAt: c.createdAt });
+      dupGroupMembers.set(gid, arr);
+    }
+  }
+  // Principal de cada grupo = la más antigua.
+  const dupPrincipalByGroup = new Map<string, DupMember>();
+  for (const [gid, arr] of dupGroupMembers) {
+    const principal = [...arr].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+    if (principal) dupPrincipalByGroup.set(gid, principal);
   }
 
   const rows: NovedadRow[] = noveltyCases.map((c) => {
     const dupGroupId = dupGroupByCase.get(c.id) ?? null;
-    const dupCount = dupGroupId ? dupGroupCount.get(dupGroupId) ?? 1 : 1;
+    const dupMembers = dupGroupId ? dupGroupMembers.get(dupGroupId) ?? [] : [];
+    const dupCount = dupMembers.length || 1;
+    const dupPrincipal = dupGroupId ? dupPrincipalByGroup.get(dupGroupId) ?? null : null;
+    const inDupGroup = !!dupGroupId && dupCount > 1;
+    const isPrincipal = inDupGroup && dupPrincipal?.id === c.id;
+    const dupRole: "principal" | "dependiente" | null = inDupGroup ? (isPrincipal ? "principal" : "dependiente") : null;
+    const dupPrincipalId = inDupGroup && !isPrincipal ? dupPrincipal?.id ?? null : null;
+    const dupPrincipalCaseNo = inDupGroup && !isPrincipal ? dupPrincipal?.caseNo ?? null : null;
+    const dupRelated =
+      isPrincipal && dupGroupId
+        ? dupMembers
+            .filter((m) => m.id !== c.id)
+            .sort((a, b) => (a.caseNo ?? 0) - (b.caseNo ?? 0))
+            .map((m) => ({ id: m.id, caseNo: m.caseNo }))
+        : [];
     const state = extractLatestNovedadState(c.events);
     const batchRef = state?.batchRef?.trim() || `NVD-${String(c.caseNo ?? 0).padStart(4, "0")}`;
     const linked = corrBySource.get(c.id) || corrByBatch.get(batchRef) || null;
@@ -216,6 +241,10 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       corrWorkOrderNo: linked?.workOrder?.workOrderNo ?? null,
       dupGroupId,
       dupCount,
+      dupRole,
+      dupPrincipalId,
+      dupPrincipalCaseNo,
+      dupRelated,
     };
   });
 
