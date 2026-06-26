@@ -398,6 +398,11 @@ export async function POST(req: NextRequest) {
     const sendEmail =
       String(process.env.NOVEDADES_NOTIFY_EMAIL ?? "false").toLowerCase() === "true";
     const caseRef = `CASO-${String(created.caseNo ?? "").padStart(3, "0")}`;
+    // Link al detalle del caso en la mesa (para seguimiento desde Telegram).
+    const baseUrl = (process.env.APP_URL || process.env.NEXTAUTH_URL || "")
+      .trim()
+      .replace(/\/+$/, "");
+    const caseUrl = baseUrl ? `${baseUrl}/cases/${created.id}` : null;
     await notifyTenantUsers({
       tenantId: tenant.id,
       roles: [Role.SUPERVISOR, Role.PLANNER],
@@ -416,6 +421,7 @@ export async function POST(req: NextRequest) {
       caseId: created.id,
       caseNo: created.caseNo ?? null,
       caseRef,
+      caseUrl,
       bus: { code: bus.code, plate: bus.plate ?? null },
       catalogCode: catalogCode || null,
       equipmentLabel: affectedEquipmentLabel,

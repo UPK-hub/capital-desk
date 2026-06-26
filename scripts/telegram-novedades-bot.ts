@@ -523,14 +523,19 @@ async function handleUpdate(update: any) {
           similar?.count > 0
             ? `\n\n⚠️ Nota: ya había ${similar.count} novedad(es) igual(es) para este bus (${(similar.caseRefs ?? []).join(", ")}). La registramos y la dejamos asociada al mismo caso.`
             : "";
+        const url = result.resp?.caseUrl as string | undefined;
         await sendMessage(
           chatId,
           `✅ ¡Listo! Tu novedad quedó registrada como *${ref}*${code}.${similarNote}\nNuestro equipo la revisará. Escribe /start para reportar otra.`,
-          removeKeyboard()
+          url ? { inline_keyboard: [[{ text: "🔗 Ver / seguir la novedad", url }]] } : removeKeyboard()
         );
         if (GROUP_CHAT_ID) {
           try {
-            await sendMessage(GROUP_CHAT_ID, buildGroupSummary(data, result.resp));
+            await sendMessage(
+              GROUP_CHAT_ID,
+              buildGroupSummary(data, result.resp),
+              url ? { inline_keyboard: [[{ text: "🔗 Ver la novedad", url }]] } : undefined
+            );
           } catch (e) {
             console.error("GROUP_SEND_FAILED", e);
           }
