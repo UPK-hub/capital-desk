@@ -156,6 +156,22 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // a2) Emparejar un nombre con un usuario de la mesa (para que el bot decida
+  // si necesita preguntar el nombre o ya identificó a la persona por Telegram).
+  const matchName = url.searchParams.get("matchName");
+  if (matchName) {
+    const users = await prisma.user.findMany({
+      where: { tenantId: tenant.id, active: true },
+      select: { id: true, name: true },
+    });
+    const m = matchUser(matchName, users);
+    return NextResponse.json({
+      ok: true,
+      matched: Boolean(m),
+      user: m ? { id: m.id, name: m.name } : null,
+    });
+  }
+
   // b) Equipos que tienen fallas en el catálogo.
   if (url.searchParams.get("equipments")) {
     const cat = await getCatalog();

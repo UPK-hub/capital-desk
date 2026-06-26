@@ -66,6 +66,14 @@ function extractCreatedById(events: Array<{ type?: any; meta: unknown }>): strin
   }
   return null;
 }
+// Fecha real en que la novedad pasó a resuelta/cerrada = createdAt del último
+// evento STATUS_CHANGE (no usamos updatedAt porque cambia con cualquier edición).
+function extractStatusChangeAt(events: Array<{ type?: any; createdAt: Date }>): string | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    if (events[i].type === "STATUS_CHANGE") return events[i].createdAt.toISOString();
+  }
+  return null;
+}
 
 export default async function NovedadesPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions);
@@ -194,12 +202,13 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       assignee: c.assignedTo?.name ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
-      // Fecha de resolución = día en que se finalizó el correctivo (OT). Si no
-      // hay correctivo finalizado, se usa la fecha en que la novedad quedó resuelta/cerrada.
+      // Fecha de resolución = día en que se finalizó el correctivo (OT). Si no hay
+      // correctivo finalizado, se usa la fecha del cierre/resolución real (evento
+      // STATUS_CHANGE), no updatedAt (que cambia con cualquier edición).
       resolvedAt: corrFinishedAt
         ? corrFinishedAt.toISOString()
         : c.status === CaseStatus.RESUELTO || c.status === CaseStatus.CERRADO
-        ? c.updatedAt.toISOString()
+        ? extractStatusChangeAt(c.events)
         : null,
       corrId: linked?.id ?? null,
       corrCaseNo: linked?.caseNo ?? null,
