@@ -1,15 +1,19 @@
 /**
- * Corrige la FECHA DE RESOLUCIÓN de las NOVEDADES cerradas que se crearon por
- * migración sin evento de cierre (por eso la bandeja muestra "—" o la fecha de hoy).
+ * Corrige las FECHAS de las NOVEDADES creadas por migración para que reflejen la
+ * vida real del correctivo enlazado (y no la fecha de hoy en que se migraron).
  *
- * Para cada NOVEDAD en estado RESUELTO/CERRADO que NO tenga ya un evento
- * STATUS_CHANGE, le crea uno con la FECHA REAL DE CIERRE DEL CORRECTIVO enlazado:
- *     correctivo.workOrder.finishedAt  ?? último STATUS_CHANGE del correctivo
- *     ?? correctivo.updatedAt
- * Así la columna "Resolución" muestra la fecha real y no "—" ni hoy.
+ * Por cada NOVEDAD enlazada a un correctivo, alinea con el correctivo:
+ *   - createdAt  = correctivo.createdAt                (fecha de apertura)
+ *   - updatedAt  = fecha real de cierre                (para el tablero "resueltos/atendidos",
+ *                  que se calcula por updatedAt en summary.ts)
+ *   - evento STATUS_CHANGE en la fecha de cierre       (para la columna "Resolución" de la tabla)
  *
- * Idempotente: si la novedad ya tiene un STATUS_CHANGE, se omite.
- * DRY-RUN por defecto (no escribe nada). Muestra la fecha que pondría por caso.
+ * Fecha de cierre = correctivo.workOrder.finishedAt ?? último STATUS_CHANGE del
+ * correctivo ?? correctivo.updatedAt. Solo aplica a novedades RESUELTAS/CERRADAS.
+ * Las abiertas (Nuevo) solo se alinean en createdAt; no llevan fecha de cierre.
+ *
+ * Idempotente (no duplica eventos ni reescribe fechas ya correctas).
+ * DRY-RUN por defecto. Muestra, por caso, las fechas actuales y las nuevas.
  *   npx tsx scripts/fix-resolucion-novedades.ts
  *   npx tsx scripts/fix-resolucion-novedades.ts --apply
  */
@@ -29,6 +33,9 @@ function lastStatusChangeAt(events: Array<{ type: any; createdAt: Date }>): Date
 function fmt(d: Date | null | undefined): string {
   return d ? d.toISOString().slice(0, 10) : "(sin fecha)";
 }
+function sameInstant(a: Date | null | undefined, b: Date | null | undefined): boolean {
+  return !!a && !!b && a.getTime() === b.getTime();
+}
 
 async function main() {
   const apply = process.argv.includes("--apply");
@@ -38,14 +45,14 @@ async function main() {
   if (!tenant) { console.error("✗ No se encontró el tenant."); process.exit(1); }
   const tenantId = tenant.id;
 
-  console.log(`\n=== Corregir fecha de resolución de novedades cerradas ===`);
+  console.log(`\n=== Alinear fechas de novedades migradas con su correctivo ===`);
   console.log(`Modo: ${apply ? "APLICAR (escribe en BD)" : "PRUEBA (no toca nada)"}\n`);
 
-  // Mapa novedadId -> correctivo (vía el evento de enlace meta.sourceCaseId del correctivo).
+  // Mapa novedadId -> correctivo (vía el evento de enlace meta.sourceCaseId).
   const correctivos = await prisma.case.findMany({
     where: { tenantId, type: { in: [CaseType.CORRECTIVO, CaseType.PREVENTIVO] } },
     select: {
-      id: true, caseNo: true, status: true, updatedAt: true,
+      id: true, caseNo: true, status: true, createdAt: true, updatedAt: true,
       workOrder: { select: { finishedAt: true } },
       events: { orderBy: { createdAt: "asc" }, select: { type: true, meta: true, createdAt: true } },
     },
@@ -56,50 +63,73 @@ async function main() {
     if (src && !corrByNovedad.has(src)) corrByNovedad.set(src, c);
   }
 
-  // Novedades cerradas.
+  // Todas las novedades que tengan correctivo enlazado (las migradas).
   const novedades = await prisma.case.findMany({
-    where: { tenantId, type: CaseType.NOVEDAD, status: { in: CLOSED } },
+    where: { tenantId, type: CaseType.NOVEDAD },
     orderBy: { caseNo: "asc" },
-    select: { id: true, caseNo: true, status: true, updatedAt: true, events: { orderBy: { createdAt: "asc" }, select: { type: true, createdAt: true } } },
+    select: { id: true, caseNo: true, status: true, createdAt: true, updatedAt: true, events: { orderBy: { createdAt: "asc" }, select: { type: true, createdAt: true } } },
   });
 
-  let arreglar = 0, yaTienen = 0, sinCorrectivo = 0, sinFecha = 0;
+  let eventoFix = 0, updFix = 0, creFix = 0, sinCorr = 0;
   const detalle: string[] = [];
 
   for (const n of novedades) {
-    const yaResuelta = !!lastStatusChangeAt(n.events);
-    if (yaResuelta) { yaTienen++; continue; }
-
     const corr = corrByNovedad.get(n.id);
-    if (!corr) { sinCorrectivo++; detalle.push(`#${n.caseNo} ${n.status} → SIN correctivo enlazado (no se puede tomar fecha)`); continue; }
+    if (!corr) { sinCorr++; continue; } // novedad no migrada / sin correctivo: no se toca
 
-    const closeDate = corr.workOrder?.finishedAt ?? lastStatusChangeAt(corr.events) ?? corr.updatedAt ?? null;
-    const fuente = corr.workOrder?.finishedAt ? "OT.finishedAt" : lastStatusChangeAt(corr.events) ? "corr.STATUS_CHANGE" : "corr.updatedAt";
-    if (!closeDate) { sinFecha++; detalle.push(`#${n.caseNo} ${n.status} → correctivo #${corr.caseNo} SIN fecha de cierre`); continue; }
+    const isClosed = (CLOSED as string[]).includes(n.status);
+    const closeDate = isClosed ? (corr.workOrder?.finishedAt ?? lastStatusChangeAt(corr.events) ?? corr.updatedAt ?? null) : null;
+    const openDate = corr.createdAt ?? null;
+
+    const hasStatusChange = !!lastStatusChangeAt(n.events);
+    const needEvent = isClosed && !!closeDate && !hasStatusChange;
+    const needUpd = !!closeDate && !sameInstant(n.updatedAt, closeDate);
+    const needCre = !!openDate && !sameInstant(n.createdAt, openDate);
+
+    if (!needEvent && !needUpd && !needCre) continue;
+
+    const fuente = corr.workOrder?.finishedAt ? "OT" : lastStatusChangeAt(corr.events) ? "STATUS_CHANGE" : "updatedAt";
 
     if (apply) {
-      await prisma.caseEvent.create({
-        data: {
-          caseId: n.id, type: CaseEventType.STATUS_CHANGE, createdAt: closeDate,
-          message: `Estado: ${n.status}`,
-          meta: { status: n.status, fixedResolution: true, fromCorrectivo: corr.caseNo, source: fuente },
-        },
-      });
+      if (needEvent && closeDate) {
+        await prisma.caseEvent.create({
+          data: {
+            caseId: n.id, type: CaseEventType.STATUS_CHANGE, createdAt: closeDate,
+            message: `Estado: ${n.status}`,
+            meta: { status: n.status, fixedResolution: true, fromCorrectivo: corr.caseNo, source: fuente },
+          },
+        });
+      }
+      // createdAt y/o updatedAt con SQL crudo (evita que @updatedAt lo pise con now()).
+      if (needCre && needUpd && openDate && closeDate) {
+        await prisma.$executeRaw`UPDATE "Case" SET "createdAt" = ${openDate}, "updatedAt" = ${closeDate} WHERE "id" = ${n.id}`;
+      } else if (needUpd && closeDate) {
+        await prisma.$executeRaw`UPDATE "Case" SET "updatedAt" = ${closeDate} WHERE "id" = ${n.id}`;
+      } else if (needCre && openDate) {
+        await prisma.$executeRaw`UPDATE "Case" SET "createdAt" = ${openDate} WHERE "id" = ${n.id}`;
+      }
     }
-    arreglar++;
-    detalle.push(`#${n.caseNo} ${n.status} → resolución=${fmt(closeDate)} (de correctivo #${corr.caseNo}, ${fuente})`);
+
+    if (needEvent) eventoFix++;
+    if (needUpd) updFix++;
+    if (needCre) creFix++;
+
+    const acc: string[] = [];
+    if (needCre) acc.push(`apertura ${fmt(n.createdAt)}→${fmt(openDate)}`);
+    if (needUpd) acc.push(`cierre/upd ${fmt(n.updatedAt)}→${fmt(closeDate)}`);
+    if (needEvent) acc.push(`+evento resolución ${fmt(closeDate)}`);
+    detalle.push(`#${n.caseNo} ${n.status} (corr #${corr.caseNo}, ${fuente}): ${acc.join(" · ")}`);
   }
 
-  console.log(`--- ${apply ? "Corregidas" : "Se corregirían"} (${arreglar}) ---`);
-  for (const d of detalle.slice(0, 80)) console.log("  • " + d);
-  if (detalle.length > 80) console.log(`  … y ${detalle.length - 80} más`);
+  console.log(`--- ${apply ? "Corregidas" : "Se corregirían"} (${detalle.length}) ---`);
+  for (const d of detalle.slice(0, 90)) console.log("  • " + d);
+  if (detalle.length > 90) console.log(`  … y ${detalle.length - 90} más`);
 
   console.log(`\n=== Totales ===`);
-  console.log(`  Novedades cerradas:                 ${novedades.length}`);
-  console.log(`  ${apply ? "Fecha de resolución corregida:" : "Fecha de resolución a corregir:"}    ${arreglar}`);
-  console.log(`  Ya tenían fecha (omitidas):         ${yaTienen}`);
-  if (sinCorrectivo) console.log(`  Sin correctivo enlazado:            ${sinCorrectivo}`);
-  if (sinFecha) console.log(`  Correctivo sin fecha de cierre:     ${sinFecha}`);
+  console.log(`  Novedades con correctivo:           ${novedades.length - sinCorr}`);
+  console.log(`  ${apply ? "Evento de resolución creado:" : "Evento de resolución a crear:"}      ${eventoFix}`);
+  console.log(`  ${apply ? "Fecha de cierre (updatedAt) fijada:" : "Fecha de cierre (updatedAt) a fijar:"} ${updFix}`);
+  console.log(`  ${apply ? "Fecha de apertura (createdAt) fijada:" : "Fecha de apertura (createdAt) a fijar:"} ${creFix}`);
   if (!apply) console.log(`\n(Modo PRUEBA: no se escribió nada. Agrega --apply para aplicar.)`);
   console.log("");
 }
