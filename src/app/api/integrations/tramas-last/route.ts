@@ -39,15 +39,17 @@ function checkSecret(req: NextRequest): NextResponse | null {
 
 // Busca el bus por código; si no aparece y es solo dígitos, prueba con "K".
 async function findBus(tenantId: string, codeRaw: unknown) {
-  const code = normalizeCode(codeRaw);
+  const code = String(codeRaw ?? "").trim();
   if (!code) return null;
+  // Match insensible a mayúsculas/minúsculas: k1402 = K1402.
   let bus = await prisma.bus.findFirst({
-    where: { tenantId, code },
+    where: { tenantId, code: { equals: code, mode: "insensitive" } },
     select: { id: true, code: true, plate: true },
   });
+  // Si escribieron solo el número (1402), probar con prefijo "K".
   if (!bus && /^\d+$/.test(code)) {
     bus = await prisma.bus.findFirst({
-      where: { tenantId, code: `K${code}` },
+      where: { tenantId, code: { equals: `K${code}`, mode: "insensitive" } },
       select: { id: true, code: true, plate: true },
     });
   }

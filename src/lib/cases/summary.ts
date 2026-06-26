@@ -1,6 +1,6 @@
 // Datos del panel "Resumen" de Casos (solo servidor: usa prisma).
 import { prisma } from "@/lib/prisma";
-import { CaseStatus } from "@prisma/client";
+import { CaseStatus, CaseEventType } from "@prisma/client";
 import { slaDeadlineMs } from "@/lib/cases/sla";
 
 const DAY = 86400000;
@@ -40,10 +40,7 @@ export async function getCasesSummary(opts: {
 
   const seriesStart = new Date(Date.now() - 29 * DAY);
 
-  const [atendidos, pendientes, openRows, grouped, creadosRows, resueltosRows] = await Promise.all([
-    prisma.case.count({
-      where: { ...base, status: { in: doneStatuses }, updatedAt: { gte: monthStart, lt: monthEnd } },
-    }),
+  const [pendientes, openRows, grouped, creadosRows, doneCases] = await Promise.all([
     prisma.case.count({ where: { ...base, status: { in: openStatuses } } }),
     prisma.case.findMany({
       where: { ...base, status: { in: openStatuses } },
@@ -54,11 +51,23 @@ export async function getCasesSummary(opts: {
       where: { ...base, createdAt: { gte: seriesStart } },
       select: { createdAt: true },
     }),
+    // Casos resueltos/cerrados con su ÚLTIMO evento de cambio de estado = fecha REAL de resolución
+    // (no usamos updatedAt: cualquier edición —p.ej. reasignar responsable— lo pondría en hoy).
     prisma.case.findMany({
-      where: { ...base, status: { in: doneStatuses }, updatedAt: { gte: seriesStart } },
-      select: { updatedAt: true },
+      where: { ...base, status: { in: doneStatuses } },
+      select: {
+        updatedAt: true,
+        events: { where: { type: CaseEventType.STATUS_CHANGE }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+      },
     }),
   ]);
+
+  // Fecha real de resolución = createdAt del último STATUS_CHANGE; si no hay, updatedAt.
+  const resolvedAtOf = (c: { updatedAt: Date; events: { createdAt: Date }[] }): Date => c.events[0]?.createdAt ?? c.updatedAt;
+  const atendidos = doneCases.filter((c) => {
+    const r = resolvedAtOf(c);
+    return r >= monthStart && r < monthEnd;
+  }).length;
 
   const keys: string[] = [];
   const now = Date.now();
@@ -69,8 +78,10 @@ export async function getCasesSummary(opts: {
     const k = cotKey(r.createdAt);
     if (cMap.has(k)) cMap.set(k, (cMap.get(k) ?? 0) + 1);
   }
-  for (const r of resueltosRows) {
-    const k = cotKey(r.updatedAt);
+  for (const c of doneCases) {
+    const r = resolvedAtOf(c);
+    if (r.getTime() < seriesStart.getTime()) continue;
+    const k = cotKey(r);
     if (rMap.has(k)) rMap.set(k, (rMap.get(k) ?? 0) + 1);
   }
   const series = keys.map((k) => ({
