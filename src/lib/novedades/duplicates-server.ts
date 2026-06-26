@@ -189,14 +189,22 @@ export async function findSimilarOtherCreator(
     .map(({ id, caseNo, status, creatorId }) => ({ id, caseNo, status, creatorId }));
 }
 
-/** Copia un comentario (respuesta) a los demás miembros del grupo del caso. */
+/** Copia un comentario (respuesta + adjuntos) a los demás miembros del grupo del caso. */
 export async function propagateCommentToGroup(
   db: Db,
-  params: { tenantId: string; fromCaseId: string; message: string; byUserId?: string; sourceEventId?: string }
+  params: {
+    tenantId: string;
+    fromCaseId: string;
+    message: string;
+    byUserId?: string;
+    sourceEventId?: string;
+    attachments?: Array<{ filePath: string; fileName: string; mimeType: string; size: number }>;
+  }
 ): Promise<number> {
   const { members } = await getDuplicateGroup(db, { tenantId: params.tenantId, caseId: params.fromCaseId });
   const others = members.filter((m) => m.id !== params.fromCaseId);
   if (others.length === 0) return 0;
+  const hasAttachments = !!params.attachments && params.attachments.length > 0;
   await db.caseEvent.createMany({
     data: others.map((m) => ({
       caseId: m.id,
@@ -204,9 +212,11 @@ export async function propagateCommentToGroup(
       message: params.message,
       meta: {
         userId: params.byUserId,
+        manualComment: true, // para que se vea en la lista de comentarios de cada caso
         duplicatePropagated: true,
         propagatedFrom: params.fromCaseId,
         ...(params.sourceEventId ? { sourceEventId: params.sourceEventId } : {}),
+        ...(hasAttachments ? { attachments: params.attachments } : {}),
       },
     })),
   });

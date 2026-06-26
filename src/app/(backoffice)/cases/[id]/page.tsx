@@ -313,6 +313,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         message: event.message ?? "",
         createdAt: event.createdAt.toISOString(),
         author: actor ? actor.name : null,
+        attachments: Array.isArray(meta.attachments) ? meta.attachments : undefined,
       };
     });
 
@@ -767,6 +768,49 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                           <div className="whitespace-pre-wrap rounded-[10px] border border-border/60 bg-slate-50/70 px-3 py-2 text-[12.5px] text-slate-700">
                             {it.message || "—"}
                           </div>
+                          {(() => {
+                            const atts = ((it.meta as any)?.attachments ?? []) as Array<{
+                              filePath: string;
+                              fileName?: string;
+                              mimeType?: string;
+                            }>;
+                            if (!Array.isArray(atts) || !atts.length) return null;
+                            return (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {atts.map((a, ai) => {
+                                  const isImg =
+                                    (a.mimeType && a.mimeType.startsWith("image/")) ||
+                                    /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(a.fileName ?? "");
+                                  return isImg ? (
+                                    <a
+                                      key={`${a.filePath}-${ai}`}
+                                      href={`/api/uploads/${a.filePath}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title={a.fileName ?? "foto"}
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={`/api/uploads/${a.filePath}`}
+                                        alt={a.fileName ?? "foto"}
+                                        className="h-20 w-20 rounded-lg border border-border/60 object-cover transition hover:opacity-90"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      key={`${a.filePath}-${ai}`}
+                                      href={`/api/uploads/${a.filePath}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-slate-50 px-2 py-1 text-[11px] text-slate-600 transition hover:bg-slate-100"
+                                    >
+                                      {a.fileName ?? "archivo"}
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );

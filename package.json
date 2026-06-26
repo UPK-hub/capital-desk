@@ -31,6 +31,7 @@
     "export:preventivos": "tsx scripts/export-preventivos-import.ts",
     "backfill:preventivo-ot": "tsx scripts/backfill-preventivo-ot.ts",
     "import:evidencias": "tsx scripts/import-evidencias-preventivo.ts",
+    "import:ot-preventivo": "tsx scripts/import-ot-preventivo.ts",
     "asignar:responsable": "tsx scripts/asignar-responsable-preventivo.ts",
     "novedad:desde-correctivo": "tsx scripts/novedad-desde-correctivo.ts",
     "novedad:diego": "tsx scripts/novedad-desde-correctivo-diego.ts",
