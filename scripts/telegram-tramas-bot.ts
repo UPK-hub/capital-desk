@@ -84,7 +84,12 @@ function buildTramasReply(resp: any): string {
   const line = (label: string, t: any) => {
     if (!t) return `📡 Última ${label}: sin registros`;
     const when = t.eventAt || t.receivedAt;
-    return `📡 Última ${label}: ${formatDateTime(when)} (${formatAgo(when)})`;
+    const out = [`📡 Última ${label}: ${formatDateTime(when)} (${formatAgo(when)})`];
+    if (t.lat && t.lon)
+      out.push(`    📍 ${t.lat}, ${t.lon} — [ver mapa](https://maps.google.com/?q=${t.lat},${t.lon})`);
+    if (t.velocidad) out.push(`    🚗 Velocidad: ${t.velocidad}`);
+    if (t.odometro) out.push(`    🧭 Odómetro: ${t.odometro} km`);
+    return out.join("\n");
   };
   return [`🚌 Bus ${resp.bus.code}${plate}`, "", line("P20", resp.p20), line("P60", resp.p60)].join("\n");
 }
@@ -174,11 +179,19 @@ function runSelfTest(): void {
     ok: true,
     found: true,
     bus: { code: "K1402", plate: "GUW522" },
-    p20: { eventAt: new Date(now).toISOString(), receivedAt: new Date(now).toISOString() },
+    p20: {
+      eventAt: new Date(now).toISOString(),
+      receivedAt: new Date(now).toISOString(),
+      lat: "4.6327",
+      lon: "-74.1737",
+      odometro: "12345",
+    },
     p60: null,
   });
   assert(found.includes("Bus K1402") && found.includes("GUW522"), "reply tiene bus y placa");
   assert(found.includes("Última P20:") && found.includes("Última P60: sin registros"), "reply P20 y P60");
+  assert(found.includes("📍 4.6327, -74.1737") && found.includes("maps.google.com"), "reply muestra ubicación");
+  assert(found.includes("Odómetro: 12345 km"), "reply muestra odómetro");
 
   assert(buildTramasReply({ ok: true, found: false }).includes("No encontré"), "no encontrado");
   assert(buildTramasReply({ ok: false }).includes("No pude consultar"), "error");
