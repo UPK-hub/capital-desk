@@ -11,6 +11,7 @@ import { VideoDownloadRequestSchema } from "@/lib/validators/video";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
+import { notifyNovedadClosed } from "@/lib/telegram-notify";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { restrictedCasesWhere } from "@/lib/access-control";
 
@@ -448,6 +449,9 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   } catch (e) {
     console.error("CLOSE_PROPAGATE_FAILED", e);
   }
+
+  // Avisar al grupo de Telegram que la novedad se cerró.
+  await notifyNovedadClosed(found.id, { closedById: userId });
 
   return NextResponse.json({ ok: true, caseId: found.id, status: CaseStatus.CERRADO, propagated });
 }
