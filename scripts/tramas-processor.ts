@@ -25,11 +25,17 @@ async function refreshTenant(tenantId: string): Promise<number> {
   return prisma.$executeRaw(Prisma.sql`
     INSERT INTO "BusTelemetryState"
       ("busId","tenantId","lastSeenAt","lastEventAt","lastEventType","lastSeverity","lastMessage","lastPayload","createdAt","updatedAt")
-    SELECT DISTINCT ON (e."busId")
-      e."busId", e."tenantId", e."receivedAt", e."eventAt", e."eventType", e."severity", e."message", e."payload", now(), now()
-    FROM "IntegrationInboundEvent" e
-    WHERE e."tenantId" = ${tenantId} AND e."busId" IS NOT NULL
-    ORDER BY e."busId", e."eventAt" DESC NULLS LAST, e."receivedAt" DESC
+    SELECT b.id, b."tenantId", t."receivedAt", t."eventAt", t."eventType", t."severity", t."message", t."payload", now(), now()
+    FROM "Bus" b
+    JOIN LATERAL (
+      SELECT e."receivedAt", e."eventAt", e."eventType", e."severity", e."message", e."payload"
+      FROM "IntegrationInboundEvent" e
+      WHERE e."tenantId" = b."tenantId" AND e."busId" = b.id
+        AND e."eventAt" >= now() - interval '3 days'
+      ORDER BY e."eventAt" DESC
+      LIMIT 1
+    ) t ON true
+    WHERE b."tenantId" = ${tenantId}
     ON CONFLICT ("busId") DO UPDATE SET
       "lastSeenAt"    = EXCLUDED."lastSeenAt",
       "lastEventAt"   = EXCLUDED."lastEventAt",
@@ -47,10 +53,11 @@ async function main() {
   console.log(`[tramas-processor] refrescador de posición iniciado · cada ${REFRESH_MS}ms`);
   for (;;) {
     try {
+      const t0 = Date.now();
       const tenants = await prisma.tenant.findMany({ select: { id: true, code: true } });
       let total = 0;
       for (const t of tenants) total += await refreshTenant(t.id);
-      console.log(`[tramas-processor] ${new Date().toISOString()} posición refrescada (buses=${total})`);
+      console.log(`[tramas-processor] ${new Date().toISOString()} posición refrescada (buses=${total}) en ${Date.now() - t0}ms`);
     } catch (err) {
       console.error("[tramas-processor] error en el refresco:", err);
     }
