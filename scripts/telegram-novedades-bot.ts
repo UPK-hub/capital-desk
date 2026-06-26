@@ -334,6 +334,7 @@ async function handleUpdate(update: any) {
   let chatId: number | undefined;
   let from: any;
   let callbackId: string | undefined;
+  let chatType: string | undefined;
   let text = "";
   let photoFileId = "";
   let callbackData = "";
@@ -341,12 +342,14 @@ async function handleUpdate(update: any) {
   if (update.callback_query) {
     const cq = update.callback_query;
     chatId = cq.message?.chat?.id;
+    chatType = cq.message?.chat?.type;
     from = cq.from;
     callbackId = cq.id;
     callbackData = String(cq.data || "");
   } else if (update.message) {
     const msg = update.message;
     chatId = msg.chat?.id;
+    chatType = msg.chat?.type;
     from = msg.from;
     if (Array.isArray(msg.photo) && msg.photo.length)
       photoFileId = String(msg.photo[msg.photo.length - 1].file_id);
@@ -356,11 +359,14 @@ async function handleUpdate(update: any) {
   if (callbackId) await tg("answerCallbackQuery", { callback_query_id: callbackId });
 
   // ----- Comandos globales -----
-  const cmd = text.startsWith("/") ? text.split(/\s+/)[0].toLowerCase() : "";
+  // En grupos los comandos llegan como "/id@nombre_del_bot": quitamos el sufijo.
+  const cmd = text.startsWith("/") ? text.split(/\s+/)[0].toLowerCase().split("@")[0] : "";
   if (cmd === "/id") {
     await sendMessage(chatId, `🆔 Chat ID: \`${chatId}\``);
     return;
   }
+  // En grupos/canales el bot NO conversa: solo sirve /id y publicar los resúmenes.
+  if (chatType && chatType !== "private") return;
   if (cmd === "/cancel") {
     sessions.delete(chatId);
     await sendMessage(chatId, "Reporte cancelado. Escribe /start para empezar de nuevo.", removeKeyboard());
