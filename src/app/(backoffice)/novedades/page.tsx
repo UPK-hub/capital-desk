@@ -129,7 +129,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
     orderBy: { createdAt: "desc" },
     take: 800,
     include: {
-      workOrder: { select: { id: true, workOrderNo: true } },
+      workOrder: { select: { id: true, workOrderNo: true, finishedAt: true } },
       events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
     },
   });
@@ -176,6 +176,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
     const state = extractLatestNovedadState(c.events);
     const batchRef = state?.batchRef?.trim() || `NVD-${String(c.caseNo ?? 0).padStart(4, "0")}`;
     const linked = corrBySource.get(c.id) || corrByBatch.get(batchRef) || null;
+    const corrFinishedAt = linked?.workOrder?.finishedAt ?? null;
     const reported =
       String(state?.reportedNovelty ?? "").trim() ||
       c.title.replace(/^Novedad\s+[^\-]+-\s*/i, "").trim() ||
@@ -193,8 +194,13 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       assignee: c.assignedTo?.name ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
-      resolvedAt:
-        c.status === CaseStatus.RESUELTO || c.status === CaseStatus.CERRADO ? c.updatedAt.toISOString() : null,
+      // Fecha de resolución = día en que se finalizó el correctivo (OT). Si no
+      // hay correctivo finalizado, se usa la fecha en que la novedad quedó resuelta/cerrada.
+      resolvedAt: corrFinishedAt
+        ? corrFinishedAt.toISOString()
+        : c.status === CaseStatus.RESUELTO || c.status === CaseStatus.CERRADO
+        ? c.updatedAt.toISOString()
+        : null,
       corrId: linked?.id ?? null,
       corrCaseNo: linked?.caseNo ?? null,
       corrStatus: linked?.status ?? null,

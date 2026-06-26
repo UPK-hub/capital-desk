@@ -1,9 +1,15 @@
 # Bot de Telegram para reportar novedades
 
 Permite que un cliente le escriba a un bot de Telegram, responda unas preguntas
-(bus, equipo afectado, descripción, nombre, teléfono y una foto opcional) y la
-novedad quede registrada **automáticamente** en el apartado **Novedades** de la
-mesa, en estado **NUEVO**, para que el equipo la revise.
+(código de bus, equipo afectado, **falla del catálogo** —con su código NVD-xxx—,
+detalle, nombre, teléfono y una foto opcional) y la novedad quede registrada
+**automáticamente** en el apartado **Novedades** de la mesa, en estado **NUEVO**,
+para que el equipo la revise.
+
+La novedad se **asocia al usuario de la mesa** cuyo nombre coincida (queda como
+creador del caso); si ninguno coincide, se registra igual con una alerta. El bus
+se acepta **con o sin la "K"** (1402 = K1402). Y cada novedad puede publicarse en
+un **grupo de Telegram** (ver más abajo).
 
 > El bot **solo crea la novedad**. No genera correctivo ni OT automáticamente:
 > eso lo decide tu equipo desde la mesa, como hasta ahora.
@@ -56,6 +62,9 @@ Notas:
 - Opcional: para que también llegue correo a Supervisor/Planeador por cada
   novedad, agrega `NOVEDADES_NOTIFY_EMAIL=true` (por defecto solo notifica
   dentro de la app).
+- Opcional (recomendado): `TELEGRAM_GROUP_CHAT_ID=...` para que cada novedad caiga
+  en un grupo de Telegram con su resumen. Cómo obtener ese id se explica en la
+  sección **"Grupo de avisos"** más abajo (se agrega después).
 
 ---
 
@@ -104,6 +113,34 @@ pm2 status
 ```
 
 Deberías ver `novedades-bot` en estado **online**.
+
+---
+
+## Grupo de avisos (resumen de cada novedad)
+
+Para que el equipo no tenga que leer todo el chat, el bot puede publicar un
+**resumen** de cada novedad (bus, falla + código, quién reporta, usuario asociado
+o alerta, y el número de caso) en un **grupo de Telegram**.
+
+1. En Telegram, crea un **grupo** (ej. "Novedades CapitalBus") y agrega como
+   miembro a tu bot **@capitalbus_novedades_bot**.
+2. Dentro del grupo, escribe `/id`. El bot responderá con algo como
+   `🆔 Chat ID: -1001234567890` (los grupos tienen id **negativo**).
+3. Copia ese número y agrégalo al `.env` del servidor:
+   ```
+   TELEGRAM_GROUP_CHAT_ID=-1001234567890
+   ```
+4. Reinicia solo el bot para que tome el cambio:
+   ```powershell
+   pm2 restart novedades-bot
+   ```
+
+Desde ese momento, cada novedad registrada llega también al grupo. Si no
+configuras esta variable, el bot funciona igual pero sin publicar en el grupo.
+
+> Si el bot no responde `/id` dentro del grupo, en BotFather usa
+> `/setprivacy` → elige tu bot → **Disable**, para que pueda leer los mensajes
+> del grupo. Luego vuelve a intentar `/id`.
 
 ---
 
