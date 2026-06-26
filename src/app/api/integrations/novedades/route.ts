@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { saveUpload } from "@/lib/uploads";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { autoGroupNovedad } from "@/lib/novedades/duplicates-server";
 import { CaseEventType, CaseStatus, NotificationType, Role } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (
@@ -222,6 +223,14 @@ export async function POST(req: NextRequest) {
       },
       { maxWait: 10000, timeout: 20000 }
     );
+
+    // 6.1) Auto-agrupar con otras novedades del mismo bus + misma novedad
+    // (el mismo caso reportado varias veces). Nunca debe romper el registro.
+    try {
+      await autoGroupNovedad(prisma, { tenantId: tenant.id, caseId: created.id });
+    } catch (e) {
+      console.error("NOVEDAD_AUTOGROUP_FAILED", e);
+    }
 
     // 7) Avisar a quienes triagean. In-app por defecto; correo si se activa.
     const sendEmail =

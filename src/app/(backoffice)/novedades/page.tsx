@@ -7,6 +7,7 @@ import { CAPABILITIES } from "@/lib/capabilities";
 import { restrictedCasesWhere } from "@/lib/access-control";
 import { buildCasesWhere } from "@/lib/cases/filters";
 import { getCasesSummary, recentMonths } from "@/lib/cases/summary";
+import { resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
 import { Select } from "@/components/Field";
 import { FileSpreadsheet, Plus } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
@@ -160,7 +161,18 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   const userNameById = new Map(creatorUsers.map((u) => [u.id, u.name] as const));
   const creators = [...creatorUsers].sort((a, b) => a.name.localeCompare(b.name));
 
+  // Grupos de "mismo caso" (novedades duplicadas) dentro del conjunto cargado.
+  const dupGroupByCase = new Map<string, string | null>();
+  const dupGroupCount = new Map<string, number>();
+  for (const c of noveltyCases) {
+    const gid = resolveDuplicateGroupId(c.events);
+    dupGroupByCase.set(c.id, gid);
+    if (gid) dupGroupCount.set(gid, (dupGroupCount.get(gid) ?? 0) + 1);
+  }
+
   const rows: NovedadRow[] = noveltyCases.map((c) => {
+    const dupGroupId = dupGroupByCase.get(c.id) ?? null;
+    const dupCount = dupGroupId ? dupGroupCount.get(dupGroupId) ?? 1 : 1;
     const state = extractLatestNovedadState(c.events);
     const batchRef = state?.batchRef?.trim() || `NVD-${String(c.caseNo ?? 0).padStart(4, "0")}`;
     const linked = corrBySource.get(c.id) || corrByBatch.get(batchRef) || null;
@@ -187,6 +199,8 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       corrCaseNo: linked?.caseNo ?? null,
       corrStatus: linked?.status ?? null,
       corrWorkOrderNo: linked?.workOrder?.workOrderNo ?? null,
+      dupGroupId,
+      dupCount,
     };
   });
 

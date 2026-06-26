@@ -26,12 +26,17 @@ export type NovedadRow = {
   corrCaseNo: number | null;
   corrStatus: string | null;
   corrWorkOrderNo: number | null;
+  // Duplicados: novedades que son el mismo caso (mismo bus)
+  dupGroupId: string | null;
+  dupCount: number;
 };
 
 type Col = { key: string; label: string; always?: boolean; sortable?: boolean };
 const COLUMNS: Col[] = [
   { key: "caseNo", label: "#", always: true, sortable: true },
   { key: "createdAt", label: "Creado", sortable: true },
+  { key: "bus", label: "Bus", sortable: true },
+  { key: "placa", label: "Placa", sortable: true },
   { key: "asunto", label: "Novedad", always: true },
   { key: "equipo", label: "Equipo afectado", sortable: true },
   { key: "priority", label: "Prioridad", sortable: true },
@@ -44,10 +49,10 @@ const COLUMNS: Col[] = [
   { key: "resolvedAt", label: "Resolución", sortable: true },
 ];
 const ALL_KEYS = COLUMNS.map((c) => c.key);
-const DEFAULT_ORDER = ["caseNo", "createdAt", "asunto", "equipo", "priority", "status", "correctivo", "creador", "asignado", "resolvedAt", "ot", "updatedAt"];
+const DEFAULT_ORDER = ["caseNo", "createdAt", "bus", "placa", "asunto", "equipo", "priority", "status", "correctivo", "creador", "asignado", "resolvedAt", "ot", "updatedAt"];
 const DEFAULT_HIDDEN = ["ot", "updatedAt"];
-const ORDER_KEY = "capitaldesk.novedades.colOrder.v1";
-const HIDDEN_KEY = "capitaldesk.novedades.hiddenCols.v2";
+const ORDER_KEY = "capitaldesk.novedades.colOrder.v2";
+const HIDDEN_KEY = "capitaldesk.novedades.hiddenCols.v3";
 
 const STATUS_ORDER: Record<string, number> = { NUEVO: 0, OT_ASIGNADA: 1, EN_EJECUCION: 2, RESUELTO: 3, CERRADO: 4 };
 const KCOLS = [
@@ -164,6 +169,8 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
     let r = 0;
     switch (sortKey) {
       case "caseNo": r = (a.caseNo ?? 0) - (b.caseNo ?? 0); break;
+      case "bus": r = a.busCode.localeCompare(b.busCode); break;
+      case "placa": r = (a.busPlate ?? "~").localeCompare(b.busPlate ?? "~"); break;
       case "priority": r = a.priority - b.priority; break;
       case "createdAt": r = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); break;
       case "updatedAt": r = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(); break;
@@ -194,6 +201,7 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
       if (groupBy === "status") k = labelFromMap(r.status, caseStatusLabels);
       else if (groupBy === "equipo") k = r.equipo ?? "Sin equipo";
       else if (groupBy === "bus") k = r.busCode;
+      else if (groupBy === "duplicado") k = r.dupGroupId && r.dupCount > 1 ? `Mismo caso · ${r.busCode}` : "Sin duplicados";
       else if (groupBy === "correctivo") k = r.corrId ? "Con correctivo" : "Pendiente";
       const arr = map.get(k) ?? [];
       arr.push(r);
@@ -236,10 +244,29 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
     switch (key) {
       case "caseNo": return <span className="text-sm tabular-nums text-slate-400">{c.caseNo}</span>;
       case "createdAt": return dateCell(c.createdAt);
+      case "bus": return <span className="text-sm font-medium text-slate-700">{c.busCode}</span>;
+      case "placa":
+        return c.busPlate ? (
+          <span className="inline-flex items-center rounded-md border border-border/60 bg-slate-50 px-1.5 py-0.5 text-xs font-medium tabular-nums text-slate-700">
+            {c.busPlate}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">Sin placa</span>
+        );
       case "asunto":
         return (
           <div className="max-w-[300px]">
-            <div className="truncate text-sm font-medium text-slate-800">{c.title}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-slate-800">{c.title}</span>
+              {c.dupGroupId && c.dupCount > 1 ? (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+                  title="Mismo caso reportado varias veces"
+                >
+                  <Layers className="h-2.5 w-2.5" /> ×{c.dupCount} mismo caso
+                </span>
+              ) : null}
+            </div>
             <div className="truncate text-xs text-muted-foreground">{c.busCode} · {c.busPlate ?? "Sin placa"}</div>
           </div>
         );
@@ -377,6 +404,7 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
                 <option value="status">Estado</option>
                 <option value="equipo">Equipo afectado</option>
                 <option value="bus">Bus</option>
+                <option value="duplicado">Mismo caso (duplicadas)</option>
                 <option value="correctivo">Correctivo</option>
               </select>
             </label>

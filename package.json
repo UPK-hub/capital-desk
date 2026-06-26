@@ -33,7 +33,10 @@
     "import:evidencias": "tsx scripts/import-evidencias-preventivo.ts",
     "asignar:responsable": "tsx scripts/asignar-responsable-preventivo.ts",
     "novedad:desde-correctivo": "tsx scripts/novedad-desde-correctivo.ts",
+    "novedad:diego": "tsx scripts/novedad-desde-correctivo-diego.ts",
     "fix:creadores": "tsx scripts/fix-creadores-novedad-correctivo.ts",
+    "asignar:novedades": "tsx scripts/asignar-creador-responsable-novedades.ts",
+    "novedades:agrupar": "tsx scripts/agrupar-duplicados-novedades.ts",
     "bot:novedades": "tsx scripts/telegram-novedades-bot.ts"
   },
   "dependencies": {

@@ -22,6 +22,8 @@ import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
+import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
+import { resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
 import EditCaseTitleCard from "./ui/EditCaseTitleCard";
 import EvidenciasCard, { type EvidenceItem, type EvidenceKind } from "./ui/EvidenciasCard";
@@ -450,6 +452,40 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
           },
         })
       : [];
+
+  // Novedades duplicadas (mismo caso): grupo actual + otros miembros del grupo.
+  const duplicateGroupId =
+    c.type === CaseType.NOVEDAD ? resolveDuplicateGroupId(c.events) : null;
+  const duplicateMembers = duplicateGroupId
+    ? (
+        await prisma.case.findMany({
+          where: {
+            tenantId,
+            type: CaseType.NOVEDAD,
+            id: { not: c.id },
+            events: { some: { meta: { path: ["duplicateGroupId"], equals: duplicateGroupId } } },
+          },
+          orderBy: { caseNo: "asc" },
+          select: {
+            id: true,
+            caseNo: true,
+            status: true,
+            createdAt: true,
+            bus: { select: { code: true } },
+            events: { orderBy: { createdAt: "asc" }, select: { createdAt: true, meta: true } },
+          },
+        })
+      )
+        .filter((m) => resolveDuplicateGroupId(m.events) === duplicateGroupId)
+        .map((m) => ({
+          id: m.id,
+          caseNo: m.caseNo,
+          status: m.status,
+          statusLabel: labelFromMap(m.status, caseStatusLabels),
+          createdAt: m.createdAt.toISOString(),
+          busCode: m.bus?.code ?? "",
+        }))
+    : [];
 
   const linkedCasesView = linkedCasesForNovedad.map((lc) => {
     const manual = lc.events.some((ev) => {
@@ -1194,6 +1230,17 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   busId={c.bus?.id ?? null}
                   canManage={canEditNovedad}
                   linked={linkedCasesView}
+                />
+              ) : null}
+
+              {c.type === CaseType.NOVEDAD ? (
+                <DuplicateNovedadesCard
+                  novedadId={c.id}
+                  novedadCaseNo={c.caseNo}
+                  busCode={c.bus?.code ?? null}
+                  canManage={canEditNovedad}
+                  groupId={duplicateGroupId}
+                  members={duplicateMembers}
                 />
               ) : null}
 
