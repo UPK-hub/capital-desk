@@ -108,9 +108,21 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     status: c.status,
     priority: c.priority,
     assignee: c.assignedTo?.name ?? c.workOrder?.assignedTo?.name ?? null,
+    assignedToId: c.assignedToId ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   }));
+
+  // Personal de UPK (para asignar responsable con un clic desde la lista).
+  const assignableUsers = await prisma.user.findMany({
+    where: {
+      tenantId,
+      active: true,
+      OR: [{ email: { endsWith: "@upk.local" } }, { email: { endsWith: "@upklatam.com" } }],
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 
   const cur: Record<string, string | null | undefined> = {
     q: params.q,
@@ -317,7 +329,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
               No hay casos con estos filtros.
             </div>
           ) : (
-            <CasesTable rows={rows} />
+            <CasesTable rows={rows} users={assignableUsers} />
           )}
 
           <p className="px-1 text-xs text-muted-foreground">

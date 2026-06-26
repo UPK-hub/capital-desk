@@ -6,6 +6,7 @@ import { Columns3, Layers, List, LayoutGrid, ChevronUp, ChevronDown, Link2, Grip
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { caseStatusLabels, labelFromMap } from "@/lib/labels";
+import AssigneeCell from "@/components/cases/AssigneeCell";
 
 export type NovedadRow = {
   id: string;
@@ -18,6 +19,7 @@ export type NovedadRow = {
   equipo: string | null;
   creator: string | null;
   assignee: string | null;
+  assignedToId: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -99,7 +101,7 @@ function reconcileOrder(stored: string[]): string[] {
   return valid;
 }
 
-export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
+export default function NovedadesTable({ rows, users }: { rows: NovedadRow[]; users: { id: string; name: string }[] }) {
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);
@@ -336,16 +338,7 @@ export default function NovedadesTable({ rows }: { rows: NovedadRow[] }) {
           <span className="text-xs text-slate-400">—</span>
         );
       case "asignado":
-        return c.assignee ? (
-          <span className="flex items-center gap-2">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-700">
-              {initials(c.assignee)}
-            </span>
-            <span className="truncate text-xs text-slate-600">{c.assignee}</span>
-          </span>
-        ) : (
-          <span className="text-xs text-slate-400">Sin asignar</span>
-        );
+        return <AssigneeCell caseId={c.id} currentId={c.assignedToId} currentName={c.assignee} users={users} />;
       case "ot": return <span className="text-xs tabular-nums text-slate-500">{c.corrWorkOrderNo ? `#${c.corrWorkOrderNo}` : "—"}</span>;
       case "updatedAt": return dateCell(c.updatedAt);
       case "resolvedAt": return c.resolvedAt ? dateCell(c.resolvedAt) : <span className="text-xs text-slate-400">—</span>;

@@ -225,6 +225,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       equipo: equipoLabel(state?.affectedEquipment),
       creator: userNameById.get(creatorByCaseId.get(c.id) ?? "") ?? null,
       assignee: c.assignedTo?.name ?? null,
+      assignedToId: c.assignedToId ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       // Fecha de resolución = día en que se finalizó el correctivo (OT). Si no hay
@@ -246,6 +247,17 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       dupPrincipalCaseNo,
       dupRelated,
     };
+  });
+
+  // Personal de UPK (para asignar responsable con un clic desde la lista).
+  const assignableUsers = await prisma.user.findMany({
+    where: {
+      tenantId,
+      active: true,
+      OR: [{ email: { endsWith: "@upk.local" } }, { email: { endsWith: "@upklatam.com" } }],
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
   });
 
   // Conteo por equipo afectado (para el gráfico de barras)
@@ -466,7 +478,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
               No hay novedades con estos filtros.
             </div>
           ) : (
-            <NovedadesTable rows={rows} />
+            <NovedadesTable rows={rows} users={assignableUsers} />
           )}
 
           <p className="px-1 text-xs text-muted-foreground">

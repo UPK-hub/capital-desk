@@ -8,6 +8,7 @@ import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import { slaInfo, slaDeadlineMs, isOpenStatus } from "@/lib/cases/sla";
+import AssigneeCell from "./AssigneeCell";
 
 export type CaseRow = {
   id: string;
@@ -19,6 +20,7 @@ export type CaseRow = {
   status: string;
   priority: number;
   assignee: string | null;
+  assignedToId: string | null;
   workOrderNo: number | null;
   description: string;
   createdAt: string;
@@ -88,7 +90,7 @@ function venceClass(state: string) {
   return "text-slate-300";
 }
 
-export default function CasesTable({ rows }: { rows: CaseRow[] }) {
+export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { id: string; name: string }[] }) {
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [sortKey, setSortKey] = useState<string>("createdAt");
@@ -270,16 +272,7 @@ export default function CasesTable({ rows }: { rows: CaseRow[] }) {
         {visible("vence") && <td className={`px-3 py-2.5 text-xs ${venceClass(sla.state)}`}>{sla.label}</td>}
         {visible("assignee") && (
           <td className="px-3 py-2.5">
-            {c.assignee ? (
-              <span className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
-                  {initials(c.assignee)}
-                </span>
-                <span className="truncate text-xs text-slate-600">{c.assignee}</span>
-              </span>
-            ) : (
-              <span className="text-xs text-slate-400">Sin asignar</span>
-            )}
+            <AssigneeCell caseId={c.id} currentId={c.assignedToId} currentName={c.assignee} users={users} />
           </td>
         )}
         {visible("ot") && (
