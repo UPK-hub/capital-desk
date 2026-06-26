@@ -7,7 +7,7 @@
 // Usa las mismas variables que el bot: TELEGRAM_BOT_TOKEN + TELEGRAM_GROUP_CHAT_ID.
 // Es seguro: si faltan variables o falla la red, no hace nada y nunca lanza.
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
 
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TG_GROUP = (process.env.TELEGRAM_GROUP_CHAT_ID || "").trim();
@@ -126,6 +126,12 @@ export async function notifyPreventivoClosed(
             preventiveReport: { select: { observations: true, executedAt: true } },
           },
         },
+        events: {
+          where: { type: CaseEventType.STATUS_CHANGE },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
+        },
       },
     });
     if (!c || c.status !== CaseStatus.CERRADO) return;
@@ -152,7 +158,10 @@ export async function notifyPreventivoClosed(
     const ot = c.workOrder?.workOrderNo
       ? `OT-${String(c.workOrder.workOrderNo).padStart(3, "0")}`
       : "—";
-    const fecha = c.workOrder?.preventiveReport?.executedAt ?? c.workOrder?.finishedAt;
+    const fecha =
+      c.events?.[0]?.createdAt ??
+      c.workOrder?.finishedAt ??
+      c.workOrder?.preventiveReport?.executedAt;
     const fechaStr = fecha
       ? new Date(fecha).toLocaleDateString("es-CO", {
           timeZone: "America/Bogota",

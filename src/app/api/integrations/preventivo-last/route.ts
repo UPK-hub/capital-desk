@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (
   process.env.NOVEDADES_TENANT_CODE ||
@@ -93,6 +93,12 @@ export async function GET(req: NextRequest) {
           preventiveReport: { select: { observations: true, executedAt: true } },
         },
       },
+      events: {
+        where: { type: CaseEventType.STATUS_CHANGE },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
+      },
     },
   });
 
@@ -117,7 +123,14 @@ export async function GET(req: NextRequest) {
   });
 
   const wo = prev.workOrder;
-  const fecha = wo?.preventiveReport?.executedAt ?? wo?.finishedAt ?? prev.createdAt;
+  // Fecha real del mantenimiento: el último cambio de estado (cuando pasó a
+  // resuelto/cerrado, de donde el sistema toma las fechas de resolución); si no,
+  // la finalización de la OT; si no, lo reportado por el técnico; si no, creación.
+  const fecha =
+    prev.events?.[0]?.createdAt ??
+    wo?.finishedAt ??
+    wo?.preventiveReport?.executedAt ??
+    prev.createdAt;
 
   return NextResponse.json({
     ok: true,
