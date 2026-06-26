@@ -26,6 +26,7 @@ import { EVENT_CATALOG, ALARM_CATALOG, codeNumber } from "@/lib/telemetry/catalo
 import TramaQualityPanel from "./TramaQualityPanel";
 import TelemetrySeriesPanel from "./TelemetrySeriesPanel";
 import OdometerPanel from "./OdometerPanel";
+import CoordinatesPanel from "./CoordinatesPanel";
 
 const TelemetrySatelliteMap = dynamic(() => import("./TelemetrySatelliteMap"), {
   ssr: false,
@@ -166,9 +167,9 @@ export default function TelemetryDashboard({
     setBus(selectedBus);
   }, [selectedBus?.id]);
 
-  const [tab, setTab] = React.useState<"resumen" | "eventos" | "alarmas" | "periodicas" | "calidad" | "odometro">(
-    "resumen"
-  );
+  const [tab, setTab] = React.useState<
+    "resumen" | "eventos" | "alarmas" | "periodicas" | "calidad" | "odometro" | "coordenadas"
+  >("resumen");
 
   const eventsByNumber = React.useMemo(() => {
     const totals = new Map<number, number>();
@@ -320,6 +321,7 @@ export default function TelemetryDashboard({
             ["periodicas", "Periódicas"],
             ["calidad", "Calidad de tramas"],
             ["odometro", "Odómetro"],
+            ["coordenadas", "Coordenadas"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -554,6 +556,8 @@ export default function TelemetryDashboard({
       ) : null}
 
       {tab === "odometro" ? <OdometerPanel /> : null}
+
+      {tab === "coordenadas" ? <CoordinatesPanel /> : null}
     </div>
   );
 }
