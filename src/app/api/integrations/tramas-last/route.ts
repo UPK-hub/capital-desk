@@ -69,21 +69,12 @@ async function lastTrama(tenantId: string, busCode: string, subtype: "P20" | "P6
   });
   if (!e) return null;
 
-  // Extraer el contenido de la trama (posición/odómetro) del payload.
-  const p = (e.payload ?? {}) as any;
-  const loc = (p.localizacionVehiculo ?? {}) as any;
-  const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
-
+  // Devolvemos el payload completo; el bot lo muestra con etiquetas claras.
   return {
     eventAt: e.eventAt ? e.eventAt.toISOString() : null,
     receivedAt: e.receivedAt.toISOString(),
-    lat: str(loc.latitud),
-    lon: str(loc.longitud),
-    velocidad: str(loc.velocidad ?? loc.velocidadGps ?? p.velocidad),
-    rumbo: str(loc.rumbo ?? loc.orientacion),
-    odometro: str(p.kilometrosOdometro),
-    lectura: str(p.fechaHoraLecturaDato),
-    message: str(e.message),
+    message: e.message ?? null,
+    payload: (e.payload ?? null) as any,
   };
 }
 

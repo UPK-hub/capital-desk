@@ -77,6 +77,52 @@ function formatDateTime(iso: string | null): string {
   }
 }
 
+// Etiquetas legibles para los campos del payload de la trama.
+const FIELD_LABELS: Record<string, string> = {
+  idRegistro: "ID registro",
+  idVehiculo: "Bus",
+  tipoTrama: "Tipo de trama",
+  fechaHoraLecturaDato: "Fecha lectura",
+  fechaHoraEnvioDato: "Fecha envío",
+  kilometrosOdometro: "Odómetro (km)",
+  velocidad: "Velocidad",
+  velocidadVehiculo: "Velocidad",
+  aceleracionVehiculo: "Aceleración",
+  rumbo: "Rumbo",
+  orientacion: "Rumbo",
+  altitud: "Altitud",
+  peso: "Peso",
+  satelites: "Satélites",
+  tramaRetransmitida: "Retransmitida",
+  estadoIgnicion: "Ignición",
+  ignicion: "Ignición",
+};
+
+// Latitud/longitud se muestran como link de mapa, no como campos sueltos.
+const SKIP_FIELDS = new Set(["latitud", "longitud"]);
+
+// Convierte el payload de la trama en líneas legibles "• Etiqueta: valor".
+function formatPayload(payload: any): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  const pushKV = (k: string, v: unknown) => {
+    if (SKIP_FIELDS.has(k) || seen.has(k)) return;
+    if (v === null || v === undefined || v === "" || typeof v === "object") return;
+    seen.add(k);
+    let val = String(v);
+    if (val.length > 60) val = val.slice(0, 60) + "…";
+    lines.push(`   • ${FIELD_LABELS[k] || k}: ${val}`);
+  };
+  const loc = (payload as any).localizacionVehiculo;
+  if (loc && typeof loc === "object") for (const [k, v] of Object.entries(loc)) pushKV(k, v);
+  for (const [k, v] of Object.entries(payload)) {
+    if (k === "localizacionVehiculo") continue;
+    pushKV(k, v);
+  }
+  return lines.slice(0, 25);
+}
+
 function buildTramasReply(resp: any): string {
   if (!resp?.ok) return "⚠️ No pude consultar ahora. Intenta de nuevo en un momento.";
   if (!resp.found) return "No encontré ese bus. Escribe el código (ej. K1402 o 1402).";
@@ -85,17 +131,17 @@ function buildTramasReply(resp: any): string {
     if (!t) return `📡 Última ${label}: sin registros`;
     const when = t.eventAt || t.receivedAt;
     const out = [`📡 Última ${label}: ${formatDateTime(when)} (${formatAgo(when)})`];
-    if (t.lat && t.lon)
-      out.push(`    📍 ${t.lat}, ${t.lon} — [ver mapa](https://maps.google.com/?q=${t.lat},${t.lon})`);
-    if (t.velocidad) out.push(`    🚗 Velocidad: ${t.velocidad}`);
-    if (t.odometro) out.push(`    🧭 Odómetro: ${t.odometro} km`);
+    const loc = t.payload?.localizacionVehiculo;
+    if (loc?.latitud && loc?.longitud)
+      out.push(`   📍 Mapa: https://maps.google.com/?q=${loc.latitud},${loc.longitud}`);
+    for (const ln of formatPayload(t.payload)) out.push(ln);
     return out.join("\n");
   };
-  return [`🚌 Bus ${resp.bus.code}${plate}`, "", line("P20", resp.p20), line("P60", resp.p60)].join("\n");
+  return [`🚌 Bus ${resp.bus.code}${plate}`, "", line("P20", resp.p20), "", line("P60", resp.p60)].join("\n");
 }
 
 const HELP =
-  "👋 Soy el bot de *consulta de tramas*.\n\nEscríbeme el *código del bus* (ej. K1402, también vale 1402) y te digo la *última P20 y P60* que reportó, con la hora y hace cuánto.";
+  "👋 Soy el bot de consulta de tramas.\n\nEscríbeme el código del bus (ej. K1402, también vale 1402) y te digo la última P20 y P60 que reportó, con la hora, hace cuánto y los datos de la trama.";
 
 // --------------------------- Cliente de Telegram -----------------------------
 
@@ -117,7 +163,9 @@ async function tg(method: string, body: any): Promise<any> {
 }
 
 async function sendMessage(chatId: number | string, text: string) {
-  return tg("sendMessage", { chat_id: chatId, text, parse_mode: "Markdown" });
+  // Texto plano: los valores del payload pueden traer _ * y romperían Markdown.
+  // Telegram autoconvierte las URLs (ej. el link de mapa) en enlaces clicables.
+  return tg("sendMessage", { chat_id: chatId, text });
 }
 
 async function queryTramas(busCode: string): Promise<any> {
@@ -146,7 +194,7 @@ async function handleUpdate(update: any) {
 
   const cmd = text.startsWith("/") ? text.split(/\s+/)[0].toLowerCase().split("@")[0] : "";
   if (cmd === "/id") {
-    await sendMessage(chatId, `🆔 Chat ID: \`${chatId}\``);
+    await sendMessage(chatId, `🆔 Chat ID: ${chatId}`);
     return;
   }
   // En grupos/canales solo responde /id (evita ruido con la conversación).
@@ -182,16 +230,19 @@ function runSelfTest(): void {
     p20: {
       eventAt: new Date(now).toISOString(),
       receivedAt: new Date(now).toISOString(),
-      lat: "4.6327",
-      lon: "-74.1737",
-      odometro: "12345",
+      payload: {
+        idRegistro: "999",
+        kilometrosOdometro: "12345",
+        localizacionVehiculo: { latitud: "4.6327", longitud: "-74.1737", velocidad: "30" },
+      },
     },
     p60: null,
   });
   assert(found.includes("Bus K1402") && found.includes("GUW522"), "reply tiene bus y placa");
   assert(found.includes("Última P20:") && found.includes("Última P60: sin registros"), "reply P20 y P60");
-  assert(found.includes("📍 4.6327, -74.1737") && found.includes("maps.google.com"), "reply muestra ubicación");
-  assert(found.includes("Odómetro: 12345 km"), "reply muestra odómetro");
+  assert(found.includes("maps.google.com/?q=4.6327,-74.1737"), "reply muestra mapa");
+  assert(found.includes("Odómetro (km): 12345"), "reply muestra odómetro");
+  assert(found.includes("Velocidad: 30"), "reply muestra velocidad");
 
   assert(buildTramasReply({ ok: true, found: false }).includes("No encontré"), "no encontrado");
   assert(buildTramasReply({ ok: false }).includes("No pude consultar"), "error");
