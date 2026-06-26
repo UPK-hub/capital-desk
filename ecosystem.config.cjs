@@ -46,5 +46,26 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+
+    // --- Bot de Telegram de CONSULTA de tramas (P20/P60) ---
+    // Proceso aparte: recibe un código de bus y responde la última P20/P60
+    // consultando /api/integrations/tramas-last. Lee del .env:
+    // TELEGRAM_TRAMAS_BOT_TOKEN, TRAMAS_QUERY_URL, NOVEDADES_INTAKE_SECRET.
+    {
+      name: "tramas-bot",
+      cwd: "D:/apps/capital-desk",
+      script: "C:/Program Files/nodejs/node.exe",
+      args: "node_modules/tsx/dist/cli.mjs scripts/telegram-tramas-bot.ts",
+
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "20s",
+      restart_delay: 3000,
+      max_memory_restart: "500M",
+
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };
