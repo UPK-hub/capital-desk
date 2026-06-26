@@ -62,9 +62,12 @@ async function lastTrama(tenantId: string, busCode: string, subtype: "P20" | "P6
       tenantId,
       busCode,
       kind: StsTelemetryKind.TRAMAS,
-      tramaSubtype: { equals: subtype, mode: "insensitive" },
+      tramaSubtype: subtype,
     },
-    orderBy: [{ eventAt: { sort: "desc", nulls: "last" } }, { receivedAt: "desc" }],
+    // "eventAt desc" a secas usa el índice [tenantId, busCode, eventAt] y para en
+    // la primera fila. (Antes con "nulls: last" forzaba ordenar TODA la telemetría
+    // del bus -> timeout.)
+    orderBy: { eventAt: "desc" },
     select: { eventAt: true, receivedAt: true, message: true, payload: true },
   });
   if (!e) return null;

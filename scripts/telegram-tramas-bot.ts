@@ -175,7 +175,7 @@ async function queryTramas(busCode: string): Promise<any> {
   try {
     const res = await fetch(`${QUERY_URL}?${params.toString()}`, {
       headers: { "x-integration-secret": SECRET },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(15000),
     });
     return await res.json().catch(() => ({ ok: false }));
   } catch (e) {
