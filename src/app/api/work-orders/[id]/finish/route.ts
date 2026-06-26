@@ -23,6 +23,7 @@ import { notifyTenantUsers } from "@/lib/notifications";
 import { getCaseStakeholderUserIds } from "@/lib/notify-recipients";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
+import { notifyPreventivoClosed } from "@/lib/telegram-notify";
 
 function formatInternalTime(d?: Date | null) {
   if (!d) return null;
@@ -519,6 +520,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       await maybeAutoCloseLinkedNovedad(tenantId, closedCaseId, userId);
     } catch (error) {
       console.error("AUTO_CLOSE_AFTER_FINISH_FAILED", { closedCaseId, error });
+    }
+  }
+
+  // Aviso al grupo de preventivos si este caso es un preventivo que quedó CERRADO.
+  if (wo.case.type === CaseType.PREVENTIVO) {
+    try {
+      await notifyPreventivoClosed(wo.caseId, { closedById: userId });
+    } catch (e) {
+      console.error("NOTIFY_PREVENTIVO_AFTER_FINISH_FAILED", e);
     }
   }
 

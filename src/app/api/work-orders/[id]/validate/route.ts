@@ -18,6 +18,7 @@ import {
 } from "@prisma/client";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
+import { notifyPreventivoClosed } from "@/lib/telegram-notify";
 
 function formatInternalTime(d?: Date | null) {
   if (!d) return null;
@@ -260,6 +261,15 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
       await maybeAutoCloseLinkedNovedad(tenantId, closedCaseId, userId);
     } catch (error) {
       console.error("AUTO_CLOSE_AFTER_VALIDATE_FAILED", { closedCaseId, error });
+    }
+  }
+
+  // Aviso al grupo de preventivos por cada caso que haya quedado cerrado y sea PREVENTIVO.
+  for (const closedCaseId of closedSiblingCaseIds) {
+    try {
+      await notifyPreventivoClosed(closedCaseId, { closedById: userId });
+    } catch (e) {
+      console.error("NOTIFY_PREVENTIVO_AFTER_VALIDATE_FAILED", e);
     }
   }
 

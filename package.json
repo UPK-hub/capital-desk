@@ -38,7 +38,8 @@
     "asignar:novedades": "tsx scripts/asignar-creador-responsable-novedades.ts",
     "novedades:agrupar": "tsx scripts/agrupar-duplicados-novedades.ts",
     "bot:novedades": "tsx scripts/telegram-novedades-bot.ts",
-    "bot:tramas": "tsx scripts/telegram-tramas-bot.ts"
+    "bot:tramas": "tsx scripts/telegram-tramas-bot.ts",
+    "bot:preventivos": "tsx scripts/telegram-preventivos-bot.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
