@@ -23,6 +23,7 @@ import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
 import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
+import GestionCasoCard from "./ui/GestionCasoCard";
 import { getDuplicateGroup, findSimilarOtherCreator, type DuplicateGroup } from "@/lib/novedades/duplicates-server";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
 import EditCaseTitleCard from "./ui/EditCaseTitleCard";
@@ -485,6 +486,31 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     }));
   const duplicatePrincipal = duplicateGroup.members.find((m) => m.id === duplicateGroup.principalId) ?? null;
 
+  // Panel "Gestionar caso" (preventivo / correctivo): equipos del bus + personas.
+  const canGestion =
+    role === Role.ADMIN || role === Role.BACKOFFICE || role === Role.SUPERVISOR || role === Role.PLANNER;
+  const showGestion = c.type === CaseType.PREVENTIVO || c.type === CaseType.CORRECTIVO;
+  // Flujo de OT antiguo oculto en backoffice (reemplazado por "Gestionar caso").
+  // El código, las rutas y los datos se conservan. Poner en true para volver a mostrarlo.
+  const SHOW_OT_FLOW = false;
+  // Se oculta solo donde aplica el módulo nuevo (preventivo/correctivo); para otros
+  // tipos (renovación/mejora) la OT sigue visible hasta migrarlos.
+  const showOtSection = SHOW_OT_FLOW || !showGestion;
+  const busEquipmentsView = showGestion
+    ? (
+        await prisma.busEquipment.findMany({
+          where: { busId: c.busId, active: true },
+          select: { id: true, serial: true, equipmentType: { select: { name: true } } },
+          orderBy: { id: "asc" },
+        })
+      ).map((e) => ({
+        id: e.id,
+        name: `${e.equipmentType?.name ?? "Equipo"}${e.serial ? ` (${e.serial})` : ""}`,
+        serial: e.serial ?? null,
+      }))
+    : [];
+  const personasView = users.map((u) => ({ id: u.id, name: u.name ?? "" })).filter((u) => u.name);
+
   const linkedCasesView = linkedCasesForNovedad.map((lc) => {
     const manual = lc.events.some((ev) => {
       const meta = (ev.meta ?? {}) as any;
@@ -718,6 +744,21 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             <p className="mb-1.5 text-xs font-semibold text-slate-600">Descripción</p>
             <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-600">{c.description}</p>
           </section>
+
+          {showGestion ? (
+            <GestionCasoCard
+              caseId={c.id}
+              caseType={c.type as "PREVENTIVO" | "CORRECTIVO"}
+              busCode={c.bus?.code ?? null}
+              busPlate={c.bus?.plate ?? null}
+              canManage={canGestion}
+              technicians={personasView}
+              busEquipments={busEquipmentsView}
+              currentAssignedId={c.assignedTo?.id ?? null}
+              currentAssignedName={c.assignedTo?.name ?? null}
+              currentStatus={c.status}
+            />
+          ) : null}
 
           {!isVideoCase ? (
             <ChecklistCard
@@ -1122,6 +1163,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             </>
           ) : (
             <>
+              {showOtSection ? (
               <section className="sts-card overflow-hidden">
                 <div className="flex items-center gap-1.5 border-b border-border/50 bg-muted/20 px-4 py-3 lg:px-5">
                   <Wrench className="h-4 w-4 text-indigo-500" />
@@ -1237,6 +1279,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                   )}
                 </div>
               </section>
+              ) : null}
 
               {showNovedadCard && novedadSnapshot ? (
                 <NovedadTraceCard
@@ -1342,6 +1385,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
                 />
               ) : null}
 
+              {showOtSection ? (
+                <>
               <div id="asignacion" />
               {canAssign ? (
                 <AssignTechnicianCard
@@ -1367,6 +1412,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               c.workOrder.status === ("EN_VALIDACION" as any) &&
               (role === Role.ADMIN || role === Role.BACKOFFICE) ? (
                 <ValidateWorkOrderCard workOrderId={c.workOrder.id} />
+              ) : null}
+                </>
               ) : null}
             </>
           )}
