@@ -3,9 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
-// Filtro en vivo: aplica los filtros al cambiar (selects/fechas al instante,
-// texto con un pequeño retardo) sin tener que dar "Filtrar". Usa navegación
-// suave (router.push) para no recargar toda la página ni perder el foco.
+// Filtro en vivo: aplica los filtros al cambiar (desplegables/fechas al instante,
+// texto con un pequeño retardo) sin tener que dar "Filtrar". Navegación suave.
 export default function AutoFilterForm({
   className,
   basePath = "/cases",
@@ -17,6 +16,7 @@ export default function AutoFilterForm({
 }) {
   const router = useRouter();
   const ref = React.useRef<HTMLFormElement>(null);
+  const timer = React.useRef<any>(null);
 
   const apply = React.useCallback(() => {
     const form = ref.current;
@@ -31,30 +31,21 @@ export default function AutoFilterForm({
     router.push(`${basePath}${qs ? `?${qs}` : ""}`);
   }, [router, basePath]);
 
-  React.useEffect(() => {
-    const form = ref.current;
-    if (!form) return;
-    let t: any;
-    const onChange = (e: Event) => {
-      const el = e.target as HTMLInputElement;
-      const tag = (el?.tagName || "").toLowerCase();
-      if (tag === "select" || el?.type === "date") apply();
-    };
-    const onInput = (e: Event) => {
-      const el = e.target as HTMLInputElement;
-      if ((el?.tagName || "").toLowerCase() === "input" && (el.type === "text" || el.type === "search")) {
-        clearTimeout(t);
-        t = setTimeout(apply, 400);
-      }
-    };
-    form.addEventListener("change", onChange);
-    form.addEventListener("input", onInput);
-    return () => {
-      form.removeEventListener("change", onChange);
-      form.removeEventListener("input", onInput);
-      clearTimeout(t);
-    };
-  }, [apply]);
+  const onChange = (e: React.ChangeEvent<HTMLFormElement>) => {
+    const el = e.target as HTMLInputElement | HTMLSelectElement;
+    const tag = (el?.tagName || "").toLowerCase();
+    const type = (el as HTMLInputElement)?.type;
+    if (tag === "select" || type === "date" || type === "checkbox") {
+      if (timer.current) clearTimeout(timer.current);
+      apply();
+    } else {
+      // texto: aplica con un pequeño retardo mientras se escribe
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(apply, 400);
+    }
+  };
+
+  React.useEffect(() => () => timer.current && clearTimeout(timer.current), []);
 
   return (
     <form
@@ -62,8 +53,10 @@ export default function AutoFilterForm({
       method="get"
       action={basePath}
       className={className}
+      onChange={onChange}
       onSubmit={(e) => {
         e.preventDefault();
+        if (timer.current) clearTimeout(timer.current);
         apply();
       }}
     >
