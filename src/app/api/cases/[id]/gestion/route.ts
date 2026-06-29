@@ -290,10 +290,10 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
       // f) Estado del caso
       if (resolver) {
-        if (kase.status !== CaseStatus.RESUELTO && kase.status !== CaseStatus.CERRADO) {
-          await tx.case.update({ where: { id: kase.id }, data: { status: CaseStatus.RESUELTO } });
+        if (kase.status !== CaseStatus.CERRADO) {
+          await tx.case.update({ where: { id: kase.id }, data: { status: CaseStatus.CERRADO } });
           await tx.caseEvent.create({
-            data: { caseId: kase.id, type: CaseEventType.STATUS_CHANGE, message: "Caso resuelto desde Gestionar caso.", meta: { by: userId, source: "gestion" } },
+            data: { caseId: kase.id, type: CaseEventType.STATUS_CHANGE, message: "Caso cerrado desde Gestionar caso.", meta: { by: userId, source: "gestion" } },
           });
         }
       } else if (kase.status === CaseStatus.NUEVO) {

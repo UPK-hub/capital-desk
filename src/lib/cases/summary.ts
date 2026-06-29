@@ -110,7 +110,7 @@ export async function getCasesSummary(opts: {
     { key: "OT_ASIGNADA", label: "OT asignada", color: "#06b6d4" },
     { key: "EN_EJECUCION", label: "En ejecución", color: "#f59e0b" },
     { key: "RESUELTO", label: "Resuelto", color: "#16a34a" },
-    { key: "CERRADO", label: "Cerrado", color: "#64748b" },
+    { key: "CERRADO", label: "Cerrado", color: "#16a34a" },
   ];
   const porEstado = ESTADO.map((e) => ({ label: e.label, value: cnt[e.key] ?? 0, color: e.color })).filter(
     (x) => x.value > 0

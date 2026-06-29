@@ -172,13 +172,13 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   if ((becameCompleted || becameDownloaded) && !caseAlreadyDone) {
     await prisma.case.update({
       where: { id: current.caseId },
-      data: { status: "RESUELTO" },
+      data: { status: "CERRADO" },
     });
     await prisma.caseEvent.create({
       data: {
         caseId: current.caseId,
         type: "STATUS_CHANGE",
-        message: "Caso resuelto automáticamente al completar la descarga de video",
+        message: "Caso cerrado automáticamente al completar la descarga de video",
         meta: { by: actorUserId },
       },
     });

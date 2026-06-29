@@ -38,6 +38,7 @@
     "fix:creadores": "tsx scripts/fix-creadores-novedad-correctivo.ts",
     "asignar:novedades": "tsx scripts/asignar-creador-responsable-novedades.ts",
     "novedades:agrupar": "tsx scripts/agrupar-duplicados-novedades.ts",
+    "cerrar:resueltos": "tsx scripts/cerrar-resueltos.ts",
     "bot:novedades": "tsx scripts/telegram-novedades-bot.ts",
     "bot:tramas": "tsx scripts/telegram-tramas-bot.ts",
     "bot:preventivos": "tsx scripts/telegram-preventivos-bot.ts"

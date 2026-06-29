@@ -12,6 +12,7 @@ import { Select } from "@/components/Field";
 import { FileSpreadsheet, Plus } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
 import CasesTable, { CaseRow } from "@/components/cases/CasesTable";
+import AutoFilterForm from "@/components/cases/AutoFilterForm";
 
 export default async function CasesPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions);
@@ -160,7 +161,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     { key: "", label: "Todos", count: cAll, dot: "" },
     { key: "NUEVO", label: "Nuevos", count: cNuevo, dot: "#2563eb" },
     { key: "PROCESO", label: "En proceso", count: cProceso, dot: "#f59e0b" },
-    { key: "RESUELTO", label: "Resueltos", count: cResuelto, dot: "#16a34a" },
+    { key: "RESUELTO", label: "Cerrados", count: cResuelto, dot: "#16a34a" },
   ];
   const statusActive = (key: string) => (params.statusParam ?? "") === key;
   const misActive = params.creator === userId;
@@ -278,9 +279,10 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           <CasesResumen summary={summary} currentMonth={rmonth} months={months} />
 
           {/* Filtros */}
-          <form method="get" className="space-y-3 rounded-2xl border border-border/60 bg-white p-3 shadow-sm">
+          <AutoFilterForm className="space-y-3 rounded-2xl border border-border/60 bg-white p-3 shadow-sm">
             <input type="hidden" name="status" value={params.statusParam ?? ""} />
             <input type="hidden" name="rmonth" value={rmonth} />
+            <input type="hidden" name="assigned" value={assignedParam} />
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
               <div className="sm:col-span-2 lg:col-span-2">
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Buscar</label>
@@ -354,7 +356,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                 </button>
               </div>
             </div>
-          </form>
+          </AutoFilterForm>
 
           {/* Tabla interactiva */}
           {rows.length === 0 ? (

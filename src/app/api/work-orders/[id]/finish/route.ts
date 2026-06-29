@@ -273,14 +273,14 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         data: { status: CaseStatus.CERRADO },
       });
     } else {
-      // El técnico finalizó la intervención (pendiente de validación del coordinador):
-      // el caso pasa a RESUELTO. El coordinador lo dejará luego en CERRADO.
+      // El técnico finalizó la intervención: el caso pasa directo a CERRADO
+      // (se unificó "Resuelto" en "Cerrado").
       await tx.case.updateMany({
         where: {
           id: { in: siblingCaseIds },
           status: { notIn: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
         },
-        data: { status: CaseStatus.RESUELTO },
+        data: { status: CaseStatus.CERRADO },
       });
     }
 

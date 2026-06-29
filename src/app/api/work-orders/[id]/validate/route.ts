@@ -121,7 +121,7 @@ export async function POST(_: NextRequest, ctx: { params: { id: string } }) {
         id: { in: siblingCaseIds },
         status: { notIn: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
       },
-      data: { status: closeCaseAndTicket ? CaseStatus.CERRADO : CaseStatus.RESUELTO },
+      data: { status: CaseStatus.CERRADO },
     });
 
     await tx.caseEvent.createMany({
