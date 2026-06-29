@@ -67,7 +67,7 @@ export async function getCasesSummary(opts: {
     prisma.case.groupBy({ by: ["priority"], where: base, _count: { _all: true } }),
     prisma.case.groupBy({
       by: ["assignedToId"],
-      where: { ...base, status: { in: openStatuses }, assignedToId: { not: null } },
+      where: { ...base, status: { in: openStatuses } },
       _count: { _all: true },
     }),
   ]);
@@ -145,9 +145,9 @@ export async function getCasesSummary(opts: {
     : [];
   const nameById = new Map(assigneeUsers.map((u) => [u.id, u.name] as const));
   const cargaResponsable = groupedAssignee
-    .map((g) => ({ label: (g.assignedToId && nameById.get(g.assignedToId)) || "—", value: g._count._all }))
+    .map((g) => ({ label: g.assignedToId ? nameById.get(g.assignedToId) || "—" : "Sin asignar", value: g._count._all }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+    .slice(0, 7);
 
   return { atendidos, pendientes, vencidos, series, porEstado, porTipo, porPrioridad, cargaResponsable };
 }

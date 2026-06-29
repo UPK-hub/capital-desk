@@ -144,7 +144,14 @@ export default function CasesResumen({
   const hasCarga = carga.length > 0;
   const barData = {
     labels: carga.map((r) => r.label),
-    datasets: [{ data: carga.map((r) => r.value), backgroundColor: "#2563eb", borderRadius: 6, barThickness: 14 }],
+    datasets: [
+      {
+        data: carga.map((r) => r.value),
+        backgroundColor: carga.map((r) => (r.label === "Sin asignar" ? "#94a3b8" : "#2563eb")),
+        borderRadius: 6,
+        barThickness: 14,
+      },
+    ],
   };
   const barOpts: any = {
     indexAxis: "y",
