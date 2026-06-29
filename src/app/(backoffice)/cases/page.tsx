@@ -31,13 +31,15 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   const userId = String((session.user as any).id ?? "");
   const tenantId = (session.user as any).tenantId as string;
   const isVideosOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.VIDEOS_ONLY);
-  if ((role !== Role.ADMIN && role !== Role.BACKOFFICE) || isVideosOnly) {
+  const ALLOWED_ROLES = [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER, Role.TECHNICIAN];
+  if (!ALLOWED_ROLES.includes(role) || isVideosOnly) {
     return (
       <div className="sts-card p-4">
         <p className="text-sm">No autorizado.</p>
       </div>
     );
   }
+  const isTech = role === Role.TECHNICIAN;
 
   const ownOnly = role === Role.BACKOFFICE && !!caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
   const ownWhere = ownOnly ? await restrictedCasesWhere({ tenantId, userId }) : {};
@@ -47,6 +49,11 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     userId,
     ownWhere,
   });
+  // Vistas por asignación. El técnico SIEMPRE ve solo lo asignado a él.
+  const assignedParam = String(searchParams?.assigned ?? "").trim(); // "me" | "none" | ""
+  if (isTech) Object.assign(baseWhere, { assignedToId: userId });
+  else if (assignedParam === "me") Object.assign(baseWhere, { assignedToId: userId });
+  else if (assignedParam === "none") Object.assign(baseWhere, { assignedToId: null });
 
   const months = recentMonths(6);
   const rmonth = (searchParams?.rmonth ? String(searchParams.rmonth) : "") || months[0].key;
@@ -67,7 +74,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       where: { type: CaseEventType.CREATED, case: { tenantId } },
       select: { meta: true },
     }),
-    getCasesSummary({ tenantId, extraWhere: ownWhere, monthKey: rmonth }),
+    getCasesSummary({ tenantId, extraWhere: { ...ownWhere, ...(isTech ? { assignedToId: userId } : {}) }, monthKey: rmonth }),
   ]);
 
   const creatorIds = new Set<string>();
@@ -130,6 +137,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     type: params.type,
     priority: params.priority,
     creator: params.creator,
+    assigned: assignedParam || undefined,
     dateFrom: params.dateFromStr,
     dateTo: params.dateToStr,
     rmonth,
@@ -156,6 +164,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   ];
   const statusActive = (key: string) => (params.statusParam ?? "") === key;
   const misActive = params.creator === userId;
+  const asignadosActive = assignedParam === "me";
+  const sinRespActive = assignedParam === "none";
+  const anyPersonal = misActive || asignadosActive || sinRespActive;
 
   return (
     <div className="space-y-4">
@@ -167,20 +178,22 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             {filteredTotal} {filteredTotal === 1 ? "caso" : "casos"} · Bandeja Backoffice
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={exportHref}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
-          >
-            <FileSpreadsheet className="h-4 w-4" /> Exportar
-          </a>
-          <Link
-            href="/cases/new"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
-          >
-            <Plus className="h-4 w-4" /> Nuevo caso
-          </Link>
-        </div>
+        {!isTech ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={exportHref}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Exportar
+            </a>
+            <Link
+              href="/cases/new"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
+            >
+              <Plus className="h-4 w-4" /> Nuevo caso
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       {/* Vistas (mobile: chips) */}
@@ -188,9 +201,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
         {views.map((v) => (
           <Link
             key={v.key || "all"}
-            href={hrefWith({ status: v.key || undefined, creator: undefined })}
+            href={hrefWith({ status: v.key || undefined, creator: undefined, assigned: undefined })}
             className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-              statusActive(v.key) && !misActive ? "bg-blue-600 text-white" : "border border-border/60 bg-white text-slate-600"
+              statusActive(v.key) && !anyPersonal ? "bg-blue-600 text-white" : "border border-border/60 bg-white text-slate-600"
             }`}
           >
             {v.dot ? <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: v.dot }} /> : null}
@@ -206,11 +219,11 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           <div className="rounded-2xl border border-border/60 bg-white p-2 shadow-sm">
             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Vistas</p>
             {views.map((v) => {
-              const active = statusActive(v.key) && !misActive;
+              const active = statusActive(v.key) && !anyPersonal;
               return (
                 <Link
                   key={v.key || "all"}
-                  href={hrefWith({ status: v.key || undefined, creator: undefined })}
+                  href={hrefWith({ status: v.key || undefined, creator: undefined, assigned: undefined })}
                   className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
                     active ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
                   }`}
@@ -227,15 +240,35 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
                 </Link>
               );
             })}
-            <p className="mt-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Personales</p>
-            <Link
-              href={hrefWith({ creator: userId })}
-              className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
-                misActive ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <span>Mis casos</span>
-            </Link>
+            {!isTech ? (
+              <>
+                <p className="mt-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Personales</p>
+                <Link
+                  href={hrefWith({ creator: userId, assigned: undefined, status: undefined })}
+                  className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
+                    misActive ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Mis casos</span>
+                </Link>
+                <Link
+                  href={hrefWith({ assigned: "me", creator: undefined, status: undefined })}
+                  className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
+                    asignadosActive ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Asignados a mí</span>
+                </Link>
+                <Link
+                  href={hrefWith({ assigned: "none", creator: undefined, status: undefined })}
+                  className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition ${
+                    sinRespActive ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Sin responsable</span>
+                </Link>
+              </>
+            ) : null}
           </div>
         </aside>
 
@@ -329,7 +362,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
               No hay casos con estos filtros.
             </div>
           ) : (
-            <CasesTable rows={rows} users={assignableUsers} />
+            <CasesTable rows={rows} users={isTech ? [] : assignableUsers} />
           )}
 
           <p className="px-1 text-xs text-muted-foreground">

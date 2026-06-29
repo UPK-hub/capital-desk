@@ -23,6 +23,8 @@ type NavItem = {
   roles?: Role[];
   capabilities?: string[];
   hiddenForCapabilities?: string[];
+  // Si está, SOLO estos roles lo ven (incluso admin queda excluido si no está en la lista).
+  exclusiveRoles?: Role[];
 };
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
@@ -56,7 +58,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       icon: "case",
       section: "main",
       color: "var(--color-sts)",
-      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR],
+      roles: [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER, Role.TECHNICIAN],
       hiddenForCapabilities: [CAPABILITIES.VIDEOS_ONLY],
     },
     {
@@ -111,6 +113,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       section: "main",
       color: "var(--color-tecnico)",
       roles: [Role.TECHNICIAN],
+      exclusiveRoles: [Role.TECHNICIAN],
     },
     {
       label: "Turnos",
@@ -182,6 +185,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   const filteredNav = navItems.filter((item) => {
     if (!session?.user) return false;
+    if (item.exclusiveRoles) return role ? item.exclusiveRoles.includes(role) : false;
     if (role === Role.ADMIN) return true;
     if (item.hiddenForCapabilities?.some((cap) => capabilities.includes(cap))) return false;
     const allowRole = item.roles ? (role ? item.roles.includes(role) : false) : true;

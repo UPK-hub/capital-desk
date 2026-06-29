@@ -7,12 +7,13 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Tooltip,
   Legend,
   Filler,
 } from "chart.js";
-import { Line, Doughnut } from "react-chartjs-2";
+import { Line, Doughnut, Bar } from "react-chartjs-2";
 import { BarChart3 } from "lucide-react";
 
 ChartJS.register(
@@ -20,6 +21,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Tooltip,
   Legend,
@@ -40,6 +42,9 @@ type Summary = {
   vencidos: number;
   series: { date: string; creados: number; resueltos: number }[];
   porEstado: { label: string; value: number; color: string }[];
+  porTipo: { label: string; value: number; color: string }[];
+  porPrioridad: { label: string; value: number; color: string }[];
+  cargaResponsable: { label: string; value: number }[];
 };
 
 export default function CasesResumen({
@@ -127,6 +132,31 @@ export default function CasesResumen({
 
   const hasDonut = summary.porEstado.some((p) => p.value > 0);
 
+  const mkDonut = (arr: { label: string; value: number; color: string }[]) => ({
+    labels: arr.map((p) => p.label),
+    datasets: [{ data: arr.map((p) => p.value), backgroundColor: arr.map((p) => p.color), borderColor: "#ffffff", borderWidth: 2, hoverOffset: 4 }],
+  });
+  const tipoData = mkDonut(summary.porTipo);
+  const prioData = mkDonut(summary.porPrioridad);
+  const hasTipo = summary.porTipo.length > 0;
+  const hasPrio = summary.porPrioridad.length > 0;
+  const carga = summary.cargaResponsable;
+  const hasCarga = carga.length > 0;
+  const barData = {
+    labels: carga.map((r) => r.label),
+    datasets: [{ data: carga.map((r) => r.value), backgroundColor: "#2563eb", borderRadius: 6, barThickness: 14 }],
+  };
+  const barOpts: any = {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0f172a", padding: 8, cornerRadius: 8 } },
+    scales: {
+      x: { beginAtZero: true, grid: { color: "#f1f3f6" }, border: { display: false }, ticks: { precision: 0, font: { size: 10 }, color: "#aab2bf" } },
+      y: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10 }, color: "#64748b" } },
+    },
+  };
+
   return (
     <div className="rounded-2xl border border-border/60 bg-white p-3.5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -175,6 +205,40 @@ export default function CasesResumen({
           <div style={{ position: "relative", height: 150 }}>
             {hasDonut ? (
               <Doughnut data={donutData} options={donutOpts} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sin datos</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Más gráficas: por tipo, por prioridad, carga por responsable */}
+      <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-xl border border-border/50 p-3">
+          <div className="mb-1 text-xs font-semibold text-slate-600">Por tipo</div>
+          <div style={{ position: "relative", height: 150 }}>
+            {hasTipo ? (
+              <Doughnut data={tipoData} options={donutOpts} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sin datos</div>
+            )}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/50 p-3">
+          <div className="mb-1 text-xs font-semibold text-slate-600">Por prioridad</div>
+          <div style={{ position: "relative", height: 150 }}>
+            {hasPrio ? (
+              <Doughnut data={prioData} options={donutOpts} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sin datos</div>
+            )}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/50 p-3">
+          <div className="mb-1 text-xs font-semibold text-slate-600">Carga por responsable</div>
+          <div style={{ position: "relative", height: 150 }}>
+            {hasCarga ? (
+              <Bar data={barData} options={barOpts} />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sin datos</div>
             )}

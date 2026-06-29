@@ -20,6 +20,9 @@ export type CasesSummary = {
   vencidos: number;
   series: { date: string; creados: number; resueltos: number }[];
   porEstado: { label: string; value: number; color: string }[];
+  porTipo: { label: string; value: number; color: string }[];
+  porPrioridad: { label: string; value: number; color: string }[];
+  cargaResponsable: { label: string; value: number }[];
 };
 
 export async function getCasesSummary(opts: {
@@ -40,7 +43,7 @@ export async function getCasesSummary(opts: {
 
   const seriesStart = new Date(Date.now() - 29 * DAY);
 
-  const [pendientes, openRows, grouped, creadosRows, doneCases] = await Promise.all([
+  const [pendientes, openRows, grouped, creadosRows, doneCases, groupedType, groupedPrio, groupedAssignee] = await Promise.all([
     prisma.case.count({ where: { ...base, status: { in: openStatuses } } }),
     prisma.case.findMany({
       where: { ...base, status: { in: openStatuses } },
@@ -59,6 +62,13 @@ export async function getCasesSummary(opts: {
         updatedAt: true,
         events: { where: { type: CaseEventType.STATUS_CHANGE }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
       },
+    }),
+    prisma.case.groupBy({ by: ["type"], where: base, _count: { _all: true } }),
+    prisma.case.groupBy({ by: ["priority"], where: base, _count: { _all: true } }),
+    prisma.case.groupBy({
+      by: ["assignedToId"],
+      where: { ...base, status: { in: openStatuses }, assignedToId: { not: null } },
+      _count: { _all: true },
     }),
   ]);
 
@@ -106,7 +116,40 @@ export async function getCasesSummary(opts: {
     (x) => x.value > 0
   );
 
-  return { atendidos, pendientes, vencidos, series, porEstado };
+  const TIPO = [
+    { key: "PREVENTIVO", label: "Preventivo", color: "#2563eb" },
+    { key: "CORRECTIVO", label: "Correctivo", color: "#f59e0b" },
+    { key: "NOVEDAD", label: "Novedad", color: "#ef4444" },
+    { key: "RENOVACION_TECNOLOGICA", label: "Renovación", color: "#8b5cf6" },
+    { key: "MEJORA_PRODUCTO", label: "Mejora", color: "#06b6d4" },
+    { key: "SOLICITUD_DESCARGA_VIDEO", label: "Video", color: "#64748b" },
+  ];
+  const tCnt: Record<string, number> = {};
+  for (const g of groupedType) tCnt[g.type] = g._count._all;
+  const porTipo = TIPO.map((t) => ({ label: t.label, value: tCnt[t.key] ?? 0, color: t.color })).filter((x) => x.value > 0);
+
+  const PRIO = [
+    { p: 1, label: "P1 Alta", color: "#dc2626" },
+    { p: 2, label: "P2", color: "#f97316" },
+    { p: 3, label: "P3 Media", color: "#f59e0b" },
+    { p: 4, label: "P4", color: "#2563eb" },
+    { p: 5, label: "P5 Baja", color: "#64748b" },
+  ];
+  const pCnt: Record<number, number> = {};
+  for (const g of groupedPrio) pCnt[g.priority] = g._count._all;
+  const porPrioridad = PRIO.map((x) => ({ label: x.label, value: pCnt[x.p] ?? 0, color: x.color })).filter((x) => x.value > 0);
+
+  const assigneeIds = groupedAssignee.map((g) => g.assignedToId).filter((x): x is string => Boolean(x));
+  const assigneeUsers = assigneeIds.length
+    ? await prisma.user.findMany({ where: { tenantId, id: { in: assigneeIds } }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(assigneeUsers.map((u) => [u.id, u.name] as const));
+  const cargaResponsable = groupedAssignee
+    .map((g) => ({ label: (g.assignedToId && nameById.get(g.assignedToId)) || "—", value: g._count._all }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+
+  return { atendidos, pendientes, vencidos, series, porEstado, porTipo, porPrioridad, cargaResponsable };
 }
 
 // Etiquetas de meses recientes (para el selector del Resumen), en hora Colombia.

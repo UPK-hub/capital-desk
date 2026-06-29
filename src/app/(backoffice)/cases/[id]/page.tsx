@@ -169,7 +169,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     (role !== Role.ADMIN &&
       role !== Role.BACKOFFICE &&
       role !== Role.PLANNER &&
-      role !== Role.SUPERVISOR)
+      role !== Role.SUPERVISOR &&
+      role !== Role.TECHNICIAN)
   ) {
     return (
       <div className="mx-auto max-w-5xl p-6">
@@ -184,13 +185,11 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   const debug = String(searchParams?.debug ?? "") === "1";
 
   const c = await prisma.case.findFirst({
-    where: await buildCaseAccessWhere({
-      caseId: params.id,
-      tenantId,
-      role,
-      capabilities: caps,
-      userId,
-    }),
+    where: {
+      ...(await buildCaseAccessWhere({ caseId: params.id, tenantId, role, capabilities: caps, userId })),
+      // El técnico solo puede abrir los casos que tiene asignados.
+      ...(role === Role.TECHNICIAN ? { assignedToId: userId } : {}),
+    },
     include: {
       bus: { select: { id: true, code: true, plate: true } },
       busEquipment: {
@@ -488,7 +487,11 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
 
   // Panel "Gestionar caso" (preventivo / correctivo): equipos del bus + personas.
   const canGestion =
-    role === Role.ADMIN || role === Role.BACKOFFICE || role === Role.SUPERVISOR || role === Role.PLANNER;
+    role === Role.ADMIN ||
+    role === Role.BACKOFFICE ||
+    role === Role.SUPERVISOR ||
+    role === Role.PLANNER ||
+    role === Role.TECHNICIAN;
   const showGestion = c.type === CaseType.PREVENTIVO || c.type === CaseType.CORRECTIVO;
   // Flujo de OT antiguo oculto en backoffice (reemplazado por "Gestionar caso").
   // El código, las rutas y los datos se conservan. Poner en true para volver a mostrarlo.
