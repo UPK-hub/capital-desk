@@ -12,7 +12,7 @@ import { Select } from "@/components/Field";
 import { FileSpreadsheet, Plus } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
 import CasesTable, { CaseRow } from "@/components/cases/CasesTable";
-import AutoFilterForm from "@/components/cases/AutoFilterForm";
+import CasesFilterBar from "@/components/cases/CasesFilterBar";
 
 export default async function CasesPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions);
@@ -73,23 +73,29 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     prisma.case.groupBy({ by: ["status"], where: baseWhere, _count: { _all: true } }),
     prisma.caseEvent.findMany({
       where: { type: CaseEventType.CREATED, case: { tenantId } },
-      select: { meta: true },
+      select: { caseId: true, meta: true },
     }),
     getCasesSummary({ tenantId, extraWhere: { ...ownWhere, ...(isTech ? { assignedToId: userId } : {}) }, monthKey: rmonth }),
   ]);
 
   const creatorIds = new Set<string>();
+  const creatorByCase = new Map<string, string>();
   for (const ev of creatorEvents) {
     const uid = (ev.meta as any)?.userId;
-    if (typeof uid === "string" && uid.trim()) creatorIds.add(uid.trim());
+    if (typeof uid === "string" && uid.trim()) {
+      creatorIds.add(uid.trim());
+      if (ev.caseId) creatorByCase.set(ev.caseId, uid.trim());
+    }
   }
-  const creators = creatorIds.size
+  const creatorUsers = creatorIds.size
     ? await prisma.user.findMany({
-        where: { tenantId, active: true, id: { in: Array.from(creatorIds) } },
-        select: { id: true, name: true },
+        where: { tenantId, id: { in: Array.from(creatorIds) } },
+        select: { id: true, name: true, active: true },
         orderBy: { name: "asc" },
       })
     : [];
+  const creatorNameById = new Map(creatorUsers.map((u) => [u.id, u.name] as const));
+  const creators = creatorUsers.filter((u) => u.active).map((u) => ({ id: u.id, name: u.name }));
 
   const cnt: Record<string, number> = {};
   for (const g of grouped) cnt[g.status] = g._count._all;
@@ -117,6 +123,8 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     priority: c.priority,
     assignee: c.assignedTo?.name ?? c.workOrder?.assignedTo?.name ?? null,
     assignedToId: c.assignedToId ?? null,
+    creator: creatorNameById.get(creatorByCase.get(c.id) ?? "") ?? null,
+    workOrderNo: c.workOrder?.workOrderNo ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   }));
@@ -279,84 +287,19 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
           <CasesResumen summary={summary} currentMonth={rmonth} months={months} />
 
           {/* Filtros */}
-          <AutoFilterForm className="space-y-3 rounded-2xl border border-border/60 bg-white p-3 shadow-sm">
-            <input type="hidden" name="status" value={params.statusParam ?? ""} />
-            <input type="hidden" name="rmonth" value={rmonth} />
-            <input type="hidden" name="assigned" value={assignedParam} />
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
-              <div className="sm:col-span-2 lg:col-span-2">
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Buscar</label>
-                <input
-                  name="q"
-                  placeholder="Bus, placa, título, # caso/OT"
-                  className="app-field-control h-9 w-full rounded-lg px-3 text-sm"
-                  defaultValue={searchParams?.q ?? ""}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tipo</label>
-                <Select name="type" className="h-9 w-full" defaultValue={searchParams?.type ?? ""}>
-                  <option value="">Todos</option>
-                  <option value="CORRECTIVO">{caseTypeLabels.CORRECTIVO}</option>
-                  <option value="PREVENTIVO">{caseTypeLabels.PREVENTIVO}</option>
-                  <option value="RENOVACION_TECNOLOGICA">{caseTypeLabels.RENOVACION_TECNOLOGICA}</option>
-                  <option value="SOLICITUD_DESCARGA_VIDEO">{caseTypeLabels.SOLICITUD_DESCARGA_VIDEO}</option>
-                </Select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Prioridad</label>
-                <Select name="priority" className="h-9 w-full" defaultValue={searchParams?.priority ?? ""}>
-                  <option value="">Todas</option>
-                  <option value="1">1 (Alta)</option>
-                  <option value="2">2</option>
-                  <option value="3">3 (Normal)</option>
-                  <option value="4">4</option>
-                  <option value="5">5 (Baja)</option>
-                </Select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Creador</label>
-                <Select name="creator" className="h-9 w-full" defaultValue={searchParams?.creator ?? ""}>
-                  <option value="">Todos</option>
-                  {creators.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Desde</label>
-                <input
-                  type="date"
-                  name="dateFrom"
-                  aria-label="Fecha desde"
-                  className="app-field-control h-9 w-full rounded-lg px-2 text-sm"
-                  defaultValue={searchParams?.dateFrom ?? ""}
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="w-40">
-                <input
-                  type="date"
-                  name="dateTo"
-                  aria-label="Fecha hasta"
-                  title="Fecha hasta"
-                  className="app-field-control h-9 w-full rounded-lg px-2 text-sm"
-                  defaultValue={searchParams?.dateTo ?? ""}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Link className="sts-btn-ghost inline-flex h-9 items-center justify-center px-4 text-sm" href="/cases">
-                  Limpiar
-                </Link>
-                <button className="inline-flex h-9 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white shadow-sm transition hover:brightness-95">
-                  Filtrar
-                </button>
-              </div>
-            </div>
-          </AutoFilterForm>
+          <CasesFilterBar
+            status={params.statusParam ?? ""}
+            rmonth={rmonth}
+            assigned={assignedParam}
+            q={params.q ?? ""}
+            type={params.type ?? ""}
+            priority={params.priority ?? ""}
+            creator={params.creator ?? ""}
+            dateFrom={params.dateFromStr ?? ""}
+            dateTo={params.dateToStr ?? ""}
+            typeLabels={caseTypeLabels}
+            creators={creators}
+          />
 
           {/* Tabla interactiva */}
           {rows.length === 0 ? (

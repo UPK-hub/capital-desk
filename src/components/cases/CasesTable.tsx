@@ -21,6 +21,7 @@ export type CaseRow = {
   priority: number;
   assignee: string | null;
   assignedToId: string | null;
+  creator: string | null;
   workOrderNo: number | null;
   description: string;
   createdAt: string;
@@ -35,6 +36,7 @@ const COLUMNS: { key: string; label: string; always?: boolean; sortable?: boolea
   { key: "status", label: "Estado", sortable: true },
   { key: "vence", label: "Vence (SLA)", sortable: true },
   { key: "assignee", label: "Asignado", sortable: true },
+  { key: "creador", label: "Creador", sortable: true },
   { key: "ot", label: "# OT", sortable: true },
   { key: "descripcion", label: "Descripción" },
   { key: "createdAt", label: "Creado", sortable: true },
@@ -168,6 +170,9 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
       case "assignee":
         r = (a.assignee ?? "~").localeCompare(b.assignee ?? "~");
         break;
+      case "creador":
+        r = (a.creator ?? "~").localeCompare(b.creator ?? "~");
+        break;
       case "ot":
         r = (a.workOrderNo ?? 0) - (b.workOrderNo ?? 0);
         break;
@@ -273,6 +278,11 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
         {visible("assignee") && (
           <td className="px-3 py-2.5">
             <AssigneeCell caseId={c.id} currentId={c.assignedToId} currentName={c.assignee} users={users} />
+          </td>
+        )}
+        {visible("creador") && (
+          <td className="px-3 py-2.5">
+            <span className="text-xs text-slate-600">{c.creator ?? "—"}</span>
           </td>
         )}
         {visible("ot") && (
