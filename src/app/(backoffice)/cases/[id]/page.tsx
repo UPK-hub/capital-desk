@@ -31,7 +31,7 @@ import EvidenciasCard, { type EvidenceItem, type EvidenceKind } from "./ui/Evide
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TypeBadge } from "@/components/ui/TypeBadge";
-import { slaInfo, SLA_HOURS } from "@/lib/cases/sla";
+import { slaInfo, SLA_HOURS, slaHoursFor } from "@/lib/cases/sla";
 import {
   ChevronLeft,
   Bus as BusIcon,
@@ -333,8 +333,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
       : "No aplica / No seleccionado";
 
   const hasWo = Boolean(c.workOrder?.id);
-  const sla = slaInfo(c.createdAt.toISOString(), c.priority, c.status);
-  const slaHours = SLA_HOURS[c.priority] ?? 24;
+  const sla = slaInfo(c.createdAt.toISOString(), c.priority, c.status, c.type);
+  const slaHours = slaHoursFor(c.priority, c.type);
   const slaPct =
     sla.state === "overdue" || sla.state === "done"
       ? 100

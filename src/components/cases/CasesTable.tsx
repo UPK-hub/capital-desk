@@ -141,7 +141,7 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
   };
 
   const deadlineOf = (r: CaseRow) =>
-    isOpenStatus(r.status) ? slaDeadlineMs(r.createdAt, r.priority) : Number.MAX_SAFE_INTEGER;
+    isOpenStatus(r.status) ? slaDeadlineMs(r.createdAt, r.priority, r.type) : Number.MAX_SAFE_INTEGER;
 
   const cmp = (a: CaseRow, b: CaseRow) => {
     let r = 0;
@@ -234,7 +234,7 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
   };
 
   const renderRow = (c: CaseRow) => {
-    const sla = slaInfo(c.createdAt, c.priority, c.status);
+    const sla = slaInfo(c.createdAt, c.priority, c.status, c.type);
     return (
       <tr
         key={c.id}
@@ -314,7 +314,7 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
   };
 
   const KanbanCard = ({ c }: { c: CaseRow }) => {
-    const sla = slaInfo(c.createdAt, c.priority, c.status);
+    const sla = slaInfo(c.createdAt, c.priority, c.status, c.type);
     return (
       <div
         onClick={() => router.push(`/cases/${c.id}`)}

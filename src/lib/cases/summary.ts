@@ -47,7 +47,7 @@ export async function getCasesSummary(opts: {
     prisma.case.count({ where: { ...base, status: { in: openStatuses } } }),
     prisma.case.findMany({
       where: { ...base, status: { in: openStatuses } },
-      select: { createdAt: true, priority: true },
+      select: { createdAt: true, priority: true, type: true },
     }),
     prisma.case.groupBy({ by: ["status"], where: base, _count: { _all: true } }),
     prisma.case.findMany({
@@ -101,7 +101,7 @@ export async function getCasesSummary(opts: {
   }));
 
   const nowMs = Date.now();
-  const vencidos = openRows.filter((r) => slaDeadlineMs(r.createdAt, r.priority) < nowMs).length;
+  const vencidos = openRows.filter((r) => slaDeadlineMs(r.createdAt, r.priority, r.type) < nowMs).length;
 
   const cnt: Record<string, number> = {};
   for (const g of grouped) cnt[g.status] = g._count._all;

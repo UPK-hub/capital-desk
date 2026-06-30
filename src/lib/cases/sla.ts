@@ -8,12 +8,23 @@ export const SLA_HOURS: Record<number, number> = {
   5: 72, // Baja
 };
 
+// SLA fijo por TIPO de caso (en horas). Tiene prioridad sobre SLA_HOURS:
+// p. ej. las solicitudes de descarga de video siempre tienen 72 h, sin importar la prioridad.
+export const SLA_HOURS_BY_TYPE: Record<string, number> = {
+  SOLICITUD_DESCARGA_VIDEO: 72,
+};
+
+export function slaHoursFor(priority: number, type?: string | null): number {
+  if (type && SLA_HOURS_BY_TYPE[type] != null) return SLA_HOURS_BY_TYPE[type];
+  return SLA_HOURS[priority] ?? 24;
+}
+
 export function isOpenStatus(status: string): boolean {
   return status === "NUEVO" || status === "OT_ASIGNADA" || status === "EN_EJECUCION";
 }
 
-export function slaDeadlineMs(createdAtIso: string | Date, priority: number): number {
-  const h = SLA_HOURS[priority] ?? 24;
+export function slaDeadlineMs(createdAtIso: string | Date, priority: number, type?: string | null): number {
+  const h = slaHoursFor(priority, type);
   const created = createdAtIso instanceof Date ? createdAtIso.getTime() : new Date(createdAtIso).getTime();
   return created + h * 3600000;
 }
@@ -24,9 +35,9 @@ export type SlaInfo = {
   overdue: boolean;
 };
 
-export function slaInfo(createdAtIso: string, priority: number, status: string, now = Date.now()): SlaInfo {
+export function slaInfo(createdAtIso: string, priority: number, status: string, type?: string | null, now = Date.now()): SlaInfo {
   if (!isOpenStatus(status)) return { state: "done", label: "—", overdue: false };
-  const deadline = slaDeadlineMs(createdAtIso, priority);
+  const deadline = slaDeadlineMs(createdAtIso, priority, type);
   const diff = deadline - now;
   const overdue = diff < 0;
   const abs = Math.abs(diff);
