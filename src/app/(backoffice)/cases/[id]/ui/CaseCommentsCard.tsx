@@ -140,7 +140,7 @@ export default function CaseCommentsCard({
           <span className="flex items-center gap-3 text-muted-foreground">
             <button
               type="button"
-              title="Adjuntar archivo (imagen o PDF)"
+              title="Adjuntar archivo (cualquier tipo)"
               onClick={() => fileInputRef.current?.click()}
               className="transition hover:text-blue-600"
             >
@@ -169,7 +169,6 @@ export default function CaseCommentsCard({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => {
