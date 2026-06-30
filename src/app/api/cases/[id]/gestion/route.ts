@@ -83,26 +83,42 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Falta la OT del cliente: adjúntala o márcala como pendiente." }, { status: 400 });
   }
 
-  // 1) Guardar archivos (fuera de la transacción).
+  // 1) Guardar archivos (fuera de la transacción). Si uno falla, no rompe todo: se omite.
   const subdir = `gestion/${kase.id}`;
+  const skipped: string[] = [];
   let otAttachment: Attachment | null = null;
   const otFile = form.get("otFile");
   if (ot === "si" && otFile instanceof File && otFile.size > 0) {
-    const p = await saveUpload(otFile, `${subdir}/ot`, { fileNamePrefix: kase.bus?.code ?? "OT" });
-    otAttachment = { filePath: p, fileName: otFile.name || "orden_trabajo", mimeType: otFile.type || "application/pdf", size: otFile.size };
+    try {
+      const p = await saveUpload(otFile, `${subdir}/ot`, { fileNamePrefix: kase.bus?.code ?? "OT" });
+      otAttachment = { filePath: p, fileName: otFile.name || "orden_trabajo", mimeType: otFile.type || "application/pdf", size: otFile.size };
+    } catch (e) {
+      console.error("GESTION_OT_UPLOAD_FAILED", e);
+      skipped.push(otFile.name || "OT");
+    }
   }
   const evidencias: Attachment[] = [];
   for (const f of form.getAll("evidencias")) {
     if (f instanceof File && f.size > 0) {
-      const p = await saveUpload(f, `${subdir}/evidencias`, { fileNamePrefix: kase.bus?.code ?? "EV" });
-      evidencias.push({ filePath: p, fileName: f.name || "evidencia", mimeType: f.type || "application/octet-stream", size: f.size });
+      try {
+        const p = await saveUpload(f, `${subdir}/evidencias`, { fileNamePrefix: kase.bus?.code ?? "EV" });
+        evidencias.push({ filePath: p, fileName: f.name || "evidencia", mimeType: f.type || "application/octet-stream", size: f.size });
+      } catch (e) {
+        console.error("GESTION_EVIDENCIA_UPLOAD_FAILED", e);
+        skipped.push(f.name || "evidencia");
+      }
     }
   }
   let serialPhoto: Attachment | null = null;
   const sp = form.get("serialFoto");
   if (sp instanceof File && sp.size > 0) {
-    const p = await saveUpload(sp, `${subdir}/seriales`, { fileNamePrefix: kase.bus?.code ?? "SER" });
-    serialPhoto = { filePath: p, fileName: sp.name || "serial", mimeType: sp.type || "image/jpeg", size: sp.size };
+    try {
+      const p = await saveUpload(sp, `${subdir}/seriales`, { fileNamePrefix: kase.bus?.code ?? "SER" });
+      serialPhoto = { filePath: p, fileName: sp.name || "serial", mimeType: sp.type || "image/jpeg", size: sp.size };
+    } catch (e) {
+      console.error("GESTION_SERIAL_UPLOAD_FAILED", e);
+      skipped.push(sp.name || "serial");
+    }
   }
 
   // Persona que ejecutó (responsable).
@@ -136,7 +152,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Indica el serial del equipo nuevo para actualizar la hoja de vida." }, { status: 400 });
   }
 
-  const result: any = { ok: true };
+  const result: any = { ok: true, skipped };
 
   try {
     await prisma.$transaction(async (tx) => {

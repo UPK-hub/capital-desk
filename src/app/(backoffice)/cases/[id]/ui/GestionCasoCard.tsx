@@ -4,6 +4,33 @@ import React, { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Replace, Upload, X } from "lucide-react";
 
+// Sube un FormData con barra de progreso, tiempo límite y errores claros
+// (evita el "spinner infinito" cuando el archivo es pesado, p. ej. videos).
+function postFormWithProgress(
+  url: string,
+  fd: FormData,
+  onProgress: (pct: number) => void
+): Promise<{ ok: boolean; status: number; data: any }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.timeout = 15 * 60 * 1000; // 15 minutos
+    if (xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      let data: any = {};
+      try { data = JSON.parse(xhr.responseText || "{}"); } catch {}
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+    };
+    xhr.onerror = () => reject(new Error("Error de red al subir los archivos. Revisa tu conexión e intenta de nuevo."));
+    xhr.ontimeout = () => reject(new Error("La subida tardó demasiado. Intenta con archivos más livianos o con mejor conexión."));
+    xhr.send(fd);
+  });
+}
+
 type Tecnico = { id: string; name: string };
 type Equipo = { id: string; name: string; serial: string | null };
 
@@ -60,6 +87,7 @@ export default function GestionCasoCard(props: Props) {
   const [serialFoto, setSerialFoto] = useState<File | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const evidRef = useRef<HTMLInputElement>(null);
@@ -132,10 +160,12 @@ export default function GestionCasoCard(props: Props) {
         }
       }
 
-      const res = await fetch(`/api/cases/${props.caseId}/gestion`, { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar la gestión.");
-      setMsg(resolver ? "Caso resuelto." : "Gestión guardada.");
+      setProgress(0);
+      const { ok, status, data } = await postFormWithProgress(`/api/cases/${props.caseId}/gestion`, fd, setProgress);
+      if (!ok) throw new Error(data?.error ?? `No se pudo guardar la gestión (HTTP ${status}).`);
+      const okMsg = resolver ? "Caso resuelto." : "Gestión guardada.";
+      const sk: string[] = Array.isArray(data?.skipped) ? data.skipped : [];
+      setMsg(sk.length ? `${okMsg} No se pudieron subir: ${sk.join(", ")}.` : okMsg);
       setOtFile(null);
       setEvidencias([]);
       setSerialFoto(null);
@@ -144,6 +174,7 @@ export default function GestionCasoCard(props: Props) {
       setErr(e?.message ?? "No se pudo guardar.");
     } finally {
       setSaving(false);
+      setProgress(0);
     }
   }
 
@@ -326,13 +357,15 @@ export default function GestionCasoCard(props: Props) {
 
         <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
           <button type="button" onClick={() => void submit(false)} disabled={saving} className="sts-btn-ghost inline-flex h-9 items-center justify-center px-4 text-sm disabled:opacity-60">
-            {saving ? "Guardando…" : "Guardar avance"}
+            {saving ? (progress > 0 && progress < 100 ? `Subiendo ${progress}%` : "Guardando…") : "Guardar avance"}
           </button>
           <button type="button" onClick={() => void submit(true)} disabled={saving} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white shadow-sm transition hover:brightness-95 disabled:opacity-60">
             <Check className="h-4 w-4" /> Resolver caso
           </button>
         </div>
 
+        {saving && progress > 0 && progress < 100 ? <p className="text-xs text-blue-600">Subiendo archivos… {progress}%</p> : null}
+        {saving && progress >= 100 ? <p className="text-xs text-blue-600">Procesando en el servidor…</p> : null}
         {msg ? <p className="text-xs text-green-700">{msg}</p> : null}
         {err ? <p className="text-xs text-red-600">{err}</p> : null}
       </div>

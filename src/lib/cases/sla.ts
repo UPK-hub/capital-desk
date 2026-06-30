@@ -1,5 +1,6 @@
 // Reglas de SLA de Casos (puras: las usan servidor y cliente).
 // Tiempo objetivo de resolución según prioridad (horas desde la creación).
+import { addWorkingHoursCO } from "./holidays-co";
 export const SLA_HOURS: Record<number, number> = {
   1: 4, // Alta
   2: 8,
@@ -26,6 +27,9 @@ export function isOpenStatus(status: string): boolean {
 export function slaDeadlineMs(createdAtIso: string | Date, priority: number, type?: string | null): number {
   const h = slaHoursFor(priority, type);
   const created = createdAtIso instanceof Date ? createdAtIso.getTime() : new Date(createdAtIso).getTime();
+  // Los tipos con SLA fijo por tipo (p. ej. descarga de video) cuentan en HORAS HÁBILES:
+  // el reloj se pausa los domingos y festivos de Colombia.
+  if (type && SLA_HOURS_BY_TYPE[type] != null) return addWorkingHoursCO(created, h);
   return created + h * 3600000;
 }
 
