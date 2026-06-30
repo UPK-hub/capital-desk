@@ -16,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, AlertTriangle, BarChart3, Bus as BusIcon, CalendarClock, Timer, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, Bus as BusIcon, CalendarClock, Download, Timer, X } from "lucide-react";
 
 type DayPoint = { date: string; total: number };
 type BusPoint = { busCode: string; total: number };
@@ -116,6 +116,7 @@ export default function TelemetrySeriesPanel({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [code, setCode] = React.useState<string>("");
+  const [busQuery, setBusQuery] = React.useState<string>("");
 
   const main = type === "alarmas" ? "#dc2626" : type === "periodicas" ? "#0891b2" : "#2563eb";
   const accent = type === "alarmas" ? "#f87171" : type === "periodicas" ? "#22d3ee" : "#60a5fa";
@@ -160,6 +161,12 @@ export default function TelemetrySeriesPanel({
   const avgDay = perDay.length ? Math.round(total / perDay.length) : 0;
   const peak = perDay.reduce<DayPoint | null>((best, d) => (!best || d.total > best.total ? d : best), null);
   const topBus = perBus[0] ?? null;
+
+  const perBusAll = React.useMemo(() => {
+    const arr = [...(data?.perBus ?? [])].sort((a, b) => b.total - a.total);
+    const q = busQuery.trim().toLowerCase();
+    return q ? arr.filter((r) => r.busCode.toLowerCase().includes(q)) : arr;
+  }, [data?.perBus, busQuery]);
 
   const selectedLabel = code ? filterOptions.find((o) => o.value === code)?.label ?? code : null;
   const titleNoun = type === "alarmas" ? "Alarmas" : type === "periodicas" ? "Periódicas" : "Eventos";
@@ -225,6 +232,12 @@ export default function TelemetrySeriesPanel({
             Comportamiento por día y por bus · {busLabel ? busLabel : "toda la flota"}
           </p>
         </div>
+        <a
+          href={`/api/telemetry/series/export?${qs}`}
+          className="sts-btn-primary text-sm inline-flex items-center gap-1"
+        >
+          <Download className="h-4 w-4" /> Exportar a Excel
+        </a>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -383,6 +396,51 @@ export default function TelemetrySeriesPanel({
               </div>
             </ChartCard>
           ) : null}
+
+          {/* Detalle por bus (todos) */}
+          <ChartCard
+            title={`Detalle por bus (${perBusAll.length})`}
+            hint={busLabel ? busLabel : "todos los buses con datos en el rango"}
+          >
+            <div className="mb-2">
+              <input
+                value={busQuery}
+                onChange={(e) => setBusQuery(e.target.value)}
+                placeholder="Buscar bus…"
+                className="h-8 w-52 rounded-md border border-border bg-transparent px-2 text-sm outline-none focus:border-foreground"
+              />
+            </div>
+            <div className="max-h-[420px] overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b text-left text-xs text-muted-foreground">
+                    <th className="py-2 pr-3">Bus</th>
+                    <th className="py-2 pr-3 text-right">Total</th>
+                    <th className="py-2 text-right">% del total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {perBusAll.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-3 text-muted-foreground">
+                        Sin datos para el rango/filtro.
+                      </td>
+                    </tr>
+                  ) : (
+                    perBusAll.map((r) => (
+                      <tr key={r.busCode} className="border-b border-border/40">
+                        <td className="py-1.5 pr-3 font-medium">{r.busCode}</td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums">{nfmt(r.total)}</td>
+                        <td className="py-1.5 text-right tabular-nums text-muted-foreground">
+                          {total > 0 ? ((r.total / total) * 100).toFixed(1) : "0.0"}%
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </ChartCard>
         </>
       )}
     </div>
