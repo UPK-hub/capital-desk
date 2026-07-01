@@ -59,7 +59,7 @@ export async function getCasesSummary(opts: {
     prisma.case.findMany({
       where: { ...base, status: { in: doneStatuses } },
       select: {
-        updatedAt: true,
+        workOrder: { select: { finishedAt: true } },
         events: { where: { type: CaseEventType.STATUS_CHANGE }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
       },
     }),
@@ -72,11 +72,14 @@ export async function getCasesSummary(opts: {
     }),
   ]);
 
-  // Fecha real de resolución = createdAt del último STATUS_CHANGE; si no hay, updatedAt.
-  const resolvedAtOf = (c: { updatedAt: Date; events: { createdAt: Date }[] }): Date => c.events[0]?.createdAt ?? c.updatedAt;
+  // Fecha REAL de resolución = createdAt del último STATUS_CHANGE; si no hay, la
+  // finalización de la OT. NUNCA updatedAt (cualquier edición en lote lo mueve a
+  // "hoy" y falsea el gráfico, p. ej. el pico de resueltos por una migración).
+  const resolvedAtOf = (c: { workOrder: { finishedAt: Date | null } | null; events: { createdAt: Date }[] }): Date | null =>
+    c.events[0]?.createdAt ?? c.workOrder?.finishedAt ?? null;
   const atendidos = doneCases.filter((c) => {
     const r = resolvedAtOf(c);
-    return r >= monthStart && r < monthEnd;
+    return r != null && r >= monthStart && r < monthEnd;
   }).length;
 
   const keys: string[] = [];
@@ -90,7 +93,7 @@ export async function getCasesSummary(opts: {
   }
   for (const c of doneCases) {
     const r = resolvedAtOf(c);
-    if (r.getTime() < seriesStart.getTime()) continue;
+    if (!r || r.getTime() < seriesStart.getTime()) continue;
     const k = cotKey(r);
     if (rMap.has(k)) rMap.set(k, (rMap.get(k) ?? 0) + 1);
   }
