@@ -26,6 +26,7 @@ import {
   type TipoNovedad,
 } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
+import { notifyPreventivoClosed } from "@/lib/telegram-notify";
 import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || process.env.TENANT_CODE || "CAPITALBUS")
@@ -365,8 +366,11 @@ export async function POST(req: NextRequest) {
         console.error("PREVENTIVO_BOT_CERT_FAILED", e);
       }
 
+      // Aviso al grupo de Telegram "Preventivos CapitalBus" (mismo que el flujo de OT).
+      await notifyPreventivoClosed(kase.id, { closedById: user.id }).catch((e) => console.error("PREVENTIVO_BOT_NOTIFY_FAILED", e));
+
       const fresh = await loadCaseForChecklist(tenantId, kase.id);
-      return NextResponse.json({ ok: true, cerrado: true, certificado, resumen: { ok: summary.okCount, hallazgo: summary.hallazgoCount, pendientes: summary.pendientes }, status: buildStatus(fresh, dataOf(fresh)) });
+      return NextResponse.json({ ok: true, cerrado: true, certificado, resumen: { ok: summary.okCount, hallazgo: summary.hallazgos, pendientes: summary.pendientes }, status: buildStatus(fresh, dataOf(fresh)) });
     }
 
     return NextResponse.json({ ok: false, error: "Acción desconocida." }, { status: 400 });
