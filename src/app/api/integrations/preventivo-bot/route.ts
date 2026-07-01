@@ -102,6 +102,7 @@ function buildStatus(kase: any, data: ChecklistData) {
     capturesDone: captures.filter((c) => c.done).length,
     capturesTotal: captures.length,
     dias: String(data.items.identificacion?.diasGrabacion?.value ?? "").trim(),
+    otCapital: String(data.items.identificacion?.otCapital?.value ?? "").trim(),
     voltajes: (ELECTRICO?.items ?? []).map((it) => ({ id: it.id, label: it.label, value: String(data.items.electrico?.[it.id]?.value ?? "").trim() })),
     checkSections: CHECK_SECTIONS.map((s) => ({
       id: s.id,

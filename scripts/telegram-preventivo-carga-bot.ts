@@ -72,6 +72,7 @@ function fmtStatus(s: any): string {
     `🚌 Bus ${s.busCode ?? "?"}${s.busPlate ? ` (${s.busPlate})` : ""} · ${s.ref}`,
     `📸 Evidencias ${s.capturesDone}/${s.capturesTotal}   ✅ ${r.ok ?? 0}/${r.aplicables ?? 0}   ⚠️ ${r.hallazgo ?? 0}   ⏳ ${r.pendientes ?? 0}`,
   ];
+  out.push(`🧾 OT Capital: ${s.otCapital || "pendiente"}`);
   if (s.dias) out.push(`📅 Días de grabación: ${s.dias}`);
   out.push(s.inicio ? `🕐 Inicio${s.aperturaBy ? ` · ${s.aperturaBy}` : ""}` : "🕐 Inicio: pendiente");
   if (s.fin) out.push(`🏁 Cerrado${s.cierreBy ? ` · ${s.cierreBy}` : ""}`);
@@ -85,6 +86,7 @@ function kbMain(s: any) {
       [{ text: `📸 Evidencias (${s.capturesDone}/${s.capturesTotal})`, callback_data: "menu:evid" }],
       [{ text: "⚡ Voltajes", callback_data: "menu:volt" }, { text: "✅ Checklist", callback_data: "menu:check" }],
       [{ text: "⚠️ Hallazgo", callback_data: "menu:hz" }, { text: "📅 Días grab.", callback_data: "menu:dias" }],
+      [{ text: "🧾 OT de Capital", callback_data: "menu:ot" }],
       [{ text: "🔄 Actualizar", callback_data: "menu:main" }],
       [{ text: "🏁 Fin / cerrar", callback_data: "fin" }],
     ],
@@ -349,6 +351,7 @@ async function handleCallback(cb: any) {
   if (data === "menu:check") { const s = await refresh(); await sendMessage(chatId, "✅ Elige una sección del checklist:", kbCheckSections(s)); return; }
   if (data === "menu:hz") { const s = await refresh(); setState(chatId, { ...st, hz: {} }); await sendMessage(chatId, "⚠️ *Novedad* — ¿en qué equipo?", kbHzEquipos(s)); return; }
   if (data === "menu:dias") { setState(chatId, { ...st, awaiting: { kind: "value", sectionId: "identificacion", itemId: "diasGrabacion" } }); await sendMessage(chatId, "📅 Escribe los *días de grabación* (número):"); return; }
+  if (data === "menu:ot") { setState(chatId, { ...st, awaiting: { kind: "value", sectionId: "identificacion", itemId: "otCapital" } }); await sendMessage(chatId, "🧾 Escribe el *número de la OT de Capital*:"); return; }
 
   if (data.startsWith("cap:")) {
     const itemId = data.slice(4);

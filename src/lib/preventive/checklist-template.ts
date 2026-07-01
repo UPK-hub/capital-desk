@@ -52,6 +52,7 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
     id: "identificacion",
     title: "Identificación",
     items: [
+      { id: "otCapital", label: "OT de Capital", type: "text", hint: "N.º de OT" },
       { id: "diasGrabacion", label: "Días de grabación", type: "text", hint: "N.º de días" },
       { id: "kilometraje", label: "Kilometraje", type: "text", hint: "km" },
       { id: "horaInicio", label: "Hora de inicio", type: "text", hint: "hh:mm" },
@@ -64,7 +65,6 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
     items: [
       { id: "nvr", label: "Limpieza de NVR / DVR", type: "check" },
       { id: "camaras", label: "Limpieza de cámaras", type: "check" },
-      { id: "monitor", label: "Limpieza de monitor / pantalla", type: "check" },
       { id: "gabinete", label: "Limpieza de gabinete / rack", type: "check" },
       { id: "cableado", label: "Organización y ajuste de cableado", type: "check" },
     ],
