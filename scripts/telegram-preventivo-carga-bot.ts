@@ -334,8 +334,13 @@ async function showBusCheck(chatId: string, busCode: string) {
     };
     await sendMessage(chatId, `⚠️ El bus *${chk.bus.code}* tiene *${nov.length}* novedad(es) reportada(s):\n${lines}\n\n¿Qué deseas hacer?`, kb);
   } else {
-    await sendMessage(chatId, `✅ Bus *${chk.bus.code}* sin novedades reportadas.`);
-    await startPreventivo(chatId, chk.bus.code);
+    // No crear el preventivo automáticamente: hacer un correctivo no implica un
+    // preventivo. Se ofrece el botón y solo se crea si el técnico lo elige.
+    await sendMessage(chatId, `✅ Bus *${chk.bus.code}* sin novedades reportadas.\n\n¿Deseas iniciar el preventivo del mes de este bus?`, {
+      inline_keyboard: [
+        [{ text: "🛠️ Iniciar preventivo", callback_data: "iniprev" }],
+      ],
+    });
   }
 }
 
