@@ -409,10 +409,16 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
   const nextStatus = String(body?.status ?? "").trim().toUpperCase();
 
-  // Por ahora solo se admite el cierre manual de una NOVEDAD.
-  if (nextStatus !== CaseStatus.CERRADO) {
+  // Estados que se pueden fijar manualmente en una NOVEDAD para gestionarla.
+  const ALLOWED_NOVEDAD_STATUSES: string[] = [
+    CaseStatus.NUEVO,
+    CaseStatus.EN_EJECUCION,
+    CaseStatus.RESUELTO,
+    CaseStatus.CERRADO,
+  ];
+  if (!ALLOWED_NOVEDAD_STATUSES.includes(nextStatus)) {
     return NextResponse.json(
-      { error: "Estado no permitido. Solo se admite CERRADO." },
+      { error: "Estado no permitido para una novedad." },
       { status: 400 }
     );
   }
@@ -422,39 +428,47 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     select: { id: true, status: true },
   });
   if (!found) return NextResponse.json({ error: "Novedad no encontrada." }, { status: 404 });
-  if (found.status === CaseStatus.CERRADO) {
-    return NextResponse.json({ ok: true, alreadyClosed: true, caseId: found.id });
+  if (found.status === nextStatus) {
+    return NextResponse.json({ ok: true, unchanged: true, caseId: found.id, status: nextStatus });
   }
 
+  const NOVEDAD_STATUS_LABEL: Record<string, string> = {
+    NUEVO: "Nueva",
+    EN_EJECUCION: "En gestión",
+    RESUELTO: "Resuelta",
+    CERRADO: "Cerrada",
+  };
+  const fromStatus = found.status;
+
   await prisma.$transaction(async (tx) => {
-    await tx.case.update({ where: { id: found.id }, data: { status: CaseStatus.CERRADO } });
+    await tx.case.update({ where: { id: found.id }, data: { status: nextStatus as CaseStatus } });
     await tx.caseEvent.create({
       data: {
         caseId: found.id,
         type: CaseEventType.STATUS_CHANGE,
-        message: "Novedad cerrada manualmente.",
-        meta: { by: userId, manual: true },
+        message: `Estado de la novedad cambiado a "${NOVEDAD_STATUS_LABEL[nextStatus] ?? nextStatus}" manualmente.`,
+        meta: { by: userId, manual: true, from: fromStatus, to: nextStatus },
       },
     });
   });
 
-  // Si es parte de un grupo "mismo caso", se cierran también las dependientes.
+  // Solo al CERRAR: propagar al grupo "mismo caso" y avisar por Telegram (como antes).
   let propagated = 0;
-  try {
-    propagated = await propagateStatusToGroup(prisma, {
-      tenantId,
-      fromCaseId: found.id,
-      status: CaseStatus.CERRADO,
-      byUserId: userId,
-    });
-  } catch (e) {
-    console.error("CLOSE_PROPAGATE_FAILED", e);
+  if (nextStatus === CaseStatus.CERRADO) {
+    try {
+      propagated = await propagateStatusToGroup(prisma, {
+        tenantId,
+        fromCaseId: found.id,
+        status: CaseStatus.CERRADO,
+        byUserId: userId,
+      });
+    } catch (e) {
+      console.error("CLOSE_PROPAGATE_FAILED", e);
+    }
+    await notifyNovedadClosed(found.id, { closedById: userId });
   }
 
-  // Avisar al grupo de Telegram que la novedad se cerró.
-  await notifyNovedadClosed(found.id, { closedById: userId });
-
-  return NextResponse.json({ ok: true, caseId: found.id, status: CaseStatus.CERRADO, propagated });
+  return NextResponse.json({ ok: true, caseId: found.id, status: nextStatus, propagated });
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {

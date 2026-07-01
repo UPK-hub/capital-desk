@@ -20,6 +20,7 @@ import OtNumberEditor from "./ui/OtNumberEditor";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
+import NovedadEstadoControl from "./ui/NovedadEstadoControl";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
 import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
 import GestionCasoCard from "./ui/GestionCasoCard";
@@ -905,11 +906,15 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
             <div className="flex flex-col gap-2.5 text-[12.5px]">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">Estado</span>
-                <StatusPill
-                  status={mapCaseStatusForPill(c.status)}
-                  label={labelFromMap(c.status, caseStatusLabels)}
-                  size="sm"
-                />
+                {c.type === CaseType.NOVEDAD ? (
+                  <NovedadEstadoControl caseId={c.id} current={c.status} />
+                ) : (
+                  <StatusPill
+                    status={mapCaseStatusForPill(c.status)}
+                    label={labelFromMap(c.status, caseStatusLabels)}
+                    size="sm"
+                  />
+                )}
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">Prioridad</span>
