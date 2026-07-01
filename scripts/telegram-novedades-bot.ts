@@ -57,6 +57,7 @@ type EquipmentOpt = { code: string; label: string; count?: number };
 type State =
   | "ASK_BUS"
   | "ASK_EQUIPMENT"
+  | "ASK_CAMERA"
   | "ASK_FAULT"
   | "ASK_DETAIL"
   | "ASK_NAME"
@@ -67,6 +68,8 @@ type SessionData = {
   busPlate?: string | null;
   equipment?: string;
   equipmentLabel?: string;
+  cameras?: { id: string; label: string }[];
+  cameraLabel?: string;
   faults?: Fault[];
   faultFilter?: string;
   faultPage?: number;
@@ -144,6 +147,26 @@ function equipmentKeyboard(opts: EquipmentOpt[]) {
   };
 }
 
+function cameraKeyboard(cams: { id: string; label: string }[]) {
+  return { inline_keyboard: cams.map((c) => [{ text: c.label, callback_data: `cam:${c.id}` }]) };
+}
+
+// Carga las fallas del equipo y pasa a ASK_FAULT (reutilizable tras equipo o cámara).
+async function goToFaults(chatId: string, session: Session, code: string) {
+  const data = session.data;
+  const r = await intakeGet({ faults: code });
+  data.faults = r?.ok && Array.isArray(r.items) ? r.items : [];
+  data.faultFilter = "";
+  data.faultPage = 0;
+  data.faultMsgId = undefined;
+  session.state = "ASK_FAULT";
+  if (!data.faults.length) {
+    await sendMessage(chatId, "No hay fallas en el catálogo para ese equipo. Escribe /cancel e inténtalo de nuevo.");
+    return;
+  }
+  await renderFaults(chatId, session, false);
+}
+
 const removeKeyboard = () => ({ remove_keyboard: true });
 
 function buildPayload(data: SessionData) {
@@ -151,6 +174,7 @@ function buildPayload(data: SessionData) {
     source: "telegram",
     busCode: data.busCode ?? "",
     affectedEquipment: data.equipment ?? "",
+    cameraLabel: data.cameraLabel ?? "",
     catalogCode: data.catalogCode ?? "",
     reportedNovelty: data.reportedNovelty ?? "",
     observations: data.observations ?? "",
@@ -418,17 +442,32 @@ async function handleUpdate(update: any) {
       const equipments = await getEquipments();
       data.equipment = code;
       data.equipmentLabel = equipments.find((e) => e.code === code)?.label || code;
-      const r = await intakeGet({ faults: code });
-      data.faults = r?.ok && Array.isArray(r.items) ? r.items : [];
-      data.faultFilter = "";
-      data.faultPage = 0;
-      data.faultMsgId = undefined;
-      session.state = "ASK_FAULT";
-      if (!data.faults.length) {
-        await sendMessage(chatId, "No hay fallas en el catálogo para ese equipo. Escribe /cancel e inténtalo de nuevo.");
+      data.cameraLabel = undefined;
+      // Si es CÁMARAS, preguntar cuál cámara (de las que ya tiene el bus).
+      if (code === "CAMARAS") {
+        const rc = await intakeGet({ busCode: data.busCode || "", cameras: "1" });
+        const cams = rc?.ok && Array.isArray(rc.cameras) ? rc.cameras : [];
+        if (cams.length) {
+          data.cameras = cams;
+          session.state = "ASK_CAMERA";
+          await sendMessage(chatId, "*Paso 2b.* ¿Cuál *cámara*?", cameraKeyboard(cams));
+          return;
+        }
+      }
+      await goToFaults(chatId, session, code);
+      return;
+    }
+
+    case "ASK_CAMERA": {
+      if (callbackData.startsWith("cam:")) {
+        const camId = callbackData.slice(4);
+        const cam = (data.cameras || []).find((c) => c.id === camId);
+        data.cameraLabel = cam?.label || "";
+        if (data.cameraLabel) data.equipmentLabel = `${data.equipmentLabel} — ${data.cameraLabel}`;
+        await goToFaults(chatId, session, data.equipment || "CAMARAS");
         return;
       }
-      await renderFaults(chatId, session, false);
+      await sendMessage(chatId, "Elige la cámara con los botones.");
       return;
     }
 

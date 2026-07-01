@@ -144,6 +144,21 @@ export async function GET(req: NextRequest) {
   const tenant = await resolveTenant(url.searchParams.get("tenantCode"));
   if (!tenant) return NextResponse.json({ error: "Tenant no encontrado." }, { status: 400 });
 
+  // a0) Cámaras registradas de un bus (para elegir cuál cámara en el reporte).
+  if (url.searchParams.get("cameras")) {
+    const bus = await findBus(tenant.id, url.searchParams.get("busCode") || "");
+    if (!bus) return NextResponse.json({ ok: true, cameras: [] });
+    const eqs = await prisma.busEquipment.findMany({
+      where: { busId: bus.id, active: true, equipmentType: { name: { contains: "mara", mode: "insensitive" } } },
+      select: { id: true, serial: true, equipmentType: { select: { name: true } } },
+      orderBy: { id: "asc" },
+    });
+    return NextResponse.json({
+      ok: true,
+      cameras: eqs.map((e) => ({ id: e.id, label: `${e.equipmentType?.name ?? "Cámara"}${e.serial ? ` (${e.serial})` : ""}` })),
+    });
+  }
+
   // a) Validar / resolver bus.
   const busCode = url.searchParams.get("busCode");
   if (busCode) {
@@ -244,8 +259,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "La novedad reportada es muy corta." }, { status: 400 });
   }
 
+  const cameraLabel = String(body.cameraLabel ?? "").trim();
   const affectedEquipment = affectedEquipmentRaw || "NO_ESPECIFICADO";
-  const affectedEquipmentLabel = EQUIPMENT_LABELS[affectedEquipment] ?? affectedEquipment;
+  const affectedEquipmentLabel = (EQUIPMENT_LABELS[affectedEquipment] ?? affectedEquipment) + (cameraLabel ? ` — ${cameraLabel}` : "");
 
   const tenant = await resolveTenant(body.tenantCode);
   if (!tenant) {
