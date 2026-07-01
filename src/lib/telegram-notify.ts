@@ -99,6 +99,52 @@ export async function notifyNovedadClosed(
   }
 }
 
+/**
+ * Avisa al grupo que una NOVEDAD se REABRIÓ (p. ej. al eliminar el correctivo
+ * que la había resuelto). Fire-and-forget; nunca lanza.
+ */
+export async function notifyNovedadReopened(
+  caseId: string,
+  opts?: { by?: string | null }
+): Promise<void> {
+  if (!TG_TOKEN || !TG_GROUP) return;
+  try {
+    const c = await prisma.case.findFirst({
+      where: { id: caseId, type: CaseType.NOVEDAD },
+      select: {
+        id: true,
+        caseNo: true,
+        status: true,
+        title: true,
+        bus: { select: { code: true, plate: true } },
+      },
+    });
+    if (!c || c.status === CaseStatus.CERRADO) return;
+
+    let actor = "—";
+    if (opts?.by) {
+      const u = await prisma.user.findFirst({ where: { id: opts.by }, select: { name: true } });
+      if (u?.name) actor = u.name;
+    }
+
+    const ref = `CASO-${String(c.caseNo ?? "").padStart(3, "0")}`;
+    const plate = c.bus?.plate ? ` (${c.bus.plate})` : "";
+    const text = [
+      `🔄 Novedad reabierta — ${ref}`,
+      `🚌 Bus: ${c.bus?.code ?? "—"}${plate}`,
+      c.title ? `🧩 ${c.title}` : null,
+      `ℹ️ Motivo: se eliminó el correctivo que la había resuelto.`,
+      actor !== "—" ? `👤 ${actor}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    await postToChat(TG_GROUP, text, { markdown: false, markup: caseLinkMarkup(c.id, "🔗 Ver la novedad") });
+  } catch (e) {
+    console.error("NOTIFY_NOVEDAD_REOPENED_FAILED", e);
+  }
+}
+
 /** Enlace "Ver la solicitud" al caso (si hay APP_URL configurada). */
 function caseLinkMarkup(caseId: string, label: string): unknown {
   const base = mesaBaseUrl();

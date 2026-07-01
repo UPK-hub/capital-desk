@@ -12,6 +12,7 @@ import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
 import { notifyNovedadClosed } from "@/lib/telegram-notify";
+import { findSourceNovedadId, maybeReopenNovedadAfterUnlink } from "@/lib/novedades/auto-close";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { restrictedCasesWhere } from "@/lib/access-control";
 
@@ -472,6 +473,13 @@ export async function DELETE(_req: NextRequest, ctx: { params: { id: string } })
   const c = await prisma.case.findFirst({ where: { id, tenantId } });
   if (!c) return NextResponse.json({ error: "Caso no encontrado" }, { status: 404 });
 
+  // Si es un caso enlazado a una novedad, capturar la novedad de origen ANTES de
+  // borrar (al borrar el caso se eliminan sus CaseEvent y se perdería el enlace).
+  let linkedNovedadId: string | null = null;
+  if (c.type === "CORRECTIVO" || c.type === "PREVENTIVO") {
+    linkedNovedadId = await findSourceNovedadId(id);
+  }
+
   await prisma.$transaction(async (tx) => {
     if (c.type === "SOLICITUD_DESCARGA_VIDEO") {
       const vdr = await tx.videoDownloadRequest.findFirst({ where: { caseId: id } });
@@ -511,6 +519,12 @@ export async function DELETE(_req: NextRequest, ctx: { params: { id: string } })
       },
     });
   });
+
+  // Si el caso borrado había CERRADO automáticamente su novedad de origen y ya no
+  // quedan casos enlazados que la resuelvan, reabrir la novedad.
+  if (linkedNovedadId) {
+    await maybeReopenNovedadAfterUnlink(tenantId, linkedNovedadId, actorId);
+  }
 
   return NextResponse.json({ ok: true });
 }

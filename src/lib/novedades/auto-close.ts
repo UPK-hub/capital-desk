@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
 import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
-import { notifyNovedadClosed } from "@/lib/telegram-notify";
+import { notifyNovedadClosed, notifyNovedadReopened } from "@/lib/telegram-notify";
 
 /**
  * Lee los CaseEvent de un caso y devuelve el id de la novedad de origen
@@ -13,6 +13,20 @@ function extractSourceCaseId(events: Array<{ meta: unknown }>): string | null {
     if (meta?.sourceCaseId) return String(meta.sourceCaseId);
   }
   return null;
+}
+
+/**
+ * Dado un caso enlazado (CORRECTIVO/PREVENTIVO), devuelve el id de la novedad
+ * de origen. Útil para capturarlo ANTES de borrar el caso (al borrarlo se
+ * eliminan sus CaseEvent y se pierde el enlace).
+ */
+export async function findSourceNovedadId(linkedCaseId: string): Promise<string | null> {
+  if (!linkedCaseId) return null;
+  const events = await prisma.caseEvent.findMany({
+    where: { caseId: linkedCaseId },
+    select: { meta: true },
+  });
+  return extractSourceCaseId(events);
 }
 
 /**
@@ -108,6 +122,84 @@ export async function maybeAutoCloseLinkedNovedad(
     return true;
   } catch (error) {
     console.error("AUTO_CLOSE_NOVEDAD_FAILED", { tenantId, linkedCaseId, error });
+    return false;
+  }
+}
+
+/**
+ * REABRE una novedad que había quedado CERRADA AUTOMÁTICAMENTE cuando se elimina
+ * el correctivo/preventivo enlazado que la resolvía. Se llama DESPUÉS de borrar
+ * el caso enlazado, pasando el `novedadId` capturado ANTES del borrado.
+ *
+ * Solo reabre si:
+ *  - la novedad está CERRADA,
+ *  - su último cierre fue AUTOMÁTICO (meta.auto === true; si fue manual, no se toca), y
+ *  - ya NO quedan casos enlazados que la justifiquen (ninguno, o alguno sin resolver).
+ *
+ * Nunca lanza. @returns `true` si reabrió la novedad.
+ */
+export async function maybeReopenNovedadAfterUnlink(
+  tenantId: string,
+  novedadId: string,
+  byUserId?: string
+): Promise<boolean> {
+  try {
+    if (!tenantId || !novedadId) return false;
+
+    const novedad = await prisma.case.findFirst({
+      where: { id: novedadId, tenantId, type: CaseType.NOVEDAD },
+      select: { id: true, status: true },
+    });
+    if (!novedad) return false;
+    if (novedad.status !== CaseStatus.CERRADO) return false;
+
+    // ¿El cierre más reciente fue automático? Si fue manual, respetarlo (no reabrir).
+    const lastStatusChange = await prisma.caseEvent.findFirst({
+      where: { caseId: novedad.id, type: CaseEventType.STATUS_CHANGE },
+      orderBy: { createdAt: "desc" },
+      select: { meta: true },
+    });
+    const wasAutoClosed = ((lastStatusChange?.meta ?? {}) as any)?.auto === true;
+    if (!wasAutoClosed) return false;
+
+    // Recomputar los casos enlazados restantes (el que se borró ya no cuenta).
+    const linkedCases = await prisma.case.findMany({
+      where: {
+        tenantId,
+        type: { in: [CaseType.CORRECTIVO, CaseType.PREVENTIVO] },
+        events: { some: { meta: { path: ["sourceCaseId"], equals: novedad.id } } },
+      },
+      select: { id: true, status: true },
+    });
+    const stillJustified =
+      linkedCases.length > 0 &&
+      linkedCases.every(
+        (c) => c.status === CaseStatus.CERRADO || c.status === CaseStatus.RESUELTO
+      );
+    if (stillJustified) return false; // otro caso enlazado sigue resolviéndola
+
+    await prisma.$transaction(async (tx) => {
+      await tx.case.update({
+        where: { id: novedad.id },
+        data: { status: CaseStatus.NUEVO },
+      });
+      await tx.caseEvent.create({
+        data: {
+          caseId: novedad.id,
+          type: CaseEventType.STATUS_CHANGE,
+          message:
+            "Novedad reabierta automáticamente: se eliminó el caso enlazado que la había resuelto",
+          meta: { auto: true, reopened: true, ...(byUserId ? { by: byUserId } : {}) },
+        },
+      });
+    });
+
+    // Avisar al grupo que la novedad se reabrió.
+    await notifyNovedadReopened(novedad.id, { by: byUserId });
+
+    return true;
+  } catch (error) {
+    console.error("REOPEN_NOVEDAD_FAILED", { tenantId, novedadId, error });
     return false;
   }
 }

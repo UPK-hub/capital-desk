@@ -276,7 +276,7 @@ async function downloadPhoto(fileId: string): Promise<{ buffer: Buffer; name: st
 
 type Awaiting = { kind: "photo" | "value" | "hallazgo" | "corrphoto" | "corrobs" | "corrfecha"; sectionId?: string; itemId?: string; severity?: string; label?: string };
 type HzDraft = { equipoId?: string; equipoName?: string; tipo?: string };
-type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string; corrDraft?: CorrDraft };
+type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string; corrDraft?: CorrDraft; corrEvid?: number };
 const state = new Map<string, ChatState>();
 const getState = (id: string): ChatState => state.get(id) || {};
 const setState = (id: string, s: ChatState) => state.set(id, s);
@@ -356,9 +356,10 @@ async function handleMessage(msg: any) {
       const dl = await downloadPhoto(photo.file_id);
       if (!dl) { await sendMessage(chatId, "⚠️ No pude descargar la foto. Intenta de nuevo."); return; }
       const r = await apiUpload({ action: "correctivo-upload", chatId, caseId: st.corrCaseId }, dl.buffer, dl.name);
-      setState(chatId, { ...st, awaiting: undefined });
-      if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
-      await sendMessage(chatId, "✅ Evidencia guardada.", kbCorrectivo(st.corrDraft));
+      if (!r?.ok || r.error) { setState(chatId, { ...st, awaiting: undefined }); await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
+      const nEvid = (st.corrEvid || 0) + 1;
+      setState(chatId, { ...st, awaiting: undefined, corrEvid: nEvid });
+      await sendMessage(chatId, `✅ Evidencia guardada (${nEvid}). Puedes subir más o cerrar.`, kbCorrectivo(st.corrDraft));
       return;
     }
     if (!st.awaiting || st.awaiting.kind !== "photo" || !st.caseId) {
@@ -464,7 +465,7 @@ async function handleCallback(cb: any) {
     const novedadId = data.slice(5);
     const r = await api({ action: "crear-correctivo", chatId, novedadId });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo crear el correctivo."}`); return; }
-    setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {} });
+    setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {}, corrEvid: 0 });
     await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nCompleta y ciérralo:`, kbCorrectivo({}));
     return;
   }
@@ -515,8 +516,19 @@ async function handleCallback(cb: any) {
     await sendMessage(chatId, "📸 Envía la foto de la evidencia del correctivo.");
     return;
   }
-  if (data === "corrcerrar") {
+  if (data === "corrcerrar" || data === "corrcerrarforce") {
     if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    // No dejar cerrar sin evidencia por accidente: pedir confirmación explícita.
+    if (data === "corrcerrar" && !(st.corrEvid && st.corrEvid > 0)) {
+      await sendMessage(chatId, "⚠️ Aún no cargaste ninguna foto de evidencia. Sube al menos una (📸) antes de cerrar, o confirma cerrar sin evidencia.", {
+        inline_keyboard: [
+          [{ text: "📸 Cargar evidencia", callback_data: "corrfoto" }],
+          [{ text: "✅ Cerrar sin evidencia", callback_data: "corrcerrarforce" }],
+          [{ text: "⬅️ Volver", callback_data: "corrmenu" }],
+        ],
+      });
+      return;
+    }
     const d = st.corrDraft || {};
     const r = await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId, diagnostico: d.diagnostico || "", solucion: d.solucion || "", observacion: d.observacion || "", fecha: d.fecha || "" });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo cerrar."}`); return; }
