@@ -97,7 +97,7 @@ function buildStatus(kase: any, data: ChecklistData) {
     status: kase.status,
     busCode: kase.bus?.code ?? null,
     busPlate: kase.bus?.plate ?? null,
-    resumen: { ok: s.okCount, hallazgo: s.hallazgos, pendientes: s.pendientes, aplicables: s.applicable, hallazgos: s.hallazgos },
+    resumen: { ok: s.okCount, hallazgo: s.hallazgosTotal, pendientes: s.pendientes, aplicables: s.applicable, hallazgos: s.hallazgos },
     captures,
     capturesDone: captures.filter((c) => c.done).length,
     capturesTotal: captures.length,
@@ -366,7 +366,7 @@ export async function POST(req: NextRequest) {
       }
 
       const fresh = await loadCaseForChecklist(tenantId, kase.id);
-      return NextResponse.json({ ok: true, cerrado: true, certificado, resumen: { ok: summary.okCount, hallazgo: summary.hallazgos, pendientes: summary.pendientes }, status: buildStatus(fresh, dataOf(fresh)) });
+      return NextResponse.json({ ok: true, cerrado: true, certificado, resumen: { ok: summary.okCount, hallazgo: summary.hallazgosTotal, pendientes: summary.pendientes }, status: buildStatus(fresh, dataOf(fresh)) });
     }
 
     return NextResponse.json({ ok: false, error: "Acción desconocida." }, { status: 400 });

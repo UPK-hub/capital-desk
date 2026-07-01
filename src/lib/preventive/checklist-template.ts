@@ -251,7 +251,8 @@ export type ChecklistSummary = {
   C: number;
   M: number;
   L: number;
-  hallazgos: number; // hallazgos de cierre por severidad (C+M+L)
+  hallazgos: number; // novedades de cierre por severidad (C+M+L)
+  hallazgosTotal: number; // TODOS los hallazgos = novedades + ítems check marcados Hallazgo
   okCount: number; // ítems check en OK
   hallazgoCount: number; // ítems check marcados Hallazgo
   naCount: number; // ítems check marcados N/A (NO cuenta en el total)
@@ -279,9 +280,24 @@ export function summarizeChecklist(data: ChecklistData): ChecklistSummary {
   const M = data.cierre.hallazgos.filter((h) => h.severity === "M").length;
   const L = data.cierre.hallazgos.filter((h) => h.severity === "L").length;
   const hallazgos = C + M + L;
+  const hallazgosTotal = hallazgos + hallazgoCount;
   const applicable = checkTotal - naCount;
   const pendientes = applicable - okCount - hallazgoCount;
-  return { C, M, L, hallazgos, okCount, hallazgoCount, naCount, pendientes, checkTotal, applicable, conNovedad: hallazgos > 0 || hallazgoCount > 0 };
+  return { C, M, L, hallazgos, hallazgosTotal, okCount, hallazgoCount, naCount, pendientes, checkTotal, applicable, conNovedad: hallazgosTotal > 0 };
+}
+
+// Ítems del checklist (tipo check) marcados como "Hallazgo", con su nota.
+export type CheckHallazgo = { seccion: string; label: string; nota: string };
+export function collectCheckHallazgos(data: ChecklistData): CheckHallazgo[] {
+  const out: CheckHallazgo[] = [];
+  for (const section of PREVENTIVE_CHECKLIST) {
+    for (const it of section.items) {
+      if (it.type !== "check") continue;
+      const v = data.items[section.id]?.[it.id];
+      if (v?.estado === "hallazgo") out.push({ seccion: section.title, label: it.label, nota: String(v.nota ?? "").trim() });
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -291,21 +307,20 @@ export function summarizeChecklist(data: ChecklistData): ChecklistSummary {
 export function autoNotasOT(data: ChecklistData, busCode?: string | null): string {
   const dias = String(data.items.identificacion?.diasGrabacion?.value ?? "").trim();
   const parts: string[] = [`Se realizó mantenimiento preventivo${busCode ? ` al bus ${busCode}` : ""}.`];
-  if (!data.cierre.hallazgos.length) {
-    parts.push("Sin novedades; equipo operativo y reportando al centro de gestión.");
-  } else {
-    const nov = data.cierre.hallazgos
-      .map((h) => `${h.equipo || "equipo"}: ${h.tipoNovedad ? TIPO_NOVEDAD_LABEL[h.tipoNovedad] : "novedad"}${h.cambioEquipo ? " (cambio de equipo)" : ""}`)
-      .join("; ");
-    parts.push(`Novedades: ${nov}.`);
-  }
+  const nov = data.cierre.hallazgos.map(
+    (h) => `${h.equipo || "equipo"}: ${h.tipoNovedad ? TIPO_NOVEDAD_LABEL[h.tipoNovedad] : "novedad"}${h.cambioEquipo ? " (cambio de equipo)" : ""}`
+  );
+  const chk = collectCheckHallazgos(data).map((h) => `${h.label}${h.nota ? ` (${h.nota})` : ""}`);
+  const all = [...nov, ...chk];
+  parts.push(all.length ? `Novedades: ${all.join("; ")}.` : "Sin novedades; equipo operativo y reportando al centro de gestión.");
   if (dias) parts.push(`Días de grabación: ${dias}.`);
   return parts.join(" ");
 }
 
 export function autoRecomendaciones(data: ChecklistData): string {
   const hz = data.cierre.hallazgos;
-  if (!hz.length) return "Sin acciones adicionales. Continuar con el plan de mantenimiento preventivo.";
+  const checkHz = collectCheckHallazgos(data);
+  if (!hz.length && !checkHz.length) return "Sin acciones adicionales. Continuar con el plan de mantenimiento preventivo.";
   const recs: string[] = [];
   for (const h of hz) {
     const eq = h.equipo || "el equipo";
@@ -315,5 +330,6 @@ export function autoRecomendaciones(data: ChecklistData): string {
     else recs.push(`Revisar ${eq}.`);
     if (h.cambioEquipo) recs.push(`Verificar el funcionamiento de ${eq} tras el cambio de equipo.`);
   }
+  for (const h of checkHz) recs.push(`Atender: ${h.label}${h.nota ? ` (${h.nota})` : ""}.`);
   return [...new Set(recs)].join(" ");
 }

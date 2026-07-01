@@ -437,7 +437,7 @@ export default function GestionCasoCard(props: Props) {
               <span className={`${label} mb-0`}>Checklist del preventivo</span>
               <div className="flex items-center gap-1.5 text-[11px]">
                 <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">OK {summary.okCount}/{summary.applicable}</span>
-                <span className={`rounded-full px-2 py-0.5 font-medium ${summary.hallazgos ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-500"}`}>Hallazgo {summary.hallazgos}</span>
+                <span className={`rounded-full px-2 py-0.5 font-medium ${summary.hallazgosTotal ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-500"}`}>Hallazgo {summary.hallazgosTotal}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-500">Pendientes {summary.pendientes}</span>
               </div>
             </div>

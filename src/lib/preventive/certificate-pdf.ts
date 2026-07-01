@@ -8,6 +8,7 @@ import {
   TIPO_NOVEDAD_LABEL,
   autoRecomendaciones,
   autoNotasOT,
+  collectCheckHallazgos,
   summarizeChecklist,
   type ChecklistData,
   type ChecklistItemValue,
@@ -144,7 +145,7 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
     T(x, yy - 11, v, bold, 8.5, dark);
   };
   const busLabel = `${input.busCode ?? ""}${input.busPlate ? ` (${input.busPlate})` : ""}` || "-";
-  const resultado = summary.conNovedad ? `Con novedad · ${summary.hallazgos} hallazgo(s)` : "Sin novedad";
+  const resultado = summary.conNovedad ? `Con novedad · ${summary.hallazgosTotal} hallazgo(s)` : "Sin novedad";
   field(fx, fy, "CASO", `CASO-${input.caseNo ?? ""}`);
   field(fx + 95, fy, "BUS", busLabel);
   field(fx + 210, fy, "RESPONSABLE", input.responsableName ?? "-");
@@ -154,7 +155,7 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const sx = M + cW - 188;
   const stats: [string, number, Col][] = [
     ["OK", summary.okCount, green],
-    ["Hallazgo", summary.hallazgos, red],
+    ["Hallazgo", summary.hallazgosTotal, red],
     ["Pendientes", summary.pendientes, gray],
   ];
   stats.forEach(([lbl, num, col], i) => {
@@ -248,9 +249,19 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
     y -= 4;
   };
 
-  // ---- hallazgos ----
+  // ---- hallazgos (ítems del checklist marcados Hallazgo + novedades del asistente) ----
   fwHeading("HALLAZGOS");
-  if (data.cierre.hallazgos.length) {
+  const checkHz = collectCheckHallazgos(data);
+  if (checkHz.length || data.cierre.hallazgos.length) {
+    for (const h of checkHz) {
+      const cabeza = `${h.label}${h.nota ? ` — ${h.nota}` : ""} (${h.seccion})`;
+      const lines = wrap(cabeza, font, 8, cW - 62);
+      need(Math.max(12, lines.length * 10));
+      T(M + 2, y - 8, "Hallazgo", bold, 7.5, red);
+      let dy = y - 8;
+      for (const ln of lines) { T(M + 60, dy, ln, font, 8, dark); dy -= 10; }
+      y = Math.min(y - 11, dy);
+    }
     for (const h of data.cierre.hallazgos) {
       const sev = SEVERITY_LABEL[h.severity];
       const tipo = h.tipoNovedad ? TIPO_NOVEDAD_LABEL[h.tipoNovedad] : "";
