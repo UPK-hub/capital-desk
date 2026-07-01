@@ -60,11 +60,20 @@ export async function getCasesSummary(opts: {
       where: { ...base, status: { in: doneStatuses } },
       select: {
         workOrder: { select: { finishedAt: true } },
-        // Se excluyen los cambios de estado de "unificación" (script cerrar-resueltos,
-        // que el 29/06 pasó en bloque Resuelto→Cerrado): NO son la fecha real de resolución.
+        // Fecha REAL de resolución = finalización de la OT o, si no hay, el PRIMER
+        // cambio de estado a Resuelto/Cerrado (por el texto del evento). Tomar el más
+        // ANTIGUO evita que los procesos en bloque (re-cierres/unificaciones posteriores,
+        // p. ej. cerrar-resueltos el 29/06 u otro el 23/06) muevan la fecha a un día falso,
+        // sin importar qué script los creó. Se ignoran "OT asignada"/"reabierta", etc.
         events: {
-          where: { type: CaseEventType.STATUS_CHANGE, NOT: { meta: { path: ["source"], equals: "cerrar-resueltos" } } },
-          orderBy: { createdAt: "desc" },
+          where: {
+            type: CaseEventType.STATUS_CHANGE,
+            OR: [
+              { message: { contains: "cerrad", mode: "insensitive" } },
+              { message: { contains: "resuelt", mode: "insensitive" } },
+            ],
+          },
+          orderBy: { createdAt: "asc" },
           take: 1,
           select: { createdAt: true },
         },
@@ -83,7 +92,7 @@ export async function getCasesSummary(opts: {
   // finalización de la OT. NUNCA updatedAt (cualquier edición en lote lo mueve a
   // "hoy" y falsea el gráfico, p. ej. el pico de resueltos por una migración).
   const resolvedAtOf = (c: { workOrder: { finishedAt: Date | null } | null; events: { createdAt: Date }[] }): Date | null =>
-    c.events[0]?.createdAt ?? c.workOrder?.finishedAt ?? null;
+    c.workOrder?.finishedAt ?? c.events[0]?.createdAt ?? null;
   const atendidos = doneCases.filter((c) => {
     const r = resolvedAtOf(c);
     return r != null && r >= monthStart && r < monthEnd;
