@@ -5,6 +5,7 @@ import {
   PREVENTIVE_CHECKLIST,
   SEVERITY_LABEL,
   CHECK_STATE_LABEL,
+  TIPO_NOVEDAD_LABEL,
   summarizeChecklist,
   type ChecklistData,
   type ChecklistItemValue,
@@ -250,7 +251,8 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   if (data.cierre.hallazgos.length) {
     for (const h of data.cierre.hallazgos) {
       const sev = SEVERITY_LABEL[h.severity];
-      const cabeza = `${h.equipo ? h.equipo + " — " : ""}${h.descripcion || "—"}`;
+      const tipo = h.tipoNovedad ? TIPO_NOVEDAD_LABEL[h.tipoNovedad] : "";
+      const cabeza = [h.equipo, tipo, h.descripcion, h.cambioEquipo ? "cambio de equipo" : ""].filter(Boolean).join(" · ") || "—";
       const lines = wrap(cabeza, font, 8, cW - 62);
       need(Math.max(12, lines.length * 10));
       T(M + 2, y - 8, sev, bold, 7.5, sevColor[h.severity]);

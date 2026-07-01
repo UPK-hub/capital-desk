@@ -16,12 +16,14 @@ import { saveUpload, saveGeneratedUpload } from "@/lib/uploads";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import {
   PREVENTIVE_CHECKLIST,
+  TIPO_NOVEDAD_SEVERITY,
   emptyChecklistData,
   normalizeChecklistData,
   summarizeChecklist,
   type ChecklistData,
   type CheckState,
   type Severity,
+  type TipoNovedad,
 } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
 import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
@@ -106,7 +108,8 @@ function buildStatus(kase: any, data: ChecklistData) {
       title: s.title,
       items: s.items.filter((it) => it.type === "check").map((it) => ({ id: it.id, label: it.label, estado: data.items[s.id]?.[it.id]?.estado ?? null })),
     })),
-    hallazgos: data.cierre.hallazgos.map((h) => ({ severity: h.severity, equipo: h.equipo, descripcion: h.descripcion })),
+    hallazgos: data.cierre.hallazgos.map((h) => ({ severity: h.severity, equipo: h.equipo, tipoNovedad: h.tipoNovedad ?? null, cambioEquipo: Boolean(h.cambioEquipo), descripcion: h.descripcion })),
+    busEquipos: (kase.busEquipos ?? []) as Array<{ id: string; name: string }>,
     inicio: kase.preventiveChecklist?.aperturaAt ? new Date(kase.preventiveChecklist.aperturaAt).toISOString() : null,
     aperturaBy: kase.preventiveChecklist?.aperturaByName ?? null,
     fin: kase.preventiveChecklist?.cierreAt ? new Date(kase.preventiveChecklist.cierreAt).toISOString() : null,
@@ -115,7 +118,7 @@ function buildStatus(kase: any, data: ChecklistData) {
 }
 
 async function loadCaseForChecklist(tenantId: string, caseId: string) {
-  return prisma.case.findFirst({
+  const kase = await prisma.case.findFirst({
     where: { id: caseId, tenantId, type: CaseType.PREVENTIVO },
     select: {
       id: true,
@@ -126,6 +129,14 @@ async function loadCaseForChecklist(tenantId: string, caseId: string) {
       preventiveChecklist: true,
     },
   });
+  if (!kase) return null;
+  const equipos = await prisma.busEquipment.findMany({
+    where: { busId: kase.busId, active: true },
+    select: { id: true, serial: true, equipmentType: { select: { name: true } } },
+    orderBy: { id: "asc" },
+  });
+  (kase as any).busEquipos = equipos.map((e) => ({ id: e.id, name: `${e.equipmentType?.name ?? "Equipo"}${e.serial ? ` (${e.serial})` : ""}` }));
+  return kase;
 }
 
 function dataOf(kase: any): ChecklistData {
@@ -212,9 +223,9 @@ export async function POST(req: NextRequest) {
         kase = await loadCaseForChecklist(tenantId, created.id) as any;
       } else if (!kase.preventiveChecklist) {
         await prisma.casePreventiveChecklist.create({ data: { caseId: kase.id, status: "draft", data: emptyChecklistData() as any } });
-        kase = await loadCaseForChecklist(tenantId, kase.id) as any;
       }
-      return NextResponse.json({ ok: true, found: true, creado, status: buildStatus(kase, dataOf(kase)) });
+      const full = await loadCaseForChecklist(tenantId, kase!.id);
+      return NextResponse.json({ ok: true, found: true, creado, status: buildStatus(full, dataOf(full)) });
     }
 
     // Las demás acciones operan sobre un caso concreto.
@@ -265,11 +276,15 @@ export async function POST(req: NextRequest) {
 
     // ----- agregar hallazgo de cierre -----
     if (action === "hallazgo") {
-      const severity = String(body.severity || "").trim().toUpperCase() as Severity;
-      if (!["C", "M", "L"].includes(severity)) return NextResponse.json({ ok: true, error: "Severidad inválida (C/M/L)." });
+      const tipoNovedad = String(body.tipoNovedad || "").trim();
+      if (!["sin_transmision", "falla_imagen", "afectado"].includes(tipoNovedad)) return NextResponse.json({ ok: true, error: "Tipo de novedad inválido." });
+      const equipoId = String(body.equipoId || "").trim() || null;
+      const equipoName = ((kase as any).busEquipos ?? []).find((e: any) => e.id === equipoId)?.name ?? String(body.equipo || "").trim();
+      const cambioEquipo = Boolean(body.cambioEquipo);
+      const severity = TIPO_NOVEDAD_SEVERITY[tipoNovedad as TipoNovedad];
       const data = dataOf(kase);
-      data.cierre.hallazgos.push({ severity, equipoId: null, equipo: String(body.equipo || "").trim(), descripcion: String(body.descripcion || "").trim() });
-      if (body.requiereCorrectivo != null) data.cierre.requiereCorrectivo = Boolean(body.requiereCorrectivo);
+      data.cierre.hallazgos.push({ severity, equipoId, equipo: equipoName, tipoNovedad: tipoNovedad as TipoNovedad, cambioEquipo, descripcion: String(body.descripcion || "").trim() });
+      data.cierre.requiereCorrectivo = true;
       await saveData(kase.id, data);
       const fresh = await loadCaseForChecklist(tenantId, kase.id);
       return NextResponse.json({ ok: true, status: buildStatus(fresh, dataOf(fresh)) });

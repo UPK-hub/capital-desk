@@ -109,5 +109,27 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+
+    // --- Bot de Telegram de CARGA de preventivos ---
+    // El técnico manda el código del bus y sube evidencias/voltajes/checks con
+    // botones, marca inicio/fin y cierra generando el certificado. Habla con
+    // /api/integrations/preventivo-bot. Lee del .env:
+    // TELEGRAM_PREVENTIVO_CARGA_TOKEN, PREVENTIVO_BOT_URL, NOVEDADES_INTAKE_SECRET.
+    {
+      name: "preventivo-carga-bot",
+      cwd: "D:/apps/capital-desk",
+      script: "C:/Program Files/nodejs/node.exe",
+      args: "node_modules/tsx/dist/cli.mjs scripts/telegram-preventivo-carga-bot.ts",
+
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "20s",
+      restart_delay: 3000,
+      max_memory_restart: "500M",
+
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };

@@ -161,10 +161,28 @@ export type ChecklistItemValue = {
   photo?: ChecklistPhoto | null;
 };
 
+// Tipo de novedad con que queda el equipo del bus.
+export type TipoNovedad = "sin_transmision" | "falla_imagen" | "afectado";
+
+export const TIPO_NOVEDAD_LABEL: Record<TipoNovedad, string> = {
+  sin_transmision: "Sin transmisión",
+  falla_imagen: "Falla en imagen",
+  afectado: "Afectado",
+};
+
+// Severidad sugerida según el tipo de novedad.
+export const TIPO_NOVEDAD_SEVERITY: Record<TipoNovedad, Severity> = {
+  sin_transmision: "C",
+  falla_imagen: "M",
+  afectado: "L",
+};
+
 export type ChecklistFinding = {
   severity: Severity;
   equipoId?: string | null;
   equipo?: string;
+  tipoNovedad?: TipoNovedad | null;
+  cambioEquipo?: boolean;
   descripcion: string;
 };
 
@@ -218,6 +236,8 @@ export function normalizeChecklistData(raw: any): ChecklistData {
           severity: h.severity as Severity,
           equipoId: h.equipoId ?? null,
           equipo: String(h.equipo ?? ""),
+          tipoNovedad: (["sin_transmision", "falla_imagen", "afectado"].includes(h.tipoNovedad) ? h.tipoNovedad : null) as any,
+          cambioEquipo: Boolean(h.cambioEquipo),
           descripcion: String(h.descripcion ?? ""),
         }))
     : [];

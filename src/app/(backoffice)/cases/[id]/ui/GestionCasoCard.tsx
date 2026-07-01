@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, Check, ChevronDown, Plus, Replace, Trash2, Upload, X } from "lucide-react";
 import {
   PREVENTIVE_CHECKLIST,
+  TIPO_NOVEDAD_SEVERITY,
   emptyChecklistData,
   summarizeChecklist,
   type ChecklistData,
@@ -12,6 +13,7 @@ import {
   type ChecklistSectionDef,
   type CheckState,
   type Severity,
+  type TipoNovedad,
 } from "@/lib/preventive/checklist-template";
 
 // Sube un FormData con barra de progreso, tiempo límite y errores claros
@@ -158,7 +160,7 @@ export default function GestionCasoCard(props: Props) {
     setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, ...patch } }));
   }
   function addHallazgo() {
-    setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, hallazgos: [...prev.cierre.hallazgos, { severity: "M" as Severity, equipoId: null, equipo: "", descripcion: "" }] } }));
+    setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, hallazgos: [...prev.cierre.hallazgos, { severity: "M" as Severity, equipoId: null, equipo: "", tipoNovedad: null, cambioEquipo: false, descripcion: "" }] } }));
   }
   function updHallazgo(i: number, patch: Partial<ChecklistData["cierre"]["hallazgos"][number]>) {
     setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, hallazgos: prev.cierre.hallazgos.map((h, j) => (j === i ? { ...h, ...patch } : h)) } }));
@@ -476,20 +478,22 @@ export default function GestionCasoCard(props: Props) {
                 <div className="space-y-2">
                   {checklist.cierre.hallazgos.map((h, i) => (
                     <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-white p-2">
-                      <select value={h.severity} onChange={(e) => updHallazgo(i, { severity: e.target.value as Severity })} className="app-field-control h-8 rounded-lg px-2 text-[13px]">
-                        <option value="C">Crítico</option>
-                        <option value="M">Moderado</option>
-                        <option value="L">Leve</option>
+                      <select value={h.tipoNovedad ?? ""} onChange={(e) => { const t = e.target.value as TipoNovedad; updHallazgo(i, { tipoNovedad: t || null, severity: t ? TIPO_NOVEDAD_SEVERITY[t] : h.severity }); }} className="app-field-control h-8 rounded-lg px-2 text-[13px]">
+                        <option value="">Tipo de novedad…</option>
+                        <option value="sin_transmision">Sin transmisión</option>
+                        <option value="falla_imagen">Falla en imagen</option>
+                        <option value="afectado">Afectado</option>
                       </select>
                       <select
                         value={h.equipoId ?? ""}
                         onChange={(e) => updHallazgo(i, { equipoId: e.target.value || null, equipo: props.busEquipments.find((x) => x.id === e.target.value)?.name ?? "" })}
                         className="app-field-control h-8 rounded-lg px-2 text-[13px]"
                       >
-                        <option value="">Equipo (opcional)…</option>
+                        <option value="">Equipo…</option>
                         {props.busEquipments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                       </select>
-                      <input value={h.descripcion} onChange={(e) => updHallazgo(i, { descripcion: e.target.value })} placeholder="Descripción del hallazgo" className="app-field-control h-8 min-w-[140px] flex-1 rounded-lg px-2 text-[13px]" />
+                      <input value={h.descripcion} onChange={(e) => updHallazgo(i, { descripcion: e.target.value })} placeholder="Detalle (opcional)" className="app-field-control h-8 min-w-[120px] flex-1 rounded-lg px-2 text-[13px]" />
+                      <label className="flex items-center gap-1 text-[12px] text-slate-600"><input type="checkbox" checked={Boolean(h.cambioEquipo)} onChange={(e) => updHallazgo(i, { cambioEquipo: e.target.checked })} /> Cambio equipo</label>
                       <button type="button" onClick={() => delHallazgo(i)} className="text-slate-300 hover:text-red-600" title="Quitar"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}

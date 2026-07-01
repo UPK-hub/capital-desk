@@ -81,11 +81,12 @@ function fmtStatus(s: any): string {
 function kbMain(s: any) {
   return {
     inline_keyboard: [
+      [{ text: s.inicio ? "🕐 Inicio ✓ (marcado)" : "🕐 Marcar inicio", callback_data: "inicio" }],
       [{ text: `📸 Evidencias (${s.capturesDone}/${s.capturesTotal})`, callback_data: "menu:evid" }],
       [{ text: "⚡ Voltajes", callback_data: "menu:volt" }, { text: "✅ Checklist", callback_data: "menu:check" }],
       [{ text: "⚠️ Hallazgo", callback_data: "menu:hz" }, { text: "📅 Días grab.", callback_data: "menu:dias" }],
-      [{ text: s.inicio ? "🕐 Inicio ✓" : "🕐 Marcar inicio", callback_data: "inicio" }, { text: "🏁 Fin / cerrar", callback_data: "fin" }],
       [{ text: "🔄 Actualizar", callback_data: "menu:main" }],
+      [{ text: "🏁 Fin / cerrar", callback_data: "fin" }],
     ],
   };
 }
@@ -120,6 +121,39 @@ function kbSeverity() {
       [{ text: "⬅️ Menú", callback_data: "menu:main" }],
     ],
   };
+}
+// Selector explícito de estado para un ítem del checklist (no ciclo).
+function kbEstadoPicker(sectionId: string, itemId: string) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "✅ OK", callback_data: `st:${sectionId}:${itemId}:ok` },
+        { text: "⚠️ Hallazgo", callback_data: `st:${sectionId}:${itemId}:hallazgo` },
+        { text: "∅ N/A", callback_data: `st:${sectionId}:${itemId}:na` },
+      ],
+      [{ text: "⬅️ Volver", callback_data: `sec:${sectionId}` }],
+    ],
+  };
+}
+// Asistente de novedad: equipo -> tipo -> ¿cambio de equipo?
+function kbHzEquipos(s: any) {
+  const rows = (s.busEquipos || []).map((e: any) => [{ text: e.name, callback_data: `hzeq:${e.id}` }]);
+  rows.push([{ text: "Sin equipo específico", callback_data: "hzeq:none" }]);
+  rows.push([{ text: "⬅️ Menú", callback_data: "menu:main" }]);
+  return { inline_keyboard: rows };
+}
+function kbHzTipo() {
+  return {
+    inline_keyboard: [
+      [{ text: "📡 Sin transmisión", callback_data: "hzt:sin_transmision" }],
+      [{ text: "🖼️ Falla en imagen", callback_data: "hzt:falla_imagen" }],
+      [{ text: "⚠️ Afectado", callback_data: "hzt:afectado" }],
+      [{ text: "⬅️ Menú", callback_data: "menu:main" }],
+    ],
+  };
+}
+function kbHzCambio() {
+  return { inline_keyboard: [[{ text: "🔧 Sí, se cambió", callback_data: "hzc:si" }, { text: "No", callback_data: "hzc:no" }]] };
 }
 function kbConfirmFin() {
   return { inline_keyboard: [[{ text: "✅ Sí, cerrar y generar", callback_data: "finok" }, { text: "✖️ Cancelar", callback_data: "menu:main" }]] };
@@ -192,7 +226,8 @@ async function downloadPhoto(fileId: string): Promise<{ buffer: Buffer; name: st
 // ------------------------------ Estado por chat ------------------------------
 
 type Awaiting = { kind: "photo" | "value" | "hallazgo"; sectionId?: string; itemId?: string; severity?: string; label?: string };
-type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting };
+type HzDraft = { equipoId?: string; equipoName?: string; tipo?: string };
+type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft };
 const state = new Map<string, ChatState>();
 const getState = (id: string): ChatState => state.get(id) || {};
 const setState = (id: string, s: ChatState) => state.set(id, s);
@@ -312,7 +347,7 @@ async function handleCallback(cb: any) {
   if (data === "menu:evid") { const s = await refresh(); await sendMessage(chatId, "📸 Toca una evidencia para subir su foto:", kbEvid(s)); return; }
   if (data === "menu:volt") { const s = await refresh(); await sendMessage(chatId, "⚡ Toca un voltaje para escribir su valor:", kbVolt(s)); return; }
   if (data === "menu:check") { const s = await refresh(); await sendMessage(chatId, "✅ Elige una sección del checklist:", kbCheckSections(s)); return; }
-  if (data === "menu:hz") { await sendMessage(chatId, "⚠️ Severidad del hallazgo:", kbSeverity()); return; }
+  if (data === "menu:hz") { const s = await refresh(); setState(chatId, { ...st, hz: {} }); await sendMessage(chatId, "⚠️ *Novedad* — ¿en qué equipo?", kbHzEquipos(s)); return; }
   if (data === "menu:dias") { setState(chatId, { ...st, awaiting: { kind: "value", sectionId: "identificacion", itemId: "diasGrabacion" } }); await sendMessage(chatId, "📅 Escribe los *días de grabación* (número):"); return; }
 
   if (data.startsWith("cap:")) {
@@ -329,20 +364,42 @@ async function handleCallback(cb: any) {
     await sendMessage(chatId, `⚡ Escribe el valor de *${labelOfVolt(s, itemId)}* (ej. 13.8):`);
     return;
   }
-  if (data.startsWith("sec:")) { const s = await refresh(); await sendMessage(chatId, "Toca un ítem para cambiar su estado (OK → Hallazgo → N/A):", kbCheckItems(s, data.slice(4))); return; }
+  if (data.startsWith("sec:")) { const s = await refresh(); await sendMessage(chatId, "Toca un ítem para elegir su estado:", kbCheckItems(s, data.slice(4))); return; }
   if (data.startsWith("chk:")) {
     const [, sectionId, itemId] = data.split(":");
-    const s0 = await refresh();
-    const sec = (s0.checkSections || []).find((x: any) => x.id === sectionId);
-    const cur = sec?.items.find((i: any) => i.id === itemId)?.estado ?? null;
-    const r = await api({ action: "set", chatId, caseId: st.caseId, sectionId, itemId, estado: cycleEstado(cur) });
-    if (!r?.ok) { await sendMessage(chatId, "⚠️ No se pudo."); return; }
-    await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: kbCheckItems(r.status, sectionId) });
+    await sendMessage(chatId, "Elige el estado:", kbEstadoPicker(sectionId, itemId));
     return;
   }
-  if (data.startsWith("hz:")) {
-    setState(chatId, { ...st, awaiting: { kind: "hallazgo", severity: data.slice(3) } });
-    await sendMessage(chatId, "⚠️ Escribe el hallazgo así: *equipo — descripción*\n(ej. Disco duro — disco al 92%, monitorear)");
+  if (data.startsWith("st:")) {
+    const [, sectionId, itemId, estado] = data.split(":");
+    const r = await api({ action: "set", chatId, caseId: st.caseId, sectionId, itemId, estado });
+    if (!r?.ok) { await sendMessage(chatId, "⚠️ No se pudo."); return; }
+    const et = estado === "ok" ? "✅ OK" : estado === "hallazgo" ? "⚠️ Hallazgo" : "∅ N/A";
+    await sendMessage(chatId, `Guardado: ${et}`, kbCheckItems(r.status, sectionId));
+    return;
+  }
+  if (data.startsWith("hzeq:")) {
+    const id = data.slice(5);
+    const s = await refresh();
+    const name = id === "none" ? "" : (s.busEquipos || []).find((e: any) => e.id === id)?.name || "";
+    setState(chatId, { ...st, hz: { equipoId: id === "none" ? undefined : id, equipoName: name } });
+    await sendMessage(chatId, `Equipo: *${name || "sin equipo"}*. ¿Qué novedad tiene?`, kbHzTipo());
+    return;
+  }
+  if (data.startsWith("hzt:")) {
+    const tipo = data.slice(4);
+    setState(chatId, { ...st, hz: { ...(st.hz || {}), tipo } });
+    await sendMessage(chatId, "¿Hubo *cambio de equipo*?", kbHzCambio());
+    return;
+  }
+  if (data.startsWith("hzc:")) {
+    const cambio = data.slice(4) === "si";
+    const hz = st.hz || {};
+    if (!hz.tipo) { await sendMessage(chatId, "Empieza la novedad de nuevo con ⚠️ Hallazgo."); return; }
+    const r = await api({ action: "hallazgo", chatId, caseId: st.caseId, equipoId: hz.equipoId, tipoNovedad: hz.tipo, cambioEquipo: cambio });
+    setState(chatId, { ...st, hz: undefined });
+    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo."}`); return; }
+    await showMenu(chatId, r.status, "⚠️ Novedad registrada.");
     return;
   }
   if (data === "inicio") { await doInicio(chatId, st.caseId!); return; }
@@ -391,6 +448,10 @@ function runSelfTest(): void {
   assert(kbCheckSections(s).inline_keyboard[0][0].callback_data === "sec:limpieza", "sección check");
   assert(kbCheckItems(s, "limpieza").inline_keyboard[0][0].callback_data === "chk:limpieza:nvr", "item check callback");
   assert(kbSeverity().inline_keyboard[0][1].callback_data === "hz:M", "severidad");
+  assert(kbEstadoPicker("limpieza", "nvr").inline_keyboard[0][1].callback_data === "st:limpieza:nvr:hallazgo", "picker estado");
+  assert(kbHzEquipos({ busEquipos: [{ id: "e1", name: "NVR (SN123)" }] }).inline_keyboard[0][0].callback_data === "hzeq:e1", "hz equipos");
+  assert(kbHzTipo().inline_keyboard[0][0].callback_data === "hzt:sin_transmision", "hz tipo");
+  assert(kbHzCambio().inline_keyboard[0][0].callback_data === "hzc:si", "hz cambio");
 
   console.log("✅ SELFTEST OK: lógica del bot de carga correcta.");
 }
