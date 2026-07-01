@@ -262,10 +262,18 @@ export async function POST(req: NextRequest) {
       const novedadId = String(body.novedadId || "").trim();
       const nov = await prisma.case.findFirst({
         where: { id: novedadId, tenantId, type: CaseType.NOVEDAD },
-        select: { id: true, caseNo: true, busId: true, title: true, bus: { select: { code: true } } },
+        select: { id: true, caseNo: true, busId: true, title: true, assignedToId: true, bus: { select: { code: true } } },
       });
       if (!nov) return NextResponse.json({ ok: true, error: "No encuentro esa novedad." });
       const novRef = `CASO-${String(nov.caseNo ?? "").padStart(3, "0")}`;
+
+      // Asignar la novedad al técnico que la abre (crea/retoma su correctivo), si aún no tiene responsable.
+      if (!nov.assignedToId) {
+        await prisma.case.update({ where: { id: nov.id }, data: { assignedToId: user.id } });
+        await prisma.caseEvent.create({
+          data: { caseId: nov.id, type: CaseEventType.COMMENT, message: `Novedad asignada a ${user.name} (abrió el correctivo desde el bot).`, meta: { by: user.id, assignedToId: user.id, source: "preventivo-bot" } },
+        });
+      }
 
       // Cámaras afectadas de la novedad (para detallar diagnóstico/solución por cámara).
       const novEq = await prisma.caseEquipment.findMany({
