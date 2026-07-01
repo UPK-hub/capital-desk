@@ -26,6 +26,7 @@ import {
   type TipoNovedad,
 } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
+import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || process.env.TENANT_CODE || "CAPITALBUS")
@@ -279,7 +280,41 @@ export async function POST(req: NextRequest) {
           { caseId: nov.id, type: CaseEventType.COMMENT, message: `Se generó correctivo ${corrRef} desde el bot.`, meta: { by: user.id, generatedCaseId: corr.id, source: "preventivo-bot" } },
         ],
       });
-      return NextResponse.json({ ok: true, correctivoRef: corrRef, novedadRef: novRef });
+      return NextResponse.json({ ok: true, correctivoRef: corrRef, correctivoCaseId: corr.id, novedadRef: novRef });
+    }
+
+    // ----- correctivo desde el bot: cargar evidencia, nota y cerrar -----
+    async function findCorrectivo(id: string) {
+      return prisma.case.findFirst({ where: { id, tenantId, type: CaseType.CORRECTIVO }, select: { id: true, status: true, caseNo: true, bus: { select: { code: true } } } });
+    }
+    if (action === "correctivo-upload") {
+      const corr = await findCorrectivo(String(body.caseId || "").trim());
+      if (!corr) return NextResponse.json({ ok: true, error: "No encuentro el correctivo." });
+      if (!file || file.size === 0) return NextResponse.json({ ok: true, error: "No llegó la foto." });
+      const p = await saveUpload(file, `gestion/${corr.id}/evidencias`, { fileNamePrefix: corr.bus?.code ?? "EV" });
+      await prisma.caseEvent.create({
+        data: { caseId: corr.id, type: CaseEventType.COMMENT, message: "Evidencia cargada (bot).", meta: { userId: user.id, manualComment: true, source: "preventivo-bot", attachments: [{ filePath: p, fileName: file.name || "evidencia", mimeType: file.type || "image/jpeg", size: file.size }] } },
+      });
+      return NextResponse.json({ ok: true, saved: file.name || "evidencia" });
+    }
+    if (action === "correctivo-nota") {
+      const corr = await findCorrectivo(String(body.caseId || "").trim());
+      if (!corr) return NextResponse.json({ ok: true, error: "No encuentro el correctivo." });
+      const nota = String(body.nota || "").trim();
+      if (nota) await prisma.caseEvent.create({ data: { caseId: corr.id, type: CaseEventType.COMMENT, message: `Solución / diagnóstico: ${nota}`, meta: { by: user.id, source: "preventivo-bot", manualComment: true, solucion: nota } } });
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "correctivo-cerrar") {
+      const corr = await findCorrectivo(String(body.caseId || "").trim());
+      if (!corr) return NextResponse.json({ ok: true, error: "No encuentro el correctivo." });
+      const corrRef = `CASO-${String(corr.caseNo ?? "").padStart(3, "0")}`;
+      let cerroNovedad = false;
+      if (corr.status !== CaseStatus.CERRADO) {
+        await prisma.case.update({ where: { id: corr.id }, data: { status: CaseStatus.CERRADO } });
+        await prisma.caseEvent.create({ data: { caseId: corr.id, type: CaseEventType.STATUS_CHANGE, message: `Correctivo cerrado desde el bot por ${user.name}.`, meta: { by: user.id, source: "preventivo-bot" } } });
+        cerroNovedad = await maybeAutoCloseLinkedNovedad(tenantId, corr.id, user.id).catch((e) => { console.error("PREVENTIVO_BOT_AUTOCLOSE_FAILED", e); return false; });
+      }
+      return NextResponse.json({ ok: true, ref: corrRef, cerroNovedad });
     }
 
     // Las demás acciones operan sobre un caso concreto.

@@ -160,6 +160,17 @@ function kbHzCambio() {
 function kbConfirmFin() {
   return { inline_keyboard: [[{ text: "✅ Sí, cerrar y generar", callback_data: "finok" }, { text: "✖️ Cancelar", callback_data: "menu:main" }]] };
 }
+// Mini-flujo del correctivo (después de crearlo desde una novedad).
+function kbCorrectivo() {
+  return {
+    inline_keyboard: [
+      [{ text: "📸 Cargar evidencia", callback_data: "corrfoto" }],
+      [{ text: "📝 Solución / diagnóstico", callback_data: "corrnota" }],
+      [{ text: "✅ Cerrar correctivo", callback_data: "corrcerrar" }],
+      [{ text: "⬅️ Volver al bus", callback_data: "corrvolver" }],
+    ],
+  };
+}
 
 const HELP =
   "🤖 *Bot de carga de preventivos*\n\n" +
@@ -230,9 +241,9 @@ async function downloadPhoto(fileId: string): Promise<{ buffer: Buffer; name: st
 
 // ------------------------------ Estado por chat ------------------------------
 
-type Awaiting = { kind: "photo" | "value" | "hallazgo"; sectionId?: string; itemId?: string; severity?: string; label?: string };
+type Awaiting = { kind: "photo" | "value" | "hallazgo" | "corrphoto" | "corrnota"; sectionId?: string; itemId?: string; severity?: string; label?: string };
 type HzDraft = { equipoId?: string; equipoName?: string; tipo?: string };
-type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft };
+type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string };
 const state = new Map<string, ChatState>();
 const getState = (id: string): ChatState => state.get(id) || {};
 const setState = (id: string, s: ChatState) => state.set(id, s);
@@ -307,6 +318,16 @@ async function handleMessage(msg: any) {
   // Foto: si estamos esperando una evidencia.
   const photo = Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length - 1] : (msg.document && /image\//.test(msg.document.mime_type || "") ? msg.document : null);
   if (photo) {
+    // Evidencia de un correctivo (mini-flujo)
+    if (st.awaiting?.kind === "corrphoto" && st.corrCaseId) {
+      const dl = await downloadPhoto(photo.file_id);
+      if (!dl) { await sendMessage(chatId, "⚠️ No pude descargar la foto. Intenta de nuevo."); return; }
+      const r = await apiUpload({ action: "correctivo-upload", chatId, caseId: st.corrCaseId }, dl.buffer, dl.name);
+      setState(chatId, { ...st, awaiting: undefined });
+      if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
+      await sendMessage(chatId, "✅ Evidencia guardada.", kbCorrectivo());
+      return;
+    }
     if (!st.awaiting || st.awaiting.kind !== "photo" || !st.caseId) {
       await sendMessage(chatId, "Primero elige qué evidencia vas a subir (botón 📸 Evidencias).");
       return;
@@ -335,6 +356,15 @@ async function handleMessage(msg: any) {
     return;
   }
   if (cmd === "/start" || cmd === "/help" || cmd === "/ayuda") { await sendMessage(chatId, HELP); return; }
+
+  // Nota / solución del correctivo (mini-flujo, no requiere preventivo).
+  if (st.awaiting?.kind === "corrnota" && st.corrCaseId) {
+    const r = await api({ action: "correctivo-nota", chatId, caseId: st.corrCaseId, nota: text });
+    setState(chatId, { ...st, awaiting: undefined });
+    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
+    await sendMessage(chatId, "✅ Solución guardada.", kbCorrectivo());
+    return;
+  }
 
   // Esperando un valor (voltaje, días) o descripción de hallazgo.
   if (st.awaiting && st.caseId) {
@@ -394,8 +424,36 @@ async function handleCallback(cb: any) {
     const novedadId = data.slice(5);
     const r = await api({ action: "crear-correctivo", chatId, novedadId });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo crear el correctivo."}`); return; }
-    await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (queda asignado a ti).`);
+    setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef });
+    await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nPuedes cargar evidencias y cerrarlo aquí:`, kbCorrectivo());
+    return;
+  }
+  if (data === "corrfoto") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    setState(chatId, { ...st, awaiting: { kind: "corrphoto" } });
+    await sendMessage(chatId, "📸 Envía la foto de la evidencia del correctivo.");
+    return;
+  }
+  if (data === "corrnota") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    setState(chatId, { ...st, awaiting: { kind: "corrnota" } });
+    await sendMessage(chatId, "📝 Escribe la *solución / diagnóstico* del correctivo:");
+    return;
+  }
+  if (data === "corrcerrar") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    const r = await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId });
+    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo cerrar."}`); return; }
+    const nov = r.cerroNovedad ? " La novedad asociada se cerró automáticamente." : "";
+    await sendMessage(chatId, `✅ Correctivo *${r.ref}* cerrado.${nov}`);
+    setState(chatId, { busCode: st.busCode });
     if (st.busCode) await showBusCheck(chatId, st.busCode);
+    return;
+  }
+  if (data === "corrvolver") {
+    setState(chatId, { busCode: st.busCode });
+    if (st.busCode) await showBusCheck(chatId, st.busCode);
+    else await sendMessage(chatId, "Manda el código del bus.");
     return;
   }
 
