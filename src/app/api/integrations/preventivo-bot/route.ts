@@ -26,7 +26,7 @@ import {
   type TipoNovedad,
 } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
-import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || process.env.TENANT_CODE || "CAPITALBUS")
   .trim()
@@ -227,6 +227,59 @@ export async function POST(req: NextRequest) {
       }
       const full = await loadCaseForChecklist(tenantId, kase!.id);
       return NextResponse.json({ ok: true, found: true, creado, status: buildStatus(full, dataOf(full)) });
+    }
+
+    // ----- revisar el bus (antes del preventivo): novedades reportadas abiertas -----
+    if (action === "check-bus") {
+      const bus = await findBus(tenantId, body.busCode);
+      if (!bus) return NextResponse.json({ ok: true, found: false });
+      const novedades = await prisma.case.findMany({
+        where: { tenantId, busId: bus.id, type: CaseType.NOVEDAD, status: { not: CaseStatus.CERRADO } },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { id: true, caseNo: true, title: true, status: true },
+      });
+      return NextResponse.json({
+        ok: true,
+        found: true,
+        bus: { code: bus.code, plate: bus.plate ?? null },
+        novedades: novedades.map((n) => ({ id: n.id, ref: `CASO-${String(n.caseNo ?? "").padStart(3, "0")}`, title: n.title ?? "", status: n.status })),
+      });
+    }
+
+    // ----- crear un correctivo ligado a una novedad reportada -----
+    if (action === "crear-correctivo") {
+      const novedadId = String(body.novedadId || "").trim();
+      const nov = await prisma.case.findFirst({
+        where: { id: novedadId, tenantId, type: CaseType.NOVEDAD },
+        select: { id: true, caseNo: true, busId: true, title: true, bus: { select: { code: true } } },
+      });
+      if (!nov) return NextResponse.json({ ok: true, error: "No encuentro esa novedad." });
+      const nums = await nextNumbers(prisma as any, tenantId, { case: true, workOrder: true });
+      const novRef = `CASO-${String(nov.caseNo ?? "").padStart(3, "0")}`;
+      const corr = await prisma.case.create({
+        data: {
+          tenantId,
+          caseNo: nums.caseNo ?? null,
+          type: CaseType.CORRECTIVO,
+          status: CaseStatus.OT_ASIGNADA,
+          priority: 3,
+          title: `Correctivo de novedad ${novRef}${nov.bus?.code ? ` (${nov.bus.code})` : ""}`,
+          description: `Generado desde el bot para atender la novedad ${novRef}.\n${nov.title ?? ""}`.trim(),
+          busId: nov.busId,
+          assignedToId: user.id,
+        },
+        select: { id: true, caseNo: true },
+      });
+      await prisma.workOrder.create({ data: { tenantId, workOrderNo: nums.workOrderNo ?? null, caseId: corr.id, status: WorkOrderStatus.CREADA, assignedToId: user.id } });
+      const corrRef = `CASO-${String(corr.caseNo ?? "").padStart(3, "0")}`;
+      await prisma.caseEvent.createMany({
+        data: [
+          { caseId: corr.id, type: CaseEventType.CREATED, message: `Correctivo generado desde el bot para la novedad ${novRef}.`, meta: { userId: user.id, sourceCaseId: nov.id, sourceCaseNo: nov.caseNo, manual: true, source: "preventivo-bot" } },
+          { caseId: nov.id, type: CaseEventType.COMMENT, message: `Se generó correctivo ${corrRef} desde el bot.`, meta: { by: user.id, generatedCaseId: corr.id, source: "preventivo-bot" } },
+        ],
+      });
+      return NextResponse.json({ ok: true, correctivoRef: corrRef, novedadRef: novRef });
     }
 
     // Las demás acciones operan sobre un caso concreto.

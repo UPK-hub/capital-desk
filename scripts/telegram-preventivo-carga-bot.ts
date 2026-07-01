@@ -264,6 +264,37 @@ async function notifyGroup(s: any) {
   await tg("sendMessage", { chat_id: GROUP_CHAT_ID, text: txt, parse_mode: "Markdown", disable_web_page_preview: true }).catch(() => {});
 }
 
+// Crea/abre el preventivo del mes y muestra el menú.
+async function startPreventivo(chatId: string, busCode: string) {
+  const r = await api({ action: "start", chatId, busCode });
+  if (!r?.ok) { await sendMessage(chatId, "⚠️ No pude conectar. Intenta de nuevo."); return; }
+  if (!r.found) { await sendMessage(chatId, "No encontré ese bus. Escribe el código (ej. K1416)."); return; }
+  setState(chatId, { caseId: r.status.caseId, busCode: r.status.busCode });
+  await showMenu(chatId, r.status, r.creado ? "🛠️ Creé el preventivo del mes." : "🛠️ Preventivo en curso.");
+}
+
+// Antes del preventivo: revisa novedades reportadas del bus y ofrece crear correctivo.
+async function showBusCheck(chatId: string, busCode: string) {
+  const chk = await api({ action: "check-bus", chatId, busCode });
+  if (!chk?.ok) { await sendMessage(chatId, "⚠️ No pude conectar. Intenta de nuevo."); return; }
+  if (!chk.found) { await sendMessage(chatId, "No encontré ese bus. Escribe el código (ej. K1416 o 1416)."); return; }
+  setState(chatId, { busCode: chk.bus.code });
+  const nov = chk.novedades || [];
+  if (nov.length) {
+    const lines = nov.map((n: any) => `• ${n.ref} — ${n.title || "novedad"}`).join("\n");
+    const kb = {
+      inline_keyboard: [
+        ...nov.map((n: any) => [{ text: `🔧 Crear correctivo: ${n.ref}`, callback_data: `cnov:${n.id}` }]),
+        [{ text: "🛠️ Iniciar preventivo", callback_data: "iniprev" }],
+      ],
+    };
+    await sendMessage(chatId, `⚠️ El bus *${chk.bus.code}* tiene *${nov.length}* novedad(es) reportada(s):\n${lines}\n\n¿Qué deseas hacer?`, kb);
+  } else {
+    await sendMessage(chatId, `✅ Bus *${chk.bus.code}* sin novedades reportadas.`);
+    await startPreventivo(chatId, chk.bus.code);
+  }
+}
+
 async function handleMessage(msg: any) {
   const chatId = String(msg.chat.id);
   const chatType = msg.chat.type;
@@ -333,12 +364,8 @@ async function handleMessage(msg: any) {
   if (looksLikeBus(text)) {
     const who = await api({ action: "whoami", chatId });
     if (!who?.user) { await sendMessage(chatId, "Primero regístrate: `/registrar tu-correo@dominio.com`"); return; }
-    await sendMessage(chatId, "🔎 Buscando el preventivo del bus...");
-    const r = await api({ action: "start", chatId, busCode: text });
-    if (!r?.ok) { await sendMessage(chatId, "⚠️ No pude conectar. Intenta de nuevo."); return; }
-    if (!r.found) { await sendMessage(chatId, "No encontré ese bus. Escribe el código (ej. K1416 o 1416)."); return; }
-    setState(chatId, { caseId: r.status.caseId, busCode: r.status.busCode });
-    await showMenu(chatId, r.status, r.creado ? "🛠️ Creé el preventivo del mes." : "🛠️ Preventivo en curso.");
+    await sendMessage(chatId, "🔎 Revisando el bus...");
+    await showBusCheck(chatId, text);
     return;
   }
 
@@ -356,6 +383,22 @@ async function handleCallback(cb: any) {
   const data = String(cb.data || "");
   const st = getState(chatId);
   await answerCb(cb.id);
+
+  // Estas opciones funcionan ANTES de iniciar el preventivo (no requieren caseId):
+  if (data === "iniprev") {
+    if (!st.busCode) { await sendMessage(chatId, "Manda el código del bus."); return; }
+    await startPreventivo(chatId, st.busCode);
+    return;
+  }
+  if (data.startsWith("cnov:")) {
+    const novedadId = data.slice(5);
+    const r = await api({ action: "crear-correctivo", chatId, novedadId });
+    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo crear el correctivo."}`); return; }
+    await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (queda asignado a ti).`);
+    if (st.busCode) await showBusCheck(chatId, st.busCode);
+    return;
+  }
+
   if (!st.caseId && data !== "menu:main") { await sendMessage(chatId, "Manda el código del bus para empezar."); return; }
 
   const refresh = async () => (await api({ action: "status", chatId, caseId: st.caseId })).status;
