@@ -124,6 +124,7 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
     items: [
       { id: "inicio", label: "Inicio", type: "photo" },
       { id: "fin", label: "Fin", type: "photo" },
+      { id: "limpiezaCamara", label: "Limpieza de cámara (antes / después)", type: "photo" },
       { id: "habitaculo", label: "Habitáculo", type: "photo" },
       { id: "tapa", label: "Tapa", type: "photo" },
       { id: "baterias", label: "Baterías", type: "photo" },

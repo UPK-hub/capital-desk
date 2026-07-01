@@ -138,6 +138,32 @@ export default function GestionCasoCard(props: Props) {
     "Sin sincronización con CMS",
   ];
 
+  // Diagnósticos frecuentes para el correctivo físico (edítalos aquí si hace falta).
+  const DIAGNOSTICOS = [
+    "Bus no reporta al centro de gestión (CMS)",
+    "Sin transmisión de video remoto",
+    "NVR/DVR no enciende",
+    "NVR sin grabación",
+    "Disco duro dañado o sin espacio",
+    "Cámara sin imagen",
+    "Cámara con imagen borrosa o desenfocada",
+    "Cámara obstruida o sucia",
+    "Cámara desconectada / cable dañado",
+    "Falla de energía / fusible quemado",
+    "Batería baja o dañada",
+    "Router / SIM sin señal (sin datos)",
+    "Antena desconectada o dañada",
+    "GPS sin señal / coordenadas en cero",
+    "Odómetro en cero / falla de sensor de velocidad",
+    "Botón de pánico no funciona",
+    "Audio / micrófono sin funcionamiento",
+    "Monitor / pantalla sin imagen",
+    "Configuración o parámetros perdidos",
+    "Fecha / hora incorrecta en el video",
+    "Cableado suelto o conectores flojos",
+    "Switch PoE sin energía a las cámaras",
+  ];
+
   // -------- helpers del checklist --------
   function setItem(sectionId: string, itemId: string, patch: Partial<ChecklistItemValue>) {
     setChecklist((prev) => ({
@@ -538,7 +564,17 @@ export default function GestionCasoCard(props: Props) {
             {tipoCorr === "fisico" ? (
               <div>
                 <span className={label}>Diagnóstico / solución</span>
-                <textarea value={diagnostico} onChange={(e) => setDiagnostico(e.target.value)} rows={2} placeholder="Qué se hizo" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) setDiagnostico(e.target.value); }}
+                  className={field}
+                >
+                  <option value="">Elegir diagnóstico frecuente…</option>
+                  {DIAGNOSTICOS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <textarea value={diagnostico} onChange={(e) => setDiagnostico(e.target.value)} rows={2} placeholder="Qué se hizo (puedes editar o ampliar)" className="app-field-control mt-2 w-full rounded-lg px-3 py-2 text-sm" />
               </div>
             ) : (
               <div>

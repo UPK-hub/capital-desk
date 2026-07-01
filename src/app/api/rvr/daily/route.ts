@@ -12,10 +12,12 @@ import {
   asDateInput,
   createDefaultRvrChecklist,
   normalizeRvrChecklist,
+  normalizeRvrAspects,
   parseDateInput,
   pickNvrIpFromEquipments,
   RVR_MAX_BUSES_PER_DAY,
 } from "@/lib/rvr";
+import { buildRvrValidationQueue, buildRvrCorrectiveQueue, type RvrQueueItem } from "@/lib/rvr/priority";
 
 type PersistedEvidence = {
   filePath: string;
@@ -174,6 +176,56 @@ async function buildEligibleBuses(tenantId: string, includeBusIds: string[] = []
     });
 }
 
+// Buses elegibles según el MOTOR DE PRIORIDAD (no transmite, alarma cámara,
+// preventivo ayer/10d, recheck 15d). Devuelve la misma forma que buildEligibleBuses
+// + el motivo/orden, y agrega la IP del NVR.
+async function buildPriorityEligibleBuses(tenantId: string, includeBusIds: string[] = []) {
+  const queue = await buildRvrValidationQueue(tenantId, RVR_MAX_BUSES_PER_DAY);
+  const byId = new Map(queue.map((q) => [q.busId, q]));
+  const allIds = Array.from(new Set([...queue.map((q) => q.busId), ...includeBusIds]));
+  if (allIds.length === 0) return [];
+
+  const buses = await prisma.bus.findMany({
+    where: { tenantId, id: { in: allIds } },
+    select: {
+      id: true,
+      code: true,
+      plate: true,
+      equipments: {
+        where: { active: true },
+        select: { ipAddress: true, location: true, equipmentType: { select: { name: true } } },
+      },
+    },
+  });
+  const busById = new Map(buses.map((b) => [b.id, b]));
+  const includeSet = new Set(includeBusIds);
+
+  const rows = allIds
+    .map((id) => {
+      const b = busById.get(id);
+      if (!b) return null;
+      const q = byId.get(id);
+      return {
+        id: b.id,
+        code: b.code,
+        plate: b.plate,
+        nvrIp: pickNvrIpFromEquipments(b.equipments),
+        lastPreventiveAt: q?.lastPreventiveAt ? new Date(q.lastPreventiveAt) : null,
+        eligible: Boolean(q),
+        forceIncluded: includeSet.has(id),
+        rank: q?.rank ?? 99,
+        reason: q?.reason ?? null,
+        reasonLabel: q?.reasonLabel ?? null,
+        detail: q?.detail ?? "",
+        hasOpenNovedad: q?.hasOpenNovedad ?? false,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null);
+
+  rows.sort((a, b) => (a.rank !== b.rank ? a.rank - b.rank : a.code.localeCompare(b.code, "es")));
+  return rows;
+}
+
 function mapReviewBusRow(row: {
   id: string;
   busId: string;
@@ -188,6 +240,10 @@ function mapReviewBusRow(row: {
   capitalbusOt: string | null;
   checklist: unknown;
   evidences: unknown;
+  aspects?: unknown;
+  priorityRank?: number | null;
+  priorityReason?: string | null;
+  priorityDetail?: string | null;
   correctiveCaseId: string | null;
   correctiveCaseNo: number | null;
   correctiveWorkOrderId: string | null;
@@ -206,7 +262,11 @@ function mapReviewBusRow(row: {
     requiresCorrective: row.requiresCorrective,
     capitalbusOt: row.capitalbusOt ?? "",
     checklist: normalizeRvrChecklist(row.checklist),
+    aspects: normalizeRvrAspects(row.aspects),
     evidences: normalizeEvidence(row.evidences),
+    priorityRank: row.priorityRank ?? null,
+    priorityReason: row.priorityReason ?? null,
+    priorityDetail: row.priorityDetail ?? null,
     correctiveCaseId: row.correctiveCaseId,
     correctiveCaseNo: row.correctiveCaseNo,
     correctiveWorkOrderId: row.correctiveWorkOrderId,
@@ -237,17 +297,27 @@ export async function GET(req: NextRequest) {
     },
     include: {
       buses: {
-        orderBy: { busCode: "asc" },
+        orderBy: [{ priorityRank: "asc" }, { busCode: "asc" }],
       },
     },
   });
 
   const selectedBusIds = review?.buses.map((item) => item.busId) ?? [];
-  const eligibleBuses = await buildEligibleBuses(tenantId, selectedBusIds);
+  let eligibleBuses: Array<Record<string, any>>;
+  let correctiveQueue: RvrQueueItem[] = [];
+  try {
+    eligibleBuses = await buildPriorityEligibleBuses(tenantId, selectedBusIds);
+    correctiveQueue = await buildRvrCorrectiveQueue(tenantId, RVR_MAX_BUSES_PER_DAY);
+  } catch (e) {
+    console.error("RVR_PRIORITY_FAILED", e);
+    eligibleBuses = await buildEligibleBuses(tenantId, selectedBusIds);
+    correctiveQueue = [];
+  }
 
   return NextResponse.json({
     date: asDateInput(reviewDate),
     maxBuses: RVR_MAX_BUSES_PER_DAY,
+    correctiveQueue,
     eligibleBuses: eligibleBuses.map((item) => ({
       ...item,
       lastPreventiveAt: item.lastPreventiveAt?.toISOString() ?? null,
@@ -445,6 +515,7 @@ export async function POST(req: NextRequest) {
         requiresCorrective: Boolean(entry?.requiresCorrective),
         capitalbusOt: String(entry?.capitalbusOt ?? "").trim() || null,
         checklist,
+        aspects: normalizeRvrAspects(entry?.aspects),
         evidences: persistedEvidence,
       },
       update: {
@@ -461,6 +532,7 @@ export async function POST(req: NextRequest) {
         requiresCorrective: Boolean(entry?.requiresCorrective),
         capitalbusOt: String(entry?.capitalbusOt ?? "").trim() || null,
         checklist,
+        aspects: normalizeRvrAspects(entry?.aspects),
         evidences: persistedEvidence,
       },
     });

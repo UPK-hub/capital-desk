@@ -1,4 +1,4 @@
-export const RVR_MAX_BUSES_PER_DAY = 8;
+export const RVR_MAX_BUSES_PER_DAY = 30;
 
 export const RVR_CAMERA_ORDER = [
   "BFE",
@@ -68,6 +68,35 @@ export function normalizeRvrChecklist(input: unknown): RvrChecklistRow[] {
       observationCode: found.observationCode,
     };
   });
+}
+
+// Aspectos que valida la revisión remota, por bus (además del detalle por cámara).
+export const RVR_BUS_ASPECTS = [
+  { key: "transmite", label: "Está transmitiendo" },
+  { key: "accesoRemoto", label: "Permite acceso remoto" },
+  { key: "p20", label: "Genera P20 correctamente" },
+  { key: "p60", label: "Genera P60 correctamente" },
+  { key: "coordenadas", label: "Coordenadas correctas" },
+] as const;
+
+export type RvrAspectKey = (typeof RVR_BUS_ASPECTS)[number]["key"];
+export type RvrAspects = Record<RvrAspectKey, "S" | "N" | "">;
+
+export function createDefaultRvrAspects(): RvrAspects {
+  const out = {} as RvrAspects;
+  for (const a of RVR_BUS_ASPECTS) out[a.key] = "";
+  return out;
+}
+
+export function normalizeRvrAspects(input: unknown): RvrAspects {
+  const out = createDefaultRvrAspects();
+  if (input && typeof input === "object") {
+    for (const a of RVR_BUS_ASPECTS) {
+      const v = String((input as any)[a.key] ?? "").trim().toUpperCase();
+      out[a.key] = v === "S" || v === "N" ? (v as "S" | "N") : "";
+    }
+  }
+  return out;
 }
 
 export function asDateInput(value: Date): string {

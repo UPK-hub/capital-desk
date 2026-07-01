@@ -1057,6 +1057,13 @@ model RemoteVisualReviewBus {
 
   checklist Json?
   evidences Json?
+  // Aspectos por bus (transmite, acceso remoto, P20, P60, coordenadas).
+  aspects   Json?
+
+  // Prioridad con la que entró a la revisión (motor de priorización RVR).
+  priorityRank   Int?
+  priorityReason String?
+  priorityDetail String?
 
   correctiveCaseId      String?
   correctiveCaseNo      Int?
