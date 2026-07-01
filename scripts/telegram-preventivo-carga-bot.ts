@@ -175,6 +175,9 @@ const API = `https://api.telegram.org/bot${TOKEN}`;
 const ENDPOINT = process.env.PREVENTIVO_BOT_URL || "http://localhost:3000/api/integrations/preventivo-bot";
 const SECRET = process.env.NOVEDADES_INTAKE_SECRET || "";
 const TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || "").trim();
+// Grupo de Telegram donde se avisa al cerrar un preventivo (opcional). El bot
+// de carga debe estar dentro del grupo. Consigue el id enviando /id en el grupo.
+const GROUP_CHAT_ID = (process.env.TELEGRAM_PREVENTIVOS_GROUP_CHAT_ID || "").trim();
 
 async function tg(method: string, body: any): Promise<any> {
   const res = await fetch(`${API}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -247,9 +250,26 @@ async function showMenu(chatId: string, s: any, prefix?: string) {
   await sendMessage(chatId, `${prefix ? prefix + "\n\n" : ""}${fmtStatus(s)}`, kbMain(s));
 }
 
+// Aviso al grupo "Preventivos CapitalBus" cuando se cierra un preventivo.
+async function notifyGroup(s: any) {
+  if (!GROUP_CHAT_ID || !s) return;
+  const r = s.resumen || {};
+  const txt = [
+    `🛠️ *Preventivo cerrado* — ${s.ref}`,
+    `🚌 Bus ${s.busCode ?? "?"}${s.busPlate ? ` (${s.busPlate})` : ""}`,
+    `👷 Cerró: ${s.cierreBy || "—"}`,
+    `🧾 OT Capital: ${s.otCapital || "pendiente"}`,
+    `✅ OK ${r.ok ?? 0}/${r.aplicables ?? 0}   ⚠️ Hallazgos ${r.hallazgo ?? 0}`,
+  ].join("\n");
+  await tg("sendMessage", { chat_id: GROUP_CHAT_ID, text: txt, parse_mode: "Markdown", disable_web_page_preview: true }).catch(() => {});
+}
+
 async function handleMessage(msg: any) {
   const chatId = String(msg.chat.id);
   const chatType = msg.chat.type;
+  // /id funciona en cualquier chat (incluidos grupos), para obtener el id del grupo.
+  const firstTok = String(msg.text || "").trim().toLowerCase().split(/\s+/)[0]?.split("@")[0];
+  if (firstTok === "/id") { await sendMessage(chatId, `🆔 Chat ID: ${chatId}`); return; }
   if (chatType && chatType !== "private") return;
   const st = getState(chatId);
 
@@ -413,6 +433,7 @@ async function handleCallback(cb: any) {
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo cerrar."}`); return; }
     const cert = r.certificado ? "📄 Certificado generado y adjunto al caso." : "⚠️ (El certificado no se pudo generar; revísalo en el panel.)";
     await sendMessage(chatId, `✅ Preventivo *${r.status.ref}* cerrado.\n${cert}`);
+    await notifyGroup(r.status);
     setState(chatId, {});
     return;
   }
