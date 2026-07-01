@@ -27,6 +27,7 @@ import {
 } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
+import { isCameraEquipment } from "@/lib/equipment-category";
 import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || process.env.TENANT_CODE || "CAPITALBUS")
@@ -288,7 +289,26 @@ export async function POST(req: NextRequest) {
           { caseId: nov.id, type: CaseEventType.COMMENT, message: `Se generó correctivo ${corrRef} desde el bot.`, meta: { by: user.id, generatedCaseId: corr.id, source: "preventivo-bot" } },
         ],
       });
-      return NextResponse.json({ ok: true, correctivoRef: corrRef, correctivoCaseId: corr.id, novedadRef: novRef });
+      // Cámaras afectadas de la novedad → se ligan al correctivo (hoja de vida) y se
+      // devuelven para poder detallar diagnóstico/solución/observación por cámara.
+      const novEq = await prisma.caseEquipment.findMany({
+        where: { caseId: nov.id },
+        select: { busEquipment: { select: { id: true, serial: true, location: true, equipmentType: { select: { name: true } } } } },
+      });
+      const camaras = novEq
+        .map((e) => e.busEquipment)
+        .filter((e): e is NonNullable<typeof e> => !!e && isCameraEquipment(e.equipmentType?.name, e.location))
+        .map((e) => ({
+          id: e.id,
+          label: `${e.equipmentType?.name ?? "Cámara"}${e.location ? ` ${e.location}` : ""}${e.serial ? ` (${e.serial})` : ""}`.trim(),
+        }));
+      if (camaras.length) {
+        await prisma.caseEquipment.createMany({
+          data: camaras.map((c) => ({ caseId: corr.id, busEquipmentId: c.id })),
+          skipDuplicates: true,
+        });
+      }
+      return NextResponse.json({ ok: true, correctivoRef: corrRef, correctivoCaseId: corr.id, novedadRef: novRef, cameras: camaras });
     }
 
     // ----- correctivo desde el bot: cargar evidencia, nota y cerrar -----
@@ -320,22 +340,44 @@ export async function POST(req: NextRequest) {
       const solucion = String(body.solucion || "").trim();
       const observacion = String(body.observacion || "").trim();
       const fechaTexto = String(body.fecha || "").trim();
+      const porCamara = Array.isArray(body.porCamara) ? body.porCamara : [];
       let cerroNovedad = false;
       if (corr.status !== CaseStatus.CERRADO) {
-        // Registro estandarizado del correctivo (diagnóstico + solución + observación + fecha realizada).
-        const lineas: string[] = [];
-        if (diagnostico) lineas.push(`Diagnóstico: ${diagnostico}`);
-        if (solucion) lineas.push(`Solución: ${solucion}`);
-        if (observacion) lineas.push(`Observación: ${observacion}`);
-        lineas.push(`Realizado: ${fechaTexto || new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" })}`);
-        await prisma.caseEvent.create({
-          data: {
-            caseId: corr.id,
-            type: CaseEventType.COMMENT,
-            message: lineas.join("\n"),
-            meta: { by: user.id, source: "preventivo-bot", manualComment: true, diagnostico, solucion, observacion, realizadoEn: fechaTexto || null },
-          },
-        });
+        const realizado = fechaTexto || new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });
+        if (porCamara.length) {
+          // Un registro estandarizado por cámara.
+          for (const cam of porCamara) {
+            const label = String(cam?.label || "").trim();
+            const dg = String(cam?.diagnostico || "").trim();
+            const so = String(cam?.solucion || "").trim();
+            const ob = String(cam?.observacion || "").trim();
+            const ls: string[] = [`Cámara: ${label || "—"}`];
+            if (dg) ls.push(`Diagnóstico: ${dg}`);
+            if (so) ls.push(`Solución: ${so}`);
+            if (ob) ls.push(`Observación: ${ob}`);
+            await prisma.caseEvent.create({
+              data: { caseId: corr.id, type: CaseEventType.COMMENT, message: ls.join("\n"), meta: { by: user.id, source: "preventivo-bot", manualComment: true, porCamara: true, camara: label, diagnostico: dg, solucion: so, observacion: ob } },
+            });
+          }
+          await prisma.caseEvent.create({
+            data: { caseId: corr.id, type: CaseEventType.COMMENT, message: `Realizado: ${realizado}`, meta: { by: user.id, source: "preventivo-bot", manualComment: true, realizadoEn: fechaTexto || null } },
+          });
+        } else {
+          // Registro estandarizado del correctivo (una sola cámara / equipo).
+          const lineas: string[] = [];
+          if (diagnostico) lineas.push(`Diagnóstico: ${diagnostico}`);
+          if (solucion) lineas.push(`Solución: ${solucion}`);
+          if (observacion) lineas.push(`Observación: ${observacion}`);
+          lineas.push(`Realizado: ${realizado}`);
+          await prisma.caseEvent.create({
+            data: {
+              caseId: corr.id,
+              type: CaseEventType.COMMENT,
+              message: lineas.join("\n"),
+              meta: { by: user.id, source: "preventivo-bot", manualComment: true, diagnostico, solucion, observacion, realizadoEn: fechaTexto || null },
+            },
+          });
+        }
         await prisma.case.update({ where: { id: corr.id }, data: { status: CaseStatus.CERRADO } });
         await prisma.caseEvent.create({ data: { caseId: corr.id, type: CaseEventType.STATUS_CHANGE, message: `Correctivo cerrado desde el bot por ${user.name}.`, meta: { by: user.id, source: "preventivo-bot" } } });
         cerroNovedad = await maybeAutoCloseLinkedNovedad(tenantId, corr.id, user.id).catch((e) => { console.error("PREVENTIVO_BOT_AUTOCLOSE_FAILED", e); return false; });

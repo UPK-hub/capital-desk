@@ -166,7 +166,10 @@ const DIAGNOSTICOS = [
   "Cable suelto o dañado",
   "Conector flojo / mal ponchado",
   "Falla de alimentación",
+  "Cámara desalineada",
   "Cámara desconfigurada",
+  "Cámara sucia u obstruida",
+  "Cámara con lente dañado",
   "Disco dañado",
   "Firmware desactualizado",
   "Equipo dañado (requiere cambio)",
@@ -176,6 +179,9 @@ const SOLUCIONES = [
   "Reponchado",
   "Reconexión de cable",
   "Reemplazo de cable",
+  "Ajuste de ángulo",
+  "Reorientación de cámara",
+  "Limpieza de lente",
   "Reconfiguración",
   "Actualización de firmware",
   "Cambio de equipo",
@@ -203,6 +209,41 @@ function kbDiag() {
 }
 function kbSol() {
   return { inline_keyboard: [...SOLUCIONES.map((s, i) => [{ text: s, callback_data: `sol:${i}` }]), [{ text: "⬅️ Volver", callback_data: "corrmenu" }]] };
+}
+
+// --- Correctivo con VARIAS cámaras: diagnóstico/solución/observación por cámara ---
+type CorrCam = { id: string; label: string; diagnostico?: string; solucion?: string; observacion?: string };
+function kbCorrMulti(st: ChatState) {
+  const cams = st.corrCams || [];
+  const rows: any[][] = cams.map((c) => [{ text: `${c.diagnostico && c.solucion ? "✅" : "⬜"} ${c.label}`, callback_data: `corrcam:${c.id}` }]);
+  rows.push([{ text: `🕐 Fecha: ${st.corrDraft?.fecha || "ahora"}`, callback_data: "corrfecha" }]);
+  rows.push([{ text: "📸 Cargar evidencia", callback_data: "corrfoto" }]);
+  rows.push([{ text: "✅ Cerrar correctivo", callback_data: "corrcerrar" }]);
+  rows.push([{ text: "⬅️ Volver al bus", callback_data: "corrvolver" }]);
+  return { inline_keyboard: rows };
+}
+function kbCorrCam(c: CorrCam) {
+  return {
+    inline_keyboard: [
+      [{ text: `🔍 Diagnóstico${c.diagnostico ? ": " + c.diagnostico : ""}`, callback_data: "corrdiag" }],
+      [{ text: `🔧 Solución${c.solucion ? ": " + c.solucion : ""}`, callback_data: "corrsol" }],
+      [{ text: `📝 Observación${c.observacion ? " ✓" : ""}`, callback_data: "corrobs" }],
+      [{ text: "⬅️ Volver a las cámaras", callback_data: "corrcamback" }],
+    ],
+  };
+}
+function corrActiveCam(st: ChatState): CorrCam | undefined {
+  return (st.corrCams || []).find((c) => c.id === st.corrCamActive);
+}
+// Muestra el menú del correctivo según el modo (varias cámaras / cámara activa / simple).
+async function sendCorrMenu(chatId: string, st: ChatState, prefix?: string) {
+  const pre = prefix ? prefix + "\n" : "";
+  if ((st.corrCams?.length ?? 0) > 0) {
+    const active = corrActiveCam(st);
+    if (active) { await sendMessage(chatId, `${pre}Cámara *${active.label}*:`, kbCorrCam(active)); return; }
+    await sendMessage(chatId, `${pre}Correctivo *${st.corrRef}* — detalla cada cámara y luego cierra:`, kbCorrMulti(st)); return;
+  }
+  await sendMessage(chatId, `${pre}Correctivo *${st.corrRef}*:`, kbCorrectivo(st.corrDraft));
 }
 
 const HELP =
@@ -276,7 +317,7 @@ async function downloadPhoto(fileId: string): Promise<{ buffer: Buffer; name: st
 
 type Awaiting = { kind: "photo" | "value" | "hallazgo" | "corrphoto" | "corrobs" | "corrfecha"; sectionId?: string; itemId?: string; severity?: string; label?: string };
 type HzDraft = { equipoId?: string; equipoName?: string; tipo?: string };
-type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string; corrDraft?: CorrDraft; corrEvid?: number };
+type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string; corrDraft?: CorrDraft; corrEvid?: number; corrCams?: CorrCam[]; corrCamActive?: string };
 const state = new Map<string, ChatState>();
 const getState = (id: string): ChatState => state.get(id) || {};
 const setState = (id: string, s: ChatState) => state.set(id, s);
@@ -370,8 +411,9 @@ async function handleMessage(msg: any) {
       const r = await apiUpload({ action: "correctivo-upload", chatId, caseId: st.corrCaseId }, dl.buffer, dl.name);
       if (!r?.ok || r.error) { setState(chatId, { ...st, awaiting: undefined }); await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
       const nEvid = (st.corrEvid || 0) + 1;
-      setState(chatId, { ...st, awaiting: undefined, corrEvid: nEvid });
-      await sendMessage(chatId, `✅ Evidencia guardada (${nEvid}). Puedes subir más o cerrar.`, kbCorrectivo(st.corrDraft));
+      const newSt = { ...st, awaiting: undefined, corrEvid: nEvid };
+      setState(chatId, newSt);
+      await sendCorrMenu(chatId, newSt, `✅ Evidencia guardada (${nEvid}). Puedes subir más o cerrar.`);
       return;
     }
     if (!st.awaiting || st.awaiting.kind !== "photo" || !st.caseId) {
@@ -404,19 +446,22 @@ async function handleMessage(msg: any) {
   }
   if (cmd === "/start" || cmd === "/help" || cmd === "/ayuda") { await sendMessage(chatId, HELP); return; }
 
-  // Observación libre del correctivo (mini-flujo, no requiere preventivo).
+  // Observación del correctivo (por cámara si hay una activa; si no, del correctivo).
   if (st.awaiting?.kind === "corrobs" && st.corrCaseId) {
-    const draft = { ...(st.corrDraft || {}), observacion: text };
-    setState(chatId, { ...st, awaiting: undefined, corrDraft: draft });
-    await sendMessage(chatId, "✅ Observación guardada.", kbCorrectivo(draft));
+    const active = corrActiveCam(st);
+    const newSt = active
+      ? { ...st, awaiting: undefined, corrCams: (st.corrCams || []).map((c) => (c.id === active.id ? { ...c, observacion: text } : c)) }
+      : { ...st, awaiting: undefined, corrDraft: { ...(st.corrDraft || {}), observacion: text } };
+    setState(chatId, newSt);
+    await sendCorrMenu(chatId, newSt, "✅ Observación guardada.");
     return;
   }
-  // Fecha y hora en que se realizó el correctivo.
+  // Fecha y hora en que se realizó el correctivo (global).
   if (st.awaiting?.kind === "corrfecha" && st.corrCaseId) {
     const fecha = /^ahora$/i.test(text) ? "" : text;
-    const draft = { ...(st.corrDraft || {}), fecha };
-    setState(chatId, { ...st, awaiting: undefined, corrDraft: draft });
-    await sendMessage(chatId, fecha ? `✅ Fecha: ${fecha}` : "✅ Se usará la fecha y hora actual.", kbCorrectivo(draft));
+    const newSt = { ...st, awaiting: undefined, corrDraft: { ...(st.corrDraft || {}), fecha } };
+    setState(chatId, newSt);
+    await sendCorrMenu(chatId, newSt, fecha ? `✅ Fecha: ${fecha}` : "✅ Se usará la fecha y hora actual.");
     return;
   }
 
@@ -478,13 +523,33 @@ async function handleCallback(cb: any) {
     const novedadId = data.slice(5);
     const r = await api({ action: "crear-correctivo", chatId, novedadId });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo crear el correctivo."}`); return; }
-    setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {}, corrEvid: 0 });
-    await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nCompleta y ciérralo:`, kbCorrectivo({}));
+    const cams = Array.isArray(r.cameras) ? r.cameras : [];
+    if (cams.length > 1) {
+      const newSt = { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {}, corrEvid: 0, corrCams: cams.map((c: any) => ({ id: String(c.id), label: String(c.label) })), corrCamActive: undefined };
+      setState(chatId, newSt);
+      await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (*${cams.length}* cámaras).\n\nDetalla cada cámara y ciérralo:`, kbCorrMulti(newSt));
+    } else {
+      setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {}, corrEvid: 0, corrCams: undefined, corrCamActive: undefined });
+      await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nCompleta y ciérralo:`, kbCorrectivo({}));
+    }
     return;
   }
   if (data === "corrmenu") {
     if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
-    await sendMessage(chatId, `Correctivo *${st.corrRef}*:`, kbCorrectivo(st.corrDraft));
+    await sendCorrMenu(chatId, st);
+    return;
+  }
+  if (data.startsWith("corrcam:")) {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    const newSt = { ...st, corrCamActive: data.slice(8) };
+    setState(chatId, newSt);
+    await sendCorrMenu(chatId, newSt);
+    return;
+  }
+  if (data === "corrcamback") {
+    const newSt = { ...st, corrCamActive: undefined };
+    setState(chatId, newSt);
+    await sendCorrMenu(chatId, newSt);
     return;
   }
   if (data === "corrdiag") {
@@ -494,9 +559,12 @@ async function handleCallback(cb: any) {
   }
   if (data.startsWith("diag:")) {
     const dg = DIAGNOSTICOS[parseInt(data.slice(5), 10)] || "";
-    const draft = { ...(st.corrDraft || {}), diagnostico: dg };
-    setState(chatId, { ...st, corrDraft: draft });
-    await sendMessage(chatId, `✅ Diagnóstico: ${dg}`, kbCorrectivo(draft));
+    const active = corrActiveCam(st);
+    const newSt = active
+      ? { ...st, corrCams: (st.corrCams || []).map((c) => (c.id === active.id ? { ...c, diagnostico: dg } : c)) }
+      : { ...st, corrDraft: { ...(st.corrDraft || {}), diagnostico: dg } };
+    setState(chatId, newSt);
+    await sendCorrMenu(chatId, newSt, `✅ Diagnóstico: ${dg}`);
     return;
   }
   if (data === "corrsol") {
@@ -506,9 +574,12 @@ async function handleCallback(cb: any) {
   }
   if (data.startsWith("sol:")) {
     const so = SOLUCIONES[parseInt(data.slice(4), 10)] || "";
-    const draft = { ...(st.corrDraft || {}), solucion: so };
-    setState(chatId, { ...st, corrDraft: draft });
-    await sendMessage(chatId, `✅ Solución: ${so}`, kbCorrectivo(draft));
+    const active = corrActiveCam(st);
+    const newSt = active
+      ? { ...st, corrCams: (st.corrCams || []).map((c) => (c.id === active.id ? { ...c, solucion: so } : c)) }
+      : { ...st, corrDraft: { ...(st.corrDraft || {}), solucion: so } };
+    setState(chatId, newSt);
+    await sendCorrMenu(chatId, newSt, `✅ Solución: ${so}`);
     return;
   }
   if (data === "corrobs") {
@@ -543,7 +614,10 @@ async function handleCallback(cb: any) {
       return;
     }
     const d = st.corrDraft || {};
-    const r = await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId, diagnostico: d.diagnostico || "", solucion: d.solucion || "", observacion: d.observacion || "", fecha: d.fecha || "" });
+    const multi = (st.corrCams?.length ?? 0) > 0;
+    const r = multi
+      ? await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId, fecha: d.fecha || "", porCamara: (st.corrCams || []).map((c) => ({ label: c.label, diagnostico: c.diagnostico || "", solucion: c.solucion || "", observacion: c.observacion || "" })) })
+      : await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId, diagnostico: d.diagnostico || "", solucion: d.solucion || "", observacion: d.observacion || "", fecha: d.fecha || "" });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo cerrar."}`); return; }
     const nov = r.cerroNovedad ? " La novedad asociada se cerró automáticamente." : "";
     await sendMessage(chatId, `✅ Correctivo *${r.ref}* cerrado.${nov}`);
