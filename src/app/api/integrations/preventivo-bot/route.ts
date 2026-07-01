@@ -97,7 +97,7 @@ function buildStatus(kase: any, data: ChecklistData) {
     status: kase.status,
     busCode: kase.bus?.code ?? null,
     busPlate: kase.bus?.plate ?? null,
-    resumen: { ok: s.okCount, hallazgo: s.hallazgoCount, pendientes: s.pendientes, aplicables: s.applicable, hallazgos: s.hallazgos },
+    resumen: { ok: s.okCount, hallazgo: s.hallazgos, pendientes: s.pendientes, aplicables: s.applicable, hallazgos: s.hallazgos },
     captures,
     capturesDone: captures.filter((c) => c.done).length,
     capturesTotal: captures.length,

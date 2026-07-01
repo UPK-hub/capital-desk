@@ -154,7 +154,7 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const sx = M + cW - 188;
   const stats: [string, number, Col][] = [
     ["OK", summary.okCount, green],
-    ["Hallazgo", summary.hallazgoCount, red],
+    ["Hallazgo", summary.hallazgos, red],
     ["Pendientes", summary.pendientes, gray],
   ];
   stats.forEach(([lbl, num, col], i) => {
