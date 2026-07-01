@@ -17,7 +17,6 @@ import {
 import AssignTechnicianCard from "./ui/AssignTechnicianCard";
 import ResponsableCard from "./ui/ResponsableCard";
 import OtNumberEditor from "./ui/OtNumberEditor";
-import ChecklistCard from "./ui/ChecklistCard";
 import ValidateWorkOrderCard from "./ui/ValidateWorkOrderCard";
 import WorkOrderFileUploadCard from "./ui/WorkOrderFileUploadCard";
 import NovedadTraceCard from "./ui/NovedadTraceCard";
@@ -769,13 +768,6 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               currentAssignedName={c.assignedTo?.name ?? null}
               currentStatus={c.status}
               initialChecklist={initialChecklist}
-            />
-          ) : null}
-
-          {!isVideoCase ? (
-            <ChecklistCard
-              caseId={c.id}
-              initial={c.checklist.map((it) => ({ id: it.id, text: it.text, done: it.done }))}
             />
           ) : null}
 

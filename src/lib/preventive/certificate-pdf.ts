@@ -6,6 +6,8 @@ import {
   SEVERITY_LABEL,
   CHECK_STATE_LABEL,
   TIPO_NOVEDAD_LABEL,
+  autoRecomendaciones,
+  autoNotasOT,
   summarizeChecklist,
   type ChecklistData,
   type ChecklistItemValue,
@@ -292,9 +294,11 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   if (files.length) evParts.push(`Otros archivos: ${files.length} — ${files.join(", ")}`);
   fwPara(evParts.length ? evParts.join(". ") + "." : "Sin evidencias adjuntas en este registro.");
 
-  // ---- recomendaciones / notas para OT de Capital ----
-  if (data.cierre.recomendaciones.trim()) { fwHeading("RECOMENDACIONES"); fwPara(data.cierre.recomendaciones.trim()); }
-  if (data.cierre.notasOT.trim()) { fwHeading("NOTAS PARA OT DE CAPITAL"); fwPara(data.cierre.notasOT.trim()); }
+  // ---- recomendaciones / notas para OT de Capital (auto si están vacías) ----
+  fwHeading("RECOMENDACIONES");
+  fwPara(data.cierre.recomendaciones.trim() || autoRecomendaciones(data));
+  fwHeading("NOTAS PARA OT DE CAPITAL");
+  fwPara(data.cierre.notasOT.trim() || autoNotasOT(data, input.busCode));
 
   // ---- firmas ----
   need(78);

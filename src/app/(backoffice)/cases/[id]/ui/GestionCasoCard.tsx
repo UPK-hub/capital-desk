@@ -2,10 +2,12 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, ChevronDown, Plus, Replace, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Plus, Replace, Trash2, Upload, Wand2, X } from "lucide-react";
 import {
   PREVENTIVE_CHECKLIST,
   TIPO_NOVEDAD_SEVERITY,
+  autoNotasOT,
+  autoRecomendaciones,
   emptyChecklistData,
   summarizeChecklist,
   type ChecklistData,
@@ -295,7 +297,6 @@ export default function GestionCasoCard(props: Props) {
 
   const renderVoltItem = (sectionId: string, it: ChecklistSectionDef["items"][number]) => {
     const v: ChecklistItemValue = checklist.items[sectionId]?.[it.id] ?? {};
-    const key = `${sectionId}::${it.id}`;
     return (
       <div key={it.id} className="flex items-center gap-2">
         <span className="flex-1 text-[13px] text-slate-700">{it.label}</span>
@@ -304,13 +305,9 @@ export default function GestionCasoCard(props: Props) {
           onChange={(e) => setItem(sectionId, it.id, { value: e.target.value })}
           placeholder="0.0"
           inputMode="decimal"
-          className="app-field-control h-8 w-16 rounded-lg px-2 text-center text-[13px]"
+          className="app-field-control h-8 w-20 rounded-lg px-2 text-center text-[13px]"
         />
         <span className="text-[11px] text-slate-400">V</span>
-        <label className="flex cursor-pointer items-center" title="Foto del voltaje">
-          <Camera className={`h-4 w-4 ${itemPhotos[key] ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"}`} />
-          <input type="file" accept="*/*" className="hidden" onChange={(e) => setPhoto(sectionId, it.id, e.target.files?.[0] ?? null)} />
-        </label>
       </div>
     );
   };
@@ -514,9 +511,17 @@ export default function GestionCasoCard(props: Props) {
                 {checklist.cierre.requiereCorrectivo ? <p className="mt-1 text-[11px] text-muted-foreground">Al resolver se crea el correctivo asociado (bus, equipos de los hallazgos y la misma persona).</p> : null}
               </div>
 
+              <button
+                type="button"
+                onClick={() => setCierre({ recomendaciones: autoRecomendaciones(checklist), notasOT: autoNotasOT(checklist, props.busCode) })}
+                className="sts-btn-ghost inline-flex h-8 w-fit items-center gap-1.5 px-3 text-[13px]"
+                title="Arma el texto según los hallazgos; luego lo puedes editar"
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Generar recomendaciones y notas
+              </button>
               <div>
                 <span className={label}>Recomendaciones</span>
-                <textarea value={checklist.cierre.recomendaciones} onChange={(e) => setCierre({ recomendaciones: e.target.value })} rows={2} placeholder="Recomendaciones para el bus" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
+                <textarea value={checklist.cierre.recomendaciones} onChange={(e) => setCierre({ recomendaciones: e.target.value })} rows={2} placeholder="(vacío = se genera automático en el certificado)" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
                 <span className={label}>Notas para OT de Capital</span>

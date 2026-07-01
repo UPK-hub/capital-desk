@@ -283,3 +283,37 @@ export function summarizeChecklist(data: ChecklistData): ChecklistSummary {
   const pendientes = applicable - okCount - hallazgoCount;
   return { C, M, L, hallazgos, okCount, hallazgoCount, naCount, pendientes, checkTotal, applicable, conNovedad: hallazgos > 0 || hallazgoCount > 0 };
 }
+
+// ---------------------------------------------------------------------------
+// TEXTO AUTOMÁTICO (recomendaciones y notas para la OT), armado a partir de los
+// hallazgos y el resumen. El usuario puede editarlo después.
+// ---------------------------------------------------------------------------
+export function autoNotasOT(data: ChecklistData, busCode?: string | null): string {
+  const dias = String(data.items.identificacion?.diasGrabacion?.value ?? "").trim();
+  const parts: string[] = [`Se realizó mantenimiento preventivo${busCode ? ` al bus ${busCode}` : ""}.`];
+  if (!data.cierre.hallazgos.length) {
+    parts.push("Sin novedades; equipo operativo y reportando al centro de gestión.");
+  } else {
+    const nov = data.cierre.hallazgos
+      .map((h) => `${h.equipo || "equipo"}: ${h.tipoNovedad ? TIPO_NOVEDAD_LABEL[h.tipoNovedad] : "novedad"}${h.cambioEquipo ? " (cambio de equipo)" : ""}`)
+      .join("; ");
+    parts.push(`Novedades: ${nov}.`);
+  }
+  if (dias) parts.push(`Días de grabación: ${dias}.`);
+  return parts.join(" ");
+}
+
+export function autoRecomendaciones(data: ChecklistData): string {
+  const hz = data.cierre.hallazgos;
+  if (!hz.length) return "Sin acciones adicionales. Continuar con el plan de mantenimiento preventivo.";
+  const recs: string[] = [];
+  for (const h of hz) {
+    const eq = h.equipo || "el equipo";
+    if (h.tipoNovedad === "sin_transmision") recs.push(`Revisar conectividad y transmisión de ${eq}.`);
+    else if (h.tipoNovedad === "falla_imagen") recs.push(`Revisar y ajustar ${eq} por falla en imagen.`);
+    else if (h.tipoNovedad === "afectado") recs.push(`Dar seguimiento a ${eq} (afectado).`);
+    else recs.push(`Revisar ${eq}.`);
+    if (h.cambioEquipo) recs.push(`Verificar el funcionamiento de ${eq} tras el cambio de equipo.`);
+  }
+  return [...new Set(recs)].join(" ");
+}
