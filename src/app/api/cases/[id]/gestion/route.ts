@@ -19,8 +19,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { saveUpload } from "@/lib/uploads";
+import { saveUpload, saveGeneratedUpload } from "@/lib/uploads";
 import { nextNumbers } from "@/lib/tenant-sequence";
+import { normalizeChecklistData, type ChecklistData } from "@/lib/preventive/checklist-template";
+import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
 import { CaseEventType, CaseStatus, CaseType, Role, WorkOrderStatus } from "@prisma/client";
 
 const ALLOWED = new Set<Role>([Role.ADMIN, Role.BACKOFFICE, Role.PLANNER, Role.SUPERVISOR, Role.TECHNICIAN]);
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       caseNo: true,
       busId: true,
       assignedToId: true,
+      assignedTo: { select: { name: true } },
       bus: { select: { id: true, code: true, plate: true } },
       busEquipment: { select: { id: true } },
       workOrder: { select: { id: true } },
@@ -118,6 +121,38 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     } catch (e) {
       console.error("GESTION_SERIAL_UPLOAD_FAILED", e);
       skipped.push(sp.name || "serial");
+    }
+  }
+
+  // Checklist del preventivo: JSON + fotos por ítem (field: item_photo::sección::ítem).
+  let checklistData: ChecklistData | null = null;
+  if (isPrev) {
+    const rawChecklist = str(form.get("checklist"));
+    if (rawChecklist) {
+      try {
+        checklistData = normalizeChecklistData(JSON.parse(rawChecklist));
+      } catch {
+        checklistData = null;
+      }
+    }
+    if (checklistData) {
+      for (const [key, val] of form.entries()) {
+        if (!key.startsWith("item_photo::")) continue;
+        if (!(val instanceof File) || val.size === 0) continue;
+        const [sid, iid] = key.slice("item_photo::".length).split("::");
+        if (!sid || !iid) continue;
+        try {
+          const p = await saveUpload(val, `${subdir}/checklist`, { fileNamePrefix: kase.bus?.code ?? "CHK" });
+          if (!checklistData.items[sid]) checklistData.items[sid] = {};
+          checklistData.items[sid][iid] = {
+            ...checklistData.items[sid][iid],
+            photo: { filePath: p, fileName: val.name || "foto", mimeType: val.type || "image/jpeg", size: val.size },
+          };
+        } catch (e) {
+          console.error("GESTION_CHECKLIST_PHOTO_FAILED", e);
+          skipped.push(val.name || "foto checklist");
+        }
+      }
     }
   }
 
@@ -202,6 +237,27 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
       // d) Flujo PREVENTIVO
       if (isPrev) {
+        // Guardar/actualizar el checklist estructurado (borrador o completado).
+        if (checklistData) {
+          await tx.casePreventiveChecklist.upsert({
+            where: { caseId: kase.id },
+            create: {
+              caseId: kase.id,
+              status: resolver ? "completed" : "draft",
+              data: checklistData as any,
+              executedById: persona?.id ?? null,
+              executedByName: persona?.name ?? null,
+              executedAt: resolver ? new Date() : null,
+            },
+            update: {
+              status: resolver ? "completed" : "draft",
+              data: checklistData as any,
+              ...(persona ? { executedById: persona.id, executedByName: persona.name } : {}),
+              ...(resolver ? { executedAt: new Date() } : {}),
+            },
+          });
+        }
+
         if (resultado) {
           const eqTxt = equipos.map((e) => e.name).filter(Boolean).join(", ");
           await tx.caseEvent.create({
@@ -220,7 +276,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           }
         }
 
-        if (resultado === "con" && generarCorrectivo) {
+        if (generarCorrectivo) {
           const eqTxt = equipos.map((e) => e.name).filter(Boolean).join(", ");
           const nums = await nextNumbers(tx as any, tenantId, { case: true, workOrder: true });
           const corr = await tx.case.create({
@@ -322,6 +378,45 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   } catch (e: any) {
     console.error("GESTION_CASO_FAILED", e);
     return NextResponse.json({ error: "No se pudo guardar la gestión.", detail: e?.message ?? String(e) }, { status: 400 });
+  }
+
+  // Certificado del preventivo: se genera al RESOLVER (fuera de la transacción
+  // para no alargarla) y se adjunta al histórico del caso como evidencia.
+  if (isPrev && resolver && checklistData) {
+    try {
+      const bytes = await buildPreventiveCertificatePdf({
+        caseNo: kase.caseNo ?? null,
+        busCode: kase.bus?.code ?? null,
+        busPlate: kase.bus?.plate ?? null,
+        responsableName: persona?.name ?? kase.assignedTo?.name ?? null,
+        executedAt: new Date(),
+        data: checklistData,
+      });
+      const fileName = `${kase.bus?.code ? kase.bus.code + "_" : ""}certificado_preventivo.pdf`;
+      const relPath = await saveGeneratedUpload(
+        `${subdir}/certificado/${Date.now()}_${fileName}`,
+        bytes,
+        { originalName: fileName, mimeType: "application/pdf" }
+      );
+      await prisma.caseEvent.create({
+        data: {
+          caseId: kase.id,
+          type: CaseEventType.COMMENT,
+          message: "Certificado de mantenimiento preventivo generado.",
+          meta: {
+            userId,
+            manualComment: true,
+            source: "gestion",
+            kind: "CERTIFICADO_PREVENTIVO",
+            attachments: [{ filePath: relPath, fileName, mimeType: "application/pdf", size: bytes.length }],
+          },
+        },
+      });
+      result.certificado = true;
+    } catch (e) {
+      console.error("GESTION_CERTIFICADO_FAILED", e);
+      result.certificado = false;
+    }
   }
 
   return NextResponse.json(result);

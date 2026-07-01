@@ -1,0 +1,236 @@
+// Plantilla del CHECKLIST DE MANTENIMIENTO PREVENTIVO (Capital Bus).
+//
+// Reemplaza la herramienta HTML suelta: define las secciones e ítems que se
+// llenan dentro del panel "Gestionar caso". La MISMA plantilla la usan la UI
+// (GestionCasoCard) y el generador del certificado PDF, para que siempre estén
+// alineados.
+//
+// Nota para Valeria: si quieres cambiar/agregar/quitar ítems o secciones, este
+// es el ÚNICO archivo que hay que tocar. Todo lo demás se adapta solo.
+
+export type ChecklistItemType = "check" | "text" | "voltage";
+
+export type ChecklistItemDef = {
+  id: string;
+  label: string;
+  type: ChecklistItemType;
+  // Para 'text': placeholder de ayuda. Para 'voltage': unidad (por defecto "V").
+  hint?: string;
+};
+
+export type ChecklistSectionDef = {
+  id: string;
+  title: string;
+  items: ChecklistItemDef[];
+};
+
+// Estado de un ítem tipo 'check'.
+export type CheckState = "ok" | "hallazgo" | "na";
+
+// Severidad de un hallazgo de cierre.
+export type Severity = "C" | "M" | "L";
+
+export const SEVERITY_LABEL: Record<Severity, string> = {
+  C: "Crítico",
+  M: "Moderado",
+  L: "Leve",
+};
+
+export const CHECK_STATE_LABEL: Record<CheckState, string> = {
+  ok: "OK",
+  hallazgo: "Hallazgo",
+  na: "N/A",
+};
+
+// ---------------------------------------------------------------------------
+// SECCIONES DEL PREVENTIVO
+// ---------------------------------------------------------------------------
+export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
+  {
+    id: "identificacion",
+    title: "Identificación",
+    items: [
+      { id: "kilometraje", label: "Kilometraje", type: "text", hint: "km" },
+      { id: "horaInicio", label: "Hora de inicio", type: "text", hint: "hh:mm" },
+      { id: "horaFin", label: "Hora de finalización", type: "text", hint: "hh:mm" },
+    ],
+  },
+  {
+    id: "limpieza",
+    title: "Limpieza",
+    items: [
+      { id: "nvr", label: "Limpieza de NVR / DVR", type: "check" },
+      { id: "camaras", label: "Limpieza de cámaras", type: "check" },
+      { id: "monitor", label: "Limpieza de monitor / pantalla", type: "check" },
+      { id: "gabinete", label: "Limpieza de gabinete / rack", type: "check" },
+      { id: "cableado", label: "Organización y ajuste de cableado", type: "check" },
+    ],
+  },
+  {
+    id: "electrico",
+    title: "Eléctrico — Voltajes",
+    items: [
+      { id: "v1", label: "Batería (bornes)", type: "voltage" },
+      { id: "v2", label: "Entrada NVR", type: "voltage" },
+      { id: "v3", label: "Salida NVR", type: "voltage" },
+      { id: "v4", label: "Fuente / convertidor — entrada", type: "voltage" },
+      { id: "v5", label: "Fuente / convertidor — salida", type: "voltage" },
+      { id: "v6", label: "Switch / PoE", type: "voltage" },
+      { id: "v7", label: "Monitor", type: "voltage" },
+      { id: "v8", label: "Router / módem", type: "voltage" },
+    ],
+  },
+  {
+    id: "funcionalidad",
+    title: "Funcionalidad",
+    items: [
+      { id: "grabacion", label: "Grabación en todas las cámaras", type: "check" },
+      { id: "envivo", label: "Visualización en vivo", type: "check" },
+      { id: "fechahora", label: "Fecha / hora del video correcta", type: "check" },
+      { id: "audio", label: "Audio (si aplica)", type: "check" },
+      { id: "reproduccion", label: "Reproducción de grabaciones", type: "check" },
+      { id: "disco", label: "Estado / espacio del disco", type: "check" },
+    ],
+  },
+  {
+    id: "centroGestion",
+    title: "Centro de gestión",
+    items: [
+      { id: "reporte", label: "Reporta al centro de gestión (en línea)", type: "check" },
+      { id: "videoRemoto", label: "Transmisión de video remoto", type: "check" },
+      { id: "gps", label: "GPS / posición reportando", type: "check" },
+    ],
+  },
+  {
+    id: "botonPanico",
+    title: "Botón de pánico",
+    items: [
+      { id: "prueba", label: "Prueba del botón de pánico", type: "check" },
+      { id: "senal", label: "Señal recibida en central", type: "check" },
+      { id: "indicador", label: "Indicador / sirena", type: "check" },
+    ],
+  },
+  {
+    id: "tramas",
+    title: "P20 / P60",
+    items: [
+      { id: "p20", label: "Envío de trama P20", type: "check" },
+      { id: "p60", label: "Envío de trama P60", type: "check" },
+      { id: "datos", label: "Datos correctos (odómetro, ubicación)", type: "check" },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// FORMA DE LOS DATOS GUARDADOS (CasePreventiveChecklist.data)
+// ---------------------------------------------------------------------------
+export type ChecklistPhoto = {
+  filePath: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
+
+export type ChecklistItemValue = {
+  // check
+  estado?: CheckState;
+  nota?: string;
+  // text / voltage
+  value?: string;
+  // voltage / cualquier ítem con foto
+  photo?: ChecklistPhoto | null;
+};
+
+export type ChecklistFinding = {
+  severity: Severity;
+  equipoId?: string | null;
+  equipo?: string;
+  descripcion: string;
+};
+
+export type ChecklistData = {
+  version: 1;
+  // items[sectionId][itemId] = valor
+  items: Record<string, Record<string, ChecklistItemValue>>;
+  cierre: {
+    hallazgos: ChecklistFinding[];
+    requiereCorrectivo: boolean;
+    recomendaciones: string;
+    observaciones: string;
+  };
+};
+
+// Construye una estructura vacía coherente con la plantilla.
+export function emptyChecklistData(): ChecklistData {
+  const items: ChecklistData["items"] = {};
+  for (const section of PREVENTIVE_CHECKLIST) {
+    items[section.id] = {};
+    for (const it of section.items) {
+      items[section.id][it.id] = it.type === "check" ? { estado: undefined } : { value: "" };
+    }
+  }
+  return {
+    version: 1,
+    items,
+    cierre: { hallazgos: [], requiereCorrectivo: false, recomendaciones: "", observaciones: "" },
+  };
+}
+
+// Rellena/normaliza un data parcial contra la plantilla actual (para borradores
+// guardados con una versión anterior de la plantilla).
+export function normalizeChecklistData(raw: any): ChecklistData {
+  const base = emptyChecklistData();
+  if (!raw || typeof raw !== "object") return base;
+  const items = raw.items && typeof raw.items === "object" ? raw.items : {};
+  for (const section of PREVENTIVE_CHECKLIST) {
+    const src = items[section.id] ?? {};
+    for (const it of section.items) {
+      const v = src[it.id];
+      if (v && typeof v === "object") base.items[section.id][it.id] = { ...base.items[section.id][it.id], ...v };
+    }
+  }
+  const cierre = raw.cierre && typeof raw.cierre === "object" ? raw.cierre : {};
+  base.cierre.hallazgos = Array.isArray(cierre.hallazgos)
+    ? cierre.hallazgos
+        .filter((h: any) => h && (h.severity === "C" || h.severity === "M" || h.severity === "L"))
+        .map((h: any) => ({
+          severity: h.severity as Severity,
+          equipoId: h.equipoId ?? null,
+          equipo: String(h.equipo ?? ""),
+          descripcion: String(h.descripcion ?? ""),
+        }))
+    : [];
+  base.cierre.requiereCorrectivo = Boolean(cierre.requiereCorrectivo);
+  base.cierre.recomendaciones = String(cierre.recomendaciones ?? "");
+  base.cierre.observaciones = String(cierre.observaciones ?? "");
+  return base;
+}
+
+export type ChecklistSummary = {
+  C: number;
+  M: number;
+  L: number;
+  hallazgos: number;
+  okCount: number;
+  checkTotal: number;
+  conNovedad: boolean;
+};
+
+// Resumen: cuenta hallazgos por severidad y estado de los ítems de tipo check.
+export function summarizeChecklist(data: ChecklistData): ChecklistSummary {
+  let okCount = 0;
+  let checkTotal = 0;
+  for (const section of PREVENTIVE_CHECKLIST) {
+    for (const it of section.items) {
+      if (it.type !== "check") continue;
+      checkTotal++;
+      const estado = data.items[section.id]?.[it.id]?.estado;
+      if (estado === "ok") okCount++;
+    }
+  }
+  const C = data.cierre.hallazgos.filter((h) => h.severity === "C").length;
+  const M = data.cierre.hallazgos.filter((h) => h.severity === "M").length;
+  const L = data.cierre.hallazgos.filter((h) => h.severity === "L").length;
+  const hallazgos = C + M + L;
+  return { C, M, L, hallazgos, okCount, checkTotal, conNovedad: hallazgos > 0 };
+}

@@ -24,6 +24,7 @@ import NovedadTraceCard from "./ui/NovedadTraceCard";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
 import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
 import GestionCasoCard from "./ui/GestionCasoCard";
+import { normalizeChecklistData } from "@/lib/preventive/checklist-template";
 import { getDuplicateGroup, findSimilarOtherCreator, type DuplicateGroup } from "@/lib/novedades/duplicates-server";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
 import EditCaseTitleCard from "./ui/EditCaseTitleCard";
@@ -514,6 +515,13 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     : [];
   const personasView = users.map((u) => ({ id: u.id, name: u.name ?? "" })).filter((u) => u.name);
 
+  // Borrador del checklist del preventivo (para precargar el panel Gestionar caso).
+  const preventiveChecklistRow =
+    showGestion && c.type === CaseType.PREVENTIVO
+      ? await prisma.casePreventiveChecklist.findUnique({ where: { caseId: c.id }, select: { data: true } })
+      : null;
+  const initialChecklist = preventiveChecklistRow ? normalizeChecklistData(preventiveChecklistRow.data) : null;
+
   const linkedCasesView = linkedCasesForNovedad.map((lc) => {
     const manual = lc.events.some((ev) => {
       const meta = (ev.meta ?? {}) as any;
@@ -760,6 +768,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               currentAssignedId={c.assignedTo?.id ?? null}
               currentAssignedName={c.assignedTo?.name ?? null}
               currentStatus={c.status}
+              initialChecklist={initialChecklist}
             />
           ) : null}
 

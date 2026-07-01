@@ -783,6 +783,7 @@ model Case {
   events    CaseEvent[]
   stsTicket StsTicket?
   checklist CaseChecklistItem[]
+  preventiveChecklist CasePreventiveChecklist?
 
   videoDownloadRequest VideoDownloadRequest?
   caseEquipments       CaseEquipment[]
@@ -1427,6 +1428,26 @@ model CaseChecklistItem {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([caseId])
+}
+
+// Checklist estructurado del MANTENIMIENTO PREVENTIVO (uno por caso).
+// Guarda todo el resultado por secciones como JSON (ver src/lib/preventive/
+// checklist-template.ts). status: "draft" mientras se llena, "completed" al
+// resolver el caso (momento en que se genera el certificado PDF).
+model CasePreventiveChecklist {
+  id     String @id @default(cuid())
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  status String @default("draft")
+  data   Json
+
+  executedById String?
+  executedByName String?
+  executedAt   DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 // Equipo: agrupa usuarios por dominio de correo. Los administradores del equipo

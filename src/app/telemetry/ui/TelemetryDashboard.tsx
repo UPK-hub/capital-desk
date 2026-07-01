@@ -28,6 +28,7 @@ import TelemetrySeriesPanel from "./TelemetrySeriesPanel";
 import OdometerPanel from "./OdometerPanel";
 import CoordinatesPanel from "./CoordinatesPanel";
 import TelemetryBusBreakdown, { type BusBreakdownRow } from "./TelemetryBusBreakdown";
+import TelemetryTypeBreakdown from "./TelemetryTypeBreakdown";
 
 const TelemetrySatelliteMap = dynamic(() => import("./TelemetrySatelliteMap"), {
   ssr: false,
@@ -433,6 +434,8 @@ export default function TelemetryDashboard({
       ) : null}
 
       <TelemetryBusBreakdown rows={busBreakdown} busLabel={busDisplay} />
+
+      <TelemetryTypeBreakdown events={events} alarms={alarms} busLabel={busDisplay} />
 
       <section className="sts-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

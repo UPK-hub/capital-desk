@@ -2,7 +2,17 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Replace, Upload, X } from "lucide-react";
+import { Camera, Check, ChevronDown, Plus, Replace, Trash2, Upload, X } from "lucide-react";
+import {
+  PREVENTIVE_CHECKLIST,
+  emptyChecklistData,
+  summarizeChecklist,
+  type ChecklistData,
+  type ChecklistItemValue,
+  type ChecklistSectionDef,
+  type CheckState,
+  type Severity,
+} from "@/lib/preventive/checklist-template";
 
 // Sube un FormData con barra de progreso, tiempo límite y errores claros
 // (evita el "spinner infinito" cuando el archivo es pesado, p. ej. videos).
@@ -45,6 +55,7 @@ type Props = {
   currentAssignedId: string | null;
   currentAssignedName: string | null;
   currentStatus: string;
+  initialChecklist?: ChecklistData | null;
 };
 
 const OptBtn = ({ active, onClick, children, disabled }: { active: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
@@ -60,6 +71,23 @@ const OptBtn = ({ active, onClick, children, disabled }: { active: boolean; onCl
   </button>
 );
 
+// Botón compacto de estado (OK / Hallazgo / N/A) para los ítems del checklist.
+const Tri = ({ active, tone, onClick, children }: { active: boolean; tone: "ok" | "bad" | "muted"; onClick: () => void; children: React.ReactNode }) => {
+  const on =
+    tone === "ok" ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+    : tone === "bad" ? "border-red-300 bg-red-50 text-red-700"
+    : "border-slate-300 bg-slate-100 text-slate-600";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md border px-2 py-1 text-[11px] font-medium transition ${active ? on : "border-border/60 bg-white text-slate-400 hover:bg-slate-50"}`}
+    >
+      {children}
+    </button>
+  );
+};
+
 export default function GestionCasoCard(props: Props) {
   const router = useRouter();
   const isPrev = props.caseType === "PREVENTIVO";
@@ -70,10 +98,10 @@ export default function GestionCasoCard(props: Props) {
   const [otFile, setOtFile] = useState<File | null>(null);
   const [evidencias, setEvidencias] = useState<File[]>([]);
 
-  const [resultado, setResultado] = useState<"" | "sin" | "con">("");
-  const [equipos, setEquipos] = useState<Set<string>>(new Set());
-  const [observacion, setObservacion] = useState("");
-  const [generar, setGenerar] = useState<"" | "si" | "no">("");
+  // Checklist estructurado del preventivo.
+  const [checklist, setChecklist] = useState<ChecklistData>(() => props.initialChecklist ?? emptyChecklistData());
+  const [itemPhotos, setItemPhotos] = useState<Record<string, File>>({});
+  const [openSecs, setOpenSecs] = useState<Set<string>>(() => new Set(PREVENTIVE_CHECKLIST[0] ? [PREVENTIVE_CHECKLIST[0].id] : []));
 
   const [tipoCorr, setTipoCorr] = useState<"" | "fisico" | "firmware" | "software">("");
   const [diagnostico, setDiagnostico] = useState("");
@@ -94,6 +122,7 @@ export default function GestionCasoCard(props: Props) {
 
   const needsOT = isPrev || tipoCorr === "fisico";
   const personaName = useMemo(() => props.technicians.find((t) => t.id === persona)?.name ?? props.currentAssignedName ?? "", [persona, props.technicians, props.currentAssignedName]);
+  const summary = useMemo(() => summarizeChecklist(checklist), [checklist]);
 
   const CAUSAS = [
     "NVR no reporta al centro de gestión",
@@ -105,13 +134,56 @@ export default function GestionCasoCard(props: Props) {
     "Sin sincronización con CMS",
   ];
 
-  function toggleEquipo(id: string) {
-    setEquipos((prev) => {
+  // -------- helpers del checklist --------
+  function setItem(sectionId: string, itemId: string, patch: Partial<ChecklistItemValue>) {
+    setChecklist((prev) => ({
+      ...prev,
+      items: {
+        ...prev.items,
+        [sectionId]: { ...prev.items[sectionId], [itemId]: { ...prev.items[sectionId]?.[itemId], ...patch } },
+      },
+    }));
+  }
+  function setPhoto(sectionId: string, itemId: string, file: File | null) {
+    const key = `${sectionId}::${itemId}`;
+    setItemPhotos((prev) => {
+      const n = { ...prev };
+      if (file) n[key] = file;
+      else delete n[key];
+      return n;
+    });
+    setItem(sectionId, itemId, { photo: file ? { filePath: "", fileName: file.name, mimeType: file.type, size: file.size } : null });
+  }
+  function setCierre(patch: Partial<ChecklistData["cierre"]>) {
+    setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, ...patch } }));
+  }
+  function addHallazgo() {
+    setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, hallazgos: [...prev.cierre.hallazgos, { severity: "M" as Severity, equipoId: null, equipo: "", descripcion: "" }] } }));
+  }
+  function updHallazgo(i: number, patch: Partial<ChecklistData["cierre"]["hallazgos"][number]>) {
+    setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, hallazgos: prev.cierre.hallazgos.map((h, j) => (j === i ? { ...h, ...patch } : h)) } }));
+  }
+  function delHallazgo(i: number) {
+    setChecklist((prev) => ({ ...prev, cierre: { ...prev.cierre, hallazgos: prev.cierre.hallazgos.filter((_, j) => j !== i) } }));
+  }
+  function toggleSec(id: string) {
+    setOpenSecs((prev) => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id);
       else n.add(id);
       return n;
     });
+  }
+  function sectionProgress(section: ChecklistSectionDef): string {
+    const total = section.items.length;
+    let filled = 0;
+    for (const it of section.items) {
+      const v = checklist.items[section.id]?.[it.id];
+      if (it.type === "check") {
+        if (v?.estado) filled++;
+      } else if ((v?.value ?? "").trim()) filled++;
+    }
+    return `${filled}/${total}`;
   }
 
   async function submit(resolver: boolean) {
@@ -139,11 +211,18 @@ export default function GestionCasoCard(props: Props) {
       fd.set("resolver", resolver ? "1" : "0");
 
       if (isPrev) {
-        fd.set("resultado", resultado);
-        fd.set("observacion", observacion);
-        fd.set("generarCorrectivo", resultado === "con" && generar === "si" ? "1" : "0");
-        const eq = Array.from(equipos).map((id) => ({ id, name: props.busEquipments.find((e) => e.id === id)?.name ?? "" }));
+        // Enviamos el checklist completo (sin binarios) + fotos por ítem aparte.
+        fd.set("checklist", JSON.stringify(checklist));
+        fd.set("resultado", summary.conNovedad ? "con" : "sin");
+        fd.set("observacion", checklist.cierre.observaciones);
+        fd.set("generarCorrectivo", checklist.cierre.requiereCorrectivo ? "1" : "0");
+        const eq = checklist.cierre.hallazgos
+          .filter((h) => h.equipoId)
+          .map((h) => ({ id: h.equipoId as string, name: props.busEquipments.find((e) => e.id === h.equipoId)?.name ?? h.equipo ?? "" }));
         fd.set("equipos", JSON.stringify(eq));
+        for (const [key, file] of Object.entries(itemPhotos)) {
+          fd.append(`item_photo::${key}`, file);
+        }
       } else {
         fd.set("tipoCorr", tipoCorr);
         fd.set("diagnostico", diagnostico);
@@ -165,10 +244,12 @@ export default function GestionCasoCard(props: Props) {
       if (!ok) throw new Error(data?.error ?? `No se pudo guardar la gestión (HTTP ${status}).`);
       const okMsg = resolver ? "Caso resuelto." : "Gestión guardada.";
       const sk: string[] = Array.isArray(data?.skipped) ? data.skipped : [];
-      setMsg(sk.length ? `${okMsg} No se pudieron subir: ${sk.join(", ")}.` : okMsg);
+      const cert = data?.certificado ? " Certificado generado y adjuntado." : "";
+      setMsg((sk.length ? `${okMsg} No se pudieron subir: ${sk.join(", ")}.` : okMsg) + cert);
       setOtFile(null);
       setEvidencias([]);
       setSerialFoto(null);
+      setItemPhotos({});
       router.refresh();
     } catch (e: any) {
       setErr(e?.message ?? "No se pudo guardar.");
@@ -182,6 +263,68 @@ export default function GestionCasoCard(props: Props) {
 
   const label = "mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400";
   const field = "app-field-control h-9 w-full rounded-lg px-3 text-sm";
+
+  // -------- renderers de ítems del checklist --------
+  const renderCheckItem = (sectionId: string, it: ChecklistSectionDef["items"][number]) => {
+    const v: ChecklistItemValue = checklist.items[sectionId]?.[it.id] ?? {};
+    return (
+      <div key={it.id} className="rounded-lg border border-border/60 bg-white p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[13px] text-slate-700">{it.label}</span>
+          <div className="flex shrink-0 gap-1">
+            <Tri active={v.estado === "ok"} tone="ok" onClick={() => setItem(sectionId, it.id, { estado: "ok" })}>OK</Tri>
+            <Tri active={v.estado === "hallazgo"} tone="bad" onClick={() => setItem(sectionId, it.id, { estado: "hallazgo" as CheckState })}>Hallazgo</Tri>
+            <Tri active={v.estado === "na"} tone="muted" onClick={() => setItem(sectionId, it.id, { estado: "na" })}>N/A</Tri>
+          </div>
+        </div>
+        {v.estado === "hallazgo" ? (
+          <input
+            value={v.nota ?? ""}
+            onChange={(e) => setItem(sectionId, it.id, { nota: e.target.value })}
+            placeholder="¿Qué se encontró?"
+            className="app-field-control mt-2 h-8 w-full rounded-lg px-2 text-[13px]"
+          />
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderVoltItem = (sectionId: string, it: ChecklistSectionDef["items"][number]) => {
+    const v: ChecklistItemValue = checklist.items[sectionId]?.[it.id] ?? {};
+    const key = `${sectionId}::${it.id}`;
+    return (
+      <div key={it.id} className="flex items-center gap-2">
+        <span className="flex-1 text-[13px] text-slate-700">{it.label}</span>
+        <input
+          value={v.value ?? ""}
+          onChange={(e) => setItem(sectionId, it.id, { value: e.target.value })}
+          placeholder="0.0"
+          inputMode="decimal"
+          className="app-field-control h-8 w-16 rounded-lg px-2 text-center text-[13px]"
+        />
+        <span className="text-[11px] text-slate-400">V</span>
+        <label className="flex cursor-pointer items-center" title="Foto del voltaje">
+          <Camera className={`h-4 w-4 ${itemPhotos[key] ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"}`} />
+          <input type="file" accept="*/*" className="hidden" onChange={(e) => setPhoto(sectionId, it.id, e.target.files?.[0] ?? null)} />
+        </label>
+      </div>
+    );
+  };
+
+  const renderTextItem = (sectionId: string, it: ChecklistSectionDef["items"][number]) => {
+    const v: ChecklistItemValue = checklist.items[sectionId]?.[it.id] ?? {};
+    return (
+      <div key={it.id} className="flex items-center gap-2">
+        <span className="w-40 shrink-0 text-[13px] text-slate-600">{it.label}</span>
+        <input
+          value={v.value ?? ""}
+          onChange={(e) => setItem(sectionId, it.id, { value: e.target.value })}
+          placeholder={it.hint ?? ""}
+          className="app-field-control h-8 flex-1 rounded-lg px-2 text-[13px]"
+        />
+      </div>
+    );
+  };
 
   return (
     <section className="sts-card overflow-hidden">
@@ -261,45 +404,91 @@ export default function GestionCasoCard(props: Props) {
           ) : null}
         </div>
 
-        {/* PREVENTIVO */}
+        {/* PREVENTIVO — checklist estructurado */}
         {isPrev ? (
-          <>
-            <div>
-              <span className={label}>Resultado del mantenimiento</span>
-              <div className="flex gap-2">
-                <OptBtn active={resultado === "sin"} onClick={() => setResultado("sin")}>Sin novedad</OptBtn>
-                <OptBtn active={resultado === "con"} onClick={() => setResultado("con")}>Con novedad de falla</OptBtn>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className={`${label} mb-0`}>Checklist del preventivo</span>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">OK {summary.okCount}/{summary.checkTotal}</span>
+                <span className={`rounded-full px-2 py-0.5 font-medium ${summary.hallazgos ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-500"}`}>Hallazgos {summary.hallazgos}</span>
               </div>
             </div>
-            {resultado === "con" ? (
-              <>
-                <div>
-                  <span className={label}>Equipos con falla</span>
-                  {props.busEquipments.length ? (
-                    <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                      {props.busEquipments.map((e) => (
-                        <label key={e.id} className="flex items-center gap-2 text-[13px]">
-                          <input type="checkbox" checked={equipos.has(e.id)} onChange={() => toggleEquipo(e.id)} />
-                          {e.name}
-                        </label>
-                      ))}
+
+            {PREVENTIVE_CHECKLIST.map((section) => {
+              const open = openSecs.has(section.id);
+              return (
+                <div key={section.id} className="overflow-hidden rounded-lg border border-border/70">
+                  <button type="button" onClick={() => toggleSec(section.id)} className="flex w-full items-center justify-between bg-slate-50 px-3 py-2 hover:bg-slate-100">
+                    <span className="text-[13px] font-medium text-slate-700">{section.title}</span>
+                    <span className="flex items-center gap-2 text-[11px] text-slate-400">
+                      {sectionProgress(section)}
+                      <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
+                    </span>
+                  </button>
+                  {open ? (
+                    <div className="space-y-2 p-3">
+                      {section.items.map((it) =>
+                        it.type === "voltage" ? renderVoltItem(section.id, it) : it.type === "text" ? renderTextItem(section.id, it) : renderCheckItem(section.id, it)
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Este bus no tiene equipos registrados en su hoja de vida.</p>
-                  )}
-                  <textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} rows={2} placeholder="Observación" className="app-field-control mt-2 w-full rounded-lg px-3 py-2 text-sm" />
+                  ) : null}
                 </div>
-                <div>
-                  <span className={label}>¿Generar correctivo?</span>
-                  <div className="flex gap-2">
-                    <OptBtn active={generar === "si"} onClick={() => setGenerar("si")}>Sí, crear correctivo</OptBtn>
-                    <OptBtn active={generar === "no"} onClick={() => setGenerar("no")}>No</OptBtn>
-                  </div>
-                  {generar === "si" ? <p className="mt-1 text-[11px] text-muted-foreground">Se crea asociado, con bus, equipos marcados y la misma persona.</p> : null}
+              );
+            })}
+
+            {/* Cierre */}
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+              <span className={`${label} mb-0`}>Cierre — hallazgos y recomendaciones</span>
+
+              {checklist.cierre.hallazgos.length ? (
+                <div className="space-y-2">
+                  {checklist.cierre.hallazgos.map((h, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-white p-2">
+                      <select value={h.severity} onChange={(e) => updHallazgo(i, { severity: e.target.value as Severity })} className="app-field-control h-8 rounded-lg px-2 text-[13px]">
+                        <option value="C">Crítico</option>
+                        <option value="M">Moderado</option>
+                        <option value="L">Leve</option>
+                      </select>
+                      <select
+                        value={h.equipoId ?? ""}
+                        onChange={(e) => updHallazgo(i, { equipoId: e.target.value || null, equipo: props.busEquipments.find((x) => x.id === e.target.value)?.name ?? "" })}
+                        className="app-field-control h-8 rounded-lg px-2 text-[13px]"
+                      >
+                        <option value="">Equipo (opcional)…</option>
+                        {props.busEquipments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      </select>
+                      <input value={h.descripcion} onChange={(e) => updHallazgo(i, { descripcion: e.target.value })} placeholder="Descripción del hallazgo" className="app-field-control h-8 min-w-[140px] flex-1 rounded-lg px-2 text-[13px]" />
+                      <button type="button" onClick={() => delHallazgo(i)} className="text-slate-300 hover:text-red-600" title="Quitar"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  ))}
                 </div>
-              </>
-            ) : null}
-          </>
+              ) : (
+                <p className="text-[12px] text-slate-500">Sin hallazgos. Si todo quedó OK, no agregues ninguno.</p>
+              )}
+              <button type="button" onClick={addHallazgo} className="sts-btn-ghost inline-flex h-8 items-center gap-1.5 px-3 text-[13px]">
+                <Plus className="h-3.5 w-3.5" /> Agregar hallazgo
+              </button>
+
+              <div>
+                <span className={label}>¿Requiere correctivo?</span>
+                <div className="flex gap-2">
+                  <OptBtn active={checklist.cierre.requiereCorrectivo} onClick={() => setCierre({ requiereCorrectivo: true })}>Sí, crear correctivo</OptBtn>
+                  <OptBtn active={!checklist.cierre.requiereCorrectivo} onClick={() => setCierre({ requiereCorrectivo: false })}>No</OptBtn>
+                </div>
+                {checklist.cierre.requiereCorrectivo ? <p className="mt-1 text-[11px] text-muted-foreground">Al resolver se crea el correctivo asociado (bus, equipos de los hallazgos y la misma persona).</p> : null}
+              </div>
+
+              <div>
+                <span className={label}>Recomendaciones</span>
+                <textarea value={checklist.cierre.recomendaciones} onChange={(e) => setCierre({ recomendaciones: e.target.value })} rows={2} placeholder="Recomendaciones para el bus" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <span className={label}>Observaciones</span>
+                <textarea value={checklist.cierre.observaciones} onChange={(e) => setCierre({ observaciones: e.target.value })} rows={2} placeholder="Observaciones generales" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+          </div>
         ) : null}
 
         {/* CORRECTIVO body */}
@@ -360,7 +549,7 @@ export default function GestionCasoCard(props: Props) {
             {saving ? (progress > 0 && progress < 100 ? `Subiendo ${progress}%` : "Guardando…") : "Guardar avance"}
           </button>
           <button type="button" onClick={() => void submit(true)} disabled={saving} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white shadow-sm transition hover:brightness-95 disabled:opacity-60">
-            <Check className="h-4 w-4" /> Resolver caso
+            <Check className="h-4 w-4" /> {isPrev ? "Cerrar y generar certificado" : "Resolver caso"}
           </button>
         </div>
 
