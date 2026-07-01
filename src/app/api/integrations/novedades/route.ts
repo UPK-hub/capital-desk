@@ -21,6 +21,7 @@ import { saveUpload } from "@/lib/uploads";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { autoGroupNovedad, findSimilarOtherCreator } from "@/lib/novedades/duplicates-server";
 import { loadNovedadCatalog } from "@/lib/novedad-catalog";
+import { isCameraEquipment } from "@/lib/equipment-category";
 import { CaseEventType, CaseStatus, NotificationType, Role } from "@prisma/client";
 
 const DEFAULT_TENANT_CODE = (
@@ -145,17 +146,23 @@ export async function GET(req: NextRequest) {
   if (!tenant) return NextResponse.json({ error: "Tenant no encontrado." }, { status: 400 });
 
   // a0) Cámaras registradas de un bus (para elegir cuál cámara en el reporte).
+  //     Detecta cámaras igual que la UI web: por nombre del tipo O por ubicación
+  //     (muchas cámaras se identifican por código de posición: BFE, BTE, BO, BVn…).
   if (url.searchParams.get("cameras")) {
     const bus = await findBus(tenant.id, url.searchParams.get("busCode") || "");
     if (!bus) return NextResponse.json({ ok: true, cameras: [] });
     const eqs = await prisma.busEquipment.findMany({
-      where: { busId: bus.id, active: true, equipmentType: { name: { contains: "mara", mode: "insensitive" } } },
-      select: { id: true, serial: true, equipmentType: { select: { name: true } } },
-      orderBy: { id: "asc" },
+      where: { busId: bus.id, active: true },
+      select: { id: true, serial: true, location: true, equipmentType: { select: { name: true } } },
+      orderBy: [{ location: "asc" }, { id: "asc" }],
     });
+    const cams = eqs.filter((e) => isCameraEquipment(e.equipmentType?.name, e.location));
     return NextResponse.json({
       ok: true,
-      cameras: eqs.map((e) => ({ id: e.id, label: `${e.equipmentType?.name ?? "Cámara"}${e.serial ? ` (${e.serial})` : ""}` })),
+      cameras: cams.map((e) => ({
+        id: e.id,
+        label: `${e.equipmentType?.name ?? "Cámara"}${e.location ? ` ${e.location}` : ""}${e.serial ? ` (${e.serial})` : ""}`.trim(),
+      })),
     });
   }
 
@@ -260,8 +267,11 @@ export async function POST(req: NextRequest) {
   }
 
   const cameraLabel = String(body.cameraLabel ?? "").trim();
+  const rawEquipmentIds = Array.isArray(body.busEquipmentIds) ? body.busEquipmentIds : [];
+  const busEquipmentIdsInput = Array.from(
+    new Set(rawEquipmentIds.map((x: any) => String(x ?? "").trim()).filter(Boolean))
+  );
   const affectedEquipment = affectedEquipmentRaw || "NO_ESPECIFICADO";
-  const affectedEquipmentLabel = (EQUIPMENT_LABELS[affectedEquipment] ?? affectedEquipment) + (cameraLabel ? ` — ${cameraLabel}` : "");
 
   const tenant = await resolveTenant(body.tenantCode);
   if (!tenant) {
@@ -275,6 +285,28 @@ export async function POST(req: NextRequest) {
       { status: 404 }
     );
   }
+
+  // Equipos específicos seleccionados (p. ej. cámaras). Deben pertenecer al bus y
+  // estar activos. Se vinculan al caso (CaseEquipment) para que queden en la hoja de
+  // vida del equipo y la novedad pueda tener varios equipos asociados.
+  let linkedEquipment: { id: string; label: string }[] = [];
+  if (busEquipmentIdsInput.length) {
+    const eqs = await prisma.busEquipment.findMany({
+      where: { id: { in: busEquipmentIdsInput }, busId: bus.id, active: true },
+      select: { id: true, serial: true, location: true, equipmentType: { select: { name: true } } },
+    });
+    linkedEquipment = eqs.map((e) => ({
+      id: e.id,
+      label: `${e.equipmentType?.name ?? "Equipo"}${e.location ? ` ${e.location}` : ""}${e.serial ? ` (${e.serial})` : ""}`.trim(),
+    }));
+  }
+  const linkedEquipmentIds = linkedEquipment.map((e) => e.id);
+  const equipmentDetail = linkedEquipment.length
+    ? linkedEquipment.map((e) => e.label).join(", ")
+    : cameraLabel;
+  const affectedEquipmentLabel =
+    (EQUIPMENT_LABELS[affectedEquipment] ?? affectedEquipment) +
+    (equipmentDetail ? ` — ${equipmentDetail}` : "");
 
   // Emparejar al usuario de la mesa por nombre.
   const users = await prisma.user.findMany({
@@ -333,6 +365,14 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        // Vincular los equipos específicos (cámaras, etc.) → hoja de vida.
+        if (linkedEquipmentIds.length) {
+          await tx.caseEquipment.createMany({
+            data: linkedEquipmentIds.map((busEquipmentId) => ({ caseId: noveltyCase.id, busEquipmentId })),
+            skipDuplicates: true,
+          });
+        }
+
         await tx.caseEvent.createMany({
           data: [
             {
@@ -347,6 +387,7 @@ export async function POST(req: NextRequest) {
                 catalogCode: catalogCode || null,
                 affectedEquipment,
                 affectedEquipmentLabel,
+                busEquipmentIds: linkedEquipmentIds,
                 reportedNovelty,
                 observations: observations || null,
                 reporter: { name: reporterName || null, phone: reporterPhone || null },

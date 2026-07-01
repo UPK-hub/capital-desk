@@ -69,6 +69,8 @@ type SessionData = {
   equipment?: string;
   equipmentLabel?: string;
   cameras?: { id: string; label: string }[];
+  cameraIds?: string[];
+  cameraMsgId?: number;
   cameraLabel?: string;
   faults?: Fault[];
   faultFilter?: string;
@@ -147,8 +149,14 @@ function equipmentKeyboard(opts: EquipmentOpt[]) {
   };
 }
 
-function cameraKeyboard(cams: { id: string; label: string }[]) {
-  return { inline_keyboard: cams.map((c) => [{ text: c.label, callback_data: `cam:${c.id}` }]) };
+function cameraKeyboard(cams: { id: string; label: string }[], selected?: string[]) {
+  const sel = new Set(selected || []);
+  return {
+    inline_keyboard: [
+      ...cams.map((c) => [{ text: `${sel.has(c.id) ? "✅ " : ""}${c.label}`, callback_data: `cam:${c.id}` }]),
+      [{ text: `✅ Listo (${sel.size})`, callback_data: "camdone" }],
+    ],
+  };
 }
 
 // Carga las fallas del equipo y pasa a ASK_FAULT (reutilizable tras equipo o cámara).
@@ -175,6 +183,7 @@ function buildPayload(data: SessionData) {
     busCode: data.busCode ?? "",
     affectedEquipment: data.equipment ?? "",
     cameraLabel: data.cameraLabel ?? "",
+    busEquipmentIds: data.cameraIds ?? [],
     catalogCode: data.catalogCode ?? "",
     reportedNovelty: data.reportedNovelty ?? "",
     observations: data.observations ?? "",
@@ -449,25 +458,55 @@ async function handleUpdate(update: any) {
         const cams = rc?.ok && Array.isArray(rc.cameras) ? rc.cameras : [];
         if (cams.length) {
           data.cameras = cams;
+          data.cameraIds = [];
           session.state = "ASK_CAMERA";
-          await sendMessage(chatId, "*Paso 2b.* ¿Cuál *cámara*?", cameraKeyboard(cams));
+          data.cameraMsgId =
+            (await sendMessage(
+              chatId,
+              "*Paso 2b.* Elige la(s) *cámara(s)* afectada(s) y toca ✅ Listo:",
+              cameraKeyboard(cams, [])
+            )) ?? undefined;
           return;
         }
+        // Sin cámaras detectadas en el bus: avisar y seguir con las fallas.
+        await sendMessage(chatId, "ℹ️ Este bus no tiene cámaras registradas; continúo sin especificar cuál.");
       }
       await goToFaults(chatId, session, code);
       return;
     }
 
     case "ASK_CAMERA": {
+      const cams = data.cameras || [];
       if (callbackData.startsWith("cam:")) {
         const camId = callbackData.slice(4);
-        const cam = (data.cameras || []).find((c) => c.id === camId);
-        data.cameraLabel = cam?.label || "";
-        if (data.cameraLabel) data.equipmentLabel = `${data.equipmentLabel} — ${data.cameraLabel}`;
+        if (!cams.some((c) => c.id === camId)) return;
+        const set = new Set(data.cameraIds || []);
+        if (set.has(camId)) set.delete(camId);
+        else set.add(camId);
+        data.cameraIds = [...set];
+        if (data.cameraMsgId) {
+          await editMessage(
+            chatId,
+            data.cameraMsgId,
+            "*Paso 2b.* Elige la(s) *cámara(s)* afectada(s) y toca ✅ Listo:",
+            cameraKeyboard(cams, data.cameraIds)
+          );
+        }
+        return;
+      }
+      if (callbackData === "camdone") {
+        const sel = cams.filter((c) => (data.cameraIds || []).includes(c.id));
+        if (!sel.length) {
+          await sendMessage(chatId, "Toca al menos una cámara (puedes elegir varias) y luego ✅ Listo.");
+          return;
+        }
+        data.cameraLabel = sel.map((c) => c.label).join(", ");
+        data.equipmentLabel = `${data.equipmentLabel} — ${data.cameraLabel}`;
+        if (data.cameraMsgId) await editMessage(chatId, data.cameraMsgId, `✅ Cámara(s): ${data.cameraLabel}`);
         await goToFaults(chatId, session, data.equipment || "CAMARAS");
         return;
       }
-      await sendMessage(chatId, "Elige la cámara con los botones.");
+      await sendMessage(chatId, "Elige la(s) cámara(s) con los botones y toca ✅ Listo.");
       return;
     }
 
