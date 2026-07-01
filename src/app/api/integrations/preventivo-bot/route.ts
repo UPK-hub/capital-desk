@@ -87,6 +87,20 @@ const CHECK_SECTIONS = PREVENTIVE_CHECKLIST.filter((s) => s.items.some((it) => i
 // URL base de la mesa (para enlazar al caso desde Telegram).
 const BASE_URL = (process.env.APP_URL || process.env.NEXTAUTH_URL || "").trim().replace(/\/+$/, "");
 
+// Parsea "dd/mm/aaaa hh:mm" (hora de Bogotá) a Date. Devuelve null si no coincide.
+function parseFechaCO(txt: string): Date | null {
+  const m = (txt || "").trim().match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})(?:[ ,T]+(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  const dd = Number(m[1]);
+  const mm = Number(m[2]) - 1;
+  const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const hh = m[4] != null ? Number(m[4]) : 12;
+  const mi = m[5] != null ? Number(m[5]) : 0;
+  // Bogotá = UTC-5 (sin horario de verano): el instante UTC = hora local + 5h.
+  const dt = new Date(Date.UTC(year, mm, dd, hh + 5, mi, 0));
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 // Estado compacto que consume el bot para armar mensajes/teclados.
 function buildStatus(kase: any, data: ChecklistData) {
   const s = summarizeChecklist(data);
@@ -370,6 +384,9 @@ export async function POST(req: NextRequest) {
       const porCamara = Array.isArray(body.porCamara) ? body.porCamara : [];
       let cerroNovedad = false;
       if (corr.status !== CaseStatus.CERRADO) {
+        // Fecha del cierre = fecha manual (si la puso el técnico) o el momento del cierre.
+        // Es la que se usará como fecha de resolución (WorkOrder.finishedAt).
+        const finishedAt = parseFechaCO(fechaTexto) ?? new Date();
         const realizado = fechaTexto || new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });
         if (porCamara.length) {
           // Un registro estandarizado por cámara.
@@ -406,6 +423,8 @@ export async function POST(req: NextRequest) {
           });
         }
         await prisma.case.update({ where: { id: corr.id }, data: { status: CaseStatus.CERRADO } });
+        // La fecha de resolución de la novedad sale de la OT del correctivo → la fijamos al cierre.
+        await prisma.workOrder.updateMany({ where: { caseId: corr.id }, data: { finishedAt } });
         await prisma.caseEvent.create({ data: { caseId: corr.id, type: CaseEventType.STATUS_CHANGE, message: `Correctivo cerrado desde el bot por ${user.name}.`, meta: { by: user.id, source: "preventivo-bot" } } });
         cerroNovedad = await maybeAutoCloseLinkedNovedad(tenantId, corr.id, user.id).catch((e) => { console.error("PREVENTIVO_BOT_AUTOCLOSE_FAILED", e); return false; });
       }
