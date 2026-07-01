@@ -262,6 +262,7 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
   const [correctiveQueue, setCorrectiveQueue] = useState<CorrectiveQueueItem[]>([]);
   const [generating, setGenerating] = useState(false);
   const [creatingCorrBusId, setCreatingCorrBusId] = useState<string | null>(null);
+  const [openBusId, setOpenBusId] = useState<string | null>(null);
 
   const selectedBuses = useMemo(
     () => selectedBusIds.map((id) => busForms[id]).filter(Boolean),
@@ -563,10 +564,9 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
 
           <label className="text-xs text-muted-foreground">Resultado general<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={topForm.generalResult} onChange={(e) => setTopForm((prev) => ({ ...prev, generalResult: e.target.value }))} /></label>
           <label className="text-xs text-muted-foreground">Hallazgos<textarea className="app-field-control mt-1 min-h-[72px] w-full rounded-xl p-3 text-sm" value={topForm.relevantFindings} onChange={(e) => setTopForm((prev) => ({ ...prev, relevantFindings: e.target.value }))} /></label>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <label className="text-xs text-muted-foreground">Ticket UPK<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={topForm.ticketUpk} onChange={(e) => setTopForm((prev) => ({ ...prev, ticketUpk: e.target.value }))} /></label>
-            <label className="text-xs text-muted-foreground">¿Requiere correctivo?<select className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={topForm.requiresCorrective ? "S" : "N"} onChange={(e) => setTopForm((prev) => ({ ...prev, requiresCorrective: e.target.value === "S" }))}><option value="N">N</option><option value="S">S</option></select></label>
-            <label className="text-xs text-muted-foreground">OT CAPITALBUS<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={topForm.capitalbusOt} onChange={(e) => setTopForm((prev) => ({ ...prev, capitalbusOt: e.target.value }))} /></label>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <label className="text-xs text-muted-foreground">N.º ticket revisión remota<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" placeholder="Ticket de la RVR" value={topForm.ticketUpk} onChange={(e) => setTopForm((prev) => ({ ...prev, ticketUpk: e.target.value }))} /></label>
+            <label className="text-xs text-muted-foreground">¿Requiere correctivo?<select className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={topForm.requiresCorrective ? "S" : "N"} onChange={(e) => setTopForm((prev) => ({ ...prev, requiresCorrective: e.target.value === "S" }))}><option value="N">No</option><option value="S">Sí</option></select></label>
             <label className="text-xs text-muted-foreground">Estado<select className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={topForm.status} onChange={(e) => setTopForm((prev) => ({ ...prev, status: e.target.value === "COMPLETED" ? "COMPLETED" : "DRAFT" }))}><option value="DRAFT">Borrador</option><option value="COMPLETED">Completado</option></select></label>
           </div>
           <label className="text-xs text-muted-foreground">Evidencias (nota general)<textarea className="app-field-control mt-1 min-h-[64px] w-full rounded-xl p-3 text-sm" value={topForm.evidencesNotes} onChange={(e) => setTopForm((prev) => ({ ...prev, evidencesNotes: e.target.value }))} /></label>
@@ -618,122 +618,138 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
           </section>
         ) : null}
 
-        {selectedBuses.map((bus) => (
-          <section key={bus.busId} className="mobile-section-card mobile-section-card__body space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-base font-semibold">{bus.busCode} <span className="font-normal text-muted-foreground">{bus.busPlate ?? "Sin placa"}</span>{bus.priorityReason ? <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 align-middle">{bus.priorityReason}</span> : null}</h3>
-              <div className="flex gap-2">
-                {bus.correctiveCaseId ? <Link href={`/cases/${bus.correctiveCaseId}`} className="sts-btn-ghost inline-flex h-9 items-center px-3 text-xs">Ver correctivo</Link> : null}
-                {bus.requiresCorrective ? <button type="button" className="sts-btn-primary h-9 px-3 text-xs disabled:opacity-60" onClick={() => createCorrective(bus)} disabled={creatingBusId === bus.busId}>{creatingBusId === bus.busId ? "Generando..." : "Generar correctivo"}</button> : null}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">IP NVR: {bus.nvrIp || "No registrada"}</p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <label className="text-xs text-muted-foreground">Ticket UPK<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={bus.ticketUpk} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, ticketUpk: e.target.value }))} /></label>
-              <label className="text-xs text-muted-foreground">¿Requiere correctivo?<select className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={bus.requiresCorrective ? "S" : "N"} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, requiresCorrective: e.target.value === "S" }))}><option value="N">N</option><option value="S">S</option></select></label>
-              <label className="text-xs text-muted-foreground">Resultado<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={bus.generalResult} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, generalResult: e.target.value }))} /></label>
-              <label className="text-xs text-muted-foreground">OT CAPITALBUS<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={bus.capitalbusOt} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, capitalbusOt: e.target.value }))} /></label>
-            </div>
-            <label className="text-xs text-muted-foreground">Hallazgos<textarea className="app-field-control mt-1 min-h-[72px] w-full rounded-xl p-3 text-sm" value={bus.relevantFindings} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, relevantFindings: e.target.value }))} /></label>
+        {selectedBuses.map((bus) => {
+          const isOpen = openBusId === bus.busId;
+          const camNovedades = bus.checklist.filter((r) => r.complies === "N").length;
+          return (
+          <section key={bus.busId} className="mobile-section-card mobile-section-card__body">
+            <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => setOpenBusId((prev) => (prev === bus.busId ? null : bus.busId))}>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-base font-semibold">{bus.busCode} <span className="font-normal text-muted-foreground">{bus.busPlate ?? "Sin placa"}</span></span>
+                {bus.priorityReason ? <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">{bus.priorityReason}</span> : null}
+                {camNovedades ? <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">{camNovedades} cámara(s) con novedad</span> : null}
+                {bus.correctiveCaseNo ? <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">Correctivo CASO-{String(bus.correctiveCaseNo).padStart(3, "0")}</span> : null}
+              </span>
+              <span className="text-xs font-medium text-primary">{isOpen ? "Cerrar ▲" : "Abrir ▼"}</span>
+            </button>
 
-            <div className="rounded-xl border border-border/60 p-3">
-              <p className="text-xs font-medium text-muted-foreground">Revisión del bus</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {RVR_BUS_ASPECTS.map((a) => (
-                  <label key={a.key} className="flex items-center justify-between gap-2 text-xs text-slate-700">
-                    <span className="min-w-0 truncate">{a.label}</span>
-                    <select
-                      className="app-field-control h-9 w-20 rounded-lg px-2 text-sm"
-                      value={bus.aspects[a.key] ?? ""}
-                      onChange={(e) =>
-                        patchBus(bus.busId, (prev) => ({
-                          ...prev,
-                          aspects: { ...prev.aspects, [a.key]: e.target.value === "S" || e.target.value === "N" ? e.target.value : "" },
-                        }))
-                      }
-                    >
-                      <option value="">--</option>
-                      <option value="S">Sí</option>
-                      <option value="N">No</option>
-                    </select>
-                  </label>
-                ))}
+            {isOpen ? (
+            <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">IP NVR: {bus.nvrIp || "No registrada"}</p>
+                <div className="flex gap-2">
+                  {bus.correctiveCaseId ? <Link href={`/cases/${bus.correctiveCaseId}`} className="sts-btn-ghost inline-flex h-9 items-center px-3 text-xs">Ver caso</Link> : null}
+                  {bus.requiresCorrective ? <button type="button" className="sts-btn-primary h-9 px-3 text-xs disabled:opacity-60" onClick={() => createCorrective(bus)} disabled={creatingBusId === bus.busId}>{creatingBusId === bus.busId ? "Generando..." : "Generar correctivo"}</button> : null}
+                </div>
               </div>
-            </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <label className="text-xs text-muted-foreground">N.º ticket revisión remota<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" placeholder="Ticket de la RVR" value={bus.ticketUpk} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, ticketUpk: e.target.value }))} /></label>
+                <label className="text-xs text-muted-foreground">¿Requiere correctivo?<select className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={bus.requiresCorrective ? "S" : "N"} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, requiresCorrective: e.target.value === "S" }))}><option value="N">No</option><option value="S">Sí</option></select></label>
+                <label className="text-xs text-muted-foreground">Resultado<input type="text" className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm" value={bus.generalResult} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, generalResult: e.target.value }))} /></label>
+              </div>
+              <label className="text-xs text-muted-foreground">Hallazgos<textarea className="app-field-control mt-1 min-h-[72px] w-full rounded-xl p-3 text-sm" value={bus.relevantFindings} onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, relevantFindings: e.target.value }))} /></label>
 
-            <div className="overflow-x-auto rounded-xl border border-border/60">
-              <table className="min-w-[980px] w-full text-sm">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cámara</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cumple</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tipo observación</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Observación</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bus.checklist.map((row, idx) => (
-                    <tr key={row.camera} className="border-t border-border/50">
-                      <td className="px-3 py-2 font-medium">{row.camera}</td>
-                      <td className="px-3 py-2">
-                        <select className="app-field-control h-9 w-24 rounded-lg px-2 text-sm" value={row.complies} onChange={(e) => patchBus(bus.busId, (prev) => {
-                          const next = [...prev.checklist];
-                          const nextComplies = e.target.value === "S" || e.target.value === "N" ? e.target.value : "";
-                          next[idx] = {
-                            ...next[idx],
-                            complies: nextComplies,
-                            observationCode: nextComplies === "N" ? next[idx].observationCode : "",
-                          };
-                          return { ...prev, checklist: next };
-                        })}>
-                          <option value="">--</option><option value="S">S</option><option value="N">N</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="app-field-control h-9 w-full rounded-lg px-2 text-sm disabled:opacity-60"
-                          value={row.observationCode ?? ""}
-                          disabled={row.complies !== "N"}
-                          onChange={(e) => selectObservationCode(bus, idx, e.target.value)}
-                        >
-                          <option value="">{row.complies === "N" ? "Seleccionar..." : "No aplica"}</option>
-                          {observationCatalog.map((item) => (
-                            <option key={item.code} value={item.code}>
-                              {item.code} · {item.reason || item.result || item.category}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input className="app-field-control h-9 w-full rounded-lg px-2 text-sm" value={row.observation} onChange={(e) => patchBus(bus.busId, (prev) => {
-                          const next = [...prev.checklist];
-                          next[idx] = { ...next[idx], observation: e.target.value };
-                          return { ...prev, checklist: next };
-                        })} />
-                        {row.complies === "N" && row.observationCode ? (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            Acción sugerida: {observationByCode.get(row.observationCode)?.suggestedAction || "Sin acción sugerida"}
-                          </p>
-                        ) : null}
-                      </td>
-                    </tr>
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs font-medium text-muted-foreground">Revisión del bus</p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {RVR_BUS_ASPECTS.map((a) => (
+                    <label key={a.key} className="block text-xs text-muted-foreground">
+                      {a.label}
+                      <select
+                        className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
+                        value={bus.aspects[a.key] ?? ""}
+                        onChange={(e) =>
+                          patchBus(bus.busId, (prev) => ({
+                            ...prev,
+                            aspects: { ...prev.aspects, [a.key]: e.target.value === "S" || e.target.value === "N" ? e.target.value : "" },
+                          }))
+                        }
+                      >
+                        <option value="">--</option>
+                        <option value="S">Sí</option>
+                        <option value="N">No</option>
+                      </select>
+                    </label>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
 
-            <div className="rounded-xl border border-border/60 p-3">
-              <p className="text-xs font-medium text-muted-foreground">Evidencias</p>
-              <input type="file" multiple className="app-field-control mt-2 h-10 w-full rounded-xl px-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1 file:text-xs file:text-white" onChange={(e) => {
-                const files = Array.from(e.target.files ?? []);
-                patchBus(bus.busId, (prev) => ({ ...prev, newFiles: [...prev.newFiles, ...files] }));
-                e.currentTarget.value = "";
-              }} />
-              {bus.newFiles.length ? <div className="mt-2 space-y-1">{bus.newFiles.map((f, idx) => <div key={`${f.name}-${idx}`} className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-muted-foreground">{f.name}</span><button type="button" className="text-red-600 hover:underline" onClick={() => patchBus(bus.busId, (prev) => ({ ...prev, newFiles: prev.newFiles.filter((_, i) => i !== idx) }))}>Quitar</button></div>)}</div> : null}
-              {bus.evidences.length ? <div className="mt-2 space-y-1">{bus.evidences.map((ev, idx) => <a key={`${ev.filePath}-${idx}`} href={`/api/uploads/${ev.filePath}`} target="_blank" rel="noreferrer" className="block truncate text-xs text-primary hover:underline">{ev.fileName}</a>)}</div> : null}
+              <div className="overflow-x-auto rounded-xl border border-border/60">
+                <table className="min-w-[820px] w-full text-sm">
+                  <thead className="bg-muted/40">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cámara</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estado</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tipo de novedad</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Observación</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bus.checklist.map((row, idx) => (
+                      <tr key={row.camera} className="border-t border-border/50">
+                        <td className="px-3 py-2 font-medium">{row.camera}</td>
+                        <td className="px-3 py-2">
+                          <select className="app-field-control h-9 w-28 rounded-lg px-2 text-sm" value={row.complies} onChange={(e) => patchBus(bus.busId, (prev) => {
+                            const next = [...prev.checklist];
+                            const nextComplies = e.target.value === "S" || e.target.value === "N" ? e.target.value : "";
+                            next[idx] = {
+                              ...next[idx],
+                              complies: nextComplies,
+                              observationCode: nextComplies === "N" ? next[idx].observationCode : "",
+                            };
+                            return { ...prev, checklist: next };
+                          })}>
+                            <option value="">--</option><option value="S">OK</option><option value="N">Novedad</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            className="app-field-control h-9 w-full rounded-lg px-2 text-sm disabled:opacity-60"
+                            value={row.observationCode ?? ""}
+                            disabled={row.complies !== "N"}
+                            onChange={(e) => selectObservationCode(bus, idx, e.target.value)}
+                          >
+                            <option value="">{row.complies === "N" ? "Seleccionar..." : "No aplica"}</option>
+                            {observationCatalog.map((item) => (
+                              <option key={item.code} value={item.code}>
+                                {item.code} · {item.reason || item.result || item.category}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input className="app-field-control h-9 w-full rounded-lg px-2 text-sm" value={row.observation} onChange={(e) => patchBus(bus.busId, (prev) => {
+                            const next = [...prev.checklist];
+                            next[idx] = { ...next[idx], observation: e.target.value };
+                            return { ...prev, checklist: next };
+                          })} />
+                          {row.complies === "N" && row.observationCode ? (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Acción sugerida: {observationByCode.get(row.observationCode)?.suggestedAction || "Sin acción sugerida"}
+                            </p>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs font-medium text-muted-foreground">Evidencias</p>
+                <input type="file" multiple className="app-field-control mt-2 h-10 w-full rounded-xl px-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1 file:text-xs file:text-white" onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  patchBus(bus.busId, (prev) => ({ ...prev, newFiles: [...prev.newFiles, ...files] }));
+                  e.currentTarget.value = "";
+                }} />
+                {bus.newFiles.length ? <div className="mt-2 space-y-1">{bus.newFiles.map((f, idx) => <div key={`${f.name}-${idx}`} className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-muted-foreground">{f.name}</span><button type="button" className="text-red-600 hover:underline" onClick={() => patchBus(bus.busId, (prev) => ({ ...prev, newFiles: prev.newFiles.filter((_, i) => i !== idx) }))}>Quitar</button></div>)}</div> : null}
+                {bus.evidences.length ? <div className="mt-2 space-y-1">{bus.evidences.map((ev, idx) => <a key={`${ev.filePath}-${idx}`} href={`/api/uploads/${ev.filePath}`} target="_blank" rel="noreferrer" className="block truncate text-xs text-primary hover:underline">{ev.fileName}</a>)}</div> : null}
+              </div>
             </div>
+            ) : null}
           </section>
-        ))}
+          );
+        })}
 
         <div className="flex justify-end gap-2">
           <button
