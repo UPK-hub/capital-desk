@@ -123,6 +123,38 @@ function formatPayload(payload: any): string[] {
   return lines.slice(0, 25);
 }
 
+function nfmtBot(n: number): string {
+  return new Intl.NumberFormat("es-CO").format(Math.round(n ?? 0));
+}
+
+// Sección "Hoy": conteos del día del bus (alarmas, eventos, periódicas) + tipos top.
+function buildTodaySection(today: any): string {
+  if (!today || !today.totals) return "";
+  const t = today.totals;
+  const topEv = (today.events ?? [])
+    .slice(0, 5)
+    .map((e: any) => `${e.code} ${nfmtBot(e.total)}`)
+    .join(", ");
+  const am = new Map<string, { code: string; total: number }>();
+  for (const a of today.alarms ?? []) {
+    const e = am.get(a.code) ?? { code: a.code, total: 0 };
+    e.total += a.total;
+    am.set(a.code, e);
+  }
+  const topAl = [...am.values()]
+    .sort((x, y) => y.total - x.total)
+    .slice(0, 5)
+    .map((a) => `${a.code} ${nfmtBot(a.total)}`)
+    .join(", ");
+  return [
+    "",
+    "📊 Hoy (del día):",
+    `   🔔 Alarmas: ${nfmtBot(t.alarmas)}${topAl ? `  →  ${topAl}` : ""}`,
+    `   📻 Eventos: ${nfmtBot(t.eventos)}${topEv ? `  →  ${topEv}` : ""}`,
+    `   ⏱️ Periódicas: P20 ${nfmtBot(t.p20)} · P60 ${nfmtBot(t.p60)}`,
+  ].join("\n");
+}
+
 function buildTramasReply(resp: any): string {
   if (!resp?.ok) return "⚠️ No pude consultar ahora. Intenta de nuevo en un momento.";
   if (!resp.found) return "No encontré ese bus. Escribe el código (ej. K1402 o 1402).";
@@ -137,11 +169,12 @@ function buildTramasReply(resp: any): string {
     for (const ln of formatPayload(t.payload)) out.push(ln);
     return out.join("\n");
   };
-  return [`🚌 Bus ${resp.bus.code}${plate}`, "", line("P20", resp.p20), "", line("P60", resp.p60)].join("\n");
+  const base = [`🚌 Bus ${resp.bus.code}${plate}`, "", line("P20", resp.p20), "", line("P60", resp.p60)].join("\n");
+  return base + buildTodaySection(resp.today);
 }
 
 const HELP =
-  "👋 Soy el bot de consulta de tramas.\n\nEscríbeme el código del bus (ej. K1402, también vale 1402) y te digo la última P20 y P60 que reportó, con la hora, hace cuánto y los datos de la trama.";
+  "👋 Soy el bot de consulta de tramas.\n\nEscríbeme el código del bus (ej. K1402, también vale 1402) y te digo la última P20 y P60 que reportó, con la hora, hace cuánto y los datos de la trama. Además te muestro los conteos del día: alarmas, eventos y periódicas (con los tipos principales).";
 
 // --------------------------- Cliente de Telegram -----------------------------
 
@@ -246,6 +279,28 @@ function runSelfTest(): void {
 
   assert(buildTramasReply({ ok: true, found: false }).includes("No encontré"), "no encontrado");
   assert(buildTramasReply({ ok: false }).includes("No pude consultar"), "error");
+
+  const withToday = buildTramasReply({
+    ok: true,
+    found: true,
+    bus: { code: "K1402", plate: null },
+    p20: null,
+    p60: null,
+    today: {
+      totals: { total: 100, tramas: 60, eventos: 30, alarmas: 10, p20: 40, p60: 20 },
+      events: [{ code: "EV2", label: "x", total: 20 }],
+      alarms: [{ code: "ALA4", label: "y", levelCode: "N1", total: 8 }],
+    },
+  });
+  assert(
+    withToday.includes("Hoy (del día)") &&
+      withToday.includes("Alarmas: 10") &&
+      withToday.includes("ALA4 8") &&
+      withToday.includes("Eventos: 30") &&
+      withToday.includes("P20 40") &&
+      withToday.includes("P60 20"),
+    "reply incluye sección Hoy"
+  );
 
   console.log("✅ SELFTEST OK: formato de fecha/antigüedad y respuesta correctos.");
 }

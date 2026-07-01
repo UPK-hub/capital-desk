@@ -7,8 +7,12 @@ import {
   CHECK_STATE_LABEL,
   summarizeChecklist,
   type ChecklistData,
+  type ChecklistItemValue,
+  type ChecklistSectionDef,
   type Severity,
 } from "@/lib/preventive/checklist-template";
+
+type Col = ReturnType<typeof rgb>;
 
 export type PreventiveCertificateInput = {
   caseNo: number | null;
@@ -17,6 +21,8 @@ export type PreventiveCertificateInput = {
   responsableName: string | null;
   executedAt: Date | string | null;
   data: ChecklistData;
+  // Nombres de las evidencias generales adjuntadas en el panel (fotos/archivos/videos).
+  evidencias?: string[];
 };
 
 async function loadLogo(file: string): Promise<Buffer | null> {
@@ -37,12 +43,15 @@ async function loadLogo(file: string): Promise<Buffer | null> {
 function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "-";
   try {
-    return new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeStyle: "short" }).format(new Date(d));
+    return new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "short" }).format(new Date(d));
   } catch {
     return "-";
   }
 }
 
+// Certificado de mantenimiento preventivo EN UNA SOLA HOJA (A4).
+// Cabecera + ficha/resumen, checklist a dos columnas, hallazgos, evidencias
+// adjuntas, recomendaciones, notas para OT y firmas.
 export async function buildPreventiveCertificatePdf(input: PreventiveCertificateInput): Promise<Uint8Array> {
   const data = input.data;
   const summary = summarizeChecklist(data);
@@ -51,17 +60,20 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const oblique = await pdf.embedFont(StandardFonts.HelveticaOblique);
-  const pageW = 595, pageH = 842, M = 42, cW = pageW - M * 2, BOT = 54;
+
+  const W = 595, H = 842, M = 28, cW = W - M * 2, BOT = 44;
+  const colGap = 18, colW = (cW - colGap) / 2;
   const navy = rgb(0.102, 0.122, 0.443),
     lg = rgb(0.955, 0.965, 0.98),
-    bd = rgb(0.83, 0.86, 0.9),
+    bd = rgb(0.8, 0.84, 0.89),
     dark = rgb(0.13, 0.14, 0.18),
     gray = rgb(0.42, 0.45, 0.52),
     white = rgb(1, 1, 1),
     green = rgb(0.0, 0.45, 0.2),
     red = rgb(0.72, 0.1, 0.1),
-    amber = rgb(0.66, 0.45, 0.0);
-  const sevColor: Record<Severity, ReturnType<typeof rgb>> = { C: red, M: amber, L: rgb(0.2, 0.35, 0.6) };
+    amber = rgb(0.66, 0.45, 0.0),
+    blueL = rgb(0.2, 0.35, 0.6);
+  const sevColor: Record<Severity, Col> = { C: red, M: amber, L: blueL };
 
   const capBytes = await loadLogo("CapitalBus_Logo.png");
   const upkBytes = await loadLogo("UPK_Logo.png");
@@ -69,327 +81,242 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const upkLogo = upkBytes ? await pdf.embedPng(upkBytes).catch(() => null) : null;
 
   const fecha = new Date().toLocaleString("es-CO");
-  let page: PDFPage = pdf.addPage([pageW, pageH]);
-  let y = pageH - M;
+  let page: PDFPage = pdf.addPage([W, H]);
 
-  const wrap = (s: string, f: PDFFont, size: number, maxW: number): string[] => {
-    const ws = String(s).split(/\s+/);
+  // ---- primitivas ----
+  const T = (x: number, y: number, s: string, f: PDFFont, sz: number, col: Col) =>
+    page.drawText(s, { x, y, size: sz, font: f, color: col });
+  const RT = (xr: number, y: number, s: string, f: PDFFont, sz: number, col: Col) =>
+    page.drawText(s, { x: xr - f.widthOfTextAtSize(s, sz), y, size: sz, font: f, color: col });
+  const RECT = (x: number, y: number, w: number, h: number, o: { fill?: Col; stroke?: Col; sw?: number }) =>
+    page.drawRectangle({ x, y, width: w, height: h, color: o.fill, borderColor: o.stroke, borderWidth: o.sw ?? (o.stroke ? 1 : 0) });
+  const LINE = (x1: number, y1: number, x2: number, y2: number, col: Col, w = 0.5) =>
+    page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: w, color: col });
+  const wrap = (s: string, f: PDFFont, sz: number, maxW: number): string[] => {
+    const ws = String(s ?? "").split(/\s+/).filter(Boolean);
     const ls: string[] = [];
     let c = "";
     for (const w of ws) {
       const t = c ? `${c} ${w}` : w;
-      if (f.widthOfTextAtSize(t, size) > maxW && c) {
-        ls.push(c);
-        c = w;
-      } else c = t;
+      if (f.widthOfTextAtSize(t, sz) > maxW && c) { ls.push(c); c = w; } else c = t;
     }
     if (c) ls.push(c);
     return ls.length ? ls : [""];
   };
-  const footer = () => {
-    const p = pdf.getPageCount();
-    page.drawLine({ start: { x: M, y: 44 }, end: { x: M + cW, y: 44 }, thickness: 0.5, color: bd });
-    page.drawText("Capital Desk  ·  UPK / CapitalBus S.A.S.", { x: M, y: 32, size: 8, font, color: gray });
-    page.drawText("Pág. " + p, { x: M + cW - 40, y: 32, size: 8, font, color: gray });
-  };
-  const newPage = () => {
-    footer();
-    page = pdf.addPage([pageW, pageH]);
-    y = pageH - M;
-  };
-  const need = (h: number) => {
-    if (y - h < BOT) newPage();
-  };
-  const heading = (t: string) => {
-    need(28);
-    page.drawText(t, { x: M, y: y - 2, size: 10.5, font: bold, color: navy });
-    y -= 8;
-    page.drawLine({ start: { x: M, y }, end: { x: M + cW, y }, thickness: 1.2, color: navy });
-    y -= 14;
-  };
-  const para = (t: string, o: { size?: number; gap?: number } = {}) => {
-    const size = o.size ?? 9.5;
-    for (const ln of wrap(t, font, size, cW)) {
-      need(size + 4);
-      page.drawText(ln, { x: M, y: y - size, size, font, color: dark });
-      y -= size + 5;
-    }
-    y -= o.gap ?? 0;
-  };
 
-  // Encabezado con logos
+  let y = H - M;
+
+  // ---- cabecera ----
   const top = y;
-  let usedH = 0;
+  const logoH = 32;
   if (capLogo) {
-    const h = 46, w = h * (capLogo.width / capLogo.height);
-    page.drawImage(capLogo, { x: M, y: top - h, width: w, height: h });
-    usedH = h;
+    const w = logoH * (capLogo.width / capLogo.height);
+    page.drawImage(capLogo, { x: M, y: top - logoH, width: w, height: logoH });
     if (upkLogo) {
-      const uh = 34, uw = uh * (upkLogo.width / upkLogo.height);
-      page.drawImage(upkLogo, { x: M + w + 22, y: top - h + (h - uh) / 2, width: uw, height: uh });
+      const uh = 24, uw = uh * (upkLogo.width / upkLogo.height);
+      page.drawImage(upkLogo, { x: M + w + 18, y: top - logoH + (logoH - uh) / 2, width: uw, height: uh });
     }
   } else if (upkLogo) {
-    const uh = 40, uw = uh * (upkLogo.width / upkLogo.height);
+    const uh = 26, uw = uh * (upkLogo.width / upkLogo.height);
     page.drawImage(upkLogo, { x: M, y: top - uh, width: uw, height: uh });
-    usedH = uh;
   }
-  page.drawText("CERTIFICADO DE MANTENIMIENTO", { x: M + cW - 175, y: top - 12, size: 9, font: bold, color: gray });
-  page.drawText(fecha, { x: M + cW - 175, y: top - 24, size: 8, font, color: gray });
-  y = top - Math.max(usedH, 28) - 14;
+  RT(M + cW, top - 10, "CERTIFICADO DE MANTENIMIENTO", bold, 8.5, gray);
+  RT(M + cW, top - 21, fecha, font, 7.5, gray);
+  y = top - logoH - 8;
 
-  const barH = 30;
-  page.drawRectangle({ x: M, y: y - barH, width: cW, height: barH, color: navy });
-  page.drawText("CERTIFICADO DE MANTENIMIENTO PREVENTIVO", { x: M + 14, y: y - 20, size: 12, font: bold, color: white });
-  y -= barH + 12;
+  const barH = 22;
+  RECT(M, y - barH, cW, barH, { fill: navy });
+  T(M + 12, y - 15, "CERTIFICADO DE MANTENIMIENTO PREVENTIVO", bold, 11, white);
+  y -= barH + 8;
 
-  // Ficha de datos
-  const busLabel = `${input.busCode ?? ""}${input.busPlate ? ` (${input.busPlate})` : ""}`;
-  const resultado = summary.conNovedad
-    ? `Con novedad · ${summary.hallazgos} hallazgo(s)`
-    : "Sin novedad";
-  const fields: [string, string][] = [
-    ["CASO", `CASO-${input.caseNo ?? ""}`],
-    ["BUS", busLabel || "-"],
-    ["RESPONSABLE (EJECUTÓ)", input.responsableName ?? "-"],
-    ["FECHA DE EJECUCIÓN", fmtDate(input.executedAt)],
-    ["RESULTADO", resultado],
-    ["FECHA DEL CERTIFICADO", fecha],
+  // ---- ficha + resumen ----
+  const bandH = 50;
+  RECT(M, y - bandH, cW, bandH, { fill: lg, stroke: bd, sw: 1 });
+  const fx = M + 12, fy = y - 13;
+  const field = (x: number, yy: number, k: string, v: string) => {
+    T(x, yy, k, bold, 6.5, gray);
+    T(x, yy - 11, v, bold, 8.5, dark);
+  };
+  const busLabel = `${input.busCode ?? ""}${input.busPlate ? ` (${input.busPlate})` : ""}` || "-";
+  const resultado = summary.conNovedad ? `Con novedad · ${summary.hallazgos} hallazgo(s)` : "Sin novedad";
+  field(fx, fy, "CASO", `CASO-${input.caseNo ?? ""}`);
+  field(fx + 95, fy, "BUS", busLabel);
+  field(fx + 210, fy, "RESPONSABLE", input.responsableName ?? "-");
+  field(fx, fy - 22, "FECHA EJEC.", fmtDate(input.executedAt));
+  field(fx + 130, fy - 22, "RESULTADO", resultado);
+  LINE(M + cW - 232, y - 8, M + cW - 232, y - bandH + 8, bd, 0.6);
+  const sx = M + cW - 220;
+  const stats: [string, number, Col][] = [
+    ["OK", summary.okCount, green],
+    ["Crít.", summary.C, red],
+    ["Mod.", summary.M, amber],
+    ["Leve", summary.L, blueL],
   ];
-  const rowsN = Math.ceil(fields.length / 2), rowH = 30, boxH = rowsN * rowH + 12;
-  need(boxH + 6);
-  page.drawRectangle({ x: M, y: y - boxH, width: cW, height: boxH, color: lg, borderColor: bd, borderWidth: 1 });
-  const colL = M + 16, colR = M + cW / 2 + 8;
-  for (let i = 0; i < fields.length; i++) {
-    const c = i % 2 === 0 ? colL : colR;
-    const r = Math.floor(i / 2);
-    const yy = y - 14 - r * rowH;
-    page.drawText(fields[i][0], { x: c, y: yy, size: 7, font: bold, color: gray });
-    const vLines = wrap(String(fields[i][1] || "-"), bold, 9.5, cW / 2 - 26);
-    page.drawText(vLines[0], { x: c, y: yy - 13, size: 9.5, font: bold, color: dark });
-  }
-  y -= boxH + 16;
-
-  // Resumen (stats)
-  const stats: [string, number, ReturnType<typeof rgb>][] = [
-    [`Ítems OK`, summary.okCount, green],
-    ["Críticos", summary.C, red],
-    ["Moderados", summary.M, amber],
-    ["Leves", summary.L, rgb(0.2, 0.35, 0.6)],
-  ];
-  const sH = 46;
-  need(sH + 6);
-  page.drawRectangle({ x: M, y: y - sH, width: cW, height: sH, color: white, borderColor: bd, borderWidth: 1 });
-  const cwq = cW / 4;
-  stats.forEach((s, i) => {
-    const cx = M + i * cwq;
-    if (i > 0) page.drawLine({ start: { x: cx, y: y - 8 }, end: { x: cx, y: y - sH + 8 }, thickness: 0.5, color: bd });
-    const num = String(s[1]);
-    page.drawText(num, { x: cx + cwq / 2 - bold.widthOfTextAtSize(num, 18) / 2, y: y - 26, size: 18, font: bold, color: s[2] });
-    page.drawText(s[0], { x: cx + cwq / 2 - font.widthOfTextAtSize(s[0], 8) / 2, y: y - 40, size: 8, font, color: gray });
+  stats.forEach(([lbl, num, col], i) => {
+    const cx = sx + i * 54;
+    const numTxt = lbl === "OK" ? `${num}/${summary.checkTotal}` : String(num);
+    T(cx, y - 24, numTxt, bold, 13, col);
+    T(cx, y - 38, lbl, font, 6.5, gray);
   });
-  y -= sH + 18;
+  y -= bandH + 12;
 
-  // Secciones del checklist
-  for (const section of PREVENTIVE_CHECKLIST) {
-    const sectionItems = section.items;
-    heading(section.title.toUpperCase());
+  const bodyTop = y;
+  const xL = M, xR = M + colW + colGap;
 
-    if (section.id === "electrico") {
-      // Tabla de voltajes: PUNTO | VOLTAJE
-      const cols = [
-        { t: "PUNTO DE MEDICIÓN", w: cW - 150 },
-        { t: "VOLTAJE", w: 150 },
-      ];
-      const headH = 20;
-      let tTop = y, stripe = false;
-      const thead = () => {
-        need(headH + 22);
-        tTop = y;
-        page.drawRectangle({ x: M, y: y - headH, width: cW, height: headH, color: navy });
-        let cx = M;
-        for (const c of cols) {
-          page.drawText(c.t, { x: cx + 8, y: y - 14, size: 8, font: bold, color: white });
-          cx += c.w;
-        }
-        y -= headH;
-        stripe = false;
-      };
-      const tclose = () => {
-        let vx = M;
-        for (let i = 0; i <= cols.length; i++) {
-          page.drawLine({ start: { x: vx, y: tTop }, end: { x: vx, y }, thickness: 0.5, color: bd });
-          if (i < cols.length) vx += cols[i].w;
-        }
-        page.drawRectangle({ x: M, y, width: cW, height: tTop - y, borderColor: bd, borderWidth: 1 });
-      };
-      thead();
-      for (const it of sectionItems) {
-        const val = data.items[section.id]?.[it.id]?.value?.trim() || "—";
-        const hasPhoto = Boolean(data.items[section.id]?.[it.id]?.photo);
-        const rH = 20;
-        if (y - rH < BOT) {
-          tclose();
-          newPage();
-          thead();
-        }
-        if (stripe) page.drawRectangle({ x: M, y: y - rH, width: cW, height: rH, color: lg });
-        page.drawText(it.label, { x: M + 8, y: y - 14, size: 9, font, color: dark });
-        const valTxt = val === "—" ? "—" : `${val} V${hasPhoto ? "   (con foto)" : ""}`;
-        page.drawText(valTxt, { x: M + cols[0].w + 8, y: y - 14, size: 9, font: bold, color: val === "—" ? gray : dark });
-        page.drawLine({ start: { x: M, y: y - rH }, end: { x: M + cW, y: y - rH }, thickness: 0.5, color: bd });
-        y -= rH;
-        stripe = !stripe;
-      }
-      tclose();
-      y -= 16;
-      continue;
-    }
-
-    // Secciones tipo texto (identificación) o check
-    for (const it of sectionItems) {
-      const v = data.items[section.id]?.[it.id] ?? {};
+  // ---- helpers de columna ----
+  const CHECK_COLOR = (estado?: string): Col => (estado === "ok" ? green : estado === "hallazgo" ? red : gray);
+  const colHeader = (x: number, yy: number, title: string): number => {
+    T(x, yy - 8, title.toUpperCase(), bold, 8.5, navy);
+    LINE(x, yy - 11, x + colW, yy - 11, navy, 0.9);
+    return yy - 20;
+  };
+  const colSection = (x: number, yy: number, section: ChecklistSectionDef): number => {
+    yy = colHeader(x, yy, section.title);
+    for (const it of section.items) {
+      const v: ChecklistItemValue = data.items[section.id]?.[it.id] ?? {};
       if (it.type === "text") {
         const val = String(v.value ?? "").trim() || "—";
-        need(16);
-        page.drawText(`${it.label}:`, { x: M + 4, y: y - 11, size: 9, font, color: gray });
-        page.drawText(val, { x: M + 4 + font.widthOfTextAtSize(`${it.label}: `, 9) + 4, y: y - 11, size: 9, font: bold, color: dark });
-        y -= 16;
+        T(x + 2, yy - 7.5, `${it.label}:`, font, 7.5, gray);
+        T(x + 2 + font.widthOfTextAtSize(`${it.label}: `, 7.5), yy - 7.5, val, bold, 7.5, dark);
+        yy -= 11;
+      } else if (it.type === "voltage") {
+        const val = String(v.value ?? "").trim();
+        T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
+        RT(x + colW, yy - 7.5, val ? `${val} V` : "—", bold, 7.5, val ? dark : gray);
+        yy -= 10.5;
+      } else if (it.type === "photo") {
+        const has = Boolean(v.photo?.filePath);
+        T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
+        RT(x + colW, yy - 7.5, has ? "Adjunta" : "—", bold, 6.5, has ? green : gray);
+        yy -= 10.5;
       } else {
-        // check
         const estado = v.estado;
-        const badge = (estado ? CHECK_STATE_LABEL[estado] : "Sin marcar").toUpperCase();
-        const col = estado === "ok" ? green : estado === "hallazgo" ? red : gray;
+        const badge = (estado ? CHECK_STATE_LABEL[estado] : "—").toUpperCase();
+        const col = CHECK_COLOR(estado);
+        T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
+        RT(x + colW, yy - 7.5, badge, bold, 6.5, col);
+        yy -= 10.5;
         const nota = String(v.nota ?? "").trim();
-        const notaLines = nota ? wrap(nota, oblique, 8.5, cW - 24) : [];
-        const rH = Math.max(16, 14 + notaLines.length * 11);
-        need(rH);
-        // bullet + label (izquierda) y estado alineado a la derecha
-        page.drawRectangle({ x: M + 4, y: y - 10, width: 4, height: 4, color: col });
-        page.drawText(it.label, { x: M + 16, y: y - 11, size: 9, font, color: dark });
-        const badgeW = bold.widthOfTextAtSize(badge, 8);
-        page.drawText(badge, { x: M + cW - badgeW, y: y - 11, size: 8, font: bold, color: col });
-        // nota debajo, indentada (no se sale del margen)
-        let ny = y - 22;
-        for (const ln of notaLines) {
-          page.drawText(ln, { x: M + 16, y: ny, size: 8.5, font: oblique, color: gray });
-          ny -= 11;
+        if (nota) {
+          for (const ln of wrap(nota, oblique, 6.5, colW - 14)) {
+            T(x + 12, yy - 6, ln, oblique, 6.5, gray);
+            yy -= 8;
+          }
         }
-        y -= rH;
       }
     }
-    y -= 12;
-  }
+    return yy - 6;
+  };
 
-  // Hallazgos de cierre
-  heading("HALLAZGOS");
+  // ---- distribuir secciones en dos columnas (balance por peso) ----
+  const weights = PREVENTIVE_CHECKLIST.map((s) => s.items.length + 2);
+  const total = weights.reduce((a, b) => a + b, 0);
+  const leftSecs: ChecklistSectionDef[] = [];
+  const rightSecs: ChecklistSectionDef[] = [];
+  let acc = 0;
+  PREVENTIVE_CHECKLIST.forEach((s, i) => {
+    if (leftSecs.length === 0 || acc + weights[i] / 2 <= total / 2) { leftSecs.push(s); acc += weights[i]; }
+    else rightSecs.push(s);
+  });
+  if (rightSecs.length === 0 && leftSecs.length > 1) rightSecs.push(leftSecs.pop() as ChecklistSectionDef);
+
+  let yL = bodyTop;
+  for (const s of leftSecs) yL = colSection(xL, yL, s);
+  let yR = bodyTop;
+  for (const s of rightSecs) yR = colSection(xR, yR, s);
+
+  y = Math.min(yL, yR) - 4;
+  LINE(M, y, M + cW, y, bd, 0.6);
+  y -= 12;
+
+  // ---- helpers full-width ----
+  const newPage = () => { page = pdf.addPage([W, H]); y = H - M; };
+  const need = (h: number) => { if (y - h < BOT) newPage(); };
+  const fwHeading = (t: string) => {
+    need(24);
+    T(M, y - 8, t, bold, 8.5, navy);
+    LINE(M, y - 11, M + cW, y - 11, navy, 0.9);
+    y -= 20;
+  };
+  const fwPara = (t: string, sz = 8) => {
+    for (const ln of wrap(t, font, sz, cW)) { need(sz + 3); T(M, y - sz, ln, font, sz, dark); y -= sz + 2.5; }
+    y -= 6;
+  };
+
+  // ---- hallazgos ----
+  fwHeading("HALLAZGOS");
   if (data.cierre.hallazgos.length) {
-    const cols = [
-      { t: "SEV.", w: 70 },
-      { t: "EQUIPO", w: 150 },
-      { t: "DESCRIPCIÓN", w: cW - 70 - 150 },
-    ];
-    const headH = 20;
-    let tTop = y, stripe = false;
-    const thead = () => {
-      need(headH + 24);
-      tTop = y;
-      page.drawRectangle({ x: M, y: y - headH, width: cW, height: headH, color: navy });
-      let cx = M;
-      for (const c of cols) {
-        page.drawText(c.t, { x: cx + 8, y: y - 14, size: 8, font: bold, color: white });
-        cx += c.w;
-      }
-      y -= headH;
-      stripe = false;
-    };
-    const tclose = () => {
-      let vx = M;
-      for (let i = 0; i <= cols.length; i++) {
-        page.drawLine({ start: { x: vx, y: tTop }, end: { x: vx, y }, thickness: 0.5, color: bd });
-        if (i < cols.length) vx += cols[i].w;
-      }
-      page.drawRectangle({ x: M, y, width: cW, height: tTop - y, borderColor: bd, borderWidth: 1 });
-    };
-    thead();
     for (const h of data.cierre.hallazgos) {
-      const desc = wrap(h.descripcion || "—", font, 9, cols[2].w - 16);
-      const rH = Math.max(22, 8 + desc.length * 12);
-      if (y - rH < BOT) {
-        tclose();
-        newPage();
-        thead();
-      }
-      if (stripe) page.drawRectangle({ x: M, y: y - rH, width: cW, height: rH, color: lg });
-      page.drawText(SEVERITY_LABEL[h.severity], { x: M + 8, y: y - 15, size: 8.5, font: bold, color: sevColor[h.severity] });
-      const eqLines = wrap(h.equipo || "—", font, 8.5, cols[1].w - 12);
-      page.drawText(eqLines[0], { x: M + cols[0].w + 8, y: y - 15, size: 8.5, font, color: dark });
-      let dy = y - 15;
-      for (const ln of desc) {
-        page.drawText(ln, { x: M + cols[0].w + cols[1].w + 8, y: dy, size: 9, font, color: dark });
-        dy -= 12;
-      }
-      page.drawLine({ start: { x: M, y: y - rH }, end: { x: M + cW, y: y - rH }, thickness: 0.5, color: bd });
-      y -= rH;
-      stripe = !stripe;
+      const sev = SEVERITY_LABEL[h.severity];
+      const cabeza = `${h.equipo ? h.equipo + " — " : ""}${h.descripcion || "—"}`;
+      const lines = wrap(cabeza, font, 8, cW - 62);
+      need(Math.max(12, lines.length * 10));
+      T(M + 2, y - 8, sev, bold, 7.5, sevColor[h.severity]);
+      let dy = y - 8;
+      for (const ln of lines) { T(M + 60, dy, ln, font, 8, dark); dy -= 10; }
+      y = Math.min(y - 11, dy);
     }
-    tclose();
-    y -= 8;
     if (data.cierre.requiereCorrectivo) {
-      need(20);
-      page.drawText("Se generó una solicitud de mantenimiento correctivo asociada a este preventivo.", {
-        x: M,
-        y: y - 11,
-        size: 9,
-        font: oblique,
-        color: red,
-      });
-      y -= 18;
+      need(14);
+      T(M + 2, y - 8, "Se generó una solicitud de mantenimiento correctivo asociada a este preventivo.", oblique, 7.5, red);
+      y -= 12;
     }
   } else {
-    para("No se registraron hallazgos. El mantenimiento se ejecutó sin novedades.", { gap: 6 });
+    fwPara("Sin hallazgos. El mantenimiento se ejecutó sin novedades.");
   }
-  y -= 6;
+  y -= 4;
 
-  // Recomendaciones y observaciones
-  if (data.cierre.recomendaciones.trim()) {
-    heading("RECOMENDACIONES");
-    para(data.cierre.recomendaciones.trim(), { gap: 6 });
+  // ---- evidencias adjuntas ----
+  let voltPhotos = 0, captAttached = 0, captTotal = 0;
+  const captMissing: string[] = [];
+  for (const s of PREVENTIVE_CHECKLIST) {
+    for (const it of s.items) {
+      const has = Boolean(data.items[s.id]?.[it.id]?.photo?.filePath);
+      if (it.type === "voltage") { if (has) voltPhotos++; }
+      else if (it.type === "photo") { captTotal++; if (has) captAttached++; else captMissing.push(it.label); }
+    }
   }
-  if (data.cierre.observaciones.trim()) {
-    heading("OBSERVACIONES");
-    para(data.cierre.observaciones.trim(), { gap: 6 });
+  const files = (input.evidencias ?? []).filter(Boolean);
+  fwHeading("EVIDENCIAS ADJUNTAS");
+  const evParts: string[] = [];
+  if (captTotal) {
+    let s = `Capturas del checklist: ${captAttached}/${captTotal}`;
+    if (captMissing.length) s += ` (faltan: ${captMissing.join(", ")})`;
+    evParts.push(s);
   }
+  if (voltPhotos) evParts.push(`Fotos de voltaje: ${voltPhotos}`);
+  if (files.length) evParts.push(`Otros archivos: ${files.length} — ${files.join(", ")}`);
+  fwPara(evParts.length ? evParts.join(". ") + "." : "Sin evidencias adjuntas en este registro.");
 
-  // Firmas
-  y -= 12;
-  need(150);
-  heading("FIRMAS");
-  para("Documento firmado digitalmente a través de la mesa de ayuda Capital Desk; no requiere firma manuscrita.", {
-    size: 8,
-    gap: 20,
-  });
-  const colW = (cW - 24) / 2;
-  const blkTop = y;
-  const drawSign = (x: number, nombre: string, cargo: string): number => {
-    let yy = blkTop;
-    page.drawText("Firmado digitalmente por", { x, y: yy, size: 7.5, font, color: gray });
-    yy -= 26;
-    page.drawText(nombre || "-", { x, y: yy, size: 17, font: oblique, color: navy });
-    yy -= 8;
-    page.drawLine({ start: { x, y: yy }, end: { x: x + colW, y: yy }, thickness: 0.5, color: bd });
-    yy -= 14;
-    page.drawText(nombre || "-", { x, y: yy, size: 9.5, font: bold, color: dark });
-    yy -= 12;
-    page.drawText(cargo, { x, y: yy, size: 8.5, font, color: gray });
-    yy -= 12;
-    page.drawText(`Firma digital · Validado en Capital Desk · ${fecha}`, { x, y: yy, size: 7, font, color: gray });
-    yy -= 10;
-    return yy;
+  // ---- recomendaciones / notas para OT de Capital ----
+  if (data.cierre.recomendaciones.trim()) { fwHeading("RECOMENDACIONES"); fwPara(data.cierre.recomendaciones.trim()); }
+  if (data.cierre.notasOT.trim()) { fwHeading("NOTAS PARA OT DE CAPITAL"); fwPara(data.cierre.notasOT.trim()); }
+
+  // ---- firmas ----
+  need(90);
+  fwHeading("FIRMAS");
+  T(M, y - 7, "Documento firmado digitalmente a través de Capital Desk; no requiere firma manuscrita.", font, 7, gray);
+  y -= 20;
+  const colW2 = (cW - 24) / 2;
+  const blk = y;
+  const sign = (x: number, nombre: string, cargo: string): number => {
+    let yy = blk;
+    T(x, yy, "Firmado digitalmente por", font, 7, gray); yy -= 22;
+    T(x, yy, nombre || "-", oblique, 15, navy); yy -= 7;
+    LINE(x, yy, x + colW2, yy, bd, 0.5); yy -= 12;
+    T(x, yy, nombre || "-", bold, 8.5, dark); yy -= 11;
+    T(x, yy, cargo, font, 7.5, gray); yy -= 11;
+    T(x, yy, `Firma digital · Validado en Capital Desk · ${fecha}`, font, 6.5, gray);
+    return yy - 8;
   };
-  const sy1 = drawSign(M, input.responsableName ?? "Por asignar", "Responsable de la ejecución");
-  const sy2 = drawSign(M + colW + 24, "Santiago Gil", "Coordinador STS");
-  y = Math.min(sy1, sy2) - 6;
+  const s1 = sign(M, input.responsableName ?? "Por asignar", "Responsable de la ejecución");
+  const s2 = sign(M + colW2 + 24, "Santiago Gil", "Coordinador STS");
+  y = Math.min(s1, s2);
 
-  footer();
+  // ---- pie ----
+  LINE(M, 40, M + cW, 40, bd, 0.5);
+  T(M, 30, "Capital Desk  ·  UPK / CapitalBus S.A.S.", font, 7.5, gray);
+  RT(M + cW, 30, `Pág. ${pdf.getPageCount()}`, font, 7.5, gray);
+
   return pdf.save();
 }

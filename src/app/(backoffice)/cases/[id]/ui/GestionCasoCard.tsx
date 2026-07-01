@@ -181,6 +181,8 @@ export default function GestionCasoCard(props: Props) {
       const v = checklist.items[section.id]?.[it.id];
       if (it.type === "check") {
         if (v?.estado) filled++;
+      } else if (it.type === "photo") {
+        if (itemPhotos[`${section.id}::${it.id}`] || v?.photo?.filePath) filled++;
       } else if ((v?.value ?? "").trim()) filled++;
     }
     return `${filled}/${total}`;
@@ -214,7 +216,7 @@ export default function GestionCasoCard(props: Props) {
         // Enviamos el checklist completo (sin binarios) + fotos por ítem aparte.
         fd.set("checklist", JSON.stringify(checklist));
         fd.set("resultado", summary.conNovedad ? "con" : "sin");
-        fd.set("observacion", checklist.cierre.observaciones);
+        fd.set("observacion", checklist.cierre.notasOT);
         fd.set("generarCorrectivo", checklist.cierre.requiereCorrectivo ? "1" : "0");
         const eq = checklist.cierre.hallazgos
           .filter((h) => h.equipoId)
@@ -305,6 +307,31 @@ export default function GestionCasoCard(props: Props) {
         <span className="text-[11px] text-slate-400">V</span>
         <label className="flex cursor-pointer items-center" title="Foto del voltaje">
           <Camera className={`h-4 w-4 ${itemPhotos[key] ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"}`} />
+          <input type="file" accept="*/*" className="hidden" onChange={(e) => setPhoto(sectionId, it.id, e.target.files?.[0] ?? null)} />
+        </label>
+      </div>
+    );
+  };
+
+  const renderPhotoItem = (sectionId: string, it: ChecklistSectionDef["items"][number]) => {
+    const key = `${sectionId}::${it.id}`;
+    const v: ChecklistItemValue = checklist.items[sectionId]?.[it.id] ?? {};
+    const file = itemPhotos[key];
+    const has = Boolean(file) || Boolean(v.photo?.filePath);
+    const fname = file?.name || v.photo?.fileName || "";
+    return (
+      <div key={it.id} className="flex items-center gap-2">
+        <span className="flex-1 truncate text-[13px] text-slate-700">{it.label}</span>
+        {has ? (
+          <span className="flex items-center gap-1 text-[11px] text-emerald-700">
+            <span className="max-w-[110px] truncate">{fname || "adjunta"}</span>
+            <button type="button" onClick={() => setPhoto(sectionId, it.id, null)} className="text-slate-400 hover:text-red-600" title="Quitar"><X className="h-3 w-3" /></button>
+          </span>
+        ) : (
+          <span className="text-[11px] text-slate-400">pendiente</span>
+        )}
+        <label className="flex cursor-pointer items-center" title={`Subir ${it.label}`}>
+          <Upload className={`h-4 w-4 ${has ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"}`} />
           <input type="file" accept="*/*" className="hidden" onChange={(e) => setPhoto(sectionId, it.id, e.target.files?.[0] ?? null)} />
         </label>
       </div>
@@ -429,7 +456,10 @@ export default function GestionCasoCard(props: Props) {
                   {open ? (
                     <div className="space-y-2 p-3">
                       {section.items.map((it) =>
-                        it.type === "voltage" ? renderVoltItem(section.id, it) : it.type === "text" ? renderTextItem(section.id, it) : renderCheckItem(section.id, it)
+                        it.type === "voltage" ? renderVoltItem(section.id, it)
+                        : it.type === "photo" ? renderPhotoItem(section.id, it)
+                        : it.type === "text" ? renderTextItem(section.id, it)
+                        : renderCheckItem(section.id, it)
                       )}
                     </div>
                   ) : null}
@@ -484,8 +514,8 @@ export default function GestionCasoCard(props: Props) {
                 <textarea value={checklist.cierre.recomendaciones} onChange={(e) => setCierre({ recomendaciones: e.target.value })} rows={2} placeholder="Recomendaciones para el bus" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <span className={label}>Observaciones</span>
-                <textarea value={checklist.cierre.observaciones} onChange={(e) => setCierre({ observaciones: e.target.value })} rows={2} placeholder="Observaciones generales" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
+                <span className={label}>Notas para OT de Capital</span>
+                <textarea value={checklist.cierre.notasOT} onChange={(e) => setCierre({ notasOT: e.target.value })} rows={2} placeholder="Resumen breve para la OT (ej.: se realiza mantenimiento preventivo con las siguientes novedades…)" className="app-field-control w-full rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
           </div>

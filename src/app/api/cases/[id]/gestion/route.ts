@@ -391,6 +391,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         responsableName: persona?.name ?? kase.assignedTo?.name ?? null,
         executedAt: new Date(),
         data: checklistData,
+        evidencias: evidencias.map((e) => e.fileName),
       });
       const fileName = `${kase.bus?.code ? kase.bus.code + "_" : ""}certificado_preventivo.pdf`;
       const relPath = await saveGeneratedUpload(

@@ -8,11 +8,13 @@
 // Nota para Valeria: si quieres cambiar/agregar/quitar ítems o secciones, este
 // es el ÚNICO archivo que hay que tocar. Todo lo demás se adapta solo.
 
-export type ChecklistItemType = "check" | "text" | "voltage";
+export type ChecklistItemType = "check" | "text" | "voltage" | "photo";
 
 export type ChecklistItemDef = {
   id: string;
   label: string;
+  // 'check' = OK/Hallazgo/N-A · 'text' = texto/número · 'voltage' = valor V + foto
+  // 'photo' = solo captura/evidencia con nombre (subir imagen o archivo).
   type: ChecklistItemType;
   // Para 'text': placeholder de ayuda. Para 'voltage': unidad (por defecto "V").
   hint?: string;
@@ -50,6 +52,7 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
     id: "identificacion",
     title: "Identificación",
     items: [
+      { id: "diasGrabacion", label: "Días de grabación", type: "text", hint: "N.º de días" },
       { id: "kilometraje", label: "Kilometraje", type: "text", hint: "km" },
       { id: "horaInicio", label: "Hora de inicio", type: "text", hint: "hh:mm" },
       { id: "horaFin", label: "Hora de finalización", type: "text", hint: "hh:mm" },
@@ -119,6 +122,27 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
       { id: "datos", label: "Datos correctos (odómetro, ubicación)", type: "check" },
     ],
   },
+  {
+    id: "capturas",
+    title: "Capturas / evidencias",
+    items: [
+      { id: "inicio", label: "Inicio", type: "photo" },
+      { id: "fin", label: "Fin", type: "photo" },
+      { id: "habitaculo", label: "Habitáculo", type: "photo" },
+      { id: "tapa", label: "Tapa", type: "photo" },
+      { id: "baterias", label: "Baterías", type: "photo" },
+      { id: "discos", label: "Discos", type: "photo" },
+      { id: "periodoGrabacion", label: "Período de grabación", type: "photo" },
+      { id: "vmsInicial", label: "VMS inicial", type: "photo" },
+      { id: "vmsFinal", label: "VMS final", type: "photo" },
+      { id: "config", label: "Configuración", type: "photo" },
+      { id: "batch", label: "Batch", type: "photo" },
+      { id: "wifi", label: "WiFi", type: "photo" },
+      { id: "lte", label: "LTE", type: "photo" },
+      { id: "ping", label: "Ping", type: "photo" },
+      { id: "tlm", label: "Telemetría (TLM)", type: "photo" },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -156,7 +180,8 @@ export type ChecklistData = {
     hallazgos: ChecklistFinding[];
     requiereCorrectivo: boolean;
     recomendaciones: string;
-    observaciones: string;
+    // Resumen breve para la OT del cliente (Capital). Antes "observaciones".
+    notasOT: string;
   };
 };
 
@@ -166,13 +191,13 @@ export function emptyChecklistData(): ChecklistData {
   for (const section of PREVENTIVE_CHECKLIST) {
     items[section.id] = {};
     for (const it of section.items) {
-      items[section.id][it.id] = it.type === "check" ? { estado: undefined } : { value: "" };
+      items[section.id][it.id] = it.type === "check" ? { estado: undefined } : it.type === "photo" ? {} : { value: "" };
     }
   }
   return {
     version: 1,
     items,
-    cierre: { hallazgos: [], requiereCorrectivo: false, recomendaciones: "", observaciones: "" },
+    cierre: { hallazgos: [], requiereCorrectivo: false, recomendaciones: "", notasOT: "" },
   };
 }
 
@@ -202,7 +227,7 @@ export function normalizeChecklistData(raw: any): ChecklistData {
     : [];
   base.cierre.requiereCorrectivo = Boolean(cierre.requiereCorrectivo);
   base.cierre.recomendaciones = String(cierre.recomendaciones ?? "");
-  base.cierre.observaciones = String(cierre.observaciones ?? "");
+  base.cierre.notasOT = String(cierre.notasOT ?? cierre.observaciones ?? "");
   return base;
 }
 

@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { StsTelemetryKind } from "@prisma/client";
+import { summaryFromRollup } from "@/lib/telemetry/rollup";
+import { bogToday, bogDayStartInstant } from "@/lib/telemetry/tz";
 
 const DEFAULT_TENANT_CODE = (
   process.env.NOVEDADES_TENANT_CODE ||
@@ -101,11 +103,28 @@ export async function GET(req: NextRequest) {
     lastTrama(tenant.id, bus.code, "P60"),
   ]);
 
+  // Conteos del DÍA (hora Colombia) para este bus: eventos, alarmas y periódicas,
+  // con el desglose por tipo (para que el bot los muestre organizados).
+  let today: any = null;
+  try {
+    const todayStart = bogDayStartInstant(bogToday());
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+    const s = await summaryFromRollup(tenant.id, todayStart, todayEnd, bus.code);
+    today = {
+      totals: s.telemetryTotals,
+      events: s.telemetryEvents,
+      alarms: s.telemetryAlarms,
+    };
+  } catch (e) {
+    console.error("TRAMAS_LAST_TODAY_FAILED", e);
+  }
+
   return NextResponse.json({
     ok: true,
     found: true,
     bus: { code: bus.code, plate: bus.plate ?? null },
     p20,
     p60,
+    today,
   });
 }
