@@ -26,6 +26,7 @@ import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
 import { saveUpload } from "@/lib/uploads";
 import { CAPABILITIES } from "@/lib/capabilities";
+import { notifyVideoRequestCreated } from "@/lib/telegram-notify";
 
 function normalizePriority(input: any): number | undefined {
   if (input === null || input === undefined || input === "") return undefined;
@@ -960,6 +961,9 @@ export async function POST(req: NextRequest) {
           actorUserId: userId,
         },
       });
+
+      // Aviso al grupo de novedades: nueva solicitud de descarga de video.
+      await notifyVideoRequestCreated(targetCase.id);
     }
 
     if (createdVideoRequestId) {

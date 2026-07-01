@@ -160,16 +160,49 @@ function kbHzCambio() {
 function kbConfirmFin() {
   return { inline_keyboard: [[{ text: "✅ Sí, cerrar y generar", callback_data: "finok" }, { text: "✖️ Cancelar", callback_data: "menu:main" }]] };
 }
+// Opciones estandarizadas del correctivo (edítalas aquí si hace falta).
+const DIAGNOSTICOS = [
+  "Fusible quemado",
+  "Cable suelto o dañado",
+  "Conector flojo / mal ponchado",
+  "Falla de alimentación",
+  "Cámara desconfigurada",
+  "Disco dañado",
+  "Firmware desactualizado",
+  "Equipo dañado (requiere cambio)",
+];
+const SOLUCIONES = [
+  "Cambio de fusible",
+  "Reponchado",
+  "Reconexión de cable",
+  "Reemplazo de cable",
+  "Reconfiguración",
+  "Actualización de firmware",
+  "Cambio de equipo",
+  "Limpieza",
+];
+
+type CorrDraft = { diagnostico?: string; solucion?: string; observacion?: string; fecha?: string };
+
 // Mini-flujo del correctivo (después de crearlo desde una novedad).
-function kbCorrectivo() {
+function kbCorrectivo(d: CorrDraft = {}) {
   return {
     inline_keyboard: [
+      [{ text: `🔍 Diagnóstico${d.diagnostico ? ": " + d.diagnostico : ""}`, callback_data: "corrdiag" }],
+      [{ text: `🔧 Solución${d.solucion ? ": " + d.solucion : ""}`, callback_data: "corrsol" }],
+      [{ text: `📝 Observación${d.observacion ? " ✓" : ""}`, callback_data: "corrobs" }],
+      [{ text: `🕐 Fecha: ${d.fecha || "ahora"}`, callback_data: "corrfecha" }],
       [{ text: "📸 Cargar evidencia", callback_data: "corrfoto" }],
-      [{ text: "📝 Solución / diagnóstico", callback_data: "corrnota" }],
       [{ text: "✅ Cerrar correctivo", callback_data: "corrcerrar" }],
       [{ text: "⬅️ Volver al bus", callback_data: "corrvolver" }],
     ],
   };
+}
+function kbDiag() {
+  return { inline_keyboard: [...DIAGNOSTICOS.map((d, i) => [{ text: d, callback_data: `diag:${i}` }]), [{ text: "⬅️ Volver", callback_data: "corrmenu" }]] };
+}
+function kbSol() {
+  return { inline_keyboard: [...SOLUCIONES.map((s, i) => [{ text: s, callback_data: `sol:${i}` }]), [{ text: "⬅️ Volver", callback_data: "corrmenu" }]] };
 }
 
 const HELP =
@@ -241,9 +274,9 @@ async function downloadPhoto(fileId: string): Promise<{ buffer: Buffer; name: st
 
 // ------------------------------ Estado por chat ------------------------------
 
-type Awaiting = { kind: "photo" | "value" | "hallazgo" | "corrphoto" | "corrnota"; sectionId?: string; itemId?: string; severity?: string; label?: string };
+type Awaiting = { kind: "photo" | "value" | "hallazgo" | "corrphoto" | "corrobs" | "corrfecha"; sectionId?: string; itemId?: string; severity?: string; label?: string };
 type HzDraft = { equipoId?: string; equipoName?: string; tipo?: string };
-type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string };
+type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting; hz?: HzDraft; corrCaseId?: string; corrRef?: string; corrDraft?: CorrDraft };
 const state = new Map<string, ChatState>();
 const getState = (id: string): ChatState => state.get(id) || {};
 const setState = (id: string, s: ChatState) => state.set(id, s);
@@ -325,7 +358,7 @@ async function handleMessage(msg: any) {
       const r = await apiUpload({ action: "correctivo-upload", chatId, caseId: st.corrCaseId }, dl.buffer, dl.name);
       setState(chatId, { ...st, awaiting: undefined });
       if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
-      await sendMessage(chatId, "✅ Evidencia guardada.", kbCorrectivo());
+      await sendMessage(chatId, "✅ Evidencia guardada.", kbCorrectivo(st.corrDraft));
       return;
     }
     if (!st.awaiting || st.awaiting.kind !== "photo" || !st.caseId) {
@@ -357,12 +390,19 @@ async function handleMessage(msg: any) {
   }
   if (cmd === "/start" || cmd === "/help" || cmd === "/ayuda") { await sendMessage(chatId, HELP); return; }
 
-  // Nota / solución del correctivo (mini-flujo, no requiere preventivo).
-  if (st.awaiting?.kind === "corrnota" && st.corrCaseId) {
-    const r = await api({ action: "correctivo-nota", chatId, caseId: st.corrCaseId, nota: text });
-    setState(chatId, { ...st, awaiting: undefined });
-    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
-    await sendMessage(chatId, "✅ Solución guardada.", kbCorrectivo());
+  // Observación libre del correctivo (mini-flujo, no requiere preventivo).
+  if (st.awaiting?.kind === "corrobs" && st.corrCaseId) {
+    const draft = { ...(st.corrDraft || {}), observacion: text };
+    setState(chatId, { ...st, awaiting: undefined, corrDraft: draft });
+    await sendMessage(chatId, "✅ Observación guardada.", kbCorrectivo(draft));
+    return;
+  }
+  // Fecha y hora en que se realizó el correctivo.
+  if (st.awaiting?.kind === "corrfecha" && st.corrCaseId) {
+    const fecha = /^ahora$/i.test(text) ? "" : text;
+    const draft = { ...(st.corrDraft || {}), fecha };
+    setState(chatId, { ...st, awaiting: undefined, corrDraft: draft });
+    await sendMessage(chatId, fecha ? `✅ Fecha: ${fecha}` : "✅ Se usará la fecha y hora actual.", kbCorrectivo(draft));
     return;
   }
 
@@ -424,8 +464,49 @@ async function handleCallback(cb: any) {
     const novedadId = data.slice(5);
     const r = await api({ action: "crear-correctivo", chatId, novedadId });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo crear el correctivo."}`); return; }
-    setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef });
-    await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nPuedes cargar evidencias y cerrarlo aquí:`, kbCorrectivo());
+    setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {} });
+    await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nCompleta y ciérralo:`, kbCorrectivo({}));
+    return;
+  }
+  if (data === "corrmenu") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    await sendMessage(chatId, `Correctivo *${st.corrRef}*:`, kbCorrectivo(st.corrDraft));
+    return;
+  }
+  if (data === "corrdiag") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    await sendMessage(chatId, "🔍 Elige el *diagnóstico*:", kbDiag());
+    return;
+  }
+  if (data.startsWith("diag:")) {
+    const dg = DIAGNOSTICOS[parseInt(data.slice(5), 10)] || "";
+    const draft = { ...(st.corrDraft || {}), diagnostico: dg };
+    setState(chatId, { ...st, corrDraft: draft });
+    await sendMessage(chatId, `✅ Diagnóstico: ${dg}`, kbCorrectivo(draft));
+    return;
+  }
+  if (data === "corrsol") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    await sendMessage(chatId, "🔧 Elige la *solución*:", kbSol());
+    return;
+  }
+  if (data.startsWith("sol:")) {
+    const so = SOLUCIONES[parseInt(data.slice(4), 10)] || "";
+    const draft = { ...(st.corrDraft || {}), solucion: so };
+    setState(chatId, { ...st, corrDraft: draft });
+    await sendMessage(chatId, `✅ Solución: ${so}`, kbCorrectivo(draft));
+    return;
+  }
+  if (data === "corrobs") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    setState(chatId, { ...st, awaiting: { kind: "corrobs" } });
+    await sendMessage(chatId, "📝 Escribe la *observación* (opcional):");
+    return;
+  }
+  if (data === "corrfecha") {
+    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
+    setState(chatId, { ...st, awaiting: { kind: "corrfecha" } });
+    await sendMessage(chatId, "🕐 Escribe la *fecha y hora* del correctivo (ej. 01/07/2026 14:30) o escribe *ahora*:");
     return;
   }
   if (data === "corrfoto") {
@@ -434,15 +515,10 @@ async function handleCallback(cb: any) {
     await sendMessage(chatId, "📸 Envía la foto de la evidencia del correctivo.");
     return;
   }
-  if (data === "corrnota") {
-    if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
-    setState(chatId, { ...st, awaiting: { kind: "corrnota" } });
-    await sendMessage(chatId, "📝 Escribe la *solución / diagnóstico* del correctivo:");
-    return;
-  }
   if (data === "corrcerrar") {
     if (!st.corrCaseId) { await sendMessage(chatId, "No hay correctivo activo."); return; }
-    const r = await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId });
+    const d = st.corrDraft || {};
+    const r = await api({ action: "correctivo-cerrar", chatId, caseId: st.corrCaseId, diagnostico: d.diagnostico || "", solucion: d.solucion || "", observacion: d.observacion || "", fecha: d.fecha || "" });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo cerrar."}`); return; }
     const nov = r.cerroNovedad ? " La novedad asociada se cerró automáticamente." : "";
     await sendMessage(chatId, `✅ Correctivo *${r.ref}* cerrado.${nov}`);

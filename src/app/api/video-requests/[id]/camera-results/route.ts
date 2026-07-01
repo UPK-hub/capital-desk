@@ -27,6 +27,7 @@ import { isValidRootCause } from "@/lib/video-root-causes";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { buildRootCauseReportPdf } from "@/lib/video-root-cause-pdf";
 import { saveGeneratedUpload } from "@/lib/uploads";
+import { notifyVideoDownloadFailed } from "@/lib/telegram-notify";
 
 function severityFromPriority(priority: number): StsTicketSeverity {
   if (priority <= 2) return StsTicketSeverity.HIGH;
@@ -249,6 +250,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     });
     return { results, correctiveCaseId, correctiveCaseNo };
   });
+
+  // Aviso al grupo de novedades: descarga fallida en estas cámaras (bus + cámara + causa).
+  if (status === VideoDownloadStatus.DESCARGA_FALLIDA) {
+    await notifyVideoDownloadFailed(request.case.id, { cameras, rootCause });
+  }
 
   // Auto-adjuntar el informe de causa raíz al caso cuando hay cámaras con descarga fallida.
   // Se regenera y reemplaza el informe anterior en cada cambio (queda uno solo, siempre actual).

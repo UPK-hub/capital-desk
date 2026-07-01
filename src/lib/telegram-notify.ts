@@ -99,6 +99,119 @@ export async function notifyNovedadClosed(
   }
 }
 
+/** Enlace "Ver la solicitud" al caso (si hay APP_URL configurada). */
+function caseLinkMarkup(caseId: string, label: string): unknown {
+  const base = mesaBaseUrl();
+  return base ? { inline_keyboard: [[{ text: label, url: `${base}/cases/${caseId}` }]] } : undefined;
+}
+
+const DOWNLOAD_STATUS_LABEL: Record<string, string> = {
+  DESCARGA_REALIZADA: "Descarga realizada",
+  DESCARGA_FALLIDA: "Descarga fallida",
+  BUS_NO_EN_PATIO: "Bus no estaba en patio",
+  PENDIENTE: "Pendiente",
+};
+
+/**
+ * Avisa al grupo de novedades que se CREÓ una solicitud de descarga de video.
+ * Seguro: try/catch interno, nunca lanza. Sin Markdown (los textos son libres).
+ */
+export async function notifyVideoRequestCreated(caseId: string): Promise<void> {
+  if (!TG_TOKEN || !TG_GROUP) return;
+  try {
+    const c = await prisma.case.findFirst({
+      where: { id: caseId, type: CaseType.SOLICITUD_DESCARGA_VIDEO },
+      select: {
+        id: true,
+        caseNo: true,
+        title: true,
+        bus: { select: { code: true, plate: true } },
+        videoDownloadRequest: { select: { requesterName: true, descriptionNovedad: true } },
+      },
+    });
+    if (!c) return;
+    const ref = `CASO-${String(c.caseNo ?? "").padStart(3, "0")}`;
+    const plate = c.bus?.plate ? ` (${c.bus.plate})` : "";
+    const vr = c.videoDownloadRequest;
+    const text = [
+      `🎥 Nueva solicitud de descarga de video — ${ref}`,
+      `🚌 Bus: ${c.bus?.code ?? "—"}${plate}`,
+      vr?.descriptionNovedad ? `📝 ${vr.descriptionNovedad}` : c.title ? `📝 ${c.title}` : null,
+      vr?.requesterName ? `👤 Solicita: ${vr.requesterName}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await postToChat(TG_GROUP, text, { markdown: false, markup: caseLinkMarkup(c.id, "🔗 Ver la solicitud") });
+  } catch (e) {
+    console.error("NOTIFY_VIDEO_CREATED_FAILED", e);
+  }
+}
+
+/**
+ * Avisa al grupo de novedades que una solicitud de descarga de video se CERRÓ.
+ * Seguro: try/catch interno, nunca lanza.
+ */
+export async function notifyVideoRequestClosed(caseId: string): Promise<void> {
+  if (!TG_TOKEN || !TG_GROUP) return;
+  try {
+    const c = await prisma.case.findFirst({
+      where: { id: caseId, type: CaseType.SOLICITUD_DESCARGA_VIDEO },
+      select: {
+        id: true,
+        caseNo: true,
+        bus: { select: { code: true, plate: true } },
+        videoDownloadRequest: { select: { downloadStatus: true } },
+      },
+    });
+    if (!c) return;
+    const ref = `CASO-${String(c.caseNo ?? "").padStart(3, "0")}`;
+    const plate = c.bus?.plate ? ` (${c.bus.plate})` : "";
+    const ds = c.videoDownloadRequest?.downloadStatus as string | undefined;
+    const text = [
+      `✅ Descarga de video cerrada — ${ref}`,
+      `🚌 Bus: ${c.bus?.code ?? "—"}${plate}`,
+      ds ? `📥 Estado: ${DOWNLOAD_STATUS_LABEL[ds] ?? ds}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await postToChat(TG_GROUP, text, { markdown: false, markup: caseLinkMarkup(c.id, "🔗 Ver la solicitud") });
+  } catch (e) {
+    console.error("NOTIFY_VIDEO_CLOSED_FAILED", e);
+  }
+}
+
+/**
+ * Avisa al grupo de novedades que hubo DESCARGA FALLIDA en una o varias cámaras.
+ * Incluye bus, cámara(s) y causa raíz. Seguro: try/catch interno, nunca lanza.
+ */
+export async function notifyVideoDownloadFailed(
+  caseId: string,
+  info: { cameras: string[]; rootCause?: string | null }
+): Promise<void> {
+  if (!TG_TOKEN || !TG_GROUP) return;
+  try {
+    const c = await prisma.case.findFirst({
+      where: { id: caseId, type: CaseType.SOLICITUD_DESCARGA_VIDEO },
+      select: { id: true, caseNo: true, bus: { select: { code: true, plate: true } } },
+    });
+    if (!c) return;
+    const ref = `CASO-${String(c.caseNo ?? "").padStart(3, "0")}`;
+    const plate = c.bus?.plate ? ` (${c.bus.plate})` : "";
+    const cams = (info.cameras || []).filter(Boolean);
+    const text = [
+      `⛔ Descarga de video FALLIDA — ${ref}`,
+      `🚌 Bus: ${c.bus?.code ?? "—"}${plate}`,
+      cams.length ? `📷 Cámara(s): ${cams.join(", ")}` : null,
+      info.rootCause ? `❗ Causa: ${info.rootCause}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await postToChat(TG_GROUP, text, { markdown: false, markup: caseLinkMarkup(c.id, "🔗 Ver la solicitud") });
+  } catch (e) {
+    console.error("NOTIFY_VIDEO_FAILED_FAILED", e);
+  }
+}
+
 /**
  * Avisa al grupo de PREVENTIVOS que un preventivo se cerró (se ejecutó):
  * bus, fecha, OT, técnico, observaciones y correctivos generados (novedades).

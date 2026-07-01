@@ -308,8 +308,26 @@ export async function POST(req: NextRequest) {
       const corr = await findCorrectivo(String(body.caseId || "").trim());
       if (!corr) return NextResponse.json({ ok: true, error: "No encuentro el correctivo." });
       const corrRef = `CASO-${String(corr.caseNo ?? "").padStart(3, "0")}`;
+      const diagnostico = String(body.diagnostico || "").trim();
+      const solucion = String(body.solucion || "").trim();
+      const observacion = String(body.observacion || "").trim();
+      const fechaTexto = String(body.fecha || "").trim();
       let cerroNovedad = false;
       if (corr.status !== CaseStatus.CERRADO) {
+        // Registro estandarizado del correctivo (diagnóstico + solución + observación + fecha realizada).
+        const lineas: string[] = [];
+        if (diagnostico) lineas.push(`Diagnóstico: ${diagnostico}`);
+        if (solucion) lineas.push(`Solución: ${solucion}`);
+        if (observacion) lineas.push(`Observación: ${observacion}`);
+        lineas.push(`Realizado: ${fechaTexto || new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" })}`);
+        await prisma.caseEvent.create({
+          data: {
+            caseId: corr.id,
+            type: CaseEventType.COMMENT,
+            message: lineas.join("\n"),
+            meta: { by: user.id, source: "preventivo-bot", manualComment: true, diagnostico, solucion, observacion, realizadoEn: fechaTexto || null },
+          },
+        });
         await prisma.case.update({ where: { id: corr.id }, data: { status: CaseStatus.CERRADO } });
         await prisma.caseEvent.create({ data: { caseId: corr.id, type: CaseEventType.STATUS_CHANGE, message: `Correctivo cerrado desde el bot por ${user.name}.`, meta: { by: user.id, source: "preventivo-bot" } } });
         cerroNovedad = await maybeAutoCloseLinkedNovedad(tenantId, corr.id, user.id).catch((e) => { console.error("PREVENTIVO_BOT_AUTOCLOSE_FAILED", e); return false; });

@@ -17,6 +17,7 @@ import { isCapitalUserEmail } from "@/lib/users";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { sendMail } from "@/lib/mailer";
 import { buildVideoEmail } from "@/lib/video-emails";
+import { notifyVideoRequestClosed } from "@/lib/telegram-notify";
 import crypto from "node:crypto";
 
 function uniqEmails(list: string[]) {
@@ -182,6 +183,8 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
         meta: { by: actorUserId },
       },
     });
+    // Aviso al grupo de novedades: la descarga de video se cerró.
+    await notifyVideoRequestClosed(current.caseId);
   }
 
   if (nextStatus && nextStatus !== current.status) {
