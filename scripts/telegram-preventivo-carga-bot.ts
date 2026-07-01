@@ -305,7 +305,14 @@ async function notifyGroup(s: any) {
     `🧾 OT Capital: ${s.otCapital || "pendiente"}`,
     `✅ OK ${r.ok ?? 0}/${r.aplicables ?? 0}   ⚠️ Hallazgos ${r.hallazgo ?? 0}`,
   ].join("\n");
-  await tg("sendMessage", { chat_id: GROUP_CHAT_ID, text: txt, parse_mode: "Markdown", disable_web_page_preview: true }).catch(() => {});
+  const markup = s.caseUrl ? { inline_keyboard: [[{ text: "🔗 Ver el caso", url: s.caseUrl }]] } : undefined;
+  await tg("sendMessage", {
+    chat_id: GROUP_CHAT_ID,
+    text: txt,
+    parse_mode: "Markdown",
+    disable_web_page_preview: true,
+    ...(markup ? { reply_markup: markup } : {}),
+  }).catch(() => {});
 }
 
 // Crea/abre el preventivo del mes y muestra el menú.

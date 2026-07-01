@@ -83,6 +83,9 @@ const CAPTURAS = PREVENTIVE_CHECKLIST.find((s) => s.id === "capturas");
 const ELECTRICO = PREVENTIVE_CHECKLIST.find((s) => s.id === "electrico");
 const CHECK_SECTIONS = PREVENTIVE_CHECKLIST.filter((s) => s.items.some((it) => it.type === "check"));
 
+// URL base de la mesa (para enlazar al caso desde Telegram).
+const BASE_URL = (process.env.APP_URL || process.env.NEXTAUTH_URL || "").trim().replace(/\/+$/, "");
+
 // Estado compacto que consume el bot para armar mensajes/teclados.
 function buildStatus(kase: any, data: ChecklistData) {
   const s = summarizeChecklist(data);
@@ -97,6 +100,7 @@ function buildStatus(kase: any, data: ChecklistData) {
   });
   return {
     caseId: kase.id,
+    caseUrl: BASE_URL ? `${BASE_URL}/cases/${kase.id}` : null,
     caseNo: kase.caseNo ?? null,
     ref: `CASO-${String(kase.caseNo ?? "").padStart(3, "0")}`,
     status: kase.status,
