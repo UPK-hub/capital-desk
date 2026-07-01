@@ -23,6 +23,9 @@ export type PreventiveCertificateInput = {
   data: ChecklistData;
   // Nombres de las evidencias generales adjuntadas en el panel (fotos/archivos/videos).
   evidencias?: string[];
+  // Técnico que abrió y el que cerró (bot). Si vienen, firman el certificado.
+  aperturaName?: string | null;
+  cierreName?: string | null;
 };
 
 async function loadLogo(file: string): Promise<Buffer | null> {
@@ -149,11 +152,11 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const stats: [string, number, Col][] = [
     ["OK", summary.okCount, green],
     ["Hallazgo", summary.hallazgoCount, red],
-    ["N/A", summary.naCount, gray],
+    ["Pendientes", summary.pendientes, gray],
   ];
   stats.forEach(([lbl, num, col], i) => {
     const cx = sx + i * 62;
-    const numTxt = lbl === "OK" ? `${num}/${summary.checkTotal}` : String(num);
+    const numTxt = lbl === "OK" ? `${num}/${summary.applicable}` : String(num);
     T(cx, y - 24, numTxt, bold, 13, col);
     T(cx, y - 38, lbl, font, 6.5, gray);
   });
@@ -308,8 +311,12 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
     T(x, yy, `Firma digital · Validado en Capital Desk · ${fecha}`, font, 6.5, gray);
     return yy - 6;
   };
-  const s1 = sign(M, input.responsableName ?? "Por asignar", "Responsable de la ejecución");
-  const s2 = sign(M + colW2 + 24, "Santiago Gil", "Coordinador STS");
+  const firma1Nombre = input.aperturaName ?? input.responsableName ?? "Por asignar";
+  const firma1Cargo = input.aperturaName ? "Técnico que aperturó" : "Responsable de la ejecución";
+  const firma2Nombre = input.cierreName ?? "Santiago Gil";
+  const firma2Cargo = input.cierreName ? "Técnico que cerró" : "Coordinador STS";
+  const s1 = sign(M, firma1Nombre, firma1Cargo);
+  const s2 = sign(M + colW2 + 24, firma2Nombre, firma2Cargo);
   y = Math.min(s1, s2);
 
   // ---- pie ----

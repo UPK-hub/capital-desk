@@ -234,8 +234,10 @@ export type ChecklistSummary = {
   hallazgos: number; // hallazgos de cierre por severidad (C+M+L)
   okCount: number; // ítems check en OK
   hallazgoCount: number; // ítems check marcados Hallazgo
-  naCount: number; // ítems check marcados N/A
+  naCount: number; // ítems check marcados N/A (NO cuenta en el total)
+  pendientes: number; // ítems check sin marcar (aplicables) = applicable - OK - Hallazgo
   checkTotal: number; // total de ítems check (OK + Hallazgo + N/A + sin marcar)
+  applicable: number; // ítems que aplican = checkTotal - N/A (base del "X/Y")
   conNovedad: boolean;
 };
 
@@ -257,5 +259,7 @@ export function summarizeChecklist(data: ChecklistData): ChecklistSummary {
   const M = data.cierre.hallazgos.filter((h) => h.severity === "M").length;
   const L = data.cierre.hallazgos.filter((h) => h.severity === "L").length;
   const hallazgos = C + M + L;
-  return { C, M, L, hallazgos, okCount, hallazgoCount, naCount, checkTotal, conNovedad: hallazgos > 0 || hallazgoCount > 0 };
+  const applicable = checkTotal - naCount;
+  const pendientes = applicable - okCount - hallazgoCount;
+  return { C, M, L, hallazgos, okCount, hallazgoCount, naCount, pendientes, checkTotal, applicable, conNovedad: hallazgos > 0 || hallazgoCount > 0 };
 }

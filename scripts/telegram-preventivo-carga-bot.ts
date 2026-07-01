@@ -1,0 +1,433 @@
+/*
+ * Bot de Telegram de CARGA de preventivos.
+ *
+ * El técnico se registra una vez (/registrar correo), manda el código de un bus
+ * y el bot crea/encuentra el preventivo del mes. Luego, con botones, va subiendo
+ * las evidencias (una a una), voltajes, checks y hallazgos, y marca inicio/fin.
+ * "Fin" lo puede mandar otro técnico: queda 'técnico que abrió' y 'técnico que
+ * cerró', se cierra el caso y se genera el certificado.
+ *
+ * Habla con POST /api/integrations/preventivo-bot (JSON o multipart para fotos).
+ * Sin dependencias nuevas (fetch/FormData/Blob nativos, long polling).
+ *
+ * Variables de entorno:
+ *   TELEGRAM_PREVENTIVO_CARGA_TOKEN  (req) token del bot (BotFather)
+ *   PREVENTIVO_BOT_URL               (req) ej. http://localhost:3000/api/integrations/preventivo-bot
+ *   NOVEDADES_INTAKE_SECRET          (req) el mismo secreto de la app
+ *   NOVEDADES_TENANT_CODE            (opc) por defecto CAPITALBUS
+ *
+ * Prueba sin Telegram:  BOT_SELFTEST=1 npx tsx scripts/telegram-preventivo-carga-bot.ts
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+
+function loadEnvFiles(): void {
+  for (const file of [".env.local", ".env"]) {
+    try {
+      const full = path.join(process.cwd(), file);
+      if (!fs.existsSync(full)) continue;
+      for (const lineRaw of fs.readFileSync(full, "utf8").split(/\r?\n/)) {
+        const line = lineRaw.trim();
+        if (!line || line.startsWith("#")) continue;
+        const eq = line.indexOf("=");
+        if (eq === -1) continue;
+        const key = line.slice(0, eq).trim();
+        let val = line.slice(eq + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+        if (key && process.env[key] === undefined) process.env[key] = val;
+      }
+    } catch {
+      /* variables pueden venir del sistema */
+    }
+  }
+}
+loadEnvFiles();
+
+// ------------------------------- Helpers puros -------------------------------
+
+type EstadoCheck = "ok" | "hallazgo" | "na" | null;
+
+// ¿El texto parece un código de bus? (K1416, 1416, ABC123...) y NO un comando.
+function looksLikeBus(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.startsWith("/")) return false;
+  if (/^(inicio|fin|cancelar|menu|menú|ayuda|hola)$/i.test(t)) return false;
+  return /^[a-zA-Z]?\d{2,6}[a-zA-Z0-9]*$/.test(t);
+}
+
+function estadoIcon(e: EstadoCheck): string {
+  return e === "ok" ? "✅" : e === "hallazgo" ? "⚠️" : e === "na" ? "∅" : "⬜";
+}
+function cycleEstado(e: EstadoCheck): "ok" | "hallazgo" | "na" {
+  if (e === "ok") return "hallazgo";
+  if (e === "hallazgo") return "na";
+  return "ok"; // null o "na" -> ok
+}
+
+function fmtStatus(s: any): string {
+  if (!s) return "Sin datos.";
+  const r = s.resumen || {};
+  const out = [
+    `🚌 Bus ${s.busCode ?? "?"}${s.busPlate ? ` (${s.busPlate})` : ""} · ${s.ref}`,
+    `📸 Evidencias ${s.capturesDone}/${s.capturesTotal}   ✅ ${r.ok ?? 0}/${r.aplicables ?? 0}   ⚠️ ${r.hallazgo ?? 0}   ⏳ ${r.pendientes ?? 0}`,
+  ];
+  if (s.dias) out.push(`📅 Días de grabación: ${s.dias}`);
+  out.push(s.inicio ? `🕐 Inicio${s.aperturaBy ? ` · ${s.aperturaBy}` : ""}` : "🕐 Inicio: pendiente");
+  if (s.fin) out.push(`🏁 Cerrado${s.cierreBy ? ` · ${s.cierreBy}` : ""}`);
+  return out.join("\n");
+}
+
+function kbMain(s: any) {
+  return {
+    inline_keyboard: [
+      [{ text: `📸 Evidencias (${s.capturesDone}/${s.capturesTotal})`, callback_data: "menu:evid" }],
+      [{ text: "⚡ Voltajes", callback_data: "menu:volt" }, { text: "✅ Checklist", callback_data: "menu:check" }],
+      [{ text: "⚠️ Hallazgo", callback_data: "menu:hz" }, { text: "📅 Días grab.", callback_data: "menu:dias" }],
+      [{ text: s.inicio ? "🕐 Inicio ✓" : "🕐 Marcar inicio", callback_data: "inicio" }, { text: "🏁 Fin / cerrar", callback_data: "fin" }],
+      [{ text: "🔄 Actualizar", callback_data: "menu:main" }],
+    ],
+  };
+}
+function kbEvid(s: any) {
+  const rows = (s.captures || []).map((c: any) => [{ text: `${c.done ? "✅" : "⬜"} ${c.label}`, callback_data: `cap:${c.id}` }]);
+  rows.push([{ text: "⬅️ Menú", callback_data: "menu:main" }]);
+  return { inline_keyboard: rows };
+}
+function kbVolt(s: any) {
+  const rows = (s.voltajes || []).map((v: any) => [{ text: `${v.value ? "⚡" : "⬜"} ${v.label}${v.value ? `: ${v.value} V` : ""}`, callback_data: `volt:${v.id}` }]);
+  rows.push([{ text: "⬅️ Menú", callback_data: "menu:main" }]);
+  return { inline_keyboard: rows };
+}
+function kbCheckSections(s: any) {
+  const rows = (s.checkSections || []).map((sec: any) => {
+    const ok = sec.items.filter((i: any) => i.estado === "ok").length;
+    return [{ text: `${sec.title} (${ok}/${sec.items.length})`, callback_data: `sec:${sec.id}` }];
+  });
+  rows.push([{ text: "⬅️ Menú", callback_data: "menu:main" }]);
+  return { inline_keyboard: rows };
+}
+function kbCheckItems(s: any, sectionId: string) {
+  const sec = (s.checkSections || []).find((x: any) => x.id === sectionId);
+  const rows = (sec?.items || []).map((it: any) => [{ text: `${estadoIcon(it.estado)} ${it.label}`, callback_data: `chk:${sectionId}:${it.id}` }]);
+  rows.push([{ text: "⬅️ Checklist", callback_data: "menu:check" }]);
+  return { inline_keyboard: rows };
+}
+function kbSeverity() {
+  return {
+    inline_keyboard: [
+      [{ text: "🔴 Crítico", callback_data: "hz:C" }, { text: "🟠 Moderado", callback_data: "hz:M" }, { text: "🔵 Leve", callback_data: "hz:L" }],
+      [{ text: "⬅️ Menú", callback_data: "menu:main" }],
+    ],
+  };
+}
+function kbConfirmFin() {
+  return { inline_keyboard: [[{ text: "✅ Sí, cerrar y generar", callback_data: "finok" }, { text: "✖️ Cancelar", callback_data: "menu:main" }]] };
+}
+
+const HELP =
+  "🤖 *Bot de carga de preventivos*\n\n" +
+  "1️⃣ Regístrate una vez: `/registrar tu-correo@dominio.com`\n" +
+  "2️⃣ Manda el *código del bus* (ej. K1416 o 1416).\n" +
+  "3️⃣ Usa los botones para subir evidencias (una a una), voltajes, checks y hallazgos.\n" +
+  "4️⃣ *Marcar inicio* al empezar y *Fin / cerrar* al terminar (puede cerrarlo otro técnico).";
+
+// --------------------------- Cliente de Telegram -----------------------------
+
+const TOKEN = process.env.TELEGRAM_PREVENTIVO_CARGA_TOKEN || "";
+const API = `https://api.telegram.org/bot${TOKEN}`;
+const ENDPOINT = process.env.PREVENTIVO_BOT_URL || "http://localhost:3000/api/integrations/preventivo-bot";
+const SECRET = process.env.NOVEDADES_INTAKE_SECRET || "";
+const TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || "").trim();
+
+async function tg(method: string, body: any): Promise<any> {
+  const res = await fetch(`${API}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const json = await res.json().catch(() => ({}));
+  if (!json.ok) console.error("TELEGRAM_ERROR", method, json.description || res.status);
+  return json;
+}
+async function sendMessage(chatId: number | string, text: string, keyboard?: any) {
+  return tg("sendMessage", { chat_id: chatId, text, parse_mode: "Markdown", reply_markup: keyboard, disable_web_page_preview: true });
+}
+async function answerCb(id: string, text?: string) {
+  return tg("answerCallbackQuery", { callback_query_id: id, text: text || undefined });
+}
+
+async function api(payload: any): Promise<any> {
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-integration-secret": SECRET },
+      body: JSON.stringify({ tenantCode: TENANT_CODE || undefined, ...payload }),
+      signal: AbortSignal.timeout(30000),
+    });
+    return await res.json().catch(() => ({ ok: false }));
+  } catch (e) {
+    console.error("API_FAILED", payload?.action, e);
+    return { ok: false };
+  }
+}
+async function apiUpload(fields: Record<string, string>, buffer: Buffer, filename: string): Promise<any> {
+  try {
+    const fd = new FormData();
+    if (TENANT_CODE) fd.set("tenantCode", TENANT_CODE);
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    fd.set("file", new Blob([buffer]), filename);
+    const res = await fetch(ENDPOINT, { method: "POST", headers: { "x-integration-secret": SECRET }, body: fd, signal: AbortSignal.timeout(60000) });
+    return await res.json().catch(() => ({ ok: false }));
+  } catch (e) {
+    console.error("API_UPLOAD_FAILED", e);
+    return { ok: false };
+  }
+}
+async function downloadPhoto(fileId: string): Promise<{ buffer: Buffer; name: string } | null> {
+  const f = await tg("getFile", { file_id: fileId });
+  const fp = f?.result?.file_path;
+  if (!fp) return null;
+  const res = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${fp}`);
+  const ab = await res.arrayBuffer();
+  return { buffer: Buffer.from(ab), name: fp.split("/").pop() || "foto.jpg" };
+}
+
+// ------------------------------ Estado por chat ------------------------------
+
+type Awaiting = { kind: "photo" | "value" | "hallazgo"; sectionId?: string; itemId?: string; severity?: string; label?: string };
+type ChatState = { caseId?: string; busCode?: string; awaiting?: Awaiting };
+const state = new Map<string, ChatState>();
+const getState = (id: string): ChatState => state.get(id) || {};
+const setState = (id: string, s: ChatState) => state.set(id, s);
+
+function labelOfCapture(s: any, itemId: string): string {
+  return (s?.captures || []).find((c: any) => c.id === itemId)?.label || itemId;
+}
+function labelOfVolt(s: any, itemId: string): string {
+  return (s?.voltajes || []).find((v: any) => v.id === itemId)?.label || itemId;
+}
+
+// ------------------------------- Manejo de chat ------------------------------
+
+async function showMenu(chatId: string, s: any, prefix?: string) {
+  await sendMessage(chatId, `${prefix ? prefix + "\n\n" : ""}${fmtStatus(s)}`, kbMain(s));
+}
+
+async function handleMessage(msg: any) {
+  const chatId = String(msg.chat.id);
+  const chatType = msg.chat.type;
+  if (chatType && chatType !== "private") return;
+  const st = getState(chatId);
+
+  // Foto: si estamos esperando una evidencia.
+  const photo = Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length - 1] : (msg.document && /image\//.test(msg.document.mime_type || "") ? msg.document : null);
+  if (photo) {
+    if (!st.awaiting || st.awaiting.kind !== "photo" || !st.caseId) {
+      await sendMessage(chatId, "Primero elige qué evidencia vas a subir (botón 📸 Evidencias).");
+      return;
+    }
+    const dl = await downloadPhoto(photo.file_id);
+    if (!dl) { await sendMessage(chatId, "⚠️ No pude descargar la foto. Intenta de nuevo."); return; }
+    const r = await apiUpload({ action: "upload", chatId, caseId: st.caseId, itemId: st.awaiting.itemId || "" }, dl.buffer, dl.name);
+    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
+    setState(chatId, { ...st, awaiting: undefined });
+    await sendMessage(chatId, `✅ Guardada: *${r.saved}*`, kbEvid(r.status));
+    return;
+  }
+
+  const text = String(msg.text || "").trim();
+  if (!text) return;
+  const cmd = text.startsWith("/") ? text.split(/\s+/)[0].toLowerCase().split("@")[0] : "";
+
+  if (cmd === "/id") { await sendMessage(chatId, `🆔 Chat ID: ${chatId}`); return; }
+  if (cmd === "/registrar" || cmd === "/registro") {
+    const email = text.split(/\s+/)[1] || "";
+    if (!email) { await sendMessage(chatId, "Escribe: `/registrar tu-correo@dominio.com`"); return; }
+    const r = await api({ action: "register", chatId, email });
+    if (r?.error) { await sendMessage(chatId, `⚠️ ${r.error}`); return; }
+    if (r?.user) { await sendMessage(chatId, `✅ Listo, *${r.user.name}*. Ya puedes mandar el código del bus.`); return; }
+    await sendMessage(chatId, "⚠️ No pude registrarte. Intenta de nuevo.");
+    return;
+  }
+  if (cmd === "/start" || cmd === "/help" || cmd === "/ayuda") { await sendMessage(chatId, HELP); return; }
+
+  // Esperando un valor (voltaje, días) o descripción de hallazgo.
+  if (st.awaiting && st.caseId) {
+    if (st.awaiting.kind === "value") {
+      const r = await api({ action: "set", chatId, caseId: st.caseId, sectionId: st.awaiting.sectionId, itemId: st.awaiting.itemId, value: text });
+      setState(chatId, { ...st, awaiting: undefined });
+      if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
+      await showMenu(chatId, r.status, "✅ Guardado.");
+      return;
+    }
+    if (st.awaiting.kind === "hallazgo") {
+      const [equipo, ...rest] = text.split(/\s*[-—]\s*/);
+      const descripcion = rest.join(" — ") || equipo;
+      const r = await api({ action: "hallazgo", chatId, caseId: st.caseId, severity: st.awaiting.severity, equipo: rest.length ? equipo : "", descripcion, requiereCorrectivo: true });
+      setState(chatId, { ...st, awaiting: undefined });
+      if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
+      await showMenu(chatId, r.status, "⚠️ Hallazgo registrado.");
+      return;
+    }
+  }
+
+  // Palabras clave inicio/fin por texto.
+  if (/^inicio$/i.test(text) && st.caseId) { await doInicio(chatId, st.caseId); return; }
+  if (/^fin$/i.test(text) && st.caseId) { await sendMessage(chatId, "¿Cerrar el preventivo y generar el certificado?", kbConfirmFin()); return; }
+
+  // ¿Es un código de bus?
+  if (looksLikeBus(text)) {
+    const who = await api({ action: "whoami", chatId });
+    if (!who?.user) { await sendMessage(chatId, "Primero regístrate: `/registrar tu-correo@dominio.com`"); return; }
+    await sendMessage(chatId, "🔎 Buscando el preventivo del bus...");
+    const r = await api({ action: "start", chatId, busCode: text });
+    if (!r?.ok) { await sendMessage(chatId, "⚠️ No pude conectar. Intenta de nuevo."); return; }
+    if (!r.found) { await sendMessage(chatId, "No encontré ese bus. Escribe el código (ej. K1416 o 1416)."); return; }
+    setState(chatId, { caseId: r.status.caseId, busCode: r.status.busCode });
+    await showMenu(chatId, r.status, r.creado ? "🛠️ Creé el preventivo del mes." : "🛠️ Preventivo en curso.");
+    return;
+  }
+
+  await sendMessage(chatId, "Manda el *código del bus* (ej. K1416) o escribe /help.");
+}
+
+async function doInicio(chatId: string, caseId: string) {
+  const r = await api({ action: "inicio", chatId, caseId });
+  if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo."}`); return; }
+  await showMenu(chatId, r.status, "🕐 Inicio registrado.");
+}
+
+async function handleCallback(cb: any) {
+  const chatId = String(cb.message.chat.id);
+  const data = String(cb.data || "");
+  const st = getState(chatId);
+  await answerCb(cb.id);
+  if (!st.caseId && data !== "menu:main") { await sendMessage(chatId, "Manda el código del bus para empezar."); return; }
+
+  const refresh = async () => (await api({ action: "status", chatId, caseId: st.caseId })).status;
+
+  if (data === "menu:main") {
+    const s = await refresh();
+    if (!s) { await sendMessage(chatId, "Manda el código del bus para empezar."); return; }
+    await showMenu(chatId, s);
+    return;
+  }
+  if (data === "menu:evid") { const s = await refresh(); await sendMessage(chatId, "📸 Toca una evidencia para subir su foto:", kbEvid(s)); return; }
+  if (data === "menu:volt") { const s = await refresh(); await sendMessage(chatId, "⚡ Toca un voltaje para escribir su valor:", kbVolt(s)); return; }
+  if (data === "menu:check") { const s = await refresh(); await sendMessage(chatId, "✅ Elige una sección del checklist:", kbCheckSections(s)); return; }
+  if (data === "menu:hz") { await sendMessage(chatId, "⚠️ Severidad del hallazgo:", kbSeverity()); return; }
+  if (data === "menu:dias") { setState(chatId, { ...st, awaiting: { kind: "value", sectionId: "identificacion", itemId: "diasGrabacion" } }); await sendMessage(chatId, "📅 Escribe los *días de grabación* (número):"); return; }
+
+  if (data.startsWith("cap:")) {
+    const itemId = data.slice(4);
+    const s = await refresh();
+    setState(chatId, { ...st, awaiting: { kind: "photo", sectionId: "capturas", itemId } });
+    await sendMessage(chatId, `📸 Envía la foto de *${labelOfCapture(s, itemId)}*.`);
+    return;
+  }
+  if (data.startsWith("volt:")) {
+    const itemId = data.slice(5);
+    const s = await refresh();
+    setState(chatId, { ...st, awaiting: { kind: "value", sectionId: "electrico", itemId } });
+    await sendMessage(chatId, `⚡ Escribe el valor de *${labelOfVolt(s, itemId)}* (ej. 13.8):`);
+    return;
+  }
+  if (data.startsWith("sec:")) { const s = await refresh(); await sendMessage(chatId, "Toca un ítem para cambiar su estado (OK → Hallazgo → N/A):", kbCheckItems(s, data.slice(4))); return; }
+  if (data.startsWith("chk:")) {
+    const [, sectionId, itemId] = data.split(":");
+    const s0 = await refresh();
+    const sec = (s0.checkSections || []).find((x: any) => x.id === sectionId);
+    const cur = sec?.items.find((i: any) => i.id === itemId)?.estado ?? null;
+    const r = await api({ action: "set", chatId, caseId: st.caseId, sectionId, itemId, estado: cycleEstado(cur) });
+    if (!r?.ok) { await sendMessage(chatId, "⚠️ No se pudo."); return; }
+    await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cb.message.message_id, reply_markup: kbCheckItems(r.status, sectionId) });
+    return;
+  }
+  if (data.startsWith("hz:")) {
+    setState(chatId, { ...st, awaiting: { kind: "hallazgo", severity: data.slice(3) } });
+    await sendMessage(chatId, "⚠️ Escribe el hallazgo así: *equipo — descripción*\n(ej. Disco duro — disco al 92%, monitorear)");
+    return;
+  }
+  if (data === "inicio") { await doInicio(chatId, st.caseId!); return; }
+  if (data === "fin") { await sendMessage(chatId, "¿Cerrar el preventivo y generar el certificado?", kbConfirmFin()); return; }
+  if (data === "finok") {
+    await sendMessage(chatId, "🏁 Cerrando y generando certificado...");
+    const r = await api({ action: "fin", chatId, caseId: st.caseId });
+    if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo cerrar."}`); return; }
+    const cert = r.certificado ? "📄 Certificado generado y adjunto al caso." : "⚠️ (El certificado no se pudo generar; revísalo en el panel.)";
+    await sendMessage(chatId, `✅ Preventivo *${r.status.ref}* cerrado.\n${cert}`);
+    setState(chatId, {});
+    return;
+  }
+}
+
+async function handleUpdate(update: any) {
+  if (update.callback_query) { await handleCallback(update.callback_query); return; }
+  if (update.message && update.message.chat) await handleMessage(update.message);
+}
+
+// --------------------------------- Self-test ---------------------------------
+
+function runSelfTest(): void {
+  const assert = (c: boolean, m: string) => { if (!c) throw new Error("SELFTEST FALLÓ: " + m); };
+
+  assert(looksLikeBus("K1416") && looksLikeBus("1416") && looksLikeBus("k1402a"), "detecta bus");
+  assert(!looksLikeBus("/start") && !looksLikeBus("inicio") && !looksLikeBus("hola mundo"), "ignora comandos/palabras");
+
+  assert(estadoIcon("ok") === "✅" && estadoIcon("hallazgo") === "⚠️" && estadoIcon(null) === "⬜", "iconos estado");
+  assert(cycleEstado(null) === "ok" && cycleEstado("ok") === "hallazgo" && cycleEstado("hallazgo") === "na" && cycleEstado("na") === "ok", "ciclo estado");
+
+  const s = {
+    ref: "CASO-1087", busCode: "K1416", busPlate: "WLF-482", capturesDone: 14, capturesTotal: 15,
+    resumen: { ok: 17, aplicables: 19, hallazgo: 2, pendientes: 0 }, dias: "30", inicio: null,
+    captures: [{ id: "inicio", label: "Inicio", done: true }, { id: "batch", label: "Batch", done: false }],
+    voltajes: [{ id: "bateria", label: "Baterías", value: "13.8" }, { id: "nvr", label: "Voltaje NVR", value: "" }],
+    checkSections: [{ id: "limpieza", title: "Limpieza", items: [{ id: "nvr", label: "NVR", estado: "ok" }, { id: "cam", label: "Cámaras", estado: null }] }],
+  };
+  const txt = fmtStatus(s);
+  assert(txt.includes("K1416") && txt.includes("CASO-1087") && txt.includes("14/15") && txt.includes("30"), "texto de estado");
+
+  assert(kbMain(s).inline_keyboard.length >= 4, "menu principal");
+  assert(kbEvid(s).inline_keyboard.length === 3, "teclado evidencias (2 + menú)");
+  assert(kbEvid(s).inline_keyboard[0][0].callback_data === "cap:inicio", "callback captura");
+  assert(kbVolt(s).inline_keyboard[0][0].text.includes("13.8"), "voltaje con valor");
+  assert(kbCheckSections(s).inline_keyboard[0][0].callback_data === "sec:limpieza", "sección check");
+  assert(kbCheckItems(s, "limpieza").inline_keyboard[0][0].callback_data === "chk:limpieza:nvr", "item check callback");
+  assert(kbSeverity().inline_keyboard[0][1].callback_data === "hz:M", "severidad");
+
+  console.log("✅ SELFTEST OK: lógica del bot de carga correcta.");
+}
+
+// ----------------------------------- Main ------------------------------------
+
+async function main() {
+  if (process.env.BOT_SELFTEST === "1" || process.argv.includes("--selftest")) { runSelfTest(); return; }
+  if (!TOKEN) throw new Error("Falta TELEGRAM_PREVENTIVO_CARGA_TOKEN.");
+  if (!SECRET) throw new Error("Falta NOVEDADES_INTAKE_SECRET.");
+
+  await tg("setMyCommands", {
+    commands: [
+      { command: "start", description: "Cómo usar el bot" },
+      { command: "registrar", description: "Vincular tu correo de técnico" },
+      { command: "help", description: "Ayuda" },
+      { command: "id", description: "Mostrar el ID de este chat" },
+    ],
+  });
+
+  console.log("🤖 Bot de carga de preventivos en marcha. Endpoint:", ENDPOINT);
+  let offset = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      const res = await fetch(`${API}/getUpdates?timeout=50&offset=${offset}&allowed_updates=["message","callback_query"]`);
+      const json: any = await res.json().catch(() => ({}));
+      if (!json.ok) { await new Promise((r) => setTimeout(r, 3000)); continue; }
+      for (const update of json.result) {
+        offset = update.update_id + 1;
+        try { await handleUpdate(update); } catch (e) { console.error("HANDLE_UPDATE_FAILED", e); }
+      }
+    } catch (e) {
+      console.error("POLL_FAILED", e);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+}
+
+main().catch((e) => { console.error("FATAL", e); process.exit(1); });
