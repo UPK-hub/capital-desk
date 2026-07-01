@@ -435,7 +435,18 @@ export default function TelemetryDashboard({
 
       <TelemetryBusBreakdown rows={busBreakdown} busLabel={busDisplay} />
 
-      <TelemetryTypeBreakdown events={events} alarms={alarms} busLabel={busDisplay} />
+      <TelemetryTypeBreakdown
+        events={events}
+        alarms={alarms}
+        periodicas={[
+          { code: "P20", label: "Periódica cada 20 s", total: activeTotals.p20 },
+          { code: "P60", label: "Periódica cada 60 s", total: activeTotals.p60 },
+        ]}
+        busLabel={busDisplay}
+        start={range.start}
+        end={range.end}
+        busId={selectedBus?.id ?? null}
+      />
 
       <section className="sts-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

@@ -257,22 +257,22 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
       } else {
         // check
         const estado = v.estado;
-        const label = estado ? CHECK_STATE_LABEL[estado] : "Sin marcar";
+        const badge = (estado ? CHECK_STATE_LABEL[estado] : "Sin marcar").toUpperCase();
         const col = estado === "ok" ? green : estado === "hallazgo" ? red : gray;
         const nota = String(v.nota ?? "").trim();
-        const notaLines = nota ? wrap(nota, font, 8.5, cW - 220) : [];
-        const rH = Math.max(16, 6 + Math.max(1, notaLines.length) * 11);
+        const notaLines = nota ? wrap(nota, oblique, 8.5, cW - 24) : [];
+        const rH = Math.max(16, 14 + notaLines.length * 11);
         need(rH);
-        // bullet
-        page.drawCircle({ x: M + 6, y: y - 8, size: 2.2, color: col });
+        // bullet + label (izquierda) y estado alineado a la derecha
+        page.drawRectangle({ x: M + 4, y: y - 10, width: 4, height: 4, color: col });
         page.drawText(it.label, { x: M + 16, y: y - 11, size: 9, font, color: dark });
-        page.drawText(label.toUpperCase(), { x: M + cW - 190, y: y - 11, size: 8, font: bold, color: col });
-        if (notaLines.length) {
-          let ny = y - 11;
-          for (const ln of notaLines) {
-            page.drawText(ln, { x: M + cW - 130, y: ny, size: 8.5, font: oblique, color: gray });
-            ny -= 11;
-          }
+        const badgeW = bold.widthOfTextAtSize(badge, 8);
+        page.drawText(badge, { x: M + cW - badgeW, y: y - 11, size: 8, font: bold, color: col });
+        // nota debajo, indentada (no se sale del margen)
+        let ny = y - 22;
+        for (const ln of notaLines) {
+          page.drawText(ln, { x: M + 16, y: ny, size: 8.5, font: oblique, color: gray });
+          ny -= 11;
         }
         y -= rH;
       }
