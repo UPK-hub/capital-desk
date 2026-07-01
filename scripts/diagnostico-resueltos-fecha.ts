@@ -41,16 +41,23 @@ async function main() {
       updatedAt: true,
       workOrder: { select: { finishedAt: true } },
       events: {
-        where: { type: CaseEventType.STATUS_CHANGE },
-        orderBy: { createdAt: "desc" },
+        where: {
+          type: CaseEventType.STATUS_CHANGE,
+          OR: [
+            { message: { contains: "cerrad", mode: "insensitive" } },
+            { message: { contains: "resuelt", mode: "insensitive" } },
+          ],
+        },
+        orderBy: { createdAt: "asc" },
         take: 1,
         select: { createdAt: true, message: true, meta: true },
       },
     },
   });
 
+  // Misma lógica que el tablero: finalización de la OT, o el PRIMER cierre real.
   const resolvedAtOf = (c: (typeof done)[number]): Date | null =>
-    c.events[0]?.createdAt ?? c.workOrder?.finishedAt ?? null;
+    c.workOrder?.finishedAt ?? c.events[0]?.createdAt ?? null;
 
   const hits = done.filter((c) => {
     const r = resolvedAtOf(c);
@@ -62,6 +69,16 @@ async function main() {
   const byType: Record<string, number> = {};
   for (const c of hits) byType[c.type] = (byType[c.type] || 0) + 1;
   console.log("Por tipo:", byType);
+
+  // Mes de CREACIÓN de esos casos: si están repartidos en muchos meses, fue una
+  // importación/cierre masivo (la fecha 23/06 no sería la resolución real); si son
+  // todos del mismo mes cercano, es un lote real de trabajo.
+  const byCreatedMonth: Record<string, number> = {};
+  for (const c of hits) {
+    const k = cotKey(c.createdAt).slice(0, 7);
+    byCreatedMonth[k] = (byCreatedMonth[k] || 0) + 1;
+  }
+  console.log("Por mes de creación:", byCreatedMonth);
 
   let conSC = 0;
   let conFinished = 0;
