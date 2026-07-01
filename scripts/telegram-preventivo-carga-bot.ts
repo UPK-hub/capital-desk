@@ -525,13 +525,14 @@ async function handleCallback(cb: any) {
     const r = await api({ action: "crear-correctivo", chatId, novedadId });
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo crear el correctivo."}`); return; }
     const cams = Array.isArray(r.cameras) ? r.cameras : [];
+    const verbo = r.retomado ? "🔁 Retomé el correctivo" : "✅ Correctivo creado";
     if (cams.length > 1) {
       const newSt = { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {}, corrEvid: 0, corrCams: cams.map((c: any) => ({ id: String(c.id), label: String(c.label) })), corrCamActive: undefined };
       setState(chatId, newSt);
-      await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (*${cams.length}* cámaras).\n\nDetalla cada cámara y ciérralo:`, kbCorrMulti(newSt));
+      await sendMessage(chatId, `${verbo} *${r.correctivoRef}* para la novedad ${r.novedadRef} (*${cams.length}* cámaras).\n\nDetalla cada cámara y ciérralo:`, kbCorrMulti(newSt));
     } else {
       setState(chatId, { ...st, corrCaseId: r.correctivoCaseId, corrRef: r.correctivoRef, corrDraft: {}, corrEvid: 0, corrCams: undefined, corrCamActive: undefined });
-      await sendMessage(chatId, `✅ Correctivo *${r.correctivoRef}* creado para la novedad ${r.novedadRef} (asignado a ti).\n\nCompleta y ciérralo:`, kbCorrectivo({}));
+      await sendMessage(chatId, `${verbo} *${r.correctivoRef}* para la novedad ${r.novedadRef}.\n\nCompleta y ciérralo:`, kbCorrectivo({}));
     }
     return;
   }

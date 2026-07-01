@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ----- crear un correctivo ligado a una novedad reportada -----
+    // ----- crear (o RETOMAR) un correctivo ligado a una novedad reportada -----
     if (action === "crear-correctivo") {
       const novedadId = String(body.novedadId || "").trim();
       const nov = await prisma.case.findFirst({
@@ -265,8 +265,39 @@ export async function POST(req: NextRequest) {
         select: { id: true, caseNo: true, busId: true, title: true, bus: { select: { code: true } } },
       });
       if (!nov) return NextResponse.json({ ok: true, error: "No encuentro esa novedad." });
-      const nums = await nextNumbers(prisma as any, tenantId, { case: true, workOrder: true });
       const novRef = `CASO-${String(nov.caseNo ?? "").padStart(3, "0")}`;
+
+      // Cámaras afectadas de la novedad (para detallar diagnóstico/solución por cámara).
+      const novEq = await prisma.caseEquipment.findMany({
+        where: { caseId: nov.id },
+        select: { busEquipment: { select: { id: true, serial: true, location: true, equipmentType: { select: { name: true } } } } },
+      });
+      const camaras = novEq
+        .map((e) => e.busEquipment)
+        .filter((e): e is NonNullable<typeof e> => !!e && isCameraEquipment(e.equipmentType?.name, e.location))
+        .map((e) => ({
+          id: e.id,
+          label: `${e.equipmentType?.name ?? "Cámara"}${e.location ? ` ${e.location}` : ""}${e.serial ? ` (${e.serial})` : ""}`.trim(),
+        }));
+
+      // Idempotencia: si YA existe un correctivo ABIERTO para esta novedad, retomarlo
+      // (evita duplicados si el chat se reinicia o se vuelve a tocar "Crear correctivo").
+      const abierto = await prisma.case.findFirst({
+        where: {
+          tenantId,
+          type: CaseType.CORRECTIVO,
+          status: { not: CaseStatus.CERRADO },
+          events: { some: { meta: { path: ["sourceCaseId"], equals: nov.id } } },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, caseNo: true },
+      });
+      if (abierto) {
+        const ref = `CASO-${String(abierto.caseNo ?? "").padStart(3, "0")}`;
+        return NextResponse.json({ ok: true, correctivoRef: ref, correctivoCaseId: abierto.id, novedadRef: novRef, cameras: camaras, retomado: true });
+      }
+
+      const nums = await nextNumbers(prisma as any, tenantId, { case: true, workOrder: true });
       const corr = await prisma.case.create({
         data: {
           tenantId,
@@ -289,26 +320,14 @@ export async function POST(req: NextRequest) {
           { caseId: nov.id, type: CaseEventType.COMMENT, message: `Se generó correctivo ${corrRef} desde el bot.`, meta: { by: user.id, generatedCaseId: corr.id, source: "preventivo-bot" } },
         ],
       });
-      // Cámaras afectadas de la novedad → se ligan al correctivo (hoja de vida) y se
-      // devuelven para poder detallar diagnóstico/solución/observación por cámara.
-      const novEq = await prisma.caseEquipment.findMany({
-        where: { caseId: nov.id },
-        select: { busEquipment: { select: { id: true, serial: true, location: true, equipmentType: { select: { name: true } } } } },
-      });
-      const camaras = novEq
-        .map((e) => e.busEquipment)
-        .filter((e): e is NonNullable<typeof e> => !!e && isCameraEquipment(e.equipmentType?.name, e.location))
-        .map((e) => ({
-          id: e.id,
-          label: `${e.equipmentType?.name ?? "Cámara"}${e.location ? ` ${e.location}` : ""}${e.serial ? ` (${e.serial})` : ""}`.trim(),
-        }));
+      // Ligar las cámaras de la novedad al correctivo (hoja de vida).
       if (camaras.length) {
         await prisma.caseEquipment.createMany({
           data: camaras.map((c) => ({ caseId: corr.id, busEquipmentId: c.id })),
           skipDuplicates: true,
         });
       }
-      return NextResponse.json({ ok: true, correctivoRef: corrRef, correctivoCaseId: corr.id, novedadRef: novRef, cameras: camaras });
+      return NextResponse.json({ ok: true, correctivoRef: corrRef, correctivoCaseId: corr.id, novedadRef: novRef, cameras: camaras, retomado: false });
     }
 
     // ----- correctivo desde el bot: cargar evidencia, nota y cerrar -----
