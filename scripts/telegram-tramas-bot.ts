@@ -173,8 +173,35 @@ function buildTramasReply(resp: any): string {
   return base + buildTodaySection(resp.today);
 }
 
+// Respuesta al desglose del DÍA por tipo (todas las alarmas o todos los eventos).
+function buildKindReply(resp: any, kind: "alarmas" | "eventos"): string {
+  if (!resp?.ok) return "⚠️ No pude consultar ahora. Intenta de nuevo en un momento.";
+  if (!resp.found) return "No encontré ese bus. Escribe el código (ej. K1402 o 1402).";
+  const plate = resp.bus?.plate ? ` (${resp.bus.plate})` : "";
+  const today = resp.today;
+  let rows: { code: string; label: string; total: number }[] = [];
+  if (kind === "eventos") {
+    rows = (today?.events ?? []).map((e: any) => ({ code: e.code, label: e.label, total: e.total }));
+  } else {
+    const m = new Map<string, { code: string; label: string; total: number }>();
+    for (const a of today?.alarms ?? []) {
+      const e = m.get(a.code) ?? { code: a.code, label: a.label, total: 0 };
+      e.total += a.total;
+      m.set(a.code, e);
+    }
+    rows = [...m.values()];
+  }
+  rows = rows.filter((r) => r.total > 0).sort((a, b) => b.total - a.total);
+  const title = kind === "eventos" ? "📻 Eventos de hoy — por tipo" : "🔔 Alarmas de hoy — por tipo";
+  const head = `🚌 Bus ${resp.bus.code}${plate}\n${title}:`;
+  if (!rows.length) return `${head}\n   (sin ${kind} hoy)`;
+  const total = rows.reduce((a, b) => a + b.total, 0);
+  const lines = rows.map((r) => `   ${r.code} · ${r.label} — ${nfmtBot(r.total)}`);
+  return [head, ...lines, "", `Total: ${nfmtBot(total)}`].join("\n");
+}
+
 const HELP =
-  "👋 Soy el bot de consulta de tramas.\n\nEscríbeme el código del bus (ej. K1402, también vale 1402) y te digo la última P20 y P60 que reportó, con la hora, hace cuánto y los datos de la trama. Además te muestro los conteos del día: alarmas, eventos y periódicas (con los tipos principales).";
+  "👋 Soy el bot de consulta de tramas.\n\nEscríbeme el código del bus (ej. K1402, también vale 1402) y te digo la última P20 y P60 que reportó, con la hora, hace cuánto y los datos de la trama. Además te muestro los conteos del día: alarmas, eventos y periódicas (con los tipos principales).\n\nTambién puedes pedir el desglose del día por tipo, por ejemplo:\n• alarmas 1446\n• eventos K1446";
 
 // --------------------------- Cliente de Telegram -----------------------------
 
@@ -234,6 +261,18 @@ async function handleUpdate(update: any) {
   if (chatType && chatType !== "private") return;
   if (cmd === "/start" || cmd === "/help" || cmd) {
     await sendMessage(chatId, HELP);
+    return;
+  }
+
+  // Consulta por tipo: "alarmas 1446", "1446 eventos", "alarms K1446"…
+  const lower = text.toLowerCase();
+  const kind = /alarm/.test(lower) ? "alarmas" : /event/.test(lower) ? "eventos" : null;
+  const codeMatch = text.match(/k?\s*\d{3,4}/i);
+  if (kind && codeMatch) {
+    const code = codeMatch[0].replace(/\s+/g, "").toUpperCase();
+    await sendMessage(chatId, "🔎 Consultando...");
+    const resp = await queryTramas(code);
+    await sendMessage(chatId, buildKindReply(resp, kind as "alarmas" | "eventos"));
     return;
   }
 
@@ -300,6 +339,30 @@ function runSelfTest(): void {
       withToday.includes("P20 40") &&
       withToday.includes("P60 20"),
     "reply incluye sección Hoy"
+  );
+
+  const alReply = buildKindReply(
+    {
+      ok: true,
+      found: true,
+      bus: { code: "K1446", plate: null },
+      today: {
+        totals: {},
+        events: [],
+        alarms: [
+          { code: "ALA4", label: "Exceso de peso", total: 5 },
+          { code: "ALA4", label: "Exceso de peso", total: 2 },
+          { code: "ALA2", label: "Frenada brusca", total: 3 },
+        ],
+      },
+    },
+    "alarmas"
+  );
+  assert(
+    alReply.includes("Alarmas de hoy") &&
+      alReply.includes("ALA4 · Exceso de peso — 7") &&
+      alReply.includes("Total: 10"),
+    "kind reply alarmas por tipo"
   );
 
   console.log("✅ SELFTEST OK: formato de fecha/antigüedad y respuesta correctos.");

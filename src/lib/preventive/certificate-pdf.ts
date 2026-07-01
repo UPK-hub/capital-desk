@@ -144,16 +144,15 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   field(fx + 210, fy, "RESPONSABLE", input.responsableName ?? "-");
   field(fx, fy - 22, "FECHA EJEC.", fmtDate(input.executedAt));
   field(fx + 130, fy - 22, "RESULTADO", resultado);
-  LINE(M + cW - 232, y - 8, M + cW - 232, y - bandH + 8, bd, 0.6);
-  const sx = M + cW - 220;
+  LINE(M + cW - 200, y - 8, M + cW - 200, y - bandH + 8, bd, 0.6);
+  const sx = M + cW - 188;
   const stats: [string, number, Col][] = [
     ["OK", summary.okCount, green],
-    ["Crít.", summary.C, red],
-    ["Mod.", summary.M, amber],
-    ["Leve", summary.L, blueL],
+    ["Hallazgo", summary.hallazgoCount, red],
+    ["N/A", summary.naCount, gray],
   ];
   stats.forEach(([lbl, num, col], i) => {
-    const cx = sx + i * 54;
+    const cx = sx + i * 62;
     const numTxt = lbl === "OK" ? `${num}/${summary.checkTotal}` : String(num);
     T(cx, y - 24, numTxt, bold, 13, col);
     T(cx, y - 38, lbl, font, 6.5, gray);
@@ -168,7 +167,7 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const colHeader = (x: number, yy: number, title: string): number => {
     T(x, yy - 8, title.toUpperCase(), bold, 8.5, navy);
     LINE(x, yy - 11, x + colW, yy - 11, navy, 0.9);
-    return yy - 20;
+    return yy - 18;
   };
   const colSection = (x: number, yy: number, section: ChecklistSectionDef): number => {
     yy = colHeader(x, yy, section.title);
@@ -178,24 +177,24 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
         const val = String(v.value ?? "").trim() || "—";
         T(x + 2, yy - 7.5, `${it.label}:`, font, 7.5, gray);
         T(x + 2 + font.widthOfTextAtSize(`${it.label}: `, 7.5), yy - 7.5, val, bold, 7.5, dark);
-        yy -= 11;
+        yy -= 10.5;
       } else if (it.type === "voltage") {
         const val = String(v.value ?? "").trim();
         T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
         RT(x + colW, yy - 7.5, val ? `${val} V` : "—", bold, 7.5, val ? dark : gray);
-        yy -= 10.5;
+        yy -= 10;
       } else if (it.type === "photo") {
         const has = Boolean(v.photo?.filePath);
         T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
         RT(x + colW, yy - 7.5, has ? "Adjunta" : "—", bold, 6.5, has ? green : gray);
-        yy -= 10.5;
+        yy -= 10;
       } else {
         const estado = v.estado;
         const badge = (estado ? CHECK_STATE_LABEL[estado] : "—").toUpperCase();
         const col = CHECK_COLOR(estado);
         T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
         RT(x + colW, yy - 7.5, badge, bold, 6.5, col);
-        yy -= 10.5;
+        yy -= 10;
         const nota = String(v.nota ?? "").trim();
         if (nota) {
           for (const ln of wrap(nota, oblique, 6.5, colW - 14)) {
@@ -227,7 +226,7 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
 
   y = Math.min(yL, yR) - 4;
   LINE(M, y, M + cW, y, bd, 0.6);
-  y -= 12;
+  y -= 8;
 
   // ---- helpers full-width ----
   const newPage = () => { page = pdf.addPage([W, H]); y = H - M; };
@@ -236,11 +235,11 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
     need(24);
     T(M, y - 8, t, bold, 8.5, navy);
     LINE(M, y - 11, M + cW, y - 11, navy, 0.9);
-    y -= 20;
+    y -= 16;
   };
   const fwPara = (t: string, sz = 8) => {
     for (const ln of wrap(t, font, sz, cW)) { need(sz + 3); T(M, y - sz, ln, font, sz, dark); y -= sz + 2.5; }
-    y -= 6;
+    y -= 4;
   };
 
   // ---- hallazgos ----
@@ -293,21 +292,21 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   if (data.cierre.notasOT.trim()) { fwHeading("NOTAS PARA OT DE CAPITAL"); fwPara(data.cierre.notasOT.trim()); }
 
   // ---- firmas ----
-  need(90);
+  need(78);
   fwHeading("FIRMAS");
   T(M, y - 7, "Documento firmado digitalmente a través de Capital Desk; no requiere firma manuscrita.", font, 7, gray);
-  y -= 20;
+  y -= 14;
   const colW2 = (cW - 24) / 2;
   const blk = y;
   const sign = (x: number, nombre: string, cargo: string): number => {
     let yy = blk;
-    T(x, yy, "Firmado digitalmente por", font, 7, gray); yy -= 22;
-    T(x, yy, nombre || "-", oblique, 15, navy); yy -= 7;
-    LINE(x, yy, x + colW2, yy, bd, 0.5); yy -= 12;
-    T(x, yy, nombre || "-", bold, 8.5, dark); yy -= 11;
-    T(x, yy, cargo, font, 7.5, gray); yy -= 11;
+    T(x, yy, "Firmado digitalmente por", font, 7, gray); yy -= 18;
+    T(x, yy, nombre || "-", oblique, 14, navy); yy -= 6;
+    LINE(x, yy, x + colW2, yy, bd, 0.5); yy -= 11;
+    T(x, yy, nombre || "-", bold, 8.5, dark); yy -= 10;
+    T(x, yy, cargo, font, 7.5, gray); yy -= 10;
     T(x, yy, `Firma digital · Validado en Capital Desk · ${fecha}`, font, 6.5, gray);
-    return yy - 8;
+    return yy - 6;
   };
   const s1 = sign(M, input.responsableName ?? "Por asignar", "Responsable de la ejecución");
   const s2 = sign(M + colW2 + 24, "Santiago Gil", "Coordinador STS");

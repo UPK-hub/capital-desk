@@ -73,14 +73,10 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
     id: "electrico",
     title: "Eléctrico — Voltajes",
     items: [
-      { id: "v1", label: "Batería (bornes)", type: "voltage" },
-      { id: "v2", label: "Entrada NVR", type: "voltage" },
-      { id: "v3", label: "Salida NVR", type: "voltage" },
-      { id: "v4", label: "Fuente / convertidor — entrada", type: "voltage" },
-      { id: "v5", label: "Fuente / convertidor — salida", type: "voltage" },
-      { id: "v6", label: "Switch / PoE", type: "voltage" },
-      { id: "v7", label: "Monitor", type: "voltage" },
-      { id: "v8", label: "Router / módem", type: "voltage" },
+      { id: "bateria", label: "Baterías", type: "voltage" },
+      { id: "nvr", label: "Voltaje NVR", type: "voltage" },
+      { id: "controlador", label: "Voltaje controlador", type: "voltage" },
+      { id: "switch", label: "Voltaje switch", type: "voltage" },
     ],
   },
   {
@@ -235,27 +231,31 @@ export type ChecklistSummary = {
   C: number;
   M: number;
   L: number;
-  hallazgos: number;
-  okCount: number;
-  checkTotal: number;
+  hallazgos: number; // hallazgos de cierre por severidad (C+M+L)
+  okCount: number; // ítems check en OK
+  hallazgoCount: number; // ítems check marcados Hallazgo
+  naCount: number; // ítems check marcados N/A
+  checkTotal: number; // total de ítems check (OK + Hallazgo + N/A + sin marcar)
   conNovedad: boolean;
 };
 
-// Resumen: cuenta hallazgos por severidad y estado de los ítems de tipo check.
+// Resumen: estado de los ítems de tipo check (OK/Hallazgo/N-A, que suman al
+// total) + hallazgos de cierre por severidad.
 export function summarizeChecklist(data: ChecklistData): ChecklistSummary {
-  let okCount = 0;
-  let checkTotal = 0;
+  let okCount = 0, hallazgoCount = 0, naCount = 0, checkTotal = 0;
   for (const section of PREVENTIVE_CHECKLIST) {
     for (const it of section.items) {
       if (it.type !== "check") continue;
       checkTotal++;
       const estado = data.items[section.id]?.[it.id]?.estado;
       if (estado === "ok") okCount++;
+      else if (estado === "hallazgo") hallazgoCount++;
+      else if (estado === "na") naCount++;
     }
   }
   const C = data.cierre.hallazgos.filter((h) => h.severity === "C").length;
   const M = data.cierre.hallazgos.filter((h) => h.severity === "M").length;
   const L = data.cierre.hallazgos.filter((h) => h.severity === "L").length;
   const hallazgos = C + M + L;
-  return { C, M, L, hallazgos, okCount, checkTotal, conNovedad: hallazgos > 0 };
+  return { C, M, L, hallazgos, okCount, hallazgoCount, naCount, checkTotal, conNovedad: hallazgos > 0 || hallazgoCount > 0 };
 }
