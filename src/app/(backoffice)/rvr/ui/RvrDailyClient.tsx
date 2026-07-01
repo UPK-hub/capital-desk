@@ -600,7 +600,16 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
 
         {correctiveQueue.length ? (
           <section className="mobile-section-card mobile-section-card__body">
-            <h2 className="text-base font-semibold">Prioridad de correctivo</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Prioridad de correctivo</h2>
+              <button
+                type="button"
+                className="sts-btn-ghost h-9 px-3 text-xs"
+                onClick={() => window.open("/api/rvr/corrective-priority/export?format=xlsx", "_blank", "noopener,noreferrer")}
+              >
+                Exportar Excel
+              </button>
+            </div>
             <p className="text-xs text-muted-foreground">Buses con falla técnica, en orden de importancia (no reporta, odómetro 0, coordenadas 0).</p>
             <div className="mt-3 space-y-2">
               {correctiveQueue.map((item) => (
