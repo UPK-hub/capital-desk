@@ -181,6 +181,7 @@ const SOLUCIONES = [
   "Reemplazo de cable",
   "Ajuste de ángulo",
   "Reorientación de cámara",
+  "Limpieza de cámara",
   "Limpieza de lente",
   "Reconfiguración",
   "Actualización de firmware",
