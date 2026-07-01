@@ -550,7 +550,7 @@ export default function VideoRequestDetailClient({
                   // ITEM 5 (bloque 6): además de video, permitir comprimidos. El selector
                   // sugiere estos tipos pero NO se rechaza nada (el endpoint sigue siendo
                   // permisivo y acepta cualquier tipo).
-                  accept="video/*,.zip,.rar,.7z,.tar,.gz,.tgz,application/zip,application/x-rar-compressed,application/x-7z-compressed"
+                  accept="*/*"
                   disabled={!canManage || uploading}
                   onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])}
                 />

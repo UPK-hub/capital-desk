@@ -3,8 +3,10 @@ import { buildTramaQuality, type TramaQuality } from "@/lib/telemetry/quality";
 import {
   summaryFromRollup,
   busCountsFromRollup,
+  busBreakdownFromRollup,
   seriesFromRollup,
   type TelemetrySummary,
+  type BusBreakdownRow,
 } from "@/lib/telemetry/rollup";
 import type { SeriesType, TelemetrySeries, BusPoint } from "@/lib/telemetry/series";
 
@@ -34,6 +36,19 @@ export function getBusCountsCached(
   return unstable_cache(
     async () => busCountsFromRollup(tenantId, new Date(startISO), new Date(endISO), busCode),
     ["tm-buscounts", tenantId, startISO, endISO, busCode ?? "all"],
+    { revalidate: TTL }
+  )();
+}
+
+export function getBusBreakdownCached(
+  tenantId: string,
+  startISO: string,
+  endISO: string,
+  busCode: string | null
+): Promise<BusBreakdownRow[]> {
+  return unstable_cache(
+    async () => busBreakdownFromRollup(tenantId, new Date(startISO), new Date(endISO), busCode),
+    ["tm-busbreakdown", tenantId, startISO, endISO, busCode ?? "all"],
     { revalidate: TTL }
   )();
 }

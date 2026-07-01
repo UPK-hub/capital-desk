@@ -217,7 +217,7 @@ export default function GestionCasoCard(props: Props) {
             {ot === "si" ? (
               <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-600">
                 <Upload className="h-3.5 w-3.5" />
-                <input type="file" accept="image/*,application/pdf" className="text-xs" onChange={(e) => setOtFile(e.target.files?.[0] ?? null)} />
+                <input type="file" accept="*/*" className="text-xs" onChange={(e) => setOtFile(e.target.files?.[0] ?? null)} />
                 {otFile ? <span className="text-emerald-700">{otFile.name}</span> : <span>Selecciona el PDF (cualquier peso)</span>}
               </label>
             ) : null}
@@ -345,7 +345,7 @@ export default function GestionCasoCard(props: Props) {
                   </div>
                   <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
                     <Upload className="h-3.5 w-3.5" />
-                    <input type="file" accept="image/*" className="text-xs" onChange={(e) => setSerialFoto(e.target.files?.[0] ?? null)} />
+                    <input type="file" accept="*/*" className="text-xs" onChange={(e) => setSerialFoto(e.target.files?.[0] ?? null)} />
                     {serialFoto ? <span className="text-emerald-700">{serialFoto.name}</span> : <span>Foto del serial nuevo</span>}
                   </label>
                   <p className="text-[11px] text-muted-foreground">Actualiza la hoja de vida del bus y registra el movimiento en el histórico.</p>

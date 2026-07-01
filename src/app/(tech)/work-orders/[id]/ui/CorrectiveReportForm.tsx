@@ -1466,7 +1466,7 @@ export default function CorrectiveReportForm(props: Props) {
                 <input
                   id={`evidence-before-after-${props.workOrderId}`}
                   type="file"
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                  accept="*/*"
                   className="sr-only"
                   {...form.register("evidenceBeforeAfterUpload", {
                     onChange: (e) => {
@@ -1499,7 +1499,7 @@ export default function CorrectiveReportForm(props: Props) {
                 <input
                   id={`evidence-logs-${props.workOrderId}`}
                   type="file"
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                  accept="*/*"
                   className="sr-only"
                   {...form.register("evidenceLogsUpload", {
                     onChange: (e) => {
@@ -1530,7 +1530,7 @@ export default function CorrectiveReportForm(props: Props) {
                 <input
                   id={`evidence-other-${props.workOrderId}`}
                   type="file"
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                  accept="*/*"
                   className="sr-only"
                   {...form.register("evidenceOtherUpload", {
                     onChange: (e) => {
@@ -1584,7 +1584,7 @@ export default function CorrectiveReportForm(props: Props) {
                     <input
                       id={`photo-bodywork-dismount-${props.workOrderId}`}
                       type="file"
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                      accept="*/*"
                       className="sr-only"
                       {...form.register("photoBodyworkDismount", {
                         onChange: (e) => {
@@ -1632,7 +1632,7 @@ export default function CorrectiveReportForm(props: Props) {
                   <input
                     id={`photo-serial-current-${props.workOrderId}`}
                     type="file"
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                    accept="*/*"
                     className="sr-only"
                     {...form.register("photoSerialCurrent", {
                       onChange: (e) => {
@@ -1663,7 +1663,7 @@ export default function CorrectiveReportForm(props: Props) {
                   <input
                     id={`photo-serial-new-${props.workOrderId}`}
                     type="file"
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                    accept="*/*"
                     className="sr-only"
                     {...form.register("photoSerialNew", {
                       onChange: (e) => {

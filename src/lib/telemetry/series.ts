@@ -90,7 +90,7 @@ export async function buildTelemetrySeries(params: {
       WHERE "tenantId" = ${tenantId} ${kindClause} ${codeFilter} ${rangeFilter} ${busFilter}
       GROUP BY "busCode"
       ORDER BY c DESC
-      LIMIT 20
+      LIMIT 1000
     `),
   ]);
 

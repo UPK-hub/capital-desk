@@ -215,6 +215,67 @@ export async function busCountsFromRollup(
   return rows.map((r) => ({ busCode: r.busCode, total: r._sum.count ?? 0 }));
 }
 
+export type BusBreakdownRow = {
+  busCode: string;
+  tramas: number;
+  p20: number;
+  p60: number;
+  eventos: number;
+  alarmas: number;
+  total: number;
+};
+
+// Consolidado por bus con TODAS las métricas del rango (para el Resumen):
+// tramas, P20, P60, eventos, alarmas y total.
+export async function busBreakdownFromRollup(
+  tenantId: string,
+  start: Date,
+  end: Date,
+  busCode: string | null
+): Promise<BusBreakdownRow[]> {
+  await ensureRange(tenantId, start, end);
+  const first = bogDayLabel(start);
+  const last = bogDayLabel(end);
+  const baseWhere = { tenantId, day: { gte: first, lte: last }, ...(busCode ? { busCode } : {}) };
+
+  const [byBusKind, byBusSub] = await Promise.all([
+    prisma.telemetryDailyRollup.groupBy({ by: ["busCode", "kind"], where: baseWhere, _sum: { count: true } }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["busCode", "code"],
+      where: { ...baseWhere, kind: StsTelemetryKind.TRAMAS },
+      _sum: { count: true },
+    }),
+  ]);
+
+  const map = new Map<string, BusBreakdownRow>();
+  const ensure = (bus: string): BusBreakdownRow => {
+    let r = map.get(bus);
+    if (!r) {
+      r = { busCode: bus, tramas: 0, p20: 0, p60: 0, eventos: 0, alarmas: 0, total: 0 };
+      map.set(bus, r);
+    }
+    return r;
+  };
+
+  for (const g of byBusKind) {
+    const r = ensure(g.busCode);
+    const c = g._sum.count ?? 0;
+    if (g.kind === StsTelemetryKind.TRAMAS) r.tramas += c;
+    else if (g.kind === StsTelemetryKind.EVENTOS) r.eventos += c;
+    else if (g.kind === StsTelemetryKind.ALARMAS) r.alarmas += c;
+  }
+  for (const g of byBusSub) {
+    const r = ensure(g.busCode);
+    const code = (g.code || "").toUpperCase();
+    const c = g._sum.count ?? 0;
+    if (code === "P20") r.p20 += c;
+    else if (code === "P60") r.p60 += c;
+  }
+  for (const r of map.values()) r.total = r.tramas + r.eventos + r.alarmas;
+
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
 export async function seriesFromRollup(p: {
   tenantId: string;
   type: SeriesType;
@@ -248,7 +309,7 @@ export async function seriesFromRollup(p: {
       where,
       _sum: { count: true },
       orderBy: { _sum: { count: "desc" } },
-      take: 20,
+      take: 1000,
     }),
   ]);
 

@@ -482,7 +482,7 @@ export default function VideoCamerasFolders({
                         type="file"
                         className="hidden"
                         multiple
-                        accept="video/*,.zip,.rar,.7z"
+                        accept="*/*"
                         disabled={uploadingCamera !== null}
                         onChange={(e) => uploadToCamera(camera, e.currentTarget)}
                       />

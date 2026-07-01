@@ -868,7 +868,7 @@ function PreventiveReportFormInner(props: Props) {
                                 Cargar foto o archivo
                                 <input
                                   type="file"
-                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                                  accept="*/*"
                                   className="hidden"
                                   onChange={(e) => {
                                     const files = e.currentTarget.files;
@@ -1014,7 +1014,7 @@ function PreventiveReportFormInner(props: Props) {
                         Cargar foto o archivo
                         <input
                           type="file"
-                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                          accept="*/*"
                           className="hidden"
                           onChange={(e) => {
                             const files = e.currentTarget.files;

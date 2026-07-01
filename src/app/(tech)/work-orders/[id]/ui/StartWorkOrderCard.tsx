@@ -555,7 +555,7 @@ export default function StartWorkOrderCard({
           <input
             id={inputId}
             type="file"
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+            accept="*/*"
             className="sr-only"
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;

@@ -27,6 +27,7 @@ import TramaQualityPanel from "./TramaQualityPanel";
 import TelemetrySeriesPanel from "./TelemetrySeriesPanel";
 import OdometerPanel from "./OdometerPanel";
 import CoordinatesPanel from "./CoordinatesPanel";
+import TelemetryBusBreakdown, { type BusBreakdownRow } from "./TelemetryBusBreakdown";
 
 const TelemetrySatelliteMap = dynamic(() => import("./TelemetrySatelliteMap"), {
   ssr: false,
@@ -94,6 +95,7 @@ type Props = {
   events: EventRow[];
   alarms: AlarmRow[];
   reportStatus: ReportStatus;
+  busBreakdown: BusBreakdownRow[];
 };
 
 function formatDateTime(value: string | null) {
@@ -149,6 +151,7 @@ export default function TelemetryDashboard({
   events,
   alarms,
   reportStatus,
+  busBreakdown,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -428,6 +431,8 @@ export default function TelemetryDashboard({
           </div>
         </section>
       ) : null}
+
+      <TelemetryBusBreakdown rows={busBreakdown} busLabel={busDisplay} />
 
       <section className="sts-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

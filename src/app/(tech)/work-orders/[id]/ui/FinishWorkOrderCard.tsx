@@ -395,7 +395,7 @@ export default function FinishWorkOrderCard({
           <input
             id={inputId}
             type="file"
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+            accept="*/*"
             multiple
             className="sr-only"
             onChange={(e) => {

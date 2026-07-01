@@ -198,7 +198,7 @@ function FileUploadField({
       <input
         id={id}
         type="file"
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+        accept="*/*"
         className="hidden"
         onChange={(e) => {
           onFiles(e.currentTarget.files);

@@ -158,7 +158,7 @@ export default function CaseCommentsCard({
             <input
               ref={imageInputRef}
               type="file"
-              accept="image/*"
+              accept="*/*"
               multiple
               className="hidden"
               onChange={(e) => {

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { getTelemetrySummaryCached, getBusCountsCached } from "@/lib/telemetry/cache";
+import { getTelemetrySummaryCached, getBusCountsCached, getBusBreakdownCached } from "@/lib/telemetry/cache";
 import { bogToday, bogDayStartInstant, addDaysLabel, bogDayKey } from "@/lib/telemetry/tz";
 import { prisma } from "@/lib/prisma";
 import TelemetryDashboard, {
@@ -123,7 +123,7 @@ export default async function TelemetryPage({
   const startISO = start.toISOString();
   const endISO = end.toISOString();
 
-  const [generalSummary, busSummary, states, busCounts] = await Promise.all([
+  const [generalSummary, busSummary, states, busCounts, busBreakdown] = await Promise.all([
     getTelemetrySummaryCached(tenantId, startISO, endISO, null),
     selectedBus ? getTelemetrySummaryCached(tenantId, startISO, endISO, selectedBus.code) : Promise.resolve(null),
     prisma.busTelemetryState.findMany({
@@ -138,6 +138,7 @@ export default async function TelemetryPage({
       take: selectedBus ? 1 : 500,
     }),
     getBusCountsCached(tenantId, startISO, endISO, selectedBus?.code ?? null),
+    getBusBreakdownCached(tenantId, startISO, endISO, selectedBus?.code ?? null),
   ]);
 
   const points: TelemetryMapPoint[] = states
@@ -196,6 +197,7 @@ export default async function TelemetryPage({
       events={events}
       alarms={alarms}
       reportStatus={reportStatus}
+      busBreakdown={busBreakdown}
     />
   );
 }

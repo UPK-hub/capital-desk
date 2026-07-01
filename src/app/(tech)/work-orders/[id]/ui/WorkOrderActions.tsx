@@ -92,7 +92,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
         />
         <input
           type="file"
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+          accept="*/*"
           onChange={(e) => setPhotoStart(e.target.files?.[0] ?? null)}
           disabled={!canStart || loading}
         />
@@ -121,7 +121,7 @@ export default function WorkOrderActions({ workOrderId, canStart, canFinish, cur
         />
         <input
           type="file"
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+          accept="*/*"
           onChange={(e) => setPhotoFinish(e.target.files?.[0] ?? null)}
           disabled={!canFinish || loading}
         />

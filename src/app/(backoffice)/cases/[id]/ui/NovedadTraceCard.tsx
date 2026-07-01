@@ -365,7 +365,7 @@ export default function NovedadTraceCard(props: Props) {
               <label className="text-xs text-muted-foreground">Adjuntar evidencia (opcional)</label>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept="*/*"
                 className="mt-1 block w-full text-xs"
                 onChange={(e) => setEvidenceFile(e.target.files?.[0] ?? null)}
               />

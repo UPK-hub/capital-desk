@@ -1172,7 +1172,7 @@ export default function NewCasePage() {
                             <Field label="Evidencia de la novedad (opcional)">
                               <input
                                 type="file"
-                                accept="image/*,application/pdf"
+                                accept="*/*"
                                 className="block w-full text-xs"
                                 onChange={(e) =>
                                   updateNovedadItem(item.key, {
