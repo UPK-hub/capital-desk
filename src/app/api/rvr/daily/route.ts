@@ -17,7 +17,7 @@ import {
   pickNvrIpFromEquipments,
   RVR_MAX_BUSES_PER_DAY,
 } from "@/lib/rvr";
-import { buildRvrValidationQueue, buildRvrCorrectiveQueue, type RvrQueueItem } from "@/lib/rvr/priority";
+import { getRvrQueues, type RvrQueueItem } from "@/lib/rvr/priority";
 
 type PersistedEvidence = {
   filePath: string;
@@ -179,8 +179,11 @@ async function buildEligibleBuses(tenantId: string, includeBusIds: string[] = []
 // Buses elegibles según el MOTOR DE PRIORIDAD (no transmite, alarma cámara,
 // preventivo ayer/10d, recheck 15d). Devuelve la misma forma que buildEligibleBuses
 // + el motivo/orden, y agrega la IP del NVR.
-async function buildPriorityEligibleBuses(tenantId: string, includeBusIds: string[] = []) {
-  const queue = await buildRvrValidationQueue(tenantId, RVR_MAX_BUSES_PER_DAY);
+async function buildPriorityEligibleBuses(
+  tenantId: string,
+  queue: RvrQueueItem[],
+  includeBusIds: string[] = []
+) {
   const byId = new Map(queue.map((q) => [q.busId, q]));
   const allIds = Array.from(new Set([...queue.map((q) => q.busId), ...includeBusIds]));
   if (allIds.length === 0) return [];
@@ -306,8 +309,10 @@ export async function GET(req: NextRequest) {
   let eligibleBuses: Array<Record<string, any>>;
   let correctiveQueue: RvrQueueItem[] = [];
   try {
-    eligibleBuses = await buildPriorityEligibleBuses(tenantId, selectedBusIds);
-    correctiveQueue = await buildRvrCorrectiveQueue(tenantId, RVR_MAX_BUSES_PER_DAY);
+    // Una sola lectura de señales (cacheada ~3 min) para AMBAS colas.
+    const { validation, corrective } = await getRvrQueues(tenantId);
+    eligibleBuses = await buildPriorityEligibleBuses(tenantId, validation, selectedBusIds);
+    correctiveQueue = corrective;
   } catch (e) {
     console.error("RVR_PRIORITY_FAILED", e);
     eligibleBuses = await buildEligibleBuses(tenantId, selectedBusIds);

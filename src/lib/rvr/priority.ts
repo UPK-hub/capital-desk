@@ -16,6 +16,7 @@
 //       3) Coordenadas en 0 en los últimos 3 días
 //
 // Todo es solo-lectura (no crea nada). Las consultas usan índices existentes.
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
 import { getLatestOdometer } from "@/lib/telemetry/odometer";
@@ -78,11 +79,12 @@ async function fetchSignals(tenantId: string) {
 
   const [buses, lastTrama, camAlarms, preventives, lastReviews, openNov, odo, coords] = await Promise.all([
     prisma.bus.findMany({ where: { tenantId, active: true }, select: { id: true, code: true, plate: true } }),
-    // Última P20/P60 por bus (para detectar "no transmite"). Acotado a 7 días:
-    // si no hubo P20/P60 en 7 días, con más razón no transmite (umbral 24 h).
+    // Última P20/P60 por bus (para detectar "no transmite"). Acotado a 3 días:
+    // el umbral es 24 h, así que 3 días basta para ubicar la última trama y
+    // reduce mucho el escaneo de la tabla de tramas (firehose).
     prisma.integrationInboundEvent.groupBy({
       by: ["busCode"],
-      where: { tenantId, tramaSubtype: { in: ["P20", "P60"] }, eventAt: { gte: new Date(now - 7 * DAY) } },
+      where: { tenantId, tramaSubtype: { in: ["P20", "P60"] }, eventAt: { gte: new Date(now - 3 * DAY) } },
       _max: { eventAt: true },
     }),
     // Alarmas de desconexión de cámara recientes (ALA5/ALA6).
@@ -161,13 +163,16 @@ async function fetchSignals(tenantId: string) {
   };
 }
 
+type RvrSignals = Awaited<ReturnType<typeof fetchSignals>>;
+
 // ---------------------------- Cola de VALIDACIÓN ----------------------------
 
 export async function buildRvrValidationQueue(
   tenantId: string,
-  limit = RVR_DEFAULTS.DAILY_LIMIT
+  limit = RVR_DEFAULTS.DAILY_LIMIT,
+  signals?: RvrSignals
 ): Promise<RvrQueueItem[]> {
-  const s = await fetchSignals(tenantId);
+  const s = signals ?? (await fetchSignals(tenantId));
   const now = s.now;
   const ayerDesde = new Date(now - 2 * DAY); // "día anterior": entre hace 2 y 1 día
   const ayerHasta = new Date(now - 1 * DAY);
@@ -236,9 +241,10 @@ export async function buildRvrValidationQueue(
 
 export async function buildRvrCorrectiveQueue(
   tenantId: string,
-  limit = RVR_DEFAULTS.DAILY_LIMIT
+  limit = RVR_DEFAULTS.DAILY_LIMIT,
+  signals?: RvrSignals
 ): Promise<RvrQueueItem[]> {
-  const s = await fetchSignals(tenantId);
+  const s = signals ?? (await fetchSignals(tenantId));
   const items: RvrQueueItem[] = [];
   for (const b of s.buses) {
     const base = {
@@ -271,4 +277,30 @@ export async function buildRvrCorrectiveQueue(
 
 function sortAndLimit(items: RvrQueueItem[], limit: number, cmp: (a: RvrQueueItem, b: RvrQueueItem) => number): RvrQueueItem[] {
   return [...items].sort(cmp).slice(0, limit);
+}
+
+// --------------------- Colas combinadas (una sola lectura) -------------------
+
+// Construye AMBAS colas con una única lectura de señales, evitando duplicar el
+// trabajo pesado sobre la tabla de tramas (antes fetchSignals corría 2 veces).
+async function computeRvrQueues(
+  tenantId: string
+): Promise<{ validation: RvrQueueItem[]; corrective: RvrQueueItem[] }> {
+  const s = await fetchSignals(tenantId);
+  const [validation, corrective] = await Promise.all([
+    buildRvrValidationQueue(tenantId, RVR_DEFAULTS.DAILY_LIMIT, s),
+    buildRvrCorrectiveQueue(tenantId, RVR_DEFAULTS.DAILY_LIMIT, s),
+  ]);
+  return { validation, corrective };
+}
+
+// Cacheado ~3 min: las colas se recalculan a lo sumo cada 3 minutos, así la
+// pantalla de RVR no re-escanea las tramas en cada carga/navegación. La review
+// del día (los 30 buses a trabajar) NO depende de este caché: sale directo de la BD.
+export function getRvrQueues(
+  tenantId: string
+): Promise<{ validation: RvrQueueItem[]; corrective: RvrQueueItem[] }> {
+  return unstable_cache(() => computeRvrQueues(tenantId), ["rvr-queues", tenantId], {
+    revalidate: 180,
+  })();
 }
