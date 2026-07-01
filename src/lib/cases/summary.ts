@@ -72,6 +72,15 @@ export async function getCasesSummary(opts: {
               { message: { contains: "cerrad", mode: "insensitive" } },
               { message: { contains: "resuelt", mode: "insensitive" } },
             ],
+            // Excluir eventos de procesos en bloque (migraciones), que no son la
+            // resolución real: "(backfill)" y "se unificó..." (cerrar-resueltos,
+            // backfill-video-cases, etc.). Se basa en el TEXTO → vale para cualquier script.
+            NOT: {
+              OR: [
+                { message: { contains: "backfill", mode: "insensitive" } },
+                { message: { contains: "unific", mode: "insensitive" } },
+              ],
+            },
           },
           orderBy: { createdAt: "asc" },
           take: 1,

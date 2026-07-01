@@ -47,6 +47,12 @@ async function main() {
             { message: { contains: "cerrad", mode: "insensitive" } },
             { message: { contains: "resuelt", mode: "insensitive" } },
           ],
+          NOT: {
+            OR: [
+              { message: { contains: "backfill", mode: "insensitive" } },
+              { message: { contains: "unific", mode: "insensitive" } },
+            ],
+          },
         },
         orderBy: { createdAt: "asc" },
         take: 1,
