@@ -318,12 +318,13 @@ export default function GestionCasoCard(props: Props) {
     const file = itemPhotos[key];
     const has = Boolean(file) || Boolean(v.photo?.filePath);
     const fname = file?.name || v.photo?.fileName || "";
+    const nPhotos = Array.isArray((v as any).photos) ? (v as any).photos.length : v.photo?.filePath ? 1 : 0;
     return (
       <div key={it.id} className="flex items-center gap-2">
         <span className="flex-1 truncate text-[13px] text-slate-700">{it.label}</span>
         {has ? (
           <span className="flex items-center gap-1 text-[11px] text-emerald-700">
-            <span className="max-w-[110px] truncate">{fname || "adjunta"}</span>
+            <span className="max-w-[110px] truncate">{fname || "adjunta"}{nPhotos > 1 ? ` +${nPhotos - 1}` : ""}</span>
             <button type="button" onClick={() => setPhoto(sectionId, it.id, null)} className="text-slate-400 hover:text-red-600" title="Quitar"><X className="h-3 w-3" /></button>
           </span>
         ) : (

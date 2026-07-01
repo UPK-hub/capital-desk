@@ -191,9 +191,10 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
         RT(x + colW, yy - 7.5, val ? `${val} V` : "—", bold, 7.5, val ? dark : gray);
         yy -= 10;
       } else if (it.type === "photo") {
-        const has = Boolean(v.photo?.filePath);
+        const nPhotos = Array.isArray((v as any).photos) ? (v as any).photos.length : v.photo?.filePath ? 1 : 0;
+        const has = nPhotos > 0;
         T(x + 2, yy - 7.5, it.label, font, 7.5, dark);
-        RT(x + colW, yy - 7.5, has ? "Adjunta" : "—", bold, 6.5, has ? green : gray);
+        RT(x + colW, yy - 7.5, has ? (nPhotos > 1 ? `Adjunta (${nPhotos})` : "Adjunta") : "—", bold, 6.5, has ? green : gray);
         yy -= 10;
       } else {
         const estado = v.estado;
@@ -288,7 +289,8 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   const captMissing: string[] = [];
   for (const s of PREVENTIVE_CHECKLIST) {
     for (const it of s.items) {
-      const has = Boolean(data.items[s.id]?.[it.id]?.photo?.filePath);
+      const cell = data.items[s.id]?.[it.id] as any;
+      const has = Boolean(cell?.photo?.filePath) || (Array.isArray(cell?.photos) && cell.photos.length > 0);
       if (it.type === "voltage") { if (has) voltPhotos++; }
       else if (it.type === "photo") { captTotal++; if (has) captAttached++; else captMissing.push(it.label); }
     }

@@ -86,11 +86,15 @@ const CHECK_SECTIONS = PREVENTIVE_CHECKLIST.filter((s) => s.items.some((it) => i
 // Estado compacto que consume el bot para armar mensajes/teclados.
 function buildStatus(kase: any, data: ChecklistData) {
   const s = summarizeChecklist(data);
-  const captures = (CAPTURAS?.items ?? []).map((it) => ({
-    id: it.id,
-    label: it.label,
-    done: Boolean(data.items.capturas?.[it.id]?.photo?.filePath),
-  }));
+  const captures = (CAPTURAS?.items ?? []).map((it) => {
+    const cell = data.items.capturas?.[it.id] as any;
+    const count = Array.isArray(cell?.photos)
+      ? cell.photos.length
+      : cell?.photo?.filePath
+        ? 1
+        : 0;
+    return { id: it.id, label: it.label, done: count > 0, count };
+  });
   return {
     caseId: kase.id,
     caseNo: kase.caseNo ?? null,
@@ -354,10 +358,14 @@ export async function POST(req: NextRequest) {
       const p = await saveUpload(file, `gestion/${kase.id}/checklist`, { fileNamePrefix: kase.bus?.code ?? "CHK" });
       const data = dataOf(kase);
       if (!data.items.capturas) data.items.capturas = {};
-      data.items.capturas[itemId] = { ...data.items.capturas[itemId], photo: { filePath: p, fileName: file.name || `${itemId}.jpg`, mimeType: file.type || "image/jpeg", size: file.size } };
+      const prev = (data.items.capturas[itemId] ?? {}) as any;
+      const newPhoto = { filePath: p, fileName: file.name || `${itemId}.jpg`, mimeType: file.type || "image/jpeg", size: file.size };
+      // Acumular varias fotos por evidencia (photo = primera, por compatibilidad).
+      const photos = [...(Array.isArray(prev.photos) ? prev.photos : prev.photo ? [prev.photo] : []), newPhoto];
+      data.items.capturas[itemId] = { ...prev, photo: photos[0], photos };
       await saveData(kase.id, data);
       const fresh = await loadCaseForChecklist(tenantId, kase.id);
-      return NextResponse.json({ ok: true, saved: it.label, status: buildStatus(fresh, dataOf(fresh)) });
+      return NextResponse.json({ ok: true, saved: it.label, count: photos.length, status: buildStatus(fresh, dataOf(fresh)) });
     }
 
     // ----- marcar checks / voltajes / textos (días, horas) -----

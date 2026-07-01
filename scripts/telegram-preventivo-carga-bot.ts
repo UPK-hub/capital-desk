@@ -93,7 +93,7 @@ function kbMain(s: any) {
   };
 }
 function kbEvid(s: any) {
-  const rows = (s.captures || []).map((c: any) => [{ text: `${c.done ? "✅" : "⬜"} ${c.label}`, callback_data: `cap:${c.id}` }]);
+  const rows = (s.captures || []).map((c: any) => [{ text: `${c.done ? "✅" : "⬜"} ${c.label}${c.count > 1 ? ` (${c.count})` : ""}`, callback_data: `cap:${c.id}` }]);
   rows.push([{ text: "⬅️ Menú", callback_data: "menu:main" }]);
   return { inline_keyboard: rows };
 }
@@ -375,8 +375,9 @@ async function handleMessage(msg: any) {
     if (!dl) { await sendMessage(chatId, "⚠️ No pude descargar la foto. Intenta de nuevo."); return; }
     const r = await apiUpload({ action: "upload", chatId, caseId: st.caseId, itemId: st.awaiting.itemId || "" }, dl.buffer, dl.name);
     if (!r?.ok || r.error) { await sendMessage(chatId, `⚠️ ${r?.error || "No se pudo guardar."}`); return; }
-    setState(chatId, { ...st, awaiting: undefined });
-    await sendMessage(chatId, `✅ Guardada: *${r.saved}*`, kbEvid(r.status));
+    // Se mantiene la misma evidencia "esperando foto": las siguientes se agregan.
+    const nFoto = typeof r.count === "number" ? r.count : 1;
+    await sendMessage(chatId, `✅ *${r.saved}*: ${nFoto} foto(s). Envía otra foto para esta evidencia, o elige otra abajo.`, kbEvid(r.status));
     return;
   }
 
@@ -571,7 +572,7 @@ async function handleCallback(cb: any) {
     const itemId = data.slice(4);
     const s = await refresh();
     setState(chatId, { ...st, awaiting: { kind: "photo", sectionId: "capturas", itemId } });
-    await sendMessage(chatId, `📸 Envía la foto de *${labelOfCapture(s, itemId)}*.`);
+    await sendMessage(chatId, `📸 Envía la(s) foto(s) de *${labelOfCapture(s, itemId)}* (puedes mandar *varias*, una por una).`);
     return;
   }
   if (data.startsWith("volt:")) {

@@ -40,6 +40,7 @@
     "novedades:agrupar": "tsx scripts/agrupar-duplicados-novedades.ts",
     "cerrar:resueltos": "tsx scripts/cerrar-resueltos.ts",
     "unificar:anderson": "tsx scripts/unificar-anderson.ts",
+    "novedades:reenviar-grupo": "tsx scripts/reenviar-novedades-grupo.ts",
     "bot:novedades": "tsx scripts/telegram-novedades-bot.ts",
     "bot:tramas": "tsx scripts/telegram-tramas-bot.ts",
     "bot:preventivos": "tsx scripts/telegram-preventivos-bot.ts"

@@ -137,6 +137,7 @@ export const PREVENTIVE_CHECKLIST: ChecklistSectionDef[] = [
       { id: "lte", label: "LTE", type: "photo" },
       { id: "ping", label: "Ping", type: "photo" },
       { id: "tlm", label: "Telemetría (TLM)", type: "photo" },
+      { id: "panicoVideo", label: "Validación de creación de video de botón de pánico", type: "photo" },
     ],
   },
 ];
@@ -157,8 +158,10 @@ export type ChecklistItemValue = {
   nota?: string;
   // text / voltage
   value?: string;
-  // voltage / cualquier ítem con foto
+  // voltage / cualquier ítem con foto (photo = primera, por compatibilidad)
   photo?: ChecklistPhoto | null;
+  // capturas: permite varias fotos por evidencia
+  photos?: ChecklistPhoto[];
 };
 
 // Tipo de novedad con que queda el equipo del bus.
