@@ -60,7 +60,14 @@ export async function getCasesSummary(opts: {
       where: { ...base, status: { in: doneStatuses } },
       select: {
         workOrder: { select: { finishedAt: true } },
-        events: { where: { type: CaseEventType.STATUS_CHANGE }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+        // Se excluyen los cambios de estado de "unificación" (script cerrar-resueltos,
+        // que el 29/06 pasó en bloque Resuelto→Cerrado): NO son la fecha real de resolución.
+        events: {
+          where: { type: CaseEventType.STATUS_CHANGE, NOT: { meta: { path: ["source"], equals: "cerrar-resueltos" } } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
+        },
       },
     }),
     prisma.case.groupBy({ by: ["type"], where: base, _count: { _all: true } }),
