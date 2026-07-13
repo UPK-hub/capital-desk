@@ -215,6 +215,23 @@ async function main() {
   console.log(`Por crear: ${toCreate}  |  Ya existían: ${dup}  |  Buses no encontrados: ${missing.length}`);
   if (missing.length) console.log(`Buses no encontrados: ${missing.join(", ")}`);
 
+  // OTs que aparecen con el MISMO número en varios buses de la lista.
+  const busesPorOt = new Map<string, string[]>();
+  for (const row of rows) {
+    const ot = String(row.ot ?? "").trim();
+    if (!ot) continue;
+    const arr = busesPorOt.get(ot) ?? [];
+    arr.push(String(row.bus));
+    busesPorOt.set(ot, arr);
+  }
+  const otsRepetidas = Array.from(busesPorOt.entries()).filter(([, b]) => b.length > 1);
+  if (otsRepetidas.length) {
+    console.log("");
+    console.log("⚠️  OTs con el MISMO número en varios buses:");
+    for (const [ot, buses] of otsRepetidas) console.log(`   - OT ${ot}: ${buses.join(", ")}`);
+    console.log("   (el primer bus de la lista queda con el número; los demás quedan con OT sin número)");
+  }
+
   if (!apply) {
     console.log("");
     console.log("DRY-RUN: no se creó nada. Ejecuta con --apply para crear los casos.");

@@ -115,7 +115,8 @@ async function main() {
   const duplicados: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isFile()) continue;
-    if (path.extname(entry.name).toLowerCase() !== ".pdf") continue;
+    const extOk = [".pdf", ".png", ".jpg", ".jpeg"].includes(path.extname(entry.name).toLowerCase());
+    if (!extOk) continue;
     const code = busCodeFromName(entry.name);
     if (!code) {
       sinCodigo.push(entry.name);
@@ -216,14 +217,17 @@ async function main() {
         otCreadas += 1;
       }
 
+      const ext = path.extname(original).toLowerCase();
+      const mime =
+        ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "application/pdf";
       const finalRel = relPath.replace("/NEW/", `/${woId}/`);
-      await saveGeneratedUpload(finalRel, buffer, { originalName: original, mimeType: "application/pdf" });
+      await saveGeneratedUpload(finalRel, buffer, { originalName: original, mimeType: mime });
       await prisma.workOrder.update({
         where: { id: woId! },
         data: {
           orderFilePath: finalRel,
           orderFileName,
-          orderFileMimeType: "application/pdf",
+          orderFileMimeType: mime,
           orderFileSize: size,
           orderFileUpdatedAt: when,
         },
