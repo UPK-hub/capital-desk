@@ -1,6 +1,7 @@
 /**
  * Importa casos de mantenimiento PREVENTIVO desde una lista fija (Excel "preventivo.xlsx").
- * Cada fila => un Caso tipo PREVENTIVO, estado RESUELTO, con createdAt = cierre = la fecha dada.
+ * Cada fila => un Caso tipo PREVENTIVO, estado RESUELTO. Horas: apertura 10:00 PM
+ * del día dado y cierre 4:00 AM del día siguiente (lógica nocturna).
  *
  *  - Resuelve el bus por código "K{num}" (con respaldos).
  *  - Asigna caseNo consecutivo (max + 1).
@@ -119,7 +120,10 @@ async function main() {
 
   let created = 0;
   for (const p of plan) {
-    const when = atCot(p.fecha, "10:00");
+    // Lógica nocturna: apertura 10:00 PM del día del mantenimiento y
+    // cierre 4:00 AM del día siguiente (el trabajo cruza la medianoche).
+    const apertura = atCot(p.fecha, "22:00");
+    const cierre = new Date(apertura.getTime() + 6 * 60 * 60 * 1000);
     const c = await prisma.case.create({
       data: {
         tenantId,
@@ -130,14 +134,14 @@ async function main() {
         priority: 3,
         title: `Mantenimiento preventivo ${p.code}`,
         description: `Mantenimiento preventivo programado del bus ${p.code} (${p.fecha}).`,
-        createdAt: when,
+        createdAt: apertura,
       },
       select: { id: true },
     });
 
-    // Fijar updatedAt (cierre) = misma fecha.
+    // Fijar updatedAt (cierre) = 4:00 AM del día siguiente.
     try {
-      await prisma.$executeRawUnsafe(`UPDATE "Case" SET "updatedAt" = $1 WHERE "id" = $2`, when, c.id);
+      await prisma.$executeRawUnsafe(`UPDATE "Case" SET "updatedAt" = $1 WHERE "id" = $2`, cierre, c.id);
     } catch (e: any) {
       console.warn(`  ! No se pudo fijar updatedAt del caso #${p.caseNo}: ${e?.message ?? e}`);
     }
@@ -146,7 +150,7 @@ async function main() {
       data: {
         caseId: c.id,
         type: CaseEventType.CREATED,
-        createdAt: when,
+        createdAt: apertura,
         message: "Caso creado (importación de preventivos)",
         meta: { userId: creatorId, source: "import-preventivos" },
       },
@@ -155,7 +159,7 @@ async function main() {
       data: {
         caseId: c.id,
         type: CaseEventType.STATUS_CHANGE,
-        createdAt: when,
+        createdAt: cierre,
         message: "Caso resuelto (preventivo realizado)",
         meta: { from: "NUEVO", to: "RESUELTO", source: "import-preventivos" },
       },

@@ -219,8 +219,10 @@ async function main() {
       if (meta?.importBatch === IMPORT_BATCH && meta?.filename) yaCargadas.add(String(meta.filename));
     }
 
-    // Fecha base: 12:00 hora Colombia (UTC-05:00) del día de cierre
-    const baseAt = new Date(`${dateStr}T12:00:00-05:00`);
+    // Fecha base: misma hora del cierre del caso = 4:00 AM (hora Colombia)
+    // del día SIGUIENTE al mantenimiento (lógica nocturna: apertura 10 PM,
+    // cierre 4 AM). 22:00 del día + 6 horas.
+    const baseAt = new Date(new Date(`${dateStr}T22:00:00-05:00`).getTime() + 6 * 60 * 60 * 1000);
 
     let creadasCaso = 0;
     let saltadasCaso = 0;
