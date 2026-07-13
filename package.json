@@ -37,6 +37,7 @@
     "contar:preventivos-junio": "tsx scripts/contar-preventivos-junio.ts",
     "export:preventivos-junio": "tsx scripts/export-preventivos-junio.ts",
     "fix:ot-faltante": "tsx scripts/fix-ot-faltante-junio.ts",
+    "fix:creador-junio": "tsx scripts/fix-creador-preventivos-junio.ts",
     "borrar:preventivos-junio": "tsx scripts/borrar-preventivos-junio.ts",
     "import:ot-preventivo": "tsx scripts/import-ot-preventivo.ts",
     "asignar:responsable": "tsx scripts/asignar-responsable-preventivo.ts",
