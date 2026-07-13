@@ -18,7 +18,7 @@
 // Todo es solo-lectura (no crea nada). Las consultas usan índices existentes.
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
+import { CaseStatus, CaseType, Prisma } from "@prisma/client";
 import { getLatestOdometer } from "@/lib/telemetry/odometer";
 import { getCoordinateQuality } from "@/lib/telemetry/coordinates";
 
@@ -29,7 +29,7 @@ export const RVR_DEFAULTS = {
   PREV_MIN_DAYS: 10, // preventivo hace >= 10 días
   RECHECK_DAYS: 15, // vuelve a revisión a los 15 días
   COOLDOWN_DAYS: 15, // no re-revisar dentro de 15 días (salvo crítico)
-  DAILY_LIMIT: 30, // 30 buses/día
+  DAILY_LIMIT: 45, // 45 buses/día
   TELEMETRY_DAYS: 3, // odómetro/coordenadas en los últimos 3 días
 };
 
@@ -72,6 +72,58 @@ type BusRow = { id: string; code: string; plate: string | null };
 
 // ------------------------------- Fuentes -----------------------------------
 
+/**
+ * Última fecha de mantenimiento PREVENTIVO por bus, combinando TODAS las
+ * fuentes reales (antes solo se miraba WorkOrder FINALIZADA + finishedAt y se
+ * perdían los preventivos cerrados por el bot y los importados):
+ *   1. WorkOrder.finishedAt de casos PREVENTIVO (cualquier estado de OT).
+ *   2. CasePreventiveChecklist.cierreAt / executedAt (cierres del bot).
+ *   3. Último STATUS_CHANGE de casos PREVENTIVO en RESUELTO/CERRADO
+ *      (cubre los preventivos importados, cuyo evento tiene la fecha real).
+ */
+export async function getLastPreventiveByBus(tenantId: string): Promise<Map<string, Date>> {
+  const rows = await prisma.$queryRaw<Array<{ busId: string; lastAt: Date }>>(Prisma.sql`
+    SELECT "busId", max("at") AS "lastAt" FROM (
+      SELECT c."busId" AS "busId", w."finishedAt" AS "at"
+      FROM "WorkOrder" w
+      JOIN "Case" c ON c."id" = w."caseId"
+      WHERE w."tenantId" = ${tenantId}
+        AND w."finishedAt" IS NOT NULL
+        AND c."type"::text = 'PREVENTIVO'
+        AND c."busId" IS NOT NULL
+
+      UNION ALL
+
+      SELECT c."busId" AS "busId", COALESCE(pc."cierreAt", pc."executedAt") AS "at"
+      FROM "CasePreventiveChecklist" pc
+      JOIN "Case" c ON c."id" = pc."caseId"
+      WHERE c."tenantId" = ${tenantId}
+        AND COALESCE(pc."cierreAt", pc."executedAt") IS NOT NULL
+        AND c."type"::text = 'PREVENTIVO'
+        AND c."busId" IS NOT NULL
+
+      UNION ALL
+
+      SELECT c."busId" AS "busId", max(e."createdAt") AS "at"
+      FROM "CaseEvent" e
+      JOIN "Case" c ON c."id" = e."caseId"
+      WHERE c."tenantId" = ${tenantId}
+        AND c."type"::text = 'PREVENTIVO'
+        AND c."status"::text IN ('RESUELTO', 'CERRADO')
+        AND e."type"::text = 'STATUS_CHANGE'
+        AND c."busId" IS NOT NULL
+      GROUP BY c."busId"
+    ) t
+    WHERE t."at" IS NOT NULL
+    GROUP BY "busId"
+  `);
+  const map = new Map<string, Date>();
+  for (const r of rows) {
+    if (r.busId && r.lastAt) map.set(r.busId, new Date(r.lastAt));
+  }
+  return map;
+}
+
 async function fetchSignals(tenantId: string) {
   const now = Date.now();
   const noTxCut = new Date(now - RVR_DEFAULTS.NO_TX_HOURS * 3600 * 1000);
@@ -94,17 +146,9 @@ async function fetchSignals(tenantId: string) {
       select: { busCode: true, eventAt: true, alarmLabel: true },
       orderBy: { eventAt: "desc" },
     }),
-    // Último preventivo finalizado por bus.
-    prisma.workOrder.findMany({
-      where: {
-        tenantId,
-        status: WorkOrderStatus.FINALIZADA,
-        finishedAt: { not: null },
-        case: { type: CaseType.PREVENTIVO },
-      },
-      select: { finishedAt: true, case: { select: { busId: true } } },
-      orderBy: { finishedAt: "desc" },
-    }),
+    // Último preventivo por bus, combinando OT + checklist del bot + eventos
+    // de cierre (ver getLastPreventiveByBus).
+    getLastPreventiveByBus(tenantId),
     // Última revisión remota por bus (para recurrencia/cooldown).
     prisma.remoteVisualReviewBus.groupBy({
       by: ["busId"],
@@ -127,11 +171,7 @@ async function fetchSignals(tenantId: string) {
   const camAlarmByCode = new Map<string, { at: Date | null; label: string | null }>();
   for (const a of camAlarms) if (!camAlarmByCode.has(a.busCode)) camAlarmByCode.set(a.busCode, { at: a.eventAt, label: a.alarmLabel });
 
-  const lastPrevByBus = new Map<string, Date>();
-  for (const w of preventives) {
-    const bid = w.case?.busId;
-    if (bid && w.finishedAt && !lastPrevByBus.has(bid)) lastPrevByBus.set(bid, w.finishedAt);
-  }
+  const lastPrevByBus = preventives;
 
   const lastReviewByBus = new Map<string, Date | null>();
   for (const r of lastReviews) lastReviewByBus.set(r.busId, r._max.reviewedAt ?? null);
@@ -296,7 +336,7 @@ async function computeRvrQueues(
 
 // Cacheado ~3 min: las colas se recalculan a lo sumo cada 3 minutos, así la
 // pantalla de RVR no re-escanea las tramas en cada carga/navegación. La review
-// del día (los 30 buses a trabajar) NO depende de este caché: sale directo de la BD.
+// del día (los buses del día a trabajar) NO depende de este caché: sale directo de la BD.
 export function getRvrQueues(
   tenantId: string
 ): Promise<{ validation: RvrQueueItem[]; corrective: RvrQueueItem[] }> {

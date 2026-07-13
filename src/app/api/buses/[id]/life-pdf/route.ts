@@ -20,11 +20,11 @@ function safe(value: unknown) {
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  if (!session?.user) return new Response("No autenticado", { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
-    return new Response("Forbidden", { status: 403 });
+    return new Response("No autorizado", { status: 403 });
   }
 
   const tenantId = (session.user as any).tenantId as string;

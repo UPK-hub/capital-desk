@@ -9,7 +9,7 @@ import { Role } from "@prisma/client";
 
 async function getCtx(caseId: string) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return { error: "Unauthorized", status: 401 } as const;
+  if (!session?.user) return { error: "No autenticado", status: 401 } as const;
   const role = (session.user as any).role as Role;
   const tenantId = (session.user as any).tenantId as string;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER].includes(role)) {

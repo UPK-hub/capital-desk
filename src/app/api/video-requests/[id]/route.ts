@@ -50,11 +50,11 @@ async function logEvent(params: {
 
 export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN, Role.SUPERVISOR].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const tenantId = (session.user as any).tenantId as string;
@@ -73,17 +73,17 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
     },
   });
 
-  if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!item) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   return NextResponse.json({ item });
 }
 
 export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const capabilities = (session.user as any).capabilities as string[] | undefined;
@@ -107,7 +107,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
       attachments: true,
     },
   });
-  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!current) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const nextStatus = body.status as VideoCaseStatus | undefined;
   const nextDownloadStatus = body.downloadStatus as VideoDownloadStatus | undefined;
@@ -364,7 +364,7 @@ export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
 
 export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   // Acción destructiva: solo ADMIN.
   const role = (session.user as any).role as Role;
@@ -379,7 +379,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: { id: string } })
     where: { id: requestId, case: { tenantId } },
     select: { caseId: true },
   });
-  if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!request) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   try {
     // Borrar el caso elimina en cascada la solicitud, sus adjuntos, tokens e historial.

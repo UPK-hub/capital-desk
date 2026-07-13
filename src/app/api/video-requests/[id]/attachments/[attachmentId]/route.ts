@@ -17,11 +17,11 @@ import { buildVideoRequestCaseScope, isBackofficeRestricted, isVideosOnlyBackoff
  */
 export async function DELETE(_req: NextRequest, ctx: { params: { id: string; attachmentId: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const capabilities = (session.user as any).capabilities as string[] | undefined;
@@ -40,12 +40,12 @@ export async function DELETE(_req: NextRequest, ctx: { params: { id: string; att
     where: { id: requestId, case: { tenantId, ...caseScope } },
     select: { id: true },
   });
-  if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!request) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const attachment = await prisma.videoAttachment.findFirst({
     where: { id: attachmentId, requestId },
   });
-  if (!attachment) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!attachment) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   // Idempotente: si ya estaba eliminado, no hay nada que hacer.
   if (!attachment.active) return NextResponse.json({ ok: true, alreadyDeleted: true });

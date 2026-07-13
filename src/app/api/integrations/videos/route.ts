@@ -51,7 +51,7 @@ async function authenticate(req: NextRequest): Promise<AuthResult> {
     if (!incomingSecret || incomingSecret !== integrationSecret) {
       return {
         ok: false,
-        response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+        response: NextResponse.json({ error: "No autenticado" }, { status: 401 }),
       };
     }
     return { ok: true, fallbackTenantId: null };
@@ -62,7 +62,7 @@ async function authenticate(req: NextRequest): Promise<AuthResult> {
   if (!session?.user || (role !== Role.ADMIN && role !== Role.BACKOFFICE)) {
     return {
       ok: false,
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      response: NextResponse.json({ error: "No autenticado" }, { status: 401 }),
     };
   }
 

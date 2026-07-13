@@ -37,11 +37,11 @@ function parseDateOrNull(v: any): Date | null {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const caps = ((session.user as any).capabilities as string[] | undefined) ?? [];
@@ -64,11 +64,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const capabilities = ((session.user as any).capabilities as string[] | undefined) ?? [];
@@ -473,7 +473,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
 export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (role !== Role.ADMIN) {

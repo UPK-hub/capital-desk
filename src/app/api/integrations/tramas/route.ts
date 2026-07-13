@@ -423,13 +423,13 @@ export async function POST(req: NextRequest) {
 
   if (integrationSecret) {
     if (!incomingSecret || incomingSecret !== integrationSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
   } else {
     const session = await getServerSession(authOptions);
     const role = session?.user?.role as Role | undefined;
     if (!session?.user || (role !== Role.ADMIN && role !== Role.BACKOFFICE)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
     fallbackTenantId = (session.user as any).tenantId as string;
   }

@@ -5,6 +5,28 @@ import { prisma } from "@/lib/prisma";
 import { buildRvrValidationQueue } from "@/lib/rvr/priority";
 import { pickNvrIpFromEquipments, RVR_MAX_BUSES_PER_DAY } from "@/lib/rvr";
 
+/**
+ * Asigna el número consecutivo (RVR-0001, ...) a una revisión que aún no lo
+ * tenga. Atómico: un solo UPDATE con subconsulta, así dos peticiones
+ * simultáneas no producen el mismo número.
+ */
+export async function ensureRvrReviewNo(reviewId: string, tenantId: string): Promise<number | null> {
+  await prisma.$executeRaw`
+    UPDATE "RemoteVisualReview"
+    SET "reviewNo" = (
+      SELECT COALESCE(MAX("reviewNo"), 0) + 1
+      FROM "RemoteVisualReview"
+      WHERE "tenantId" = ${tenantId}
+    )
+    WHERE "id" = ${reviewId} AND "reviewNo" IS NULL
+  `;
+  const row = await prisma.remoteVisualReview.findUnique({
+    where: { id: reviewId },
+    select: { reviewNo: true },
+  });
+  return row?.reviewNo ?? null;
+}
+
 export async function generateDailyRvr(
   tenantId: string,
   reviewDate: Date,
@@ -75,6 +97,7 @@ export async function generateDailyRvr(
 
   const total = await prisma.remoteVisualReviewBus.count({ where: { reviewId: review.id } });
   await prisma.remoteVisualReview.update({ where: { id: review.id }, data: { busCount: total } });
+  await ensureRvrReviewNo(review.id, tenantId);
 
   return { reviewId: review.id, total, created };
 }

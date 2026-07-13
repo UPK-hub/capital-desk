@@ -19,21 +19,21 @@ export async function GET(_req: NextRequest, ctx: { params: { token: string } })
   if (!record) return new Response("Invalid or expired token", { status: 404 });
 
   const relPath = normalizeUploadRelPath(record.attachment.filePath);
-  if (!relPath) return new Response("Not found", { status: 404 });
+  if (!relPath) return new Response("No encontrado", { status: 404 });
 
   let filePath = "";
   try {
     filePath = resolveUploadPath(relPath);
   } catch {
-    return new Response("Invalid path", { status: 400 });
+    return new Response("Ruta inválida", { status: 400 });
   }
   const uploadsRoot = path.resolve(getUploadsRoot());
   if (filePath !== uploadsRoot && !filePath.startsWith(uploadsRoot + path.sep)) {
-    return new Response("Invalid path", { status: 400 });
+    return new Response("Ruta inválida", { status: 400 });
   }
   if (!fs.existsSync(filePath)) {
     const backup = await getUploadBackup(relPath);
-    if (!backup) return new Response("Not found", { status: 404 });
+    if (!backup) return new Response("No encontrado", { status: 404 });
 
     const content = Buffer.from(backup.content);
     const filename = record.attachment.originalName || backup.originalName || "video";

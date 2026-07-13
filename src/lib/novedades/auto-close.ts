@@ -85,11 +85,15 @@ export async function maybeAutoCloseLinkedNovedad(
     );
     if (!allClosed) return false;
 
-    await prisma.$transaction(async (tx) => {
-      await tx.case.update({
-        where: { id: novedad.id },
+    // Cierre atómico: si dos OTs cierran al mismo tiempo, solo UNA de las dos
+    // consigue pasar la novedad a CERRADO (updateMany condicional). La otra ve
+    // count === 0 y no duplica el evento ni la notificación.
+    const closedNow = await prisma.$transaction(async (tx) => {
+      const res = await tx.case.updateMany({
+        where: { id: novedad.id, status: { not: CaseStatus.CERRADO } },
         data: { status: CaseStatus.CERRADO },
       });
+      if (res.count === 0) return false;
       await tx.caseEvent.create({
         data: {
           caseId: novedad.id,
@@ -102,7 +106,9 @@ export async function maybeAutoCloseLinkedNovedad(
           },
         },
       });
+      return true;
     });
+    if (!closedNow) return false;
 
     // Si esta novedad es parte de un grupo "mismo caso", cerrar las dependientes.
     try {

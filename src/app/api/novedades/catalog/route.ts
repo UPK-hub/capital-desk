@@ -9,7 +9,7 @@ import novedadCatalogUtils from "@/lib/novedad-catalog";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (

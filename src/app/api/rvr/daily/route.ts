@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CaseType, Role, WorkOrderStatus } from "@prisma/client";
+import { Role } from "@prisma/client";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { saveUpload } from "@/lib/uploads";
 import {
@@ -17,7 +17,8 @@ import {
   pickNvrIpFromEquipments,
   RVR_MAX_BUSES_PER_DAY,
 } from "@/lib/rvr";
-import { getRvrQueues, type RvrQueueItem } from "@/lib/rvr/priority";
+import { getLastPreventiveByBus, getRvrQueues, type RvrQueueItem } from "@/lib/rvr/priority";
+import { ensureRvrReviewNo } from "@/lib/rvr/generate";
 
 type PersistedEvidence = {
   filePath: string;
@@ -73,100 +74,48 @@ async function buildEligibleBuses(tenantId: string, includeBusIds: string[] = []
   const includeSet = new Set(includeBusIds);
   const preventiveCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const preventiveWorkOrders = await prisma.workOrder.findMany({
+  // Última fecha de preventivo por bus con TODAS las fuentes (OT, checklist
+  // del bot, eventos de cierre). Antes solo se miraban OTs FINALIZADAS y la
+  // fecha salía vacía o vieja para la mayoría de buses.
+  const lastPrevByBus = await getLastPreventiveByBus(tenantId);
+
+  const buses = await prisma.bus.findMany({
     where: {
       tenantId,
-      status: WorkOrderStatus.FINALIZADA,
-      finishedAt: { not: null },
-      case: { type: CaseType.PREVENTIVO },
+      active: true,
+      OR: [
+        { id: { in: Array.from(lastPrevByBus.keys()) } },
+        ...(includeBusIds.length ? [{ id: { in: includeBusIds } }] : []),
+      ],
     },
-    orderBy: { finishedAt: "desc" },
-    take: 5000,
     select: {
-      finishedAt: true,
-      case: {
+      id: true,
+      code: true,
+      plate: true,
+      equipments: {
+        where: { active: true },
         select: {
-          busId: true,
-          bus: {
-            select: {
-              id: true,
-              code: true,
-              plate: true,
-              equipments: {
-                where: { active: true },
-                select: {
-                  ipAddress: true,
-                  location: true,
-                  equipmentType: { select: { name: true } },
-                },
-              },
-            },
-          },
+          ipAddress: true,
+          location: true,
+          equipmentType: { select: { name: true } },
         },
       },
     },
   });
 
-  const latestByBus = new Map<
-    string,
-    {
-      id: string;
-      code: string;
-      plate: string | null;
-      nvrIp: string | null;
-      lastPreventiveAt: Date | null;
-      eligible: boolean;
-      forceIncluded: boolean;
-    }
-  >();
-
-  for (const wo of preventiveWorkOrders) {
-    const bus = wo.case.bus;
-    if (!bus || latestByBus.has(bus.id)) continue;
-    const finishedAt = wo.finishedAt ?? null;
-    latestByBus.set(bus.id, {
-      id: bus.id,
-      code: bus.code,
-      plate: bus.plate,
-      nvrIp: pickNvrIpFromEquipments(bus.equipments),
-      lastPreventiveAt: finishedAt,
-      eligible: Boolean(finishedAt && finishedAt <= preventiveCutoff),
-      forceIncluded: includeSet.has(bus.id),
-    });
-  }
-
-  const missingIncluded = includeBusIds.filter((busId) => !latestByBus.has(busId));
-  if (missingIncluded.length > 0) {
-    const extraBuses = await prisma.bus.findMany({
-      where: { tenantId, id: { in: missingIncluded } },
-      select: {
-        id: true,
-        code: true,
-        plate: true,
-        equipments: {
-          where: { active: true },
-          select: {
-            ipAddress: true,
-            location: true,
-            equipmentType: { select: { name: true } },
-          },
-        },
-      },
-    });
-    for (const bus of extraBuses) {
-      latestByBus.set(bus.id, {
+  return buses
+    .map((bus) => {
+      const lastPreventiveAt = lastPrevByBus.get(bus.id) ?? null;
+      return {
         id: bus.id,
         code: bus.code,
         plate: bus.plate,
         nvrIp: pickNvrIpFromEquipments(bus.equipments),
-        lastPreventiveAt: null,
-        eligible: false,
-        forceIncluded: true,
-      });
-    }
-  }
-
-  return Array.from(latestByBus.values())
+        lastPreventiveAt,
+        eligible: Boolean(lastPreventiveAt && lastPreventiveAt <= preventiveCutoff),
+        forceIncluded: includeSet.has(bus.id),
+      };
+    })
     .filter((row) => row.eligible || row.forceIncluded)
     .sort((a, b) => {
       const aTime = a.lastPreventiveAt ? a.lastPreventiveAt.getTime() : Number.MAX_SAFE_INTEGER;
@@ -279,7 +228,7 @@ function mapReviewBusRow(row: {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
@@ -290,7 +239,41 @@ export async function GET(req: NextRequest) {
   const tenantId = (session.user as any).tenantId as string;
   const { searchParams } = new URL(req.url);
   const reviewDate = parseDateInput(searchParams.get("date")) ?? parseDateInput(asDateInput(new Date()))!;
+  const wantQueues = searchParams.get("queues") === "1";
 
+  // ---- Modo COLAS (pesado): motor de prioridad + apartado de correctivo. ----
+  // Se pide por separado para NO bloquear la carga de los buses del día.
+  if (wantQueues) {
+    const existing = await prisma.remoteVisualReview.findUnique({
+      where: { tenantId_reviewDate: { tenantId, reviewDate } },
+      select: { id: true, buses: { select: { busId: true } } },
+    });
+    const selectedBusIds = existing?.buses.map((b) => b.busId) ?? [];
+    let eligibleBuses: Array<Record<string, any>>;
+    let correctiveQueue: RvrQueueItem[] = [];
+    try {
+      // Una sola lectura de señales (cacheada ~3 min) para AMBAS colas.
+      const { validation, corrective } = await getRvrQueues(tenantId);
+      eligibleBuses = await buildPriorityEligibleBuses(tenantId, validation, selectedBusIds);
+      correctiveQueue = corrective;
+    } catch (e) {
+      console.error("RVR_PRIORITY_FAILED", e);
+      eligibleBuses = await buildEligibleBuses(tenantId, selectedBusIds);
+      correctiveQueue = [];
+    }
+    return NextResponse.json({
+      date: asDateInput(reviewDate),
+      maxBuses: RVR_MAX_BUSES_PER_DAY,
+      hasReview: Boolean(existing),
+      correctiveQueue,
+      eligibleBuses: eligibleBuses.map((item) => ({
+        ...item,
+        lastPreventiveAt: item.lastPreventiveAt?.toISOString() ?? null,
+      })),
+    });
+  }
+
+  // ---- Modo por defecto (RÁPIDO): solo la review del día (indexada). ----
   const review = await prisma.remoteVisualReview.findUnique({
     where: {
       tenantId_reviewDate: {
@@ -305,31 +288,15 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const selectedBusIds = review?.buses.map((item) => item.busId) ?? [];
-  let eligibleBuses: Array<Record<string, any>>;
-  let correctiveQueue: RvrQueueItem[] = [];
-  try {
-    // Una sola lectura de señales (cacheada ~3 min) para AMBAS colas.
-    const { validation, corrective } = await getRvrQueues(tenantId);
-    eligibleBuses = await buildPriorityEligibleBuses(tenantId, validation, selectedBusIds);
-    correctiveQueue = corrective;
-  } catch (e) {
-    console.error("RVR_PRIORITY_FAILED", e);
-    eligibleBuses = await buildEligibleBuses(tenantId, selectedBusIds);
-    correctiveQueue = [];
-  }
-
   return NextResponse.json({
     date: asDateInput(reviewDate),
     maxBuses: RVR_MAX_BUSES_PER_DAY,
-    correctiveQueue,
-    eligibleBuses: eligibleBuses.map((item) => ({
-      ...item,
-      lastPreventiveAt: item.lastPreventiveAt?.toISOString() ?? null,
-    })),
+    eligibleBuses: [],
+    correctiveQueue: [],
     review: review
       ? {
           id: review.id,
+          reviewNo: review.reviewNo ?? null,
           date: asDateInput(review.reviewDate),
           responsibleId: review.responsibleId,
           scheduleWindow: review.scheduleWindow ?? "",
@@ -341,6 +308,7 @@ export async function GET(req: NextRequest) {
           requiresCorrective: review.requiresCorrective,
           capitalbusOt: review.capitalbusOt ?? "",
           evidencesNotes: review.evidencesNotes ?? "",
+          evidences: normalizeEvidence(review.evidences),
           status: review.status,
           buses: review.buses.map((row) => mapReviewBusRow(row)),
         }
@@ -350,7 +318,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
@@ -458,6 +426,36 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Número consecutivo de la revisión (RVR-0001, ...) si aún no lo tiene.
+  const reviewNo = await ensureRvrReviewNo(review.id, tenantId);
+
+  // Evidencias generales de la revisión (archivos sueltos, como en los casos).
+  const generalFiles = form
+    .getAll("evidence:general")
+    .filter((item): item is File => item instanceof File && item.size > 0);
+  if (generalFiles.length > 0) {
+    const current = await prisma.remoteVisualReview.findUnique({
+      where: { id: review.id },
+      select: { evidences: true },
+    });
+    const existingGeneral = normalizeEvidence(current?.evidences);
+    for (const file of generalFiles) {
+      const filePath = await saveUpload(file, `rvr/${review.id}/general`, {
+        fileNamePrefix: "RVR_GENERAL",
+      });
+      existingGeneral.push({
+        filePath,
+        fileName: file.name || "evidencia",
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+    }
+    await prisma.remoteVisualReview.update({
+      where: { id: review.id },
+      data: { evidences: existingGeneral },
+    });
+  }
+
   const existingRows = await prisma.remoteVisualReviewBus.findMany({
     where: {
       reviewId: review.id,
@@ -475,6 +473,24 @@ export async function POST(req: NextRequest) {
 
     const checklist = normalizeRvrChecklist(entry?.checklist ?? createDefaultRvrChecklist());
     const reviewedAt = parseIsoDate(entry?.reviewedAt) ?? new Date();
+
+    // Evidencia (imagen) por cámara: archivos `evidence-cam:<busId>:<cámara>`.
+    // Si llega una nueva, reemplaza la anterior de esa cámara; si no, se
+    // conserva la que ya estaba (viene dentro del checklist normalizado).
+    for (const row of checklist) {
+      const camFile = form.get(`evidence-cam:${busId}:${row.camera}`);
+      if (camFile instanceof File && camFile.size > 0) {
+        const filePath = await saveUpload(camFile, `rvr/${review.id}/${bus.code}/camaras`, {
+          fileNamePrefix: `${bus.code}_${row.camera}`,
+        });
+        row.evidence = {
+          filePath,
+          fileName: camFile.name || `evidencia_${row.camera}`,
+          mimeType: camFile.type || "application/octet-stream",
+          size: camFile.size,
+        };
+      }
+    }
 
     const newEvidence: PersistedEvidence[] = [];
     const files = form
@@ -561,6 +577,7 @@ export async function POST(req: NextRequest) {
     review: updated
       ? {
           id: updated.id,
+          reviewNo: updated.reviewNo ?? reviewNo ?? null,
           date: asDateInput(updated.reviewDate),
           responsibleId: updated.responsibleId,
           scheduleWindow: updated.scheduleWindow ?? "",
@@ -572,6 +589,7 @@ export async function POST(req: NextRequest) {
           requiresCorrective: updated.requiresCorrective,
           capitalbusOt: updated.capitalbusOt ?? "",
           evidencesNotes: updated.evidencesNotes ?? "",
+          evidences: normalizeEvidence(updated.evidences),
           status: updated.status,
           buses: updated.buses.map((row) => mapReviewBusRow(row)),
         }

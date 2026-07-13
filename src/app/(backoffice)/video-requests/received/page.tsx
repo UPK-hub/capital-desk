@@ -52,7 +52,7 @@ export default async function ReceivedVideosPage({
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="sts-card p-6">
-          <p className="text-sm">Debes iniciar sesion.</p>
+          <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="sts-btn-ghost mt-3 text-sm" href="/login">
             Ir a login
           </Link>

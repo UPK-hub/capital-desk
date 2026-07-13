@@ -1,5 +1,5 @@
 /**
- * Genera la lista priorizada de la Revisión Remota del día (30 buses).
+ * Genera la lista priorizada de la Revisión Remota del día (45 buses).
  * Pensado para correr AUTOMÁTICAMENTE cada mañana (Programador de tareas de
  * Windows a las 9:00 am, ejecutando `npm run rvr:generar` en la carpeta del app).
  * Idempotente: si ya se generó hoy, refresca la prioridad sin pisar lo revisado.

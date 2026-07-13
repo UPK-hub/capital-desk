@@ -26,37 +26,41 @@ export async function GET(_req: NextRequest) {
     },
   });
 
-  const items = await Promise.all(
-    threads.map(async (thread) => {
-      const lastMessage = thread.messages[0] ?? null;
-      const myParticipant = thread.participants.find((p) => p.userId === userId);
-      const lastReadAt = myParticipant?.lastReadAt ?? null;
-      const unreadCount = await prisma.directChatMessage.count({
-        where: {
-          threadId: thread.id,
-          senderId: { not: userId },
-          createdAt: lastReadAt ? { gt: lastReadAt } : undefined,
-        },
-      });
-      const peer = thread.participants.find((p) => p.userId !== userId)?.user ?? null;
+  // Rendimiento: los no-leídos de TODOS los hilos se calculan en una sola
+  // consulta (antes se hacía una consulta por hilo: N+1).
+  const unreadRows = threads.length
+    ? await prisma.$queryRaw<Array<{ threadId: string; unread: bigint }>>`
+        SELECT m."threadId", COUNT(*)::bigint AS unread
+        FROM "DirectChatMessage" m
+        JOIN "DirectChatParticipant" p
+          ON p."threadId" = m."threadId" AND p."userId" = ${userId}
+        WHERE m."senderId" <> ${userId}
+          AND (p."lastReadAt" IS NULL OR m."createdAt" > p."lastReadAt")
+        GROUP BY m."threadId"
+      `
+    : [];
+  const unreadByThread = new Map(unreadRows.map((r) => [r.threadId, Number(r.unread)] as const));
 
-      return {
-        id: thread.id,
-        participants: thread.participants.map((p) => p.user),
-        peer,
-        lastMessage: lastMessage
-          ? {
-              id: lastMessage.id,
-              message: lastMessage.message,
-              createdAt: lastMessage.createdAt,
-              sender: lastMessage.sender,
-            }
-          : null,
-        unreadCount,
-        updatedAt: thread.updatedAt,
-      };
-    }),
-  );
+  const items = threads.map((thread) => {
+    const lastMessage = thread.messages[0] ?? null;
+    const peer = thread.participants.find((p) => p.userId !== userId)?.user ?? null;
+
+    return {
+      id: thread.id,
+      participants: thread.participants.map((p) => p.user),
+      peer,
+      lastMessage: lastMessage
+        ? {
+            id: lastMessage.id,
+            message: lastMessage.message,
+            createdAt: lastMessage.createdAt,
+            sender: lastMessage.sender,
+          }
+        : null,
+      unreadCount: unreadByThread.get(thread.id) ?? 0,
+      updatedAt: thread.updatedAt,
+    };
+  });
 
   return NextResponse.json({ items });
 }

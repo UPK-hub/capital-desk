@@ -12,11 +12,11 @@ const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  if (!session?.user) return new Response("No autenticado", { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR].includes(role)) {
-    return new Response("Forbidden", { status: 403 });
+    return new Response("No autorizado", { status: 403 });
   }
 
   const tenantId = (session.user as any).tenantId as string;

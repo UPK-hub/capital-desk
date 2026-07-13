@@ -37,11 +37,11 @@ function severityFromPriority(priority: number): StsTicketSeverity {
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   if (
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       case: { select: { id: true, caseNo: true, busId: true, priority: true } },
     },
   });
-  if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!request) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));
   const cameras: string[] = Array.isArray(body?.cameras)

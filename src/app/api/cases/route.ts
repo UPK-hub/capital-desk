@@ -129,13 +129,13 @@ async function ensureAndTakeNumbers(
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   // ITEM 5: los técnicos también pueden crear casos (p. ej. al detectar una
   // novedad en patio). Mantiene ADMIN/BACKOFFICE como antes.
   if (role !== Role.ADMIN && role !== Role.BACKOFFICE && role !== Role.TECHNICIAN) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const capabilities = ((session.user as any).capabilities as string[] | undefined) ?? [];

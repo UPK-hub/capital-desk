@@ -796,6 +796,9 @@ model Case {
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
   @@index([tenantId, type])
+  // Índices compuestos para los filtros más usados en los listados
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, type, createdAt])
 }
 
 model CaseEquipment {
@@ -1008,6 +1011,9 @@ model RemoteVisualReview {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // Número consecutivo de la revisión (RVR-0001, RVR-0002, ...).
+  reviewNo Int?
+
   reviewDate DateTime @db.Date
 
   responsibleId String?
@@ -1022,6 +1028,8 @@ model RemoteVisualReview {
   requiresCorrective Boolean                  @default(false)
   capitalbusOt       String?
   evidencesNotes     String?
+  // Evidencias generales de la revisión (fotos/archivos), como en los casos.
+  evidences          Json?
   status             RemoteVisualReviewStatus @default(DRAFT)
 
   buses RemoteVisualReviewBus[]
@@ -1030,6 +1038,7 @@ model RemoteVisualReview {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@unique([tenantId, reviewDate])
+  @@unique([tenantId, reviewNo])
   @@index([tenantId, reviewDate])
   @@index([tenantId, status])
 }
@@ -1337,6 +1346,9 @@ model VideoDownloadRequest {
   attachments   VideoAttachment[]
   events        VideoRequestEvent[]
   cameraResults VideoCameraResult[]
+
+  @@index([createdAt])
+  @@index([status, downloadStatus, createdAt])
 }
 
 model VideoCameraResult {

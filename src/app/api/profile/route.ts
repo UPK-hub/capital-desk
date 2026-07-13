@@ -22,7 +22,7 @@ const updateSchema = z.object({
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const userId = (session.user as any).id as string;
   const user = await prisma.user.findUnique({
@@ -44,7 +44,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const userId = (session.user as any).id as string;
   const body = await req.json().catch(() => ({}));

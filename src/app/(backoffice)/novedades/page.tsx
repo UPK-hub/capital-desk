@@ -113,11 +113,17 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
   const months = recentMonths(6);
   const rmonth = (searchParams?.rmonth ? String(searchParams.rmonth) : "") || months[0].key;
 
+  // Paginación server-side (antes se cargaban hasta 500 novedades de una).
+  const PAGE_SIZE = 100;
+  const pageRaw = Number(searchParams?.page ?? "1");
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+
   const [noveltyCases, grouped, summary] = await Promise.all([
     prisma.case.findMany({
       where: { ...novBase, ...statusWhere },
       orderBy: { createdAt: "desc" },
-      take: 500,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       include: {
         bus: { select: { code: true, plate: true } },
         assignedTo: { select: { name: true } },
@@ -481,9 +487,33 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
             <NovedadesTable rows={rows} users={assignableUsers} />
           )}
 
-          <p className="px-1 text-xs text-muted-foreground">
-            Mostrando {rows.length} de {filteredTotal} {filteredTotal === 1 ? "novedad" : "novedades"}
-          </p>
+          {/* Paginación */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs text-muted-foreground">
+              Mostrando {rows.length} de {filteredTotal} {filteredTotal === 1 ? "novedad" : "novedades"}
+              {filteredTotal > PAGE_SIZE ? ` · Página ${page} de ${Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE))}` : ""}
+            </p>
+            {filteredTotal > PAGE_SIZE ? (
+              <div className="flex items-center gap-2">
+                {page > 1 ? (
+                  <Link
+                    href={hrefWith({ page: String(page - 1) })}
+                    className="rounded-lg border border-border/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    ← Anterior
+                  </Link>
+                ) : null}
+                {page * PAGE_SIZE < filteredTotal ? (
+                  <Link
+                    href={hrefWith({ page: String(page + 1) })}
+                    className="rounded-lg border border-border/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Siguiente →
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </main>
       </div>
     </div>

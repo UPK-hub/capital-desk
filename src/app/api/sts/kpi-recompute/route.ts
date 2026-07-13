@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   if (secret) {
     if (header !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
     await recomputeStsKpisAllTenants();
     return NextResponse.json({ ok: true });
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const tenantId = (session?.user as any)?.tenantId as string | undefined;
 
   if (!session?.user || role !== Role.ADMIN || !tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
   await recomputeStsKpisForTenant(tenantId);

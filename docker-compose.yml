@@ -1,12 +1,18 @@
 version: "3.9"
 
+# Los secretos se leen de variables de entorno (o de un archivo .env junto a
+# este compose). NO escribir contraseñas reales en este archivo.
+# Ejemplo de .env:
+#   POSTGRES_PASSWORD=una_clave_segura
+#   NEXTAUTH_SECRET=un_secreto_largo_aleatorio
+
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: capitaldesk
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el entorno o en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-capitaldesk}
     ports:
       - "5432:5432"
     volumes:
@@ -16,9 +22,9 @@ services:
     build: .
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/capitaldesk?schema=public
-      NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: change_me
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-capitaldesk}?schema=public
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Define NEXTAUTH_SECRET en el entorno o en .env}
     ports:
       - "3000:3000"
     depends_on:

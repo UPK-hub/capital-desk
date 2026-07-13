@@ -59,6 +59,7 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
   const { openPreview, previewNode } = useMediaPreview();
   const [deletingKey, setDeletingKey] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [msgKind, setMsgKind] = React.useState<"ok" | "error">("ok");
   const [uploading, setUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
@@ -70,11 +71,13 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
       fd.append("file", file);
       const res = await fetch(`/api/cases/${caseId}/chat/attachments`, { method: "POST", body: fd });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "No se pudo subir");
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo subir el archivo. Intenta de nuevo.");
+      setMsgKind("ok");
       setMsg("Archivo subido.");
       router.refresh();
     } catch (e: any) {
-      setMsg(e?.message ?? "No se pudo subir");
+      setMsgKind("error");
+      setMsg(e?.message ?? "No se pudo subir el archivo. Intenta de nuevo.");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -87,7 +90,7 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
 
   async function remove(item: EvidenceItem) {
     if (item.source !== "chat" || !item.messageId) return;
-    if (!window.confirm(`Eliminar el adjunto "${item.name}"? Desaparecera del listado y del chat.`)) return;
+    if (!window.confirm(`¿Eliminar el adjunto "${item.name}"? Desaparecerá del listado y del chat.`)) return;
     setDeletingKey(item.key);
     setMsg(null);
     try {
@@ -95,9 +98,11 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "No se pudo eliminar");
       setItems((prev) => prev.filter((it) => it.key !== item.key));
+      setMsgKind("ok");
       setMsg("Adjunto eliminado.");
       router.refresh();
     } catch (e: any) {
+      setMsgKind("error");
       setMsg(e?.message ?? "No se pudo eliminar");
     } finally {
       setDeletingKey(null);
@@ -131,7 +136,9 @@ export default function EvidenciasCard({ caseId, items: initialItems }: { caseId
       </div>
 
       <div className="space-y-2 p-5">
-        {msg ? <p className="text-xs text-muted-foreground">{msg}</p> : null}
+        {msg ? (
+          <p className={`text-xs ${msgKind === "error" ? "font-medium text-red-600" : "text-emerald-700"}`}>{msg}</p>
+        ) : null}
 
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin adjuntos en este caso.</p>

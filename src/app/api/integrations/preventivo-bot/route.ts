@@ -173,7 +173,7 @@ async function saveData(caseId: string, data: ChecklistData) {
 }
 
 export async function POST(req: NextRequest) {
-  if (badSecret(req)) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (badSecret(req)) return NextResponse.json({ ok: false, error: "No autenticado" }, { status: 401 });
 
   const ct = req.headers.get("content-type") || "";
   let body: any = {};

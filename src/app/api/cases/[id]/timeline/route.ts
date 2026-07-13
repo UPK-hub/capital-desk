@@ -12,7 +12,7 @@ import { buildCaseAccessWhere } from "@/lib/access-control";
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const role = (session.user as any).role as Role;
@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
 
   // Ajusta permisos si quieres
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const caseId = String(ctx.params.id);

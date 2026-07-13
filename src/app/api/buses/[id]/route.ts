@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const id = ctx.params.id;

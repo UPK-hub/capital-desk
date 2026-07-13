@@ -82,30 +82,41 @@ export default async function VideoRequestsPage({
     : undefined;
   const solicitante = (searchParams?.solicitante ?? "").trim();
 
-  const items = await prisma.videoDownloadRequest.findMany({
-    where: {
-      case: { tenantId, ...caseScope },
-      ...(estado ? { status: estado } : {}),
-      ...(descarga ? { downloadStatus: descarga } : {}),
-      ...(solicitante ? { requesterName: solicitante } : {}),
-      ...(q
-        ? {
-            OR: [
-              { requesterPhone: { contains: q, mode: "insensitive" } },
-              { vehicleId: { contains: q, mode: "insensitive" } },
-              { case: { bus: { code: { contains: q, mode: "insensitive" } } } },
-              { case: { bus: { plate: { contains: q, mode: "insensitive" } } } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    include: {
-      case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true, plate: true } } } },
-      assignedTo: { select: { id: true, name: true } },
-    },
-  });
+  // Paginación server-side (antes se cargaban hasta 200 solicitudes de una).
+  const PAGE_SIZE = 100;
+  const pageRaw = Number(searchParams?.page ?? "1");
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+
+  const itemsWhere = {
+    case: { tenantId, ...caseScope },
+    ...(estado ? { status: estado } : {}),
+    ...(descarga ? { downloadStatus: descarga } : {}),
+    ...(solicitante ? { requesterName: solicitante } : {}),
+    ...(q
+      ? {
+          OR: [
+            { requesterPhone: { contains: q, mode: "insensitive" as const } },
+            { vehicleId: { contains: q, mode: "insensitive" as const } },
+            { case: { bus: { code: { contains: q, mode: "insensitive" as const } } } },
+            { case: { bus: { plate: { contains: q, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [items, itemsTotal] = await Promise.all([
+    prisma.videoDownloadRequest.findMany({
+      where: itemsWhere,
+      orderBy: { createdAt: "desc" },
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
+      include: {
+        case: { select: { id: true, caseNo: true, title: true, bus: { select: { code: true, plate: true } } } },
+        assignedTo: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.videoDownloadRequest.count({ where: itemsWhere }),
+  ]);
 
   // Lista de solicitantes (para el filtro), dentro del alcance del usuario.
   const solicitanteRows = await prisma.videoDownloadRequest.findMany({
@@ -120,8 +131,14 @@ export default async function VideoRequestsPage({
     .filter((name) => name.length > 0);
 
   // Datos para el tablero (toda la operación dentro del alcance, sin los filtros de la lista).
+  // Acotado a los últimos 180 días con tope, para que la página no se degrade al crecer los datos.
   const dashRows = await prisma.videoDownloadRequest.findMany({
-    where: { case: { tenantId, ...caseScope } },
+    where: {
+      case: { tenantId, ...caseScope },
+      createdAt: { gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 3000,
     select: {
       id: true,
       status: true,
@@ -153,6 +170,18 @@ export default async function VideoRequestsPage({
   if (descarga) exportParams.set("descarga", descarga);
   if (solicitante) exportParams.set("solicitante", solicitante);
   const exportHref = `/api/video-requests/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
+
+  const pageHref = (target: number) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (estado) p.set("estado", estado);
+    if (descarga) p.set("descarga", descarga);
+    if (solicitante) p.set("solicitante", solicitante);
+    if (target > 1) p.set("page", String(target));
+    const s = p.toString();
+    return `/video-requests${s ? `?${s}` : ""}`;
+  };
+  const totalPages = Math.max(1, Math.ceil(itemsTotal / PAGE_SIZE));
 
   return (
     <div className="mobile-page-shell">
@@ -228,7 +257,10 @@ export default async function VideoRequestsPage({
         <section className="mobile-section-card">
           <div className="mobile-section-card__header flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Solicitudes</h2>
-            <p className="text-xs text-muted-foreground">{items.length} registros</p>
+            <p className="text-xs text-muted-foreground">
+              {itemsTotal} {itemsTotal === 1 ? "registro" : "registros"}
+              {totalPages > 1 ? ` · Página ${page} de ${totalPages}` : ""}
+            </p>
           </div>
 
           <div className="mobile-section-card__body pt-4">
@@ -314,6 +346,21 @@ export default async function VideoRequestsPage({
                     </DataTableBody>
                   </DataTable>
                 </div>
+
+                {totalPages > 1 ? (
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    {page > 1 ? (
+                      <Link className="sts-btn-ghost inline-flex h-9 items-center px-3 text-xs" href={pageHref(page - 1)}>
+                        ← Anterior
+                      </Link>
+                    ) : null}
+                    {page < totalPages ? (
+                      <Link className="sts-btn-ghost inline-flex h-9 items-center px-3 text-xs" href={pageHref(page + 1)}>
+                        Siguiente →
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : null}
               </>
             )}
           </div>

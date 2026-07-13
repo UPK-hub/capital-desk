@@ -18,7 +18,7 @@ function isRvrAllowed(role: Role, capabilities: string[] | undefined) {
 // Crea un CORRECTIVO para un bus del apartado "prioridad de correctivo" del RVR.
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   const capabilities = (session.user as any).capabilities as string[] | undefined;

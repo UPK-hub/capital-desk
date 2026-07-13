@@ -182,12 +182,12 @@ async function resolveTemplatePath() {
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  if (!session?.user) return new Response("No autenticado", { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const role = (session.user as any).role as Role;
   const allowedRoles = new Set<string>(["ADMIN", "BACKOFFICE", "TECHNICIAN"]);
-  if (!allowedRoles.has(String(role))) return new Response("Forbidden", { status: 403 });
+  if (!allowedRoles.has(String(role))) return new Response("No autorizado", { status: 403 });
 
   const workOrderId = String(ctx.params.id);
   const wo = await prisma.workOrder.findFirst({

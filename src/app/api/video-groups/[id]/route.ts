@@ -10,11 +10,11 @@ import { canManageVideoGroups } from "@/lib/video-groups";
 
 async function guard() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return { ok: false as const, status: 401, error: "Unauthorized" };
+  if (!session?.user) return { ok: false as const, status: 401, error: "No autenticado" };
   const role = (session.user as any).role as Role;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   if (!canManageVideoGroups(role, capabilities)) {
-    return { ok: false as const, status: 403, error: "Forbidden" };
+    return { ok: false as const, status: 403, error: "No autorizado" };
   }
   return { ok: true as const, tenantId: (session.user as any).tenantId as string };
 }

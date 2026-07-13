@@ -14,10 +14,10 @@ async function getAdminContext() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email ? String(session.user.email).toLowerCase() : null;
 
-  if (!session?.user || !email) return { ok: false as const, status: 401, error: "Unauthorized" };
+  if (!session?.user || !email) return { ok: false as const, status: 401, error: "No autenticado" };
   const role = (session.user as any).role as Role | undefined;
 if (role !== Role.ADMIN) {
-  return { ok: false as const, status: 403, error: "Forbidden" };
+  return { ok: false as const, status: 403, error: "No autorizado" };
 }
 
 
@@ -27,9 +27,9 @@ if (role !== Role.ADMIN) {
     select: { id: true, tenantId: true, role: true, active: true },
   });
 
-  if (!me) return { ok: false as const, status: 401, error: "Unauthorized" };
+  if (!me) return { ok: false as const, status: 401, error: "No autenticado" };
   if (!me.active) return { ok: false as const, status: 403, error: "User inactive" };
-  if (me.role !== Role.ADMIN) return { ok: false as const, status: 403, error: "Forbidden" };
+  if (me.role !== Role.ADMIN) return { ok: false as const, status: 403, error: "No autorizado" };
 
   // Validar tenant existe (evita P2003)
   const tenant = await prisma.tenant.findUnique({ where: { id: me.tenantId }, select: { id: true } });

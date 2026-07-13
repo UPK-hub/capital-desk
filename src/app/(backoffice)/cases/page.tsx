@@ -59,11 +59,17 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   const months = recentMonths(6);
   const rmonth = (searchParams?.rmonth ? String(searchParams.rmonth) : "") || months[0].key;
 
-  const [cases, grouped, creatorEvents, summary] = await Promise.all([
+  // Paginación server-side (antes se cargaban hasta 500 casos de una).
+  const PAGE_SIZE = 100;
+  const pageRaw = Number(searchParams?.page ?? "1");
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+
+  const [cases, grouped, summary] = await Promise.all([
     prisma.case.findMany({
       where: { ...baseWhere, ...statusWhere },
       orderBy: { createdAt: "desc" },
-      take: 500,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
       include: {
         bus: { select: { code: true, plate: true } },
         assignedTo: { select: { name: true } },
@@ -71,12 +77,18 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       },
     }),
     prisma.case.groupBy({ by: ["status"], where: baseWhere, _count: { _all: true } }),
-    prisma.caseEvent.findMany({
-      where: { type: CaseEventType.CREATED, case: { tenantId } },
-      select: { caseId: true, meta: true },
-    }),
     getCasesSummary({ tenantId, extraWhere: { ...ownWhere, ...(isTech ? { assignedToId: userId } : {}) }, monthKey: rmonth }),
   ]);
+
+  // Rendimiento: solo se consultan los eventos de creación de los casos que se
+  // muestran en pantalla (antes se cargaban TODOS los eventos del tenant).
+  const loadedCaseIds = cases.map((c) => c.id);
+  const creatorEvents = loadedCaseIds.length
+    ? await prisma.caseEvent.findMany({
+        where: { type: CaseEventType.CREATED, caseId: { in: loadedCaseIds } },
+        select: { caseId: true, meta: true },
+      })
+    : [];
 
   const creatorIds = new Set<string>();
   const creatorByCase = new Map<string, string>();
@@ -95,7 +107,13 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       })
     : [];
   const creatorNameById = new Map(creatorUsers.map((u) => [u.id, u.name] as const));
-  const creators = creatorUsers.filter((u) => u.active).map((u) => ({ id: u.id, name: u.name }));
+  // Para el filtro "creador" se listan los usuarios activos del tenant
+  // (antes se derivaba de un escaneo completo de eventos, muy costoso).
+  const creators = await prisma.user.findMany({
+    where: { tenantId, active: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
   const cnt: Record<string, number> = {};
   for (const g of grouped) cnt[g.status] = g._count._all;
@@ -310,9 +328,33 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             <CasesTable rows={rows} users={isTech ? [] : assignableUsers} />
           )}
 
-          <p className="px-1 text-xs text-muted-foreground">
-            Mostrando {rows.length} de {filteredTotal} {filteredTotal === 1 ? "caso" : "casos"}
-          </p>
+          {/* Paginación */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs text-muted-foreground">
+              Mostrando {rows.length} de {filteredTotal} {filteredTotal === 1 ? "caso" : "casos"}
+              {filteredTotal > PAGE_SIZE ? ` · Página ${page} de ${Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE))}` : ""}
+            </p>
+            {filteredTotal > PAGE_SIZE ? (
+              <div className="flex items-center gap-2">
+                {page > 1 ? (
+                  <Link
+                    href={hrefWith({ page: String(page - 1) })}
+                    className="rounded-lg border border-border/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    ← Anterior
+                  </Link>
+                ) : null}
+                {page * PAGE_SIZE < filteredTotal ? (
+                  <Link
+                    href={hrefWith({ page: String(page + 1) })}
+                    className="rounded-lg border border-border/60 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Siguiente →
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </main>
       </div>
     </div>

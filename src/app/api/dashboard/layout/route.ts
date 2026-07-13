@@ -18,7 +18,7 @@ async function getCtx() {
 // Lee el tablero guardado del usuario (o null si nunca lo ha guardado).
 export async function GET() {
   const ctx = await getCtx();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const row = await prisma.dashboardLayout.findUnique({
     where: { userId: ctx.userId },
@@ -29,7 +29,7 @@ export async function GET() {
 // Guarda (upsert) el tablero del usuario.
 export async function PUT(req: NextRequest) {
   const ctx = await getCtx();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
   const data = body?.data;

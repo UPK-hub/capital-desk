@@ -1,4 +1,10 @@
-export const RVR_MAX_BUSES_PER_DAY = 30;
+export const RVR_MAX_BUSES_PER_DAY = 45;
+
+// Formato del número consecutivo de la revisión: RVR-0001, RVR-0002, ...
+export function formatRvrNo(reviewNo: number | null | undefined): string {
+  if (!reviewNo || !Number.isFinite(reviewNo)) return "RVR-s/n";
+  return `RVR-${String(reviewNo).padStart(4, "0")}`;
+}
 
 export const RVR_CAMERA_ORDER = [
   "BFE",
@@ -18,11 +24,20 @@ export const RVR_CAMERA_ORDER = [
 
 export type RvrCameraName = (typeof RVR_CAMERA_ORDER)[number];
 
+// Evidencia (imagen/archivo) adjunta a una cámara del checklist.
+export type RvrCameraEvidence = {
+  filePath: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
+
 export type RvrChecklistRow = {
   camera: RvrCameraName;
   complies: "S" | "N" | "";
   observation: string;
   observationCode: string;
+  evidence: RvrCameraEvidence | null;
 };
 
 export function createDefaultRvrChecklist(): RvrChecklistRow[] {
@@ -31,7 +46,19 @@ export function createDefaultRvrChecklist(): RvrChecklistRow[] {
     complies: "",
     observation: "",
     observationCode: "",
+    evidence: null,
   }));
+}
+
+function normalizeCameraEvidence(input: unknown): RvrCameraEvidence | null {
+  const filePath = String((input as any)?.filePath ?? "").trim();
+  if (!filePath) return null;
+  return {
+    filePath,
+    fileName: String((input as any)?.fileName ?? "").trim() || "evidencia",
+    mimeType: String((input as any)?.mimeType ?? "").trim() || "application/octet-stream",
+    size: Number((input as any)?.size ?? 0) || 0,
+  };
 }
 
 export function normalizeRvrChecklist(input: unknown): RvrChecklistRow[] {
@@ -40,7 +67,7 @@ export function normalizeRvrChecklist(input: unknown): RvrChecklistRow[] {
 
   const byCamera = new Map<
     string,
-    { complies: "S" | "N" | ""; observation: string; observationCode: string }
+    { complies: "S" | "N" | ""; observation: string; observationCode: string; evidence: RvrCameraEvidence | null }
   >();
   for (const row of input) {
     const camera = String((row as any)?.camera ?? "")
@@ -55,7 +82,8 @@ export function normalizeRvrChecklist(input: unknown): RvrChecklistRow[] {
     const observationCode = String((row as any)?.observationCode ?? "")
       .trim()
       .toUpperCase();
-    byCamera.set(camera, { complies, observation, observationCode });
+    const evidence = normalizeCameraEvidence((row as any)?.evidence);
+    byCamera.set(camera, { complies, observation, observationCode, evidence });
   }
 
   return defaults.map((row) => {
@@ -66,6 +94,7 @@ export function normalizeRvrChecklist(input: unknown): RvrChecklistRow[] {
       complies: found.complies,
       observation: found.observation,
       observationCode: found.observationCode,
+      evidence: found.evidence,
     };
   });
 }

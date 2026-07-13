@@ -64,11 +64,11 @@ function normalizeStringArray(input: unknown): string[] {
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const role = (session.user as any).role as Role;
-  if (!allowedGet.includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!allowedGet.includes(role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
   const wo = await prisma.workOrder.findFirst({
     where: { id: ctx.params.id, tenantId },
@@ -144,12 +144,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
 
 export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
   const role = (session.user as any).role as Role;
-  if (!allowedPut.includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!allowedPut.includes(role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
   const wo = await prisma.workOrder.findFirst({
     where: { id: ctx.params.id, tenantId },

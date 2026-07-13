@@ -14,7 +14,7 @@ import { utils, write } from "xlsx";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  if (!session?.user) return new Response("No autenticado", { status: 401 });
 
   const role = (session.user as any).role as Role;
   const caps = (session.user as any).capabilities as string[] | undefined;
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const isVideosOnly = role === Role.BACKOFFICE && caps?.includes(CAPABILITIES.VIDEOS_ONLY);
   if ((role !== Role.ADMIN && role !== Role.BACKOFFICE) || isVideosOnly) {
-    return new Response("Forbidden", { status: 403 });
+    return new Response("No autorizado", { status: 403 });
   }
   const ownOnly = role === Role.BACKOFFICE && !!caps?.includes(CAPABILITIES.OWN_CASES_ONLY);
 

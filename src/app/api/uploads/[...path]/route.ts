@@ -5,7 +5,24 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import fs from "fs";
 import path from "path";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { getUploadsRoot, getUploadBackup, normalizeUploadRelPath, resolveUploadPath } from "@/lib/uploads";
+
+// Seguridad: los archivos solo se sirven a usuarios con sesión activa,
+// o a integraciones (bots) que envíen un secreto válido en `x-integration-secret`.
+function integrationSecretOk(req: NextRequest) {
+  const provided = String(req.headers.get("x-integration-secret") || "").trim();
+  if (!provided) return false;
+  const secrets = [
+    process.env.NOVEDADES_INTAKE_SECRET,
+    process.env.INTEGRATION_INGEST_SECRET,
+    process.env.INTEGRATION_VIDEO_SECRET,
+  ]
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean);
+  return secrets.includes(provided);
+}
 
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -73,21 +90,28 @@ export async function GET(
   req: NextRequest,
   ctx: { params: { path: string[] } }
 ) {
+  if (!integrationSecretOk(req)) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return new Response("No autenticado", { status: 401 });
+    }
+  }
+
   const rel = normalizeUploadRelPath((ctx.params.path || []).join("/"));
-  if (!rel) return new Response("Not found", { status: 404 });
+  if (!rel) return new Response("No encontrado", { status: 404 });
 
   let filePath = "";
   try {
     // Resuelve ruta absoluta usando helper oficial
     filePath = resolveUploadPath(rel);
   } catch {
-    return new Response("Invalid path", { status: 400 });
+    return new Response("Ruta inválida", { status: 400 });
   }
 
   // Seguridad: evita path traversal
   const uploadsRoot = path.resolve(getUploadsRoot());
   if (filePath !== uploadsRoot && !filePath.startsWith(uploadsRoot + path.sep)) {
-    return new Response("Invalid path", { status: 400 });
+    return new Response("Ruta inválida", { status: 400 });
   }
 
   // Nombre de descarga opcional (?name=) y forzar descarga (?dl=1).
@@ -100,7 +124,7 @@ export async function GET(
 
   if (!fs.existsSync(filePath)) {
     const backup = await getUploadBackup(rel);
-    if (!backup) return new Response("Not found", { status: 404 });
+    if (!backup) return new Response("No encontrado", { status: 404 });
 
     const content = Buffer.from(backup.content);
     const filename = backup.originalName || path.basename(rel);

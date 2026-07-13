@@ -24,11 +24,11 @@ function namePart(value: string) {
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   if (role === Role.BACKOFFICE && (isBackofficeRestricted(role, capabilities) || isVideosOnlyBackoffice(role, capabilities))) {
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     where: { id: requestId, case: { tenantId, ...caseScope } },
     include: { case: { select: { caseNo: true, bus: { select: { code: true } } } } },
   });
-  if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!request) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const form = await req.formData();
   const file = form.get("file") as File | null;

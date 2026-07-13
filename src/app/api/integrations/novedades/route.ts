@@ -108,7 +108,7 @@ function checkSecret(req: NextRequest): NextResponse | null {
   }
   const provided = req.headers.get("x-integration-secret") || "";
   if (provided !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
   return null;
 }

@@ -19,11 +19,11 @@ function safeToken(value: string | null | undefined, fallback = "BUS") {
 
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  if (!session?.user) return new Response("No autenticado", { status: 401 });
 
   const role = (session.user as any).role as Role;
   if (![Role.ADMIN, Role.BACKOFFICE, Role.TECHNICIAN].includes(role)) {
-    return new Response("Forbidden", { status: 403 });
+    return new Response("No autorizado", { status: 403 });
   }
   const capabilities = (session.user as any).capabilities as string[] | undefined;
   const tenantId = (session.user as any).tenantId as string;
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
       cameraResults: { orderBy: { camera: "asc" } },
     },
   });
-  if (!request) return new Response("Not found", { status: 404 });
+  if (!request) return new Response("No encontrado", { status: 404 });
 
   const url = new URL(req.url);
   const cameraFilter = url.searchParams.get("camera");

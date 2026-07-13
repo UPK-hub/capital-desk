@@ -25,6 +25,7 @@
     "backfill:video-cases": "tsx scripts/backfill-video-cases-cerrado.ts",
     "equipos:ensure": "tsx scripts/ensure-new-equipments.ts",
     "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
+    "rollup:daily": "tsx scripts/rollup-daily.ts",
     "tramas:inspect": "tsx scripts/inspect-trama-payload.ts",
     "tramas:purge": "tsx scripts/purge-tramas.ts",
     "import:preventivos": "tsx scripts/import-preventivos.ts",

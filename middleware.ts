@@ -91,7 +91,12 @@ export default withAuth(
           path === "/" ||
           path.startsWith("/login") ||
           path.startsWith("/reset-password") ||
-          path.startsWith("/api/auth");
+          path.startsWith("/api/auth") ||
+          // Rutas API que se autentican por su cuenta (secreto compartido o token con expiración):
+          path.startsWith("/api/integrations") || // bots (x-integration-secret)
+          path.startsWith("/api/cron") || // tareas programadas (CRON_SECRET)
+          path.startsWith("/api/video-download") || // descarga por token con expiración
+          path.startsWith("/api/uploads"); // valida sesión o secreto de integración en la ruta
         if (isPublic) return true;
         return !!token && !(token as any).revoked;
       },
@@ -100,5 +105,7 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Ahora también cubre /api (antes quedaba excluido y cada endpoint dependía
+  // de validar sesión por su cuenta). Las rutas públicas se listan arriba.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

@@ -34,7 +34,7 @@ function checkSecret(req: NextRequest): NextResponse | null {
     );
   }
   if ((req.headers.get("x-integration-secret") || "") !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
   return null;
 }

@@ -37,9 +37,15 @@ function parseDateOrNull(v: any): Date | null {
   const s = String(v ?? "").trim();
   if (!s) return null;
 
+  // Rechaza fechas fuera de un rango razonable (evita typos tipo año 0203 o 9999).
+  const inRange = (d: Date) => {
+    const y = d.getUTCFullYear();
+    return y >= 2000 && y <= 2100;
+  };
+
   // parse normal (ISO / RFC)
   const d1 = new Date(s);
-  if (!Number.isNaN(d1.getTime())) return d1;
+  if (!Number.isNaN(d1.getTime())) return inRange(d1) ? d1 : null;
 
   // fallback dd/mm/yyyy (si llega así)
   const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
@@ -47,8 +53,13 @@ function parseDateOrNull(v: any): Date | null {
     const dd = Number(m[1]);
     const mm = Number(m[2]);
     const yyyy = Number(m[3]);
+    // Valida día/mes/año antes de construir la fecha (evita "99/99/9999").
+    if (dd < 1 || dd > 31 || mm < 1 || mm > 12 || yyyy < 2000 || yyyy > 2100) return null;
     const d2 = new Date(Date.UTC(yyyy, mm - 1, dd));
-    return Number.isNaN(d2.getTime()) ? null : d2;
+    if (Number.isNaN(d2.getTime())) return null;
+    // Detecta desbordes tipo 31/02 (JS lo convertiría a marzo).
+    if (d2.getUTCDate() !== dd || d2.getUTCMonth() !== mm - 1) return null;
+    return d2;
   }
 
   return null;
@@ -151,7 +162,7 @@ function normalizeEnumWithOther<T extends string>(
 
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
@@ -191,7 +202,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
 
 export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;

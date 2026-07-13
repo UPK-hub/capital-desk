@@ -16,13 +16,13 @@ function parseDate(value?: string | null) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  if (!session?.user) return new Response("No autenticado", { status: 401 });
 
   const role = session.user.role;
   const caps = (session.user as any).capabilities as string[] | undefined;
   const canTm =
     role === "ADMIN" || (role === "BACKOFFICE" && caps?.includes(CAPABILITIES.TM_READ));
-  if (!canTm) return new Response("Forbidden", { status: 403 });
+  if (!canTm) return new Response("No autorizado", { status: 403 });
 
   const tenantId = (session.user as any).tenantId as string;
   const { searchParams } = new URL(req.url);

@@ -149,7 +149,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     return (
       <div className="mx-auto max-w-5xl p-6">
         <div className="sts-card p-4">
-          <p className="text-sm">Debes iniciar sesion.</p>
+          <p className="text-sm">Debes iniciar sesión.</p>
           <Link className="text-sm underline" href="/login">
             Ir a login
           </Link>
