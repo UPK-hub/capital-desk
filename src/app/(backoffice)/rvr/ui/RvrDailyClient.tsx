@@ -270,8 +270,9 @@ function reasonBadgeClass(reason?: string | null) {
   return REASON_BADGE[String(reason ?? "")] ?? "bg-amber-100 text-amber-800";
 }
 
-export default function RvrDailyClient({ userName }: { userName: string }) {
-  const [date, setDate] = useState(todayInputDate());
+export default function RvrDailyClient({ userName, initialDate }: { userName: string; initialDate?: string }) {
+  const date = initialDate ?? todayInputDate();
+  const isToday = date === todayInputDate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -363,6 +364,11 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
   useEffect(() => {
     let cancelled = false;
     async function loadQueues() {
+      if (!isToday) {
+        setEligible([]);
+        setCorrectiveQueue([]);
+        return;
+      }
       setQueuesLoading(true);
       try {
         const res = await fetch(`/api/rvr/daily?date=${encodeURIComponent(date)}&queues=1`, { cache: "no-store" });
@@ -394,7 +400,8 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, isToday]);
 
   useEffect(() => {
     let cancelled = false;
@@ -626,17 +633,25 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
             </span>
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
+            <Link href="/rvr" className="text-primary hover:underline">← Revisiones</Link>
+            {" · "}
+            {new Intl.DateTimeFormat("es-CO", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}
+            {" · "}
             {selectedBusIds.length}/{RVR_MAX_BUSES_PER_DAY} buses · Responsable: {userName}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            aria-label="Fecha de la revisión"
+          <select
+            aria-label="Estado de la revisión"
             className="app-field-control h-9 rounded-lg px-3 text-sm"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+            value={topForm.status}
+            onChange={(e) =>
+              setTopForm((prev) => ({ ...prev, status: e.target.value === "COMPLETED" ? "COMPLETED" : "DRAFT" }))
+            }
+          >
+            <option value="DRAFT">En gestión</option>
+            <option value="COMPLETED">Completada</option>
+          </select>
           <button
             type="button"
             className="inline-flex h-9 items-center rounded-lg border border-border/70 bg-white px-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
@@ -662,7 +677,8 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">{info}</div>
       ) : null}
 
-      {/* Lista 1: buses priorizados para revisión */}
+      {/* Lista 1: buses priorizados para revisión (solo en la revisión de HOY) */}
+      {isToday ? (
       <section className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-muted/20 px-4 py-3">
           <div>
@@ -738,8 +754,10 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
           </div>
         )}
       </section>
+      ) : null}
 
-      {/* Lista 2: prioridad de correctivo */}
+      {/* Lista 2: prioridad de correctivo (solo hoy) */}
+      {isToday ? (
       <section className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-muted/20 px-4 py-3">
           <div>
@@ -807,136 +825,7 @@ export default function RvrDailyClient({ userName }: { userName: string }) {
           </div>
         )}
       </section>
-
-      {/* Datos generales de la revisión */}
-      <section className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm">
-        <div className="border-b border-border/50 bg-muted/20 px-4 py-3">
-          <h2 className="text-base font-semibold">Datos generales</h2>
-        </div>
-        <div className="space-y-3 p-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <label className="text-xs text-muted-foreground">
-              Horario
-              <input
-                type="text"
-                className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
-                value={topForm.scheduleWindow}
-                onChange={(e) => setTopForm((prev) => ({ ...prev, scheduleWindow: e.target.value }))}
-              />
-            </label>
-            <label className="text-xs text-muted-foreground">
-              N.º ticket revisión remota
-              <input
-                type="text"
-                className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
-                placeholder="Ticket de la RVR"
-                value={topForm.ticketUpk}
-                onChange={(e) => setTopForm((prev) => ({ ...prev, ticketUpk: e.target.value }))}
-              />
-            </label>
-            <label className="text-xs text-muted-foreground">
-              ¿Requiere correctivo?
-              <select
-                className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
-                value={topForm.requiresCorrective ? "S" : "N"}
-                onChange={(e) => setTopForm((prev) => ({ ...prev, requiresCorrective: e.target.value === "S" }))}
-              >
-                <option value="N">No</option>
-                <option value="S">Sí</option>
-              </select>
-            </label>
-            <label className="text-xs text-muted-foreground">
-              Estado
-              <select
-                className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
-                value={topForm.status}
-                onChange={(e) =>
-                  setTopForm((prev) => ({ ...prev, status: e.target.value === "COMPLETED" ? "COMPLETED" : "DRAFT" }))
-                }
-              >
-                <option value="DRAFT">En gestión</option>
-                <option value="COMPLETED">Completada</option>
-              </select>
-            </label>
-          </div>
-          <label className="block text-xs text-muted-foreground">
-            Resultado general
-            <input
-              type="text"
-              className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
-              value={topForm.generalResult}
-              onChange={(e) => setTopForm((prev) => ({ ...prev, generalResult: e.target.value }))}
-            />
-          </label>
-          <label className="block text-xs text-muted-foreground">
-            Hallazgos relevantes
-            <textarea
-              className="app-field-control mt-1 min-h-[72px] w-full rounded-xl p-3 text-sm"
-              value={topForm.relevantFindings}
-              onChange={(e) => setTopForm((prev) => ({ ...prev, relevantFindings: e.target.value }))}
-            />
-          </label>
-
-          {/* Evidencias generales (archivos), como en los casos */}
-          <div className="rounded-xl border border-border/60 p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">
-                Evidencias de la revisión ({generalEvidences.length + newGeneralFiles.length})
-              </p>
-            </div>
-            <input
-              type="file"
-              multiple
-              accept="*/*"
-              className="app-field-control mt-2 h-10 w-full rounded-xl px-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1 file:text-xs file:text-white"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []);
-                setNewGeneralFiles((prev) => [...prev, ...files]);
-                e.currentTarget.value = "";
-              }}
-            />
-            {newGeneralFiles.length ? (
-              <div className="mt-2 space-y-1">
-                {newGeneralFiles.map((f, idx) => (
-                  <div key={`${f.name}-${idx}`} className="flex items-center justify-between gap-2 text-xs">
-                    <span className="truncate text-muted-foreground">{f.name} (pendiente de guardar)</span>
-                    <button
-                      type="button"
-                      className="text-red-600 hover:underline"
-                      onClick={() => setNewGeneralFiles((prev) => prev.filter((_, i) => i !== idx))}
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {generalEvidences.length ? (
-              <div className="mt-2 space-y-1">
-                {generalEvidences.map((ev, idx) => (
-                  <a
-                    key={`${ev.filePath}-${idx}`}
-                    href={`/api/uploads/${ev.filePath}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block truncate text-xs text-primary hover:underline"
-                  >
-                    {ev.fileName}
-                  </a>
-                ))}
-              </div>
-            ) : null}
-            <label className="mt-3 block text-xs text-muted-foreground">
-              Nota sobre evidencias
-              <textarea
-                className="app-field-control mt-1 min-h-[56px] w-full rounded-xl p-3 text-sm"
-                value={topForm.evidencesNotes}
-                onChange={(e) => setTopForm((prev) => ({ ...prev, evidencesNotes: e.target.value }))}
-              />
-            </label>
-          </div>
-        </div>
-      </section>
+      ) : null}
 
       {/* Revisión bus por bus */}
       <section className="space-y-3">
