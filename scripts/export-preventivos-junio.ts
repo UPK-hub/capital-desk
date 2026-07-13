@@ -40,7 +40,13 @@ async function main() {
   const hasta = new Date("2026-07-01T00:00:00-05:00");
 
   const cases = await prisma.case.findMany({
-    where: { type: CaseType.PREVENTIVO, createdAt: { gte: desde, lt: hasta } },
+    where: {
+      type: CaseType.PREVENTIVO,
+      OR: [
+        { createdAt: { gte: desde, lt: hasta } },
+        { title: { contains: "junio", mode: "insensitive" } },
+      ],
+    },
     orderBy: { caseNo: "asc" },
     select: {
       id: true,
