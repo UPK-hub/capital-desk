@@ -32,7 +32,10 @@ async function main() {
   const cases = await prisma.case.findMany({
     where: {
       type: CaseType.PREVENTIVO,
-      createdAt: { gte: desde, lt: hasta },
+      OR: [
+        { createdAt: { gte: desde, lt: hasta } },
+        { title: { contains: "junio", mode: "insensitive" } },
+      ],
       workOrder: { orderFilePath: { not: null } },
     },
     orderBy: { caseNo: "asc" },
