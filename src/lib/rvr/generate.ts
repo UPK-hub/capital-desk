@@ -2,7 +2,7 @@
 // los buses priorizados por el motor. Idempotente: no pisa buses ya revisados,
 // solo agrega los que falten y refresca su motivo/orden de prioridad.
 import { prisma } from "@/lib/prisma";
-import { buildRvrValidationQueue } from "@/lib/rvr/priority";
+import { buildRvrValidationQueue, rvrDailyLimit } from "@/lib/rvr/priority";
 import { pickNvrIpFromEquipments, RVR_MAX_BUSES_PER_DAY } from "@/lib/rvr";
 
 /**
@@ -32,7 +32,8 @@ export async function generateDailyRvr(
   reviewDate: Date,
   responsibleId?: string | null
 ): Promise<{ reviewId: string; total: number; created: number }> {
-  const queue = await buildRvrValidationQueue(tenantId, RVR_MAX_BUSES_PER_DAY);
+  const activos = await prisma.bus.count({ where: { tenantId, active: true } });
+  const queue = await buildRvrValidationQueue(tenantId, rvrDailyLimit(activos));
 
   const review = await prisma.remoteVisualReview.upsert({
     where: { tenantId_reviewDate: { tenantId, reviewDate } },

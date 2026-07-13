@@ -27,8 +27,8 @@ export const RVR_DEFAULTS = {
   NO_TX_HOURS: 24, // sin P20/P60 en 24 h = no transmite
   ALARM_DAYS: 3, // alarmas de cámara miradas en los últimos 3 días
   PREV_MIN_DAYS: 10, // preventivo hace >= 10 días
-  RECHECK_DAYS: 15, // vuelve a revisión a los 15 días
-  COOLDOWN_DAYS: 15, // no re-revisar dentro de 15 días (salvo crítico)
+  RECHECK_DAYS: 7, // vuelve a revisión a los 7 días (meta: 4 revisiones/mes por bus)
+  COOLDOWN_DAYS: 7, // no re-revisar dentro de 7 días (salvo crítico)
   DAILY_LIMIT: 45, // 45 buses/día
   TELEMETRY_DAYS: 3, // odómetro/coordenadas en los últimos 3 días
 };
@@ -47,7 +47,7 @@ export const RVR_VAL_REASON_LABEL: Record<RvrValReason, string> = {
   ALARMA_CAMARA: "Alarma de desconexión de cámara",
   PREVENTIVO_AYER: "Preventivo el día anterior",
   PREVENTIVO_10D: "Preventivo hace 10+ días",
-  RECHECK_15D: "Toca re-revisar (15 días)",
+  RECHECK_15D: "Toca re-revisar (7 días)",
 };
 export const RVR_CORR_REASON_LABEL: Record<RvrCorrReason, string> = {
   NO_REPORTA_CON_FALLA: "No reporta / no transmite (posible falla)",
@@ -69,6 +69,31 @@ export type RvrQueueItem = {
 };
 
 type BusRow = { id: string; code: string; plate: string | null };
+
+/**
+ * Cupo diario DINÁMICO: cuántos buses debe tener la lista de hoy para que
+ * TODA la flota alcance 4 revisiones en los días hábiles (L-V) del mes.
+ * Base mínima 45; si el mes tiene pocos días hábiles, agrega el bus extra
+ * necesario (tope duro 60).
+ */
+export function rvrDailyLimit(activeBuses: number, now = new Date()): number {
+  // Días hábiles (lunes a viernes) del mes actual en hora Colombia.
+  const bogota = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now); // YYYY-MM-DD
+  const [y, m] = bogota.split("-").map((n) => parseInt(n, 10));
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  let habiles = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=dom, 6=sáb
+    if (dow >= 1 && dow <= 5) habiles++;
+  }
+  const necesario = Math.ceil((activeBuses * 4) / Math.max(habiles, 1));
+  return Math.min(60, Math.max(RVR_DEFAULTS.DAILY_LIMIT, necesario));
+}
 
 // ------------------------------- Fuentes -----------------------------------
 
@@ -327,9 +352,12 @@ async function computeRvrQueues(
   tenantId: string
 ): Promise<{ validation: RvrQueueItem[]; corrective: RvrQueueItem[] }> {
   const s = await fetchSignals(tenantId);
+  // Cupo del día según la flota activa y los días hábiles del mes (meta:
+  // 4 revisiones/mes por bus, semanas de lunes a viernes).
+  const limit = rvrDailyLimit(s.buses.length);
   const [validation, corrective] = await Promise.all([
-    buildRvrValidationQueue(tenantId, RVR_DEFAULTS.DAILY_LIMIT, s),
-    buildRvrCorrectiveQueue(tenantId, RVR_DEFAULTS.DAILY_LIMIT, s),
+    buildRvrValidationQueue(tenantId, limit, s),
+    buildRvrCorrectiveQueue(tenantId, limit, s),
   ]);
   return { validation, corrective };
 }

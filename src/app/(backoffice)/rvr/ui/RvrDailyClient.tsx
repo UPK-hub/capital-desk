@@ -637,7 +637,7 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
             {" · "}
             {new Intl.DateTimeFormat("es-CO", { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}
             {" · "}
-            {selectedBusIds.length}/{RVR_MAX_BUSES_PER_DAY} buses · Responsable: {userName}
+            {selectedBusIds.length} buses · Responsable: {userName}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -684,7 +684,7 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
           <div>
             <h2 className="text-base font-semibold">Buses priorizados para revisión</h2>
             <p className="text-xs text-muted-foreground">
-              No transmite → alarma de cámara → preventivo ayer → preventivo 10+ días → re-revisión a 15 días.
+              No transmite → alarma de cámara → preventivo ayer → preventivo 10+ días → re-revisión cada 7 días (4 veces al mes por bus).
             </p>
           </div>
           <button
@@ -841,8 +841,12 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
           </div>
         ) : null}
 
-        {selectedBuses.map((bus) => {
+        {selectedBuses.map((bus, busIdx) => {
           const isOpen = openBusId === bus.busId;
+          const ticketAuto =
+            reviewNo != null
+              ? `${String(reviewNo).padStart(4, "0")}-${busIdx + 1}`
+              : `— (se numera al guardar)`;
           const camNovedades = bus.checklist.filter((r) => r.complies === "N").length;
           return (
             <div key={bus.busId} className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm">
@@ -854,6 +858,9 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="text-base font-semibold">
                     {bus.busCode} <span className="font-normal text-muted-foreground">{bus.busPlate ?? "Sin placa"}</span>
+                  </span>
+                  <span className="inline-block rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                    {bus.ticketUpk || ticketAuto}
                   </span>
                   {bus.priorityReason ? (
                     <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
@@ -905,16 +912,12 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <label className="text-xs text-muted-foreground">
-                      N.º ticket revisión remota
-                      <input
-                        type="text"
-                        className="app-field-control mt-1 h-10 w-full rounded-xl px-3 text-sm"
-                        placeholder="Ticket de la RVR"
-                        value={bus.ticketUpk}
-                        onChange={(e) => patchBus(bus.busId, (prev) => ({ ...prev, ticketUpk: e.target.value }))}
-                      />
-                    </label>
+                    <div className="text-xs text-muted-foreground">
+                      Ticket de revisión (automático)
+                      <div className="mt-1 flex h-10 items-center rounded-xl border border-border/60 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+                        {bus.ticketUpk || ticketAuto}
+                      </div>
+                    </div>
                     <label className="text-xs text-muted-foreground">
                       ¿Requiere correctivo?
                       <select

@@ -467,9 +467,14 @@ export async function POST(req: NextRequest) {
     existingRows.map((row) => [row.busId, normalizeEvidence(row.evidences)])
   );
 
-  for (const busId of selectedBusIds) {
+  const reviewNoStr = String(reviewNo ?? "").padStart(4, "0");
+  for (let busIdx = 0; busIdx < selectedBusIds.length; busIdx++) {
+    const busId = selectedBusIds[busIdx];
     const bus = busById.get(busId)!;
     const entry = entryByBusId.get(busId) ?? {};
+    // Ticket automático por bus: consecutivo de la revisión + posición en la
+    // lista (0006-1, 0006-2, ...). Ya no se escribe a mano.
+    const ticketAuto = reviewNo != null ? `${reviewNoStr}-${busIdx + 1}` : null;
 
     const checklist = normalizeRvrChecklist(entry?.checklist ?? createDefaultRvrChecklist());
     const reviewedAt = parseIsoDate(entry?.reviewedAt) ?? new Date();
@@ -532,7 +537,7 @@ export async function POST(req: NextRequest) {
         reviewedAt,
         generalResult: String(entry?.generalResult ?? "").trim() || null,
         relevantFindings: String(entry?.relevantFindings ?? "").trim() || null,
-        ticketUpk: String(entry?.ticketUpk ?? "").trim() || null,
+        ticketUpk: ticketAuto,
         requiresCorrective: Boolean(entry?.requiresCorrective),
         capitalbusOt: String(entry?.capitalbusOt ?? "").trim() || null,
         checklist,
@@ -549,7 +554,7 @@ export async function POST(req: NextRequest) {
         reviewedAt,
         generalResult: String(entry?.generalResult ?? "").trim() || null,
         relevantFindings: String(entry?.relevantFindings ?? "").trim() || null,
-        ticketUpk: String(entry?.ticketUpk ?? "").trim() || null,
+        ticketUpk: ticketAuto,
         requiresCorrective: Boolean(entry?.requiresCorrective),
         capitalbusOt: String(entry?.capitalbusOt ?? "").trim() || null,
         checklist,

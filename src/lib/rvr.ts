@@ -1,4 +1,7 @@
-export const RVR_MAX_BUSES_PER_DAY = 45;
+// Tope DURO de buses por día (validación del guardado). El cupo real de cada
+// día lo calcula el motor: base 45 + lo necesario para 4 revisiones/mes por
+// bus en días hábiles L-V (ver rvrDailyLimit en lib/rvr/priority.ts).
+export const RVR_MAX_BUSES_PER_DAY = 60;
 
 // Formato del número consecutivo de la revisión: RVR-0001, RVR-0002, ...
 export function formatRvrNo(reviewNo: number | null | undefined): string {
