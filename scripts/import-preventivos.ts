@@ -17,7 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
-import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
+import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
 
 const DATA: { bus: number; fecha: string }[] = [
   { bus: 1407, fecha: "2026-06-18" }, { bus: 1410, fecha: "2026-06-10" }, { bus: 1417, fecha: "2026-06-20" },
@@ -57,7 +57,7 @@ async function main() {
   // como el que genera `npm run export:preventivos-junio`.
   const cIdx = args.indexOf("--csv");
   const csvPath = cIdx >= 0 ? path.resolve(String(args[cIdx + 1] ?? "")) : null;
-  let rows: { bus: number | string; fecha: string }[] = DATA;
+  let rows: { bus: number | string; fecha: string; ot?: string; responsable?: string }[] = DATA;
   if (csvPath) {
     if (!fs.existsSync(csvPath)) {
       console.error(`✗ No existe el CSV: ${csvPath}`);
@@ -67,12 +67,17 @@ async function main() {
     for (const line of fs.readFileSync(csvPath, "utf8").split(/\r?\n/)) {
       const t = line.trim();
       if (!t || /^bus\s*,/i.test(t)) continue; // salta encabezado/vacías
-      const [busRaw, fechaRaw] = t.split(",").map((x) => String(x ?? "").trim());
+      const [busRaw, fechaRaw, otRaw, respRaw] = t.split(",").map((x) => String(x ?? "").trim());
       if (!busRaw || !/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw ?? "")) {
-        console.error(`✗ Fila inválida en el CSV: "${t}" (esperado: bus,YYYY-MM-DD)`);
+        console.error(`✗ Fila inválida en el CSV: "${t}" (esperado: bus,YYYY-MM-DD[,ot,responsable])`);
         process.exit(1);
       }
-      rows.push({ bus: busRaw, fecha: fechaRaw });
+      rows.push({
+        bus: busRaw,
+        fecha: fechaRaw,
+        ot: otRaw && /^\d+$/.test(otRaw) ? otRaw : "",
+        responsable: respRaw ?? "",
+      });
     }
     console.log(`CSV: ${csvPath} (${rows.length} filas)`);
   }
@@ -89,6 +94,42 @@ async function main() {
     (await prisma.user.findFirst({ where: { tenantId, role: "ADMIN" } }));
   const creatorId = creator?.id ?? null;
 
+  // Responsables del CSV -> usuarios de la plataforma (por nombre, sin
+  // acentos ni mayúsculas). Si alguno no existe, se crea el caso sin asignar
+  // y se reporta al final.
+  const normalizeName = (v: string) =>
+    v
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+  const allUsers = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, active: true },
+  });
+  const userIdByResp = new Map<string, string | null>();
+  const respNoEncontrados = new Set<string>();
+  const resolveResp = (raw: string): string | null => {
+    const key = normalizeName(raw);
+    if (!key) return null;
+    if (userIdByResp.has(key)) return userIdByResp.get(key) ?? null;
+    let match =
+      allUsers.find((u) => normalizeName(u.name) === key) ??
+      allUsers.find((u) => normalizeName(u.name).includes(key) || key.includes(normalizeName(u.name)));
+    if (!match) {
+      // último intento: por palabras (nombre y apellido presentes)
+      const words = key.split(" ").filter((w) => w.length > 2);
+      match = allUsers.find((u) => {
+        const un = normalizeName(u.name);
+        return words.length > 0 && words.every((w) => un.includes(w));
+      });
+    }
+    userIdByResp.set(key, match?.id ?? null);
+    if (!match) respNoEncontrados.add(raw);
+    return match?.id ?? null;
+  };
+
   const maxAgg = await prisma.case.aggregate({ where: { tenantId }, _max: { caseNo: true } });
   let nextNo = (maxAgg._max.caseNo ?? 0) + 1;
 
@@ -101,7 +142,15 @@ async function main() {
   let toCreate = 0;
   let dup = 0;
   const missing: Array<number | string> = [];
-  const plan: { code: string; busId: string; fecha: string; caseNo: number }[] = [];
+  const plan: {
+    code: string;
+    busId: string;
+    fecha: string;
+    caseNo: number;
+    ot: number | null;
+    respRaw: string;
+    respUserId: string | null;
+  }[] = [];
 
   for (const row of rows) {
     const busStr = String(row.bus).trim();
@@ -131,8 +180,15 @@ async function main() {
       continue;
     }
 
-    plan.push({ code: bus.code, busId: bus.id, fecha: row.fecha, caseNo: nextNo });
-    console.log(`  + Bus ${bus.code} ${row.fecha}  ->  caso #${nextNo} (PREVENTIVO / RESUELTO)`);
+    const otNo = row.ot && /^\d+$/.test(row.ot) ? Number(row.ot) : null;
+    const respRaw = String(row.responsable ?? "").trim();
+    const respUserId = respRaw ? resolveResp(respRaw) : null;
+    plan.push({ code: bus.code, busId: bus.id, fecha: row.fecha, caseNo: nextNo, ot: otNo, respRaw, respUserId });
+    console.log(
+      `  + Bus ${bus.code} ${row.fecha}  ->  caso #${nextNo} (OT ${otNo ?? "sin #"}, ${respRaw || "sin responsable"}${
+        respRaw && !respUserId ? " ⚠️ usuario no encontrado" : ""
+      })`
+    );
     nextNo += 1;
     toCreate += 1;
   }
@@ -165,8 +221,25 @@ async function main() {
         title: `Mantenimiento preventivo ${p.code}`,
         description: `Mantenimiento preventivo programado del bus ${p.code} (${p.fecha}).`,
         createdAt: apertura,
+        ...(p.respUserId ? { assignedToId: p.respUserId } : {}),
       },
       select: { id: true },
+    });
+
+    // Orden de trabajo con su número de CapitalBus, FINALIZADA con la lógica
+    // nocturna (inicio 10 PM, fin 4 AM) y asignada al responsable.
+    await prisma.workOrder.create({
+      data: {
+        tenantId,
+        caseId: c.id,
+        workOrderNo: p.ot,
+        status: WorkOrderStatus.FINALIZADA,
+        ...(p.respUserId ? { assignedToId: p.respUserId, assignedAt: apertura } : {}),
+        scheduledAt: apertura,
+        scheduledTo: cierre,
+        startedAt: apertura,
+        finishedAt: cierre,
+      },
     });
 
     // Fijar updatedAt (cierre) = 4:00 AM del día siguiente.
@@ -199,6 +272,9 @@ async function main() {
 
   console.log("");
   console.log(`✓ Listo. Casos creados: ${created}.`);
+  if (respNoEncontrados.size) {
+    console.log(`⚠️  Responsables SIN usuario en la plataforma (casos quedaron sin asignar): ${Array.from(respNoEncontrados).join(", ")}`);
+  }
   await prisma.$disconnect();
 }
 
