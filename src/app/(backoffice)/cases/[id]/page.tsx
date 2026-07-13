@@ -769,6 +769,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               currentAssignedName={c.assignedTo?.name ?? null}
               currentStatus={c.status}
               initialChecklist={initialChecklist}
+              hasOrderFile={Boolean(c.workOrder?.orderFilePath)}
+              orderFileName={(c.workOrder as any)?.orderFileName ?? null}
             />
           ) : null}
 

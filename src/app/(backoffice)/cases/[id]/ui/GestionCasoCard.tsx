@@ -60,6 +60,10 @@ type Props = {
   currentAssignedName: string | null;
   currentStatus: string;
   initialChecklist?: ChecklistData | null;
+  // Archivo de la OT ya cargado en la orden de trabajo (si existe, la tarjeta
+  // muestra "OT ya adjunta" en vez de exigirla de nuevo).
+  hasOrderFile?: boolean;
+  orderFileName?: string | null;
 };
 
 const OptBtn = ({ active, onClick, children, disabled }: { active: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
@@ -124,7 +128,7 @@ export default function GestionCasoCard(props: Props) {
   const [err, setErr] = useState<string | null>(null);
   const evidRef = useRef<HTMLInputElement>(null);
 
-  const needsOT = isPrev || tipoCorr === "fisico";
+  const needsOT = (isPrev || tipoCorr === "fisico") && !props.hasOrderFile;
   const personaName = useMemo(() => props.technicians.find((t) => t.id === persona)?.name ?? props.currentAssignedName ?? "", [persona, props.technicians, props.currentAssignedName]);
   const summary = useMemo(() => summarizeChecklist(checklist), [checklist]);
 
@@ -403,6 +407,15 @@ export default function GestionCasoCard(props: Props) {
         ) : null}
 
         {/* OT del cliente */}
+        {props.hasOrderFile && (isPrev || tipoCorr === "fisico") ? (
+          <div>
+            <span className={label}>OT del cliente</span>
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+              ✓ OT ya adjunta{props.orderFileName ? `: ${props.orderFileName}` : ""}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">El archivo está en la tarjeta &quot;Archivo de la OT&quot; del caso.</p>
+          </div>
+        ) : null}
         {needsOT ? (
           <div>
             <span className={label}>OT del cliente · obligatoria</span>
