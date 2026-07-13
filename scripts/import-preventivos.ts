@@ -18,6 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
+import { emptyChecklistData } from "@/lib/preventive/checklist-template";
 
 const DATA: { bus: number; fecha: string }[] = [
   { bus: 1407, fecha: "2026-06-18" }, { bus: 1410, fecha: "2026-06-10" }, { bus: 1417, fecha: "2026-06-20" },
@@ -274,6 +275,36 @@ async function main() {
         scheduledTo: cierre,
         startedAt: apertura,
         finishedAt: cierre,
+      },
+    });
+
+    // Checklist del preventivo con la Identificación prellenada
+    // (OT de Capital, hora de inicio 22:00 y fin 04:00).
+    const checklistData: any = emptyChecklistData();
+    checklistData.items.identificacion = {
+      ...(checklistData.items.identificacion ?? {}),
+      ...(p.ot != null ? { otCapital: { value: String(p.ot) } } : {}),
+      horaInicio: { value: "22:00" },
+      horaFin: { value: "04:00" },
+    };
+    await prisma.casePreventiveChecklist.create({
+      data: {
+        caseId: c.id,
+        status: "completed",
+        data: checklistData,
+        aperturaAt: apertura,
+        cierreAt: cierre,
+        executedAt: cierre,
+        ...(p.respUserId
+          ? {
+              aperturaById: p.respUserId,
+              aperturaByName: p.respRaw,
+              cierreById: p.respUserId,
+              cierreByName: p.respRaw,
+              executedById: p.respUserId,
+              executedByName: p.respRaw,
+            }
+          : {}),
       },
     });
 
