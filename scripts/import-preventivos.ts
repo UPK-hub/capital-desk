@@ -14,6 +14,8 @@
  *   npm run import:preventivos -- --apply
  *   npm run import:preventivos -- --apply --tenant CAPITALBUS
  */
+import fs from "node:fs";
+import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
 
@@ -50,6 +52,31 @@ async function main() {
   const tIdx = args.indexOf("--tenant");
   const tenantCode = tIdx >= 0 ? args[tIdx + 1] : "CAPITALBUS";
 
+  // Lista de buses/fechas: por defecto la DATA de arriba; con --csv se usa un
+  // archivo "bus,fecha" (una fila por preventivo; ej: K1401,2026-06-02),
+  // como el que genera `npm run export:preventivos-junio`.
+  const cIdx = args.indexOf("--csv");
+  const csvPath = cIdx >= 0 ? path.resolve(String(args[cIdx + 1] ?? "")) : null;
+  let rows: { bus: number | string; fecha: string }[] = DATA;
+  if (csvPath) {
+    if (!fs.existsSync(csvPath)) {
+      console.error(`✗ No existe el CSV: ${csvPath}`);
+      process.exit(1);
+    }
+    rows = [];
+    for (const line of fs.readFileSync(csvPath, "utf8").split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || /^bus\s*,/i.test(t)) continue; // salta encabezado/vacías
+      const [busRaw, fechaRaw] = t.split(",").map((x) => String(x ?? "").trim());
+      if (!busRaw || !/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw ?? "")) {
+        console.error(`✗ Fila inválida en el CSV: "${t}" (esperado: bus,YYYY-MM-DD)`);
+        process.exit(1);
+      }
+      rows.push({ bus: busRaw, fecha: fechaRaw });
+    }
+    console.log(`CSV: ${csvPath} (${rows.length} filas)`);
+  }
+
   const tenant = await prisma.tenant.findFirst({ where: { code: tenantCode } });
   if (!tenant) {
     console.error(`✗ No se encontró tenant con code="${tenantCode}".`);
@@ -68,16 +95,19 @@ async function main() {
   console.log("");
   console.log(`Modo:   ${apply ? "APLICAR" : "DRY-RUN (solo lectura)"}`);
   console.log(`Tenant: ${tenantCode}  |  Creador: ${creator?.name ?? "(ninguno)"}`);
-  console.log(`Filas:  ${DATA.length}  |  Próximo # de caso: ${nextNo}`);
+  console.log(`Filas:  ${rows.length}  |  Próximo # de caso: ${nextNo}`);
   console.log("");
 
   let toCreate = 0;
   let dup = 0;
-  const missing: number[] = [];
+  const missing: Array<number | string> = [];
   const plan: { code: string; busId: string; fecha: string; caseNo: number }[] = [];
 
-  for (const row of DATA) {
-    const candidates = [`K${row.bus}`, `${row.bus}`, `k${row.bus}`];
+  for (const row of rows) {
+    const busStr = String(row.bus).trim();
+    const candidates = /^\d+$/.test(busStr)
+      ? [`K${busStr}`, busStr, `k${busStr}`]
+      : [busStr.toUpperCase(), busStr];
     let bus: { id: string; code: string } | null = null;
     for (const code of candidates) {
       bus = await prisma.bus.findFirst({ where: { tenantId, code }, select: { id: true, code: true } });

@@ -151,6 +151,54 @@ async function main() {
   }
   console.log(`Autor resuelto: ${sender.name} <${sender.email}> [${sender.role}]\n`);
 
+  // Lista de casos: por defecto la CASES de arriba (números de caso fijos).
+  // Con --csv se usa un archivo "bus,fecha" (el de export:preventivos-junio) y
+  // el caso se busca por bus + fecha (sirve después de recrear los casos,
+  // cuando los números cambian).
+  let casesList: Array<[number, string, string]> = CASES;
+  const csvPathRaw = arg("--csv");
+  if (csvPathRaw) {
+    const csvPath = path.resolve(csvPathRaw);
+    if (!fs.existsSync(csvPath)) {
+      console.error(`✗ No existe el CSV: ${csvPath}`);
+      process.exit(1);
+    }
+    casesList = [];
+    const noEncontradosCsv: string[] = [];
+    for (const line of fs.readFileSync(csvPath, "utf8").split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || /^bus\s*,/i.test(t)) continue;
+      const [busRaw, fechaRaw] = t.split(",").map((x) => String(x ?? "").trim());
+      if (!busRaw || !/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw ?? "")) {
+        console.error(`✗ Fila inválida en el CSV: "${t}" (esperado: bus,YYYY-MM-DD)`);
+        process.exit(1);
+      }
+      const busCode = busRaw.toUpperCase();
+      const dayStart = new Date(`${fechaRaw}T00:00:00-05:00`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 3600 * 1000);
+      const kase = await prisma.case.findFirst({
+        where: {
+          tenantId,
+          type: "PREVENTIVO",
+          bus: { code: busCode },
+          createdAt: { gte: dayStart, lt: dayEnd },
+        },
+        select: { caseNo: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!kase?.caseNo) {
+        noEncontradosCsv.push(`${busCode} ${fechaRaw}`);
+        continue;
+      }
+      casesList.push([kase.caseNo, busCode, fechaRaw]);
+    }
+    console.log(`CSV: ${csvPath} -> ${casesList.length} caso(s) resueltos por bus+fecha`);
+    if (noEncontradosCsv.length) {
+      console.log(`⚠️  Sin caso en BD para: ${noEncontradosCsv.join(", ")}`);
+    }
+    console.log("");
+  }
+
   // 3) Carpeta de evidencias
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
     console.error(`✗ No existe la carpeta de evidencias: ${dir}`);
@@ -172,7 +220,7 @@ async function main() {
   const busDistinto: string[] = [];
   const okResumen: string[] = [];
 
-  for (const [caseNo, busRaw, dateStr] of CASES) {
+  for (const [caseNo, busRaw, dateStr] of casesList) {
     const bus = busRaw.toUpperCase();
 
     // Caso por número
