@@ -34,6 +34,7 @@
     "import:evidencias": "tsx scripts/import-evidencias-preventivo.ts",
     "fix:hora-preventivos": "tsx scripts/fix-hora-preventivos-import.ts",
     "export:ots": "tsx scripts/export-ots-preventivo.ts",
+    "contar:preventivos-junio": "tsx scripts/contar-preventivos-junio.ts",
     "borrar:preventivos-junio": "tsx scripts/borrar-preventivos-junio.ts",
     "import:ot-preventivo": "tsx scripts/import-ot-preventivo.ts",
     "asignar:responsable": "tsx scripts/asignar-responsable-preventivo.ts",
