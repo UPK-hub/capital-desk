@@ -130,6 +130,16 @@ async function main() {
     return match?.id ?? null;
   };
 
+  // Números de OT ya usados (en BD o repetidos dentro del propio CSV): el
+  // sistema exige OT única por tenant, así que la segunda vez se crea la OT
+  // SIN número y se reporta (en vez de frenar toda la importación).
+  const existingWoNos = await prisma.workOrder.findMany({
+    where: { tenantId, workOrderNo: { not: null } },
+    select: { workOrderNo: true },
+  });
+  const usedOtNos = new Set<number>(existingWoNos.map((w) => w.workOrderNo!).filter((n) => n != null));
+  const otDuplicadas: string[] = [];
+
   const maxAgg = await prisma.case.aggregate({ where: { tenantId }, _max: { caseNo: true } });
   let nextNo = (maxAgg._max.caseNo ?? 0) + 1;
 
@@ -180,7 +190,15 @@ async function main() {
       continue;
     }
 
-    const otNo = row.ot && /^\d+$/.test(row.ot) ? Number(row.ot) : null;
+    let otNo = row.ot && /^\d+$/.test(row.ot) ? Number(row.ot) : null;
+    if (otNo != null) {
+      if (usedOtNos.has(otNo)) {
+        otDuplicadas.push(`OT ${otNo} repetida: bus ${bus.code} queda con OT sin número`);
+        otNo = null;
+      } else {
+        usedOtNos.add(otNo);
+      }
+    }
     const respRaw = String(row.responsable ?? "").trim();
     const respUserId = respRaw ? resolveResp(respRaw) : null;
     plan.push({ code: bus.code, busId: bus.id, fecha: row.fecha, caseNo: nextNo, ot: otNo, respRaw, respUserId });
@@ -274,6 +292,10 @@ async function main() {
   console.log(`✓ Listo. Casos creados: ${created}.`);
   if (respNoEncontrados.size) {
     console.log(`⚠️  Responsables SIN usuario en la plataforma (casos quedaron sin asignar): ${Array.from(respNoEncontrados).join(", ")}`);
+  }
+  if (otDuplicadas.length) {
+    console.log(`⚠️  OTs con número repetido (se creó la OT sin número):`);
+    for (const d of otDuplicadas) console.log(`   - ${d}`);
   }
   await prisma.$disconnect();
 }
