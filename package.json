@@ -41,6 +41,7 @@
     "fix:titulos-junio": "tsx scripts/fix-titulos-preventivos-junio.ts",
     "fix:checklist-junio": "tsx scripts/fix-checklist-ot-junio.ts",
     "borrar:preventivos-junio": "tsx scripts/borrar-preventivos-junio.ts",
+    "borrar:rvr": "tsx scripts/borrar-rvr-todo.ts",
     "import:ot-preventivo": "tsx scripts/import-ot-preventivo.ts",
     "asignar:responsable": "tsx scripts/asignar-responsable-preventivo.ts",
     "novedad:desde-correctivo": "tsx scripts/novedad-desde-correctivo.ts",

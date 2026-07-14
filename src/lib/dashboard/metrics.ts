@@ -10,6 +10,7 @@ import {
   StsTicketStatus,
   VideoCaseStatus,
   WorkOrderStatus,
+  CaseEventType,
 } from "@prisma/client";
 import { isVideosOnlyBackoffice, ownCasesWhere } from "@/lib/access-control";
 import {
@@ -347,17 +348,42 @@ export async function resolveWidget(
             where: { tenantId: ctx.tenantId, createdAt: { gte: start } },
             select: { createdAt: true },
           }),
+          // Fecha REAL de resolución = fin de la OT o el primer cambio de estado
+          // a resuelto/cerrado. NUNCA updatedAt: cualquier edición en lote (p.ej.
+          // renombrar títulos) lo mueve a "hoy" y falsea el gráfico.
           prisma.case.findMany({
             where: {
               tenantId: ctx.tenantId,
               status: { in: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
-              updatedAt: { gte: start },
             },
-            select: { updatedAt: true },
+            select: {
+              workOrder: { select: { finishedAt: true } },
+              events: {
+                where: {
+                  type: CaseEventType.STATUS_CHANGE,
+                  OR: [
+                    { message: { contains: "cerrad", mode: "insensitive" } },
+                    { message: { contains: "resuelt", mode: "insensitive" } },
+                  ],
+                  NOT: {
+                    OR: [
+                      { message: { contains: "backfill", mode: "insensitive" } },
+                      { message: { contains: "unific", mode: "insensitive" } },
+                    ],
+                  },
+                },
+                orderBy: { createdAt: "asc" },
+                take: 1,
+                select: { createdAt: true },
+              },
+            },
           }),
         ]);
         const a = bucketByDay(creados.map((r) => r.createdAt), n);
-        const b = bucketByDay(resueltos.map((r) => r.updatedAt), n);
+        const fechasResueltos = resueltos
+          .map((c) => c.workOrder?.finishedAt ?? c.events[0]?.createdAt ?? null)
+          .filter((d): d is Date => d != null && d >= start);
+        const b = bucketByDay(fechasResueltos, n);
         const points = a.map((p, i) => ({
           date: p.date,
           value: p.value,
