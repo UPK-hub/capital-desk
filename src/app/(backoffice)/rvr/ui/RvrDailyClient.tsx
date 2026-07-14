@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   createDefaultRvrChecklist,
@@ -293,6 +293,17 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
   const [creatingCorrBusId, setCreatingCorrBusId] = useState<string | null>(null);
   const [openBusId, setOpenBusId] = useState<string | null>(null);
 
+  // ---- Guardado automático ----
+  const [autoState, setAutoState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [autoAt, setAutoAt] = useState<string>("");
+  const dirtyRef = useRef(false);
+  const autoBusyRef = useRef(false);
+  const [dirtyTick, setDirtyTick] = useState(0);
+  const markDirty = () => {
+    dirtyRef.current = true;
+    setDirtyTick((t) => t + 1);
+  };
+
   const selectedBuses = useMemo(
     () => selectedBusIds.map((id) => busForms[id]).filter(Boolean),
     [selectedBusIds, busForms]
@@ -423,6 +434,7 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
   }, []);
 
   const toggleBus = (busId: string, checked: boolean) => {
+    markDirty();
     setError(null);
     setInfo(null);
     setSelectedBusIds((prev) => {
@@ -445,6 +457,7 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
   };
 
   const patchBus = (busId: string, updater: (prev: BusForm) => BusForm) => {
+    markDirty();
     setBusForms((prev) => {
       const current = prev[busId];
       if (!current) return prev;
@@ -482,7 +495,115 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
     });
   };
 
+  // Guardado automático: 3 s después del último cambio se guarda solo (con
+  // fotos incluidas). No pisa lo que el usuario está escribiendo: solo mezcla
+  // lo que devuelve el servidor (ids, tickets, evidencias subidas).
+  const autoSave = async () => {
+    if (autoBusyRef.current || saving || loading) return;
+    if (!selectedBusIds.length) return;
+    autoBusyRef.current = true;
+    dirtyRef.current = false;
+    setAutoState("saving");
+
+    const sentFiles = new Map<string, File[]>();
+    const sentCam = new Map<string, Record<string, File>>();
+    try {
+      const entries = selectedBusIds.map((busId) => {
+        const bus = busForms[busId];
+        return {
+          busId,
+          reviewedAt: bus?.reviewedAt || new Date().toISOString(),
+          nvrIp: bus?.nvrIp || "",
+          generalResult: bus?.generalResult || "",
+          relevantFindings: bus?.relevantFindings || "",
+          ticketUpk: bus?.ticketUpk || "",
+          requiresCorrective: Boolean(bus?.requiresCorrective),
+          capitalbusOt: bus?.capitalbusOt || "",
+          checklist: bus?.checklist || createDefaultRvrChecklist(),
+          aspects: bus?.aspects || createDefaultRvrAspects(),
+        };
+      });
+
+      const fd = new FormData();
+      fd.set("payload", JSON.stringify({ date, ...topForm, selectedBusIds, entries }));
+      for (const busId of selectedBusIds) {
+        const bf = busForms[busId];
+        const files = bf?.newFiles ?? [];
+        if (files.length) sentFiles.set(busId, [...files]);
+        for (const file of files) fd.append(`evidence:${busId}`, file);
+        const camFiles = bf?.newCamFiles ?? {};
+        if (Object.keys(camFiles).length) sentCam.set(busId, { ...camFiles });
+        for (const [camera, file] of Object.entries(camFiles)) fd.append(`evidence-cam:${busId}:${camera}`, file);
+      }
+
+      const res = await fetch("/api/rvr/daily", { method: "POST", body: fd });
+      const payload = (await res.json().catch(() => ({}))) as { ok?: boolean; review?: ReviewPayload };
+      if (!res.ok || !payload.ok || !payload.review) throw new Error("autosave");
+      const review = payload.review;
+
+      setReviewId(review.id);
+      setReviewNo(review.reviewNo ?? null);
+      setBusForms((prev) => {
+        const next = { ...prev };
+        for (const row of review.buses) {
+          const cur = next[row.busId];
+          if (!cur) continue;
+          const sentF = sentFiles.get(row.busId) ?? [];
+          const sentC = sentCam.get(row.busId) ?? {};
+          next[row.busId] = {
+            ...cur,
+            rowId: row.id,
+            ticketUpk: row.ticketUpk || cur.ticketUpk,
+            evidences: row.evidences ?? cur.evidences,
+            newFiles: cur.newFiles.filter((f) => !sentF.includes(f)),
+            newCamFiles: Object.fromEntries(
+              Object.entries(cur.newCamFiles).filter(([cam, f]) => sentC[cam] !== f)
+            ),
+            checklist: cur.checklist.map((r) => {
+              if (r.evidence) return r;
+              const srv = row.checklist.find((x) => x.camera === r.camera);
+              return srv?.evidence ? { ...r, evidence: srv.evidence } : r;
+            }),
+          };
+        }
+        return next;
+      });
+      setAutoState("saved");
+      setAutoAt(
+        new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" }).format(new Date())
+      );
+    } catch {
+      dirtyRef.current = true;
+      setAutoState("error");
+    } finally {
+      autoBusyRef.current = false;
+    }
+  };
+
+  // Dispara el autoguardado 3 s después del último cambio.
+  useEffect(() => {
+    if (!dirtyTick) return;
+    const t = setTimeout(() => {
+      if (dirtyRef.current) void autoSave();
+    }, 3000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirtyTick]);
+
+  // Aviso del navegador si intentan salir con cambios sin guardar.
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current || autoBusyRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, []);
+
   const save = async () => {
+    dirtyRef.current = false;
     setSaving(true);
     setError(null);
     setInfo(null);
@@ -641,13 +762,23 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {autoState === "saving"
+              ? "Guardando automáticamente…"
+              : autoState === "saved"
+              ? `Guardado automático ✓ ${autoAt}`
+              : autoState === "error"
+              ? "⚠ Falló el guardado automático — usa Guardar revisión"
+              : ""}
+          </span>
           <select
             aria-label="Estado de la revisión"
             className="app-field-control h-9 rounded-lg px-3 text-sm"
             value={topForm.status}
-            onChange={(e) =>
-              setTopForm((prev) => ({ ...prev, status: e.target.value === "COMPLETED" ? "COMPLETED" : "DRAFT" }))
-            }
+            onChange={(e) => {
+              markDirty();
+              setTopForm((prev) => ({ ...prev, status: e.target.value === "COMPLETED" ? "COMPLETED" : "DRAFT" }));
+            }}
           >
             <option value="DRAFT">En gestión</option>
             <option value="COMPLETED">Completada</option>
