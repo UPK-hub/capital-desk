@@ -10,6 +10,7 @@ const modules = [
     description: "Crear usuarios, asignar roles y restablecer contraseñas.",
     href: "/admin/users",
     cta: "Gestionar usuarios",
+    roles: [Role.ADMIN],
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="8" cy="8" r="3" />
@@ -23,6 +24,7 @@ const modules = [
     description: "Configurar turnos, descansos y control de jornada.",
     href: "/admin/technician-schedules",
     cta: "Configurar horarios",
+    roles: [Role.ADMIN],
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="12" r="8" />
@@ -35,9 +37,23 @@ const modules = [
     description: "Paleta, tipografías, sombras y modo dark/light.",
     href: "/admin/theme",
     cta: "Configurar tema",
+    roles: [Role.ADMIN],
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Firmas de documentos",
+    description: "Nombre y cargo del coordinador y del líder técnico que firman los PDFs.",
+    href: "/admin/firmas",
+    cta: "Editar firmas",
+    roles: [Role.ADMIN, Role.SUPERVISOR],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 17c2.5 0 3-9 5.5-9S12 17 14.5 17 17 13 20 13" />
+        <path d="M4 20.5h16" />
       </svg>
     ),
   },
@@ -46,6 +62,7 @@ const modules = [
     description: "Actualizar correo, contraseña y preferencias.",
     href: "/profile",
     cta: "Ir a perfil",
+    roles: [Role.ADMIN, Role.SUPERVISOR],
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="8" r="4" />
@@ -58,7 +75,9 @@ const modules = [
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
-  if (session.user.role !== Role.ADMIN) redirect("/");
+  const role = session.user.role as Role;
+  if (role !== Role.ADMIN && role !== Role.SUPERVISOR) redirect("/");
+  const visibles = modules.filter((m) => (m.roles as readonly Role[]).includes(role));
 
   return (
     <div className="mx-auto max-w-5xl p-6 md:p-8 space-y-6">
@@ -71,7 +90,7 @@ export default async function AdminPage() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {modules.map((m) => (
+        {visibles.map((m) => (
           <section key={m.href} className="sts-card p-5 admin-module-card">
             <div className="flex items-start gap-3">
               <span className="admin-module-card__icon">{m.icon}</span>

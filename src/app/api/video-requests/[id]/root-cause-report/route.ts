@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { buildVideoRequestCaseScope } from "@/lib/access-control";
 import { buildRootCauseReportPdf } from "@/lib/video-root-cause-pdf";
+import { getDocumentSignatures } from "@/lib/document-signatures";
 
 function safeToken(value: string | null | undefined, fallback = "BUS") {
   const clean = String(value ?? "")
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     results: request.cameraResults.map((r) => ({ camera: r.camera, status: r.status, rootCause: r.rootCause })),
     corrective,
     cameraFilter,
+    signatures: await getDocumentSignatures(tenantId),
   });
 
   const token = `${safeToken(request.case.bus?.code)}_caso_${safeToken(String(request.case.caseNo ?? ""))}`;

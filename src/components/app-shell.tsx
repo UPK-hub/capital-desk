@@ -165,6 +165,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       roles: [Role.ADMIN],
     },
     {
+      label: "Firmas de documentos",
+      href: "/admin/firmas",
+      icon: "settings",
+      section: "admin",
+      color: "var(--color-admin)",
+      roles: [Role.ADMIN, Role.SUPERVISOR],
+    },
+    {
       label: "Usuarios y equipos",
       href: "/admin/teams",
       icon: "team",

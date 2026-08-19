@@ -23,6 +23,7 @@ import { saveUpload, saveGeneratedUpload } from "@/lib/uploads";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { normalizeChecklistData, type ChecklistData } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
+import { getDocumentSignatures } from "@/lib/document-signatures";
 import { CaseEventType, CaseStatus, CaseType, Role, WorkOrderStatus } from "@prisma/client";
 
 const ALLOWED = new Set<Role>([Role.ADMIN, Role.BACKOFFICE, Role.PLANNER, Role.SUPERVISOR, Role.TECHNICIAN]);
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       bus: { select: { id: true, code: true, plate: true } },
       busEquipment: { select: { id: true } },
       workOrder: { select: { id: true } },
+      preventiveChecklist: { select: { executedByName: true, aperturaByName: true, cierreByName: true } },
     },
   });
   if (!kase) return NextResponse.json({ error: "Caso no encontrado o no es preventivo/correctivo." }, { status: 404 });
@@ -388,10 +390,16 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         caseNo: kase.caseNo ?? null,
         busCode: kase.bus?.code ?? null,
         busPlate: kase.bus?.plate ?? null,
-        responsableName: persona?.name ?? kase.assignedTo?.name ?? null,
+        responsableName:
+          persona?.name ??
+          kase.preventiveChecklist?.executedByName ??
+          kase.preventiveChecklist?.aperturaByName ??
+          kase.assignedTo?.name ??
+          null,
         executedAt: new Date(),
         data: checklistData,
         evidencias: evidencias.map((e) => e.fileName),
+        signatures: await getDocumentSignatures(tenantId),
       });
       const fileName = `${kase.bus?.code ? kase.bus.code + "_" : ""}certificado_preventivo.pdf`;
       const relPath = await saveGeneratedUpload(

@@ -166,6 +166,7 @@ model Tenant {
   stsMaintenanceWindows    StsMaintenanceWindow[]
   stsAuditLogs             StsAuditLog[]
   themeSettings            ThemeSettings?
+  documentSignatures       DocumentSignatureSettings?
   inventorySerialCatalog   InventorySerialCatalog[]
   integrationInboundEvents IntegrationInboundEvent[]
   integrationVideos        IntegrationVideo[]
@@ -688,6 +689,23 @@ model ThemeSettings {
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// Nombres y cargos que firman los PDFs (certificado de preventivo y acta de
+// causa raíz de video). Editables desde /admin/firmas.
+model DocumentSignatureSettings {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  coordinadorName String @default("Anderson Rueda")
+  coordinadorRole String @default("Coordinador STS")
+  liderName       String @default("Diego Hernández")
+  liderRole       String @default("Líder técnico")
+
+  updatedById String?
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
 }
 
 model PasswordResetToken {

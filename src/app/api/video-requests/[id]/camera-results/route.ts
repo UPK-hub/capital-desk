@@ -26,6 +26,7 @@ import {
 import { isValidRootCause } from "@/lib/video-root-causes";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { buildRootCauseReportPdf } from "@/lib/video-root-cause-pdf";
+import { getDocumentSignatures } from "@/lib/document-signatures";
 import { saveGeneratedUpload } from "@/lib/uploads";
 import { notifyVideoDownloadFailed } from "@/lib/telegram-notify";
 
@@ -303,6 +304,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
           technicianEmail: full.assignedTo?.email ?? null,
           results: full.cameraResults.map((r) => ({ camera: r.camera, status: r.status, rootCause: r.rootCause })),
           corrective,
+          signatures: await getDocumentSignatures(tenantId),
         });
         const fname = `Informe de causa raíz - CASO-${full.case.caseNo ?? ""}.pdf`;
         const relPath = await saveGeneratedUpload(

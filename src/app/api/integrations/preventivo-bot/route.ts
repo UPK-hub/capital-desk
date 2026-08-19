@@ -26,6 +26,7 @@ import {
   type TipoNovedad,
 } from "@/lib/preventive/checklist-template";
 import { buildPreventiveCertificatePdf } from "@/lib/preventive/certificate-pdf";
+import { getDocumentSignatures } from "@/lib/document-signatures";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 import { isCameraEquipment } from "@/lib/equipment-category";
 import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
@@ -555,6 +556,7 @@ export async function POST(req: NextRequest) {
           executedAt: now,
           data,
           evidencias: [],
+          signatures: await getDocumentSignatures(tenantId),
         });
         const fileName = `${kase.bus?.code ? kase.bus.code + "_" : ""}certificado_preventivo.pdf`;
         const relPath = await saveGeneratedUpload(`gestion/${kase.id}/certificado/${Date.now()}_${fileName}`, bytes, { originalName: fileName, mimeType: "application/pdf" });

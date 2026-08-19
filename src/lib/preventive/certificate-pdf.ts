@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
+import { DEFAULT_DOCUMENT_SIGNATURES, type DocumentSignatures } from "@/lib/document-signatures";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -30,6 +31,8 @@ export type PreventiveCertificateInput = {
   // Técnico que abrió y el que cerró (bot). Si vienen, firman el certificado.
   aperturaName?: string | null;
   cierreName?: string | null;
+  // Coordinador y líder técnico que firman (configurables en /admin/firmas).
+  signatures?: DocumentSignatures | null;
 };
 
 async function loadLogo(file: string): Promise<Buffer | null> {
@@ -314,29 +317,32 @@ export async function buildPreventiveCertificatePdf(input: PreventiveCertificate
   fwPara(data.cierre.notasOT.trim() || autoNotasOT(data, input.busCode));
 
   // ---- firmas ----
-  need(78);
+  need(96);
   fwHeading("FIRMAS");
   T(M, y - 7, "Documento firmado digitalmente a través de Capital Desk; no requiere firma manuscrita.", font, 7, gray);
   y -= 14;
-  const colW2 = (cW - 24) / 2;
+  const colW2 = (cW - 36) / 3;
   const blk = y;
   const sign = (x: number, nombre: string, cargo: string): number => {
     let yy = blk;
     T(x, yy, "Firmado digitalmente por", font, 7, gray); yy -= 18;
-    T(x, yy, nombre || "-", oblique, 14, navy); yy -= 6;
+    T(x, yy, nombre || "-", oblique, (nombre || "-").length > 17 ? 11 : 13, navy); yy -= 6;
     LINE(x, yy, x + colW2, yy, bd, 0.5); yy -= 11;
     T(x, yy, nombre || "-", bold, 8.5, dark); yy -= 10;
     T(x, yy, cargo, font, 7.5, gray); yy -= 10;
-    T(x, yy, `Firma digital · Validado en Capital Desk · ${fecha}`, font, 6.5, gray);
+    T(x, yy, `Firma digital · Capital Desk`, font, 6.5, gray); yy -= 9;
+    T(x, yy, fecha, font, 6.5, gray);
     return yy - 6;
   };
   const firma1Nombre = input.aperturaName ?? input.responsableName ?? "Por asignar";
-  const firma1Cargo = input.aperturaName ? "Técnico que aperturó" : "Responsable de la ejecución";
-  const firma2Nombre = input.cierreName ?? "Santiago Gil";
-  const firma2Cargo = input.cierreName ? "Técnico que cerró" : "Coordinador STS";
+  const firma1Cargo = "Técnico que ejecutó";
+  const firmas = input.signatures ?? DEFAULT_DOCUMENT_SIGNATURES;
+  const firma2Nombre = input.cierreName ?? firmas.coordinadorName;
+  const firma2Cargo = input.cierreName ? "Técnico que cerró" : firmas.coordinadorRole;
   const s1 = sign(M, firma1Nombre, firma1Cargo);
-  const s2 = sign(M + colW2 + 24, firma2Nombre, firma2Cargo);
-  y = Math.min(s1, s2);
+  const s2 = sign(M + colW2 + 18, firma2Nombre, firma2Cargo);
+  const s3 = sign(M + (colW2 + 18) * 2, firmas.liderName, firmas.liderRole);
+  y = Math.min(s1, s2, s3);
 
   // ---- pie ----
   LINE(M, 40, M + cW, 40, bd, 0.5);

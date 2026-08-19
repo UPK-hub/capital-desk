@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
+import { DEFAULT_DOCUMENT_SIGNATURES, type DocumentSignatures } from "@/lib/document-signatures";
 import { videoDownloadStatusLabels, videoOriginLabels, videoDeliveryLabels } from "@/lib/labels";
 import { actionForRootCause, technicalForRootCause } from "@/lib/video-root-causes";
 import fs from "node:fs/promises";
@@ -34,6 +35,8 @@ export type RootCauseReportInput = {
   results: { camera: string; status: string; rootCause: string | null }[];
   corrective: { caseNo: number | null; workOrderNo: number | null } | null;
   cameraFilter?: string | null;
+  // Coordinador y líder técnico que firman (configurables en /admin/firmas).
+  signatures?: DocumentSignatures | null;
 };
 
 async function loadLogo(file: string): Promise<Buffer | null> {
@@ -372,26 +375,29 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
     "Documento firmado digitalmente a través de la mesa de ayuda Capital Desk; no requiere firma manuscrita.",
     { size: 8, gap: 20 }
   );
-  const colW = (cW - 24) / 2;
+  const colW = (cW - 36) / 3;
   const blkTop = y;
   const drawSign = (x: number, nombre: string, cargo: string, contacto: string | null): number => {
     let yy = blkTop;
     page.drawText("Firmado digitalmente por", { x, y: yy, size: 7.5, font, color: gray });
     yy -= 26;
     // La firma (nombre en estilo manuscrito simulado).
-    page.drawText(nombre || "-", { x, y: yy, size: 17, font: oblique, color: navy });
+    const nSize = (nombre || "-").length > 17 ? 12 : 15;
+    page.drawText(nombre || "-", { x, y: yy, size: nSize, font: oblique, color: navy });
     yy -= 8;
     page.drawLine({ start: { x, y: yy }, end: { x: x + colW, y: yy }, thickness: 0.5, color: bd });
     yy -= 14;
     page.drawText(nombre || "-", { x, y: yy, size: 9.5, font: bold, color: dark });
     yy -= 12;
-    page.drawText(cargo, { x, y: yy, size: 8.5, font, color: gray });
+    page.drawText(cargo, { x, y: yy, size: 8, font, color: gray });
     yy -= 12;
     if (contacto) {
-      page.drawText(contacto, { x, y: yy, size: 8, font, color: gray });
+      page.drawText(contacto, { x, y: yy, size: 7, font, color: gray });
       yy -= 11;
     }
-    page.drawText(`Firma digital · Validado en Capital Desk · ${fecha}`, { x, y: yy, size: 7, font, color: gray });
+    page.drawText(`Firma digital · Capital Desk`, { x, y: yy, size: 7, font, color: gray });
+    yy -= 9;
+    page.drawText(fecha, { x, y: yy, size: 7, font, color: gray });
     yy -= 10;
     return yy;
   };
@@ -401,8 +407,10 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
     input.technicianRole ? `Técnico asignado · ${input.technicianRole}` : "Técnico asignado a la descarga",
     input.technicianEmail ?? null
   );
-  const sy2 = drawSign(M + colW + 24, "Santiago Gil", "Coordinador STS", null);
-  y = Math.min(sy1, sy2) - 6;
+  const firmas = input.signatures ?? DEFAULT_DOCUMENT_SIGNATURES;
+  const sy2 = drawSign(M + colW + 18, firmas.coordinadorName, firmas.coordinadorRole, null);
+  const sy3 = drawSign(M + (colW + 18) * 2, firmas.liderName, firmas.liderRole, null);
+  y = Math.min(sy1, sy2, sy3) - 6;
 
   footer();
   return pdf.save();
