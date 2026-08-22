@@ -57,7 +57,8 @@
     "novedades:reenviar-grupo": "tsx scripts/reenviar-novedades-grupo.ts",
     "bot:novedades": "tsx scripts/telegram-novedades-bot.ts",
     "bot:tramas": "tsx scripts/telegram-tramas-bot.ts",
-    "bot:preventivos": "tsx scripts/telegram-preventivos-bot.ts"
+    "bot:preventivos": "tsx scripts/telegram-preventivos-bot.ts",
+    "videos:purgar": "tsx scripts/purgar-videos.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
