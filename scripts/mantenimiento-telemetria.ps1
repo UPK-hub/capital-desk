@@ -1,5 +1,6 @@
 # Mantenimiento automático de telemetría (Capital Desk)
-# - Todos los días: recalcula el rollup diario (ayer + hoy).
+# - Todos los días: recalcula el rollup diario (ayer + hoy) y purga los videos
+#   de descargas con más de 45 días (política de retención).
 # - Los domingos: purga tramas viejas (respaldadas antes de borrar).
 #
 # Programar con el Programador de tareas de Windows (una sola vez, PowerShell como admin):
@@ -43,6 +44,13 @@ try {
 } catch {
   Log "ERROR: recordatorio de resueltos falló: $_"
 }
+
+# Retención de videos: borra los videos de descargas con más de N días.
+# Solo toca adjuntos de tipo Video; actas, casos e histórico quedan intactos.
+$retencionVideosDias = 45
+Log "Purga de videos con más de $retencionVideosDias días..."
+npm run videos:purgar -- --dias $retencionVideosDias --apply --huerfanos --avisar 2>&1 | Tee-Object -FilePath $log -Append
+if ($LASTEXITCODE -ne 0) { Log "ERROR: purga de videos falló (código $LASTEXITCODE)" }
 
 # Purga semanal de tramas (solo domingos). El script respalda a .ndjson.gz
 # ANTES de borrar; si el respaldo no cuadra, no borra nada.

@@ -11,6 +11,10 @@
  *   npm run videos:purgar -- --antes 2026-07-01
  *   npm run videos:purgar -- --antes 2026-07-01 --apply
  *
+ * Política de retención (lo que corre solo cada noche): en vez de una fecha
+ * fija se le pasan los días a conservar.
+ *   npm run videos:purgar -- --dias 45 --apply --huerfanos --avisar
+ *
  * Opcional: --huerfanos borra también archivos sueltos en uploads/video-requests
  * que ya no están referenciados en la base (subidas que fallaron a medias).
  */
@@ -19,6 +23,7 @@ import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { VideoAttachmentKind } from "@prisma/client";
 import { getUploadsRoot, resolveUploadPath, normalizeUploadRelPath } from "@/lib/uploads";
+import { sendTelegramGroup } from "@/lib/telegram-notify";
 
 function arg(flag: string): string | null {
   const i = process.argv.indexOf(flag);
@@ -63,20 +68,33 @@ async function walk(dir: string, out: { abs: string; size: number; mtime: Date }
 async function main() {
   const apply = process.argv.includes("--apply");
   const conHuerfanos = process.argv.includes("--huerfanos");
+  const avisar = process.argv.includes("--avisar");
   const antesRaw = arg("--antes");
-  if (!antesRaw) {
-    console.error('Falta la fecha de corte. Ejemplo: npm run videos:purgar -- --antes 2026-07-01');
-    process.exit(1);
-  }
-  const cutoff = new Date(`${antesRaw}T00:00:00.000Z`);
-  if (Number.isNaN(cutoff.getTime())) {
-    console.error(`Fecha inválida: ${antesRaw}. Usa el formato AAAA-MM-DD.`);
+  const diasRaw = arg("--dias");
+
+  let cutoff: Date;
+  let retencionDias: number | null = null;
+  if (diasRaw) {
+    retencionDias = Number(diasRaw);
+    if (!Number.isFinite(retencionDias) || retencionDias < 1) {
+      console.error(`Días inválidos: ${diasRaw}. Ejemplo: --dias 45`);
+      process.exit(1);
+    }
+    cutoff = new Date(Date.now() - retencionDias * 24 * 60 * 60 * 1000);
+  } else if (antesRaw) {
+    cutoff = new Date(`${antesRaw}T00:00:00.000Z`);
+    if (Number.isNaN(cutoff.getTime())) {
+      console.error(`Fecha inválida: ${antesRaw}. Usa el formato AAAA-MM-DD.`);
+      process.exit(1);
+    }
+  } else {
+    console.error("Falta el corte. Usa --dias 45 (retención) o --antes 2026-07-01 (fecha fija).");
     process.exit(1);
   }
 
   console.log("\n=== Purga de videos ===");
   console.log(`Modo:      ${apply ? "APLICAR (borra archivos)" : "PRUEBA (no borra nada)"}`);
-  console.log(`Corte:     videos subidos antes de ${cutoff.toISOString().slice(0, 10)}`);
+  console.log(`Corte:     videos subidos antes de ${cutoff.toISOString().slice(0, 10)}${retencionDias ? ` (retención de ${retencionDias} días)` : ""}`);
   console.log(`Uploads:   ${getUploadsRoot()}`);
   console.log(`Huérfanos: ${conHuerfanos ? "sí, también se limpian" : "no (solo se informan)"}\n`);
 
@@ -188,6 +206,29 @@ async function main() {
   console.log(`  Adjuntos marcados: ${aBorrar.length}`);
   if (conHuerfanos) console.log(`  Huérfanos borrados: ${borradosH}  (${gb(liberadosH)})`);
   console.log("");
+
+  // Aviso al grupo de Telegram (solo si de verdad se borró algo).
+  if (avisar && borrados + borradosH > 0) {
+    let libre = "";
+    try {
+      const st: any = await (fs as any).statfs(getUploadsRoot());
+      libre = ` Espacio libre ahora: ${gb(Number(st.bsize) * Number(st.bavail))}.`;
+    } catch {
+      /* statfs no disponible: se omite */
+    }
+    const detalle = retencionDias
+      ? `con más de ${retencionDias} días`
+      : `subidos antes del ${cutoff.toISOString().slice(0, 10)}`;
+    const texto =
+      `🧹 <b>Limpieza de videos</b>\n` +
+      `Se eliminaron <b>${borrados + borradosH}</b> archivos de video ${detalle}, liberando <b>${gb(liberados + liberadosH)}</b>.\n` +
+      `Las actas y los casos no se tocan.${libre}`;
+    try {
+      await sendTelegramGroup(texto);
+    } catch (e) {
+      console.error("No se pudo enviar el aviso a Telegram:", e);
+    }
+  }
 
   await prisma.$disconnect();
 }
