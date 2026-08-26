@@ -19,6 +19,18 @@ function arg(flag: string): string | null {
   return i >= 0 ? String(process.argv[i + 1] ?? "") : null;
 }
 
+const correosExtra = (v: unknown): string => {
+  if (!v) return "";
+  if (Array.isArray(v)) return v.map((x) => String(x)).join(", ");
+  if (typeof v === "string") return v;
+  try {
+    const arr = JSON.parse(String(v));
+    return Array.isArray(arr) ? arr.map((x) => String(x)).join(", ") : String(v);
+  } catch {
+    return String(v);
+  }
+};
+
 const fmt = (d: Date | null | undefined) =>
   d ? new Date(d).toLocaleString("es-CO", { timeZone: "America/Bogota" }) : "";
 
@@ -42,11 +54,24 @@ async function main() {
       request: {
         select: {
           requesterName: true,
+          requesterId: true,
+          requesterRole: true,
+          requesterPhone: true,
           requesterEmail: true,
+          requesterEmails: true,
+          origin: true,
+          requestType: true,
+          tmsaRadicado: true,
+          tmsaFiledAt: true,
+          status: true,
+          downloadStatus: true,
           eventStart: true,
           eventEnd: true,
           camerasRequested: true,
           deliveryMethod: true,
+          notifDeliverySentAt: true,
+          notifInternalDeliverySentAt: true,
+          assignedTo: { select: { name: true } },
           case: { select: { caseNo: true, title: true, status: true, bus: { select: { code: true, plate: true } } } },
         },
       },
@@ -78,7 +103,15 @@ async function main() {
     { header: "Solicitante", key: "solicitante", width: 26 },
     { header: "Correo solicitante", key: "correo", width: 30 },
     { header: "Cámaras solicitadas", key: "camaras", width: 22 },
-    { header: "Entrega", key: "entrega", width: 14 },
+    { header: "Entrega (método)", key: "entrega", width: 16 },
+    { header: "Estado de la descarga", key: "estadodesc", width: 20 },
+    { header: "Entregado (aviso)", key: "fentrega", width: 20 },
+    { header: "Radicado TMSA", key: "radicado", width: 18 },
+    { header: "Cédula solicitante", key: "cedula", width: 18 },
+    { header: "Cargo solicitante", key: "cargo", width: 22 },
+    { header: "Teléfono solicitante", key: "tel", width: 18 },
+    { header: "Otros correos", key: "otros", width: 32 },
+    { header: "Técnico asignado", key: "tecnico", width: 24 },
     { header: "¿Archivo en disco?", key: "endisco", width: 18 },
   ];
   ws.getRow(1).font = { bold: true };
@@ -122,15 +155,25 @@ async function main() {
       correo: it.request?.requesterEmail ?? "",
       camaras: it.request?.camerasRequested ?? "",
       entrega: it.request?.deliveryMethod ?? "",
+      estadodesc: it.request?.downloadStatus ?? "",
+      fentrega: fmt(it.request?.notifDeliverySentAt ?? it.request?.notifInternalDeliverySentAt ?? null),
+      radicado: it.request?.tmsaRadicado ?? "",
+      cedula: it.request?.requesterId ?? "",
+      cargo: it.request?.requesterRole ?? "",
+      tel: it.request?.requesterPhone ?? "",
+      otros: correosExtra(it.request?.requesterEmails),
+      tecnico: it.request?.assignedTo?.name ?? "",
     });
   }
-  ws.autoFilter = { from: "A1", to: "Q1" };
+  ws.autoFilter = { from: "A1", to: "Y1" };
 
   // ---- Hoja 2: resumen por caso, solo lo que se perdió de verdad ----
   type Res = {
     caso: string; bus: string; placa: string; titulo: string; estado: string;
     videos: number; mb: number; camaras: Set<string>; solicitante: string;
     correo: string; evento: string; ultimaCarga: string;
+    cedula: string; cargo: string; tel: string; otros: string; radicado: string;
+    entrega: string; estadoDesc: string; fEntrega: string; tecnico: string;
   };
   const porCaso = new Map<string, Res>();
   for (const it of items) {
@@ -157,6 +200,15 @@ async function main() {
       correo: it.request?.requesterEmail ?? "",
       evento: fmt(it.request?.eventStart ?? null),
       ultimaCarga: "",
+      cedula: it.request?.requesterId ?? "",
+      cargo: it.request?.requesterRole ?? "",
+      tel: it.request?.requesterPhone ?? "",
+      otros: correosExtra(it.request?.requesterEmails),
+      radicado: it.request?.tmsaRadicado ?? "",
+      entrega: String(it.request?.deliveryMethod ?? ""),
+      estadoDesc: String(it.request?.downloadStatus ?? ""),
+      fEntrega: fmt(it.request?.notifDeliverySentAt ?? it.request?.notifInternalDeliverySentAt ?? null),
+      tecnico: it.request?.assignedTo?.name ?? "",
     };
     r.videos += 1;
     r.mb += (it.size ?? 0) / (1024 * 1024);
@@ -176,7 +228,16 @@ async function main() {
     { header: "Tamaño (MB)", key: "mb", width: 14 },
     { header: "Cámaras", key: "camaras", width: 22 },
     { header: "Solicitante", key: "solicitante", width: 26 },
+    { header: "Cédula", key: "cedula", width: 16 },
+    { header: "Cargo", key: "cargo", width: 22 },
+    { header: "Teléfono", key: "tel", width: 16 },
     { header: "Correo solicitante", key: "correo", width: 30 },
+    { header: "Otros correos", key: "otros", width: 32 },
+    { header: "Radicado TMSA", key: "radicado", width: 18 },
+    { header: "Entrega (método)", key: "entrega", width: 16 },
+    { header: "Estado de la descarga", key: "estadodesc", width: 20 },
+    { header: "Entregado (aviso)", key: "fentrega", width: 20 },
+    { header: "Técnico asignado", key: "tecnico", width: 24 },
     { header: "Inicio del evento", key: "evento", width: 20 },
     { header: "Última carga", key: "ultima", width: 20 },
   ];
@@ -188,10 +249,12 @@ async function main() {
       caso: r.caso, bus: r.bus, placa: r.placa, titulo: r.titulo, estado: r.estado,
       videos: r.videos, mb: Number(r.mb.toFixed(1)),
       camaras: [...r.camaras].join(", "), solicitante: r.solicitante, correo: r.correo,
+      cedula: r.cedula, cargo: r.cargo, tel: r.tel, otros: r.otros, radicado: r.radicado,
+      entrega: r.entrega, estadodesc: r.estadoDesc, fentrega: r.fEntrega, tecnico: r.tecnico,
       evento: r.evento, ultima: r.ultimaCarga,
     });
   }
-  ws2.autoFilter = { from: "A1", to: "L1" };
+  ws2.autoFilter = { from: "A1", to: "T1" };
 
   console.log(`\nCasos afectados (con al menos un video perdido): ${resumen.length}`);
   console.log("\nLos 15 casos con más videos perdidos:");
