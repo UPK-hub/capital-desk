@@ -7,10 +7,12 @@
  *   npm run videos:listar-purgados
  *   npm run videos:listar-purgados -- --desde 2026-08-01
  */
+import fs from "node:fs/promises";
 import path from "node:path";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import { VideoAttachmentKind } from "@prisma/client";
+import { resolveUploadPath } from "@/lib/uploads";
 
 function arg(flag: string): string | null {
   const i = process.argv.indexOf(flag);
@@ -77,14 +79,33 @@ async function main() {
     { header: "Correo solicitante", key: "correo", width: 30 },
     { header: "Cámaras solicitadas", key: "camaras", width: 22 },
     { header: "Entrega", key: "entrega", width: 14 },
+    { header: "¿Archivo en disco?", key: "endisco", width: 18 },
   ];
   ws.getRow(1).font = { bold: true };
   ws.views = [{ state: "frozen", ySplit: 1 }];
 
   let bytes = 0;
+  const porMes = new Map<string, { total: number; recuperables: number; perdidos: number }>();
+
   for (const it of items) {
     bytes += it.size ?? 0;
+
+    let enDisco = false;
+    try {
+      const st = await fs.stat(resolveUploadPath(it.filePath));
+      enDisco = st.isFile();
+    } catch {
+      enDisco = false;
+    }
+    const mes = new Date(it.createdAt).toISOString().slice(0, 7);
+    const acc = porMes.get(mes) ?? { total: 0, recuperables: 0, perdidos: 0 };
+    acc.total += 1;
+    if (enDisco) acc.recuperables += 1;
+    else acc.perdidos += 1;
+    porMes.set(mes, acc);
+
     ws.addRow({
+      endisco: enDisco ? "Sí (recuperable)" : "No (borrado)",
       caso: it.request?.case?.caseNo ?? "",
       bus: it.request?.case?.bus?.code ?? "",
       placa: it.request?.case?.bus?.plate ?? "",
@@ -103,7 +124,7 @@ async function main() {
       entrega: it.request?.deliveryMethod ?? "",
     });
   }
-  ws.autoFilter = { from: "A1", to: "P1" };
+  ws.autoFilter = { from: "A1", to: "Q1" };
 
   const hoy = new Date().toISOString().slice(0, 10);
   const dir = path.join(process.cwd(), "exports");
@@ -127,7 +148,16 @@ async function main() {
   const outCsv = path.join(dir, `videos_eliminados_${hoy}.csv`);
   await fs.writeFile(outCsv, "\uFEFF" + lineas.join("\r\n"), "utf8");
 
-  console.log(`Tamaño total registrado: ${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`);
+  console.log("\nPor mes de carga:");
+  console.log("  Mes        Total   Recuperables   Borrados de verdad");
+  for (const k of [...porMes.keys()].sort()) {
+    const v = porMes.get(k)!;
+    console.log(
+      `  ${k}   ${String(v.total).padStart(5)}   ${String(v.recuperables).padStart(12)}   ${String(v.perdidos).padStart(18)}`
+    );
+  }
+
+  console.log(`\nTamaño total registrado: ${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`);
   console.log(`\nArchivos generados:\n  ${outXlsx}\n  ${outCsv}\n`);
 
   await prisma.$disconnect();
