@@ -126,6 +126,79 @@ async function main() {
   }
   ws.autoFilter = { from: "A1", to: "Q1" };
 
+  // ---- Hoja 2: resumen por caso, solo lo que se perdió de verdad ----
+  type Res = {
+    caso: string; bus: string; placa: string; titulo: string; estado: string;
+    videos: number; mb: number; camaras: Set<string>; solicitante: string;
+    correo: string; evento: string; ultimaCarga: string;
+  };
+  const porCaso = new Map<string, Res>();
+  for (const it of items) {
+    let enDisco = false;
+    try {
+      const st = await fs.stat(resolveUploadPath(it.filePath));
+      enDisco = st.isFile();
+    } catch {
+      enDisco = false;
+    }
+    if (enDisco) continue; // ese sí se puede recuperar, no cuenta como perdido
+
+    const caso = String(it.request?.case?.caseNo ?? "sin caso");
+    const r = porCaso.get(caso) ?? {
+      caso,
+      bus: it.request?.case?.bus?.code ?? "",
+      placa: it.request?.case?.bus?.plate ?? "",
+      titulo: it.request?.case?.title ?? "",
+      estado: String(it.request?.case?.status ?? ""),
+      videos: 0,
+      mb: 0,
+      camaras: new Set<string>(),
+      solicitante: it.request?.requesterName ?? "",
+      correo: it.request?.requesterEmail ?? "",
+      evento: fmt(it.request?.eventStart ?? null),
+      ultimaCarga: "",
+    };
+    r.videos += 1;
+    r.mb += (it.size ?? 0) / (1024 * 1024);
+    if (it.camera) r.camaras.add(it.camera);
+    r.ultimaCarga = fmt(it.createdAt);
+    porCaso.set(caso, r);
+  }
+
+  const ws2 = wb.addWorksheet("Resumen por caso");
+  ws2.columns = [
+    { header: "Caso", key: "caso", width: 10 },
+    { header: "Bus", key: "bus", width: 12 },
+    { header: "Placa", key: "placa", width: 12 },
+    { header: "Título del caso", key: "titulo", width: 45 },
+    { header: "Estado", key: "estado", width: 14 },
+    { header: "Videos perdidos", key: "videos", width: 16 },
+    { header: "Tamaño (MB)", key: "mb", width: 14 },
+    { header: "Cámaras", key: "camaras", width: 22 },
+    { header: "Solicitante", key: "solicitante", width: 26 },
+    { header: "Correo solicitante", key: "correo", width: 30 },
+    { header: "Inicio del evento", key: "evento", width: 20 },
+    { header: "Última carga", key: "ultima", width: 20 },
+  ];
+  ws2.getRow(1).font = { bold: true };
+  ws2.views = [{ state: "frozen", ySplit: 1 }];
+  const resumen = [...porCaso.values()].sort((a, b) => b.videos - a.videos);
+  for (const r of resumen) {
+    ws2.addRow({
+      caso: r.caso, bus: r.bus, placa: r.placa, titulo: r.titulo, estado: r.estado,
+      videos: r.videos, mb: Number(r.mb.toFixed(1)),
+      camaras: [...r.camaras].join(", "), solicitante: r.solicitante, correo: r.correo,
+      evento: r.evento, ultima: r.ultimaCarga,
+    });
+  }
+  ws2.autoFilter = { from: "A1", to: "L1" };
+
+  console.log(`\nCasos afectados (con al menos un video perdido): ${resumen.length}`);
+  console.log("\nLos 15 casos con más videos perdidos:");
+  for (const r of resumen.slice(0, 15)) {
+    console.log(`  CASO-${r.caso.padEnd(6)} ${r.bus.padEnd(7)} ${String(r.videos).padStart(3)} videos  ${(r.mb / 1024).toFixed(1)} GB  ${r.titulo.slice(0, 45)}`);
+  }
+
   const hoy = new Date().toISOString().slice(0, 10);
   const dir = path.join(process.cwd(), "exports");
   const fs = await import("node:fs/promises");
