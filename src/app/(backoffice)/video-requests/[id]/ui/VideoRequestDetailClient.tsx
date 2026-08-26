@@ -528,10 +528,6 @@ export default function VideoRequestDetailClient({
 
           <section className="sts-card p-5">
             <h2 className="text-base font-semibold">Adjuntos</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Los videos se conservan <strong>45 días</strong> desde su carga; después se eliminan del
-              servidor por espacio. Las actas y los demás documentos no se borran.
-            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Tipo</label>

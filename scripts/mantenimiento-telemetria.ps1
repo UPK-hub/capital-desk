@@ -1,6 +1,6 @@
 # Mantenimiento automático de telemetría (Capital Desk)
-# - Todos los días: recalcula el rollup diario (ayer + hoy) y purga los videos
-#   de descargas con más de 45 días (política de retención).
+# - Todos los días: recalcula el rollup diario (ayer + hoy).
+# - La purga automática de videos está DESACTIVADA (ver $purgaVideosActiva).
 # - Los domingos: purga tramas viejas (respaldadas antes de borrar).
 #
 # Programar con el Programador de tareas de Windows (una sola vez, PowerShell como admin):
@@ -47,10 +47,21 @@ try {
 
 # Retención de videos: borra los videos de descargas con más de N días.
 # Solo toca adjuntos de tipo Video; actas, casos e histórico quedan intactos.
+#
+# DESACTIVADA (21/08/2026, decisión de Valeria): el borrado automático NO corre.
+# Para activarla, poner $purgaVideosActiva = $true y ajustar los días.
+# Mientras esté en $false, la purga solo se puede hacer a mano:
+#   npm run videos:purgar -- --dias 45            (simulación, no borra)
+#   npm run videos:purgar -- --dias 45 --apply    (borra de verdad)
+$purgaVideosActiva = $false
 $retencionVideosDias = 45
-Log "Purga de videos con más de $retencionVideosDias días..."
-npm run videos:purgar -- --dias $retencionVideosDias --apply --huerfanos --avisar 2>&1 | Tee-Object -FilePath $log -Append
-if ($LASTEXITCODE -ne 0) { Log "ERROR: purga de videos falló (código $LASTEXITCODE)" }
+if ($purgaVideosActiva) {
+  Log "Purga de videos con más de $retencionVideosDias días..."
+  npm run videos:purgar -- --dias $retencionVideosDias --apply --huerfanos --avisar 2>&1 | Tee-Object -FilePath $log -Append
+  if ($LASTEXITCODE -ne 0) { Log "ERROR: purga de videos falló (código $LASTEXITCODE)" }
+} else {
+  Log "Purga de videos DESACTIVADA (purgaVideosActiva = false): no se borra nada."
+}
 
 # Purga semanal de tramas (solo domingos). El script respalda a .ndjson.gz
 # ANTES de borrar; si el respaldo no cuadra, no borra nada.
