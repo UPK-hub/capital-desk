@@ -58,7 +58,8 @@
     "bot:novedades": "tsx scripts/telegram-novedades-bot.ts",
     "bot:tramas": "tsx scripts/telegram-tramas-bot.ts",
     "bot:preventivos": "tsx scripts/telegram-preventivos-bot.ts",
-    "videos:purgar": "tsx scripts/purgar-videos.ts"
+    "videos:purgar": "tsx scripts/purgar-videos.ts",
+    "videos:listar-purgados": "tsx scripts/listar-videos-purgados.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
