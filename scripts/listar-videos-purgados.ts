@@ -105,13 +105,30 @@ async function main() {
   }
   ws.autoFilter = { from: "A1", to: "P1" };
 
-  const out = path.join(process.cwd(), "exports", `videos_eliminados_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const dir = path.join(process.cwd(), "exports");
   const fs = await import("node:fs/promises");
-  await fs.mkdir(path.dirname(out), { recursive: true });
-  await wb.xlsx.writeFile(out);
+  await fs.mkdir(dir, { recursive: true });
+
+  const outXlsx = path.join(dir, `videos_eliminados_${hoy}.xlsx`);
+  await wb.xlsx.writeFile(outXlsx);
+
+  // CSV de respaldo: abre en cualquier Excel y no se daña al copiarlo.
+  // Separador ";" y BOM para que Excel en español respete columnas y tildes.
+  const esc = (v: unknown) => {
+    const t = v == null ? "" : String(v);
+    return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const lineas: string[] = [];
+  ws.eachRow((row) => {
+    const vals = (row.values as any[]).slice(1).map(esc);
+    lineas.push(vals.join(";"));
+  });
+  const outCsv = path.join(dir, `videos_eliminados_${hoy}.csv`);
+  await fs.writeFile(outCsv, "\uFEFF" + lineas.join("\r\n"), "utf8");
 
   console.log(`Tamaño total registrado: ${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`);
-  console.log(`\nArchivo generado:\n  ${out}\n`);
+  console.log(`\nArchivos generados:\n  ${outXlsx}\n  ${outCsv}\n`);
 
   await prisma.$disconnect();
 }
