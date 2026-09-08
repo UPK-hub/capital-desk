@@ -26,12 +26,21 @@ async function main() {
   const usage = await getVolumesUsage();
 
   for (const volume of usage) {
+    const origen =
+      volume.source === "filesystem"
+        ? "dato del sistema de archivos"
+        : volume.source === "contabilidad"
+        ? "capacidad declarada menos lo escrito por la mesa"
+        : "sin dato de espacio";
+
     console.log(
       [
         `- ${volume.key.toUpperCase()}`,
         `ruta: ${volume.root}`,
         `libre: ${gb(volume.freeBytes)} de ${gb(volume.totalBytes)}`,
+        `escrito por la mesa: ${gb(volume.usedBytes)}`,
         `mínimo: ${gb(volume.minFreeBytes)}`,
+        `origen: ${origen}`,
         volume.usable ? "estado: disponible" : "estado: NO DISPONIBLE",
         volume.error ? `error: ${volume.error}` : "",
       ]

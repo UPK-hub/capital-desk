@@ -65,30 +65,42 @@ de CBSTS3.
 
 ## Parte 2 · CBSTS3 (Windows, PowerShell como administrador)
 
-### 2.1 Montar los recursos de forma global
+### 2.1 Acceso a los recursos de red
 
-`New-SmbGlobalMapping` monta la unidad a nivel de máquina, de modo que el
-servicio que ejecuta Capital Desk (pm2) también la ve. Un `net use` normal solo
-sirve para la sesión interactiva y **no** funciona para el servicio.
+Capital Desk corre con el usuario **CBSTS3\\Capitalbus** (pm2 en sesión
+interactiva, no como servicio de Windows). Basta con guardar las credenciales de
+la carpeta compartida en el Administrador de credenciales de ese usuario y usar
+las rutas UNC directamente: no hacen falta letras de unidad.
 
 ```powershell
-$cred = Get-Credential   # usuario: capitaldesk
+cmdkey /add:10.216.170.194 /user:capitaldesk /pass:<contraseña>
+cmdkey /add:10.216.170.195 /user:capitaldesk /pass:<contraseña>
+cmdkey /list
 
-New-SmbGlobalMapping -RemotePath \\10.216.170.194\panic -LocalPath V: -Credential $cred -Persistent $true
-New-SmbGlobalMapping -RemotePath \\10.216.170.195\panic -LocalPath W: -Credential $cred -Persistent $true
-
-Get-SmbGlobalMapping
-Test-Path V:\ ; Test-Path W:\
-"prueba" | Out-File V:\prueba.txt ; Get-Content V:\prueba.txt ; Remove-Item V:\prueba.txt
+"prueba" | Out-File \\10.216.170.194\panic\prueba.txt
+dir \\10.216.170.194\panic
+Remove-Item \\10.216.170.194\panic\prueba.txt
 ```
+
+**Requisito previo (probado el 2026-09-08):** si la directiva de seguridad local
+tiene activa *"Acceso a redes: no permitir el almacenamiento de contraseñas y
+credenciales para la autenticación de red"* (`DisableDomainCreds = 1`), `cmdkey`
+responde "no se pueden guardar credenciales desde esta sesión de inicio" y
+`New-SmbGlobalMapping` falla con el error 1312. Hay que deshabilitar esa
+directiva en `secpol.msc` → Directivas locales → Opciones de seguridad, y luego
+`gpupdate /force`.
+
+`New-SmbGlobalMapping` sigue fallando con 1312 hasta reiniciar el servidor,
+porque esa función lee la directiva al arrancar. No es necesario: con las
+credenciales guardadas y rutas UNC el módulo funciona igual.
 
 ### 2.2 Variables de entorno de la aplicación
 
 Agregar al `.env` de Capital Desk (junto a las existentes):
 
 ```env
-# Volúmenes de almacenamiento: clave|ruta|GB libres mínimos, separados por ;
-PANIC_STORAGE_VOLUMES=cbsts1|V:\|500;cbsts2|W:\|500
+# Volúmenes: clave|ruta|GB libres mínimos|capacidad GB, separados por ;
+PANIC_STORAGE_VOLUMES=cbsts1|\\10.216.170.194\panic|500|5600;cbsts2|\\10.216.170.195\panic|500|5800
 
 # Secreto que deben enviar los NVR en la cabecera x-integration-secret
 PANIC_INTEGRATION_SECRET=<generar uno propio para pánico>
@@ -150,6 +162,16 @@ npm run panic:almacenamiento
 
 Debe listar `CBSTS1` y `CBSTS2` como disponibles con su espacio libre.
 
+**Sobre el espacio libre:** el cliente SMB de Windows no sabe leer el espacio de
+un recurso de red mayor a 4 TB — devuelve siempre 4 TiB, tanto por `statfs` como
+por el objeto `Scripting.FileSystemObject` (comprobado en CBSTS3 el 2026-09-08).
+Por eso el cuarto campo de `PANIC_STORAGE_VOLUMES` declara la capacidad de cada
+volumen: cuando el dato del sistema operativo no es confiable, la mesa calcula el
+espacio libre como esa capacidad menos los bytes que ella misma ha escrito, y con
+eso decide el desbordamiento de CBSTS1 a CBSTS2. El reporte indica de dónde salió
+cada cifra (`origen: ...`). Si algún día se copian archivos ajenos a esos
+volúmenes, la contabilidad se desvía: son de uso exclusivo del módulo.
+
 ### 4.2 Prueba de cargue punta a punta
 
 Desde cualquier equipo del segmento (o desde el propio servidor):
@@ -163,13 +185,13 @@ curl.exe -X POST "https://<host>/api/integrations/panic-videos?eventid=TEST-001&
 ```
 
 Esperado: `201` con `storage: "cbsts1"`. Verificar que el archivo esté en
-`V:\panic-videos\CAPITALBUS\...` y que el evento aparezca en
+`\\10.216.170.194\panic\panic-videos\CAPITALBUS\...` y que el evento aparezca en
 **Videos → Botón de pánico**.
 
 ### 4.3 Prueba de desbordamiento (opcional, recomendada)
 
 Subir temporalmente el umbral del primer volumen por encima de su espacio libre
-(por ejemplo `cbsts1|V:\|9000`), reiniciar la aplicación y repetir el cargue: la
+(por ejemplo `cbsts1|\\10.216.170.194\panic|500|100`), reiniciar la aplicación y repetir el cargue: la
 respuesta debe indicar `storage: "cbsts2"`. Devolver el valor original al
 terminar.
 

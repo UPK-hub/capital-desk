@@ -62,8 +62,8 @@ servidor, un almacenamiento de objetos) es cambiar esa lista.
 Variable de entorno:
 
 ```
-PANIC_STORAGE_VOLUMES=cbsts1|V:\|500;cbsts2|W:\|500
-                       clave | ruta | GB libres mínimos
+PANIC_STORAGE_VOLUMES=cbsts1|\\10.216.170.194\panic|500|5600;cbsts2|\\10.216.170.195\panic|500|5800
+                       clave | ruta o recurso de red | GB mínimos | capacidad GB
 ```
 
 Regla de escritura, evaluada en cada clip:
@@ -80,6 +80,20 @@ Cada clip guarda la clave del volumen donde quedó (`cbsts1` / `cbsts2`), de mod
 que la reproducción siempre resuelve la ruta correcta aunque después se agreguen
 o reordenen volúmenes.
 
+**Cómo se mide el espacio libre.** El cliente SMB de Windows no sabe informar el
+espacio de un recurso de red mayor a 4 TB: devuelve siempre 4 TiB, tanto por
+`statfs` como por `Scripting.FileSystemObject` (comprobado en CBSTS3 el
+2026-09-08 contra los dos volúmenes, que son de 5,6 y 5,8 TB). Por eso la
+aplicación detecta ese valor saturado y, en su lugar, calcula el espacio libre
+como la capacidad declarada del volumen menos los bytes que ella misma ha escrito
+en él, dato que sale de su propia base de datos. Donde el sistema operativo sí
+informa bien (por ejemplo una ruta local), se usa el dato del sistema de
+archivos. El reporte de almacenamiento indica cuál de los dos orígenes se usó.
+
+Consecuencia operativa: esos dos volúmenes son de uso exclusivo del módulo. Si se
+copian archivos ajenos, la contabilidad se desvía y el desbordamiento pierde
+precisión.
+
 ## 4. Garantía de cargue completo
 
 | Riesgo | Control implementado |
@@ -91,6 +105,7 @@ o reordenen volúmenes.
 | Cámaras que nunca llegan | El evento lleva contador `recibidas/esperadas`; con faltantes queda marcado como incompleto y aparece en el filtro "solo incompletos". |
 | Clip de duración distinta a 5 minutos | Se compara con la duración nominal (300 s ± 30 s) y se anota en el clip. |
 | Consumo de memoria del servidor | La escritura es en streaming: la aplicación no carga el video en memoria (en modo multipart, que sí lo hace, el tope es de 512 MB). |
+| El sistema operativo miente sobre el espacio libre | Se detecta el valor saturado del cliente SMB de Windows y se calcula el espacio con la capacidad declarada menos lo escrito. |
 
 ## 5. Retención de 5 años
 

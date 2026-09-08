@@ -29,7 +29,12 @@ import {
   PANIC_MIN_CLIP_BYTES,
   isClipDurationAcceptable,
 } from "@/lib/panic/config";
-import { buildClipRelPath, pickVolumeForWrite, writeStreamToVolume } from "@/lib/panic/storage";
+import {
+  buildClipRelPath,
+  invalidateUsedBytesCache,
+  pickVolumeForWrite,
+  writeStreamToVolume,
+} from "@/lib/panic/storage";
 
 function bad(status: number, error: string, extra?: Record<string, unknown>) {
   return NextResponse.json({ ok: false, error, ...(extra ?? {}) }, { status });
@@ -359,6 +364,9 @@ export async function POST(req: NextRequest) {
   const clip = existing
     ? await prisma.panicVideoClip.update({ where: { id: existing.id }, data: clipData, select: { id: true } })
     : await prisma.panicVideoClip.create({ data: clipData, select: { id: true } });
+
+  // La contabilidad de consumo por volumen cambió: se recalcula en la próxima lectura.
+  invalidateUsedBytesCache();
 
   // 6) Recalcular la completitud del evento.
   const clips = await prisma.panicVideoClip.findMany({
