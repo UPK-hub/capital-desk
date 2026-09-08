@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { Prisma, Role } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canViewPanic } from "@/lib/panic/access";
 import {
   DataTable,
   DataTableBody,
@@ -114,7 +115,7 @@ export default async function ReceivedVideosPage({
           <div className="space-y-1">
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Gestion de videos</h1>
             <p className="text-sm text-muted-foreground">Videos recibidos desde dispositivos.</p>
-            <VideoModuleTabs active="received" />
+            <VideoModuleTabs active="received" showPanic={canViewPanic(session.user as any)} />
           </div>
           <Link
             className="sts-btn-ghost inline-flex h-10 items-center justify-center px-4 text-sm"

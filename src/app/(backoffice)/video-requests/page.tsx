@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canViewPanic } from "@/lib/panic/access";
+import VideoModuleTabs from "./VideoModuleTabs";
 import { Role, VideoCaseStatus, VideoDownloadStatus } from "@prisma/client";
 import { buildVideoRequestCaseScope } from "@/lib/access-control";
 import { labelFromMap, videoCaseStatusLabels, videoDownloadStatusLabels } from "@/lib/labels";
@@ -190,6 +192,7 @@ export default async function VideoRequestsPage({
           <div className="space-y-1">
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Gestión de videos</h1>
             <p className="text-sm text-muted-foreground">Solicitudes y estado de descarga.</p>
+            <VideoModuleTabs active="requests" showPanic={canViewPanic(session?.user as any)} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a

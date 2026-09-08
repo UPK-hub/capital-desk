@@ -366,6 +366,8 @@ function UserCardItem({
             { cap: "OWN_CASES_ONLY", label: "Solo sus casos" },
             { cap: "VIDEOS_ONLY", label: "Solo módulo Videos" },
             { cap: "VIDEO_GROUPS_ADMIN", label: "Admin de grupos de video" },
+            { cap: "PANIC_REVIEW", label: "Ver botón de pánico" },
+            { cap: "PANIC_MANAGE", label: "Gestionar botón de pánico" },
             { cap: "PLANNER", label: "Planner" },
             { cap: "STS_ADMIN", label: "Supervisor STS" },
             { cap: "STS_WRITE", label: "Helpdesk STS" },

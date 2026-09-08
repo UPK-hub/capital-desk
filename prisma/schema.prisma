@@ -171,6 +171,8 @@ model Tenant {
   integrationInboundEvents IntegrationInboundEvent[]
   integrationVideos        IntegrationVideo[]
   busTelemetryStates       BusTelemetryState[]
+  panicEvents              PanicEvent[]
+  panicVideoClips          PanicVideoClip[]
   remoteVisualReviews      RemoteVisualReview[]
   teams                    Team[]
 
@@ -250,6 +252,9 @@ document       String?
   directChatParticipants   DirectChatParticipant[]
   directChatThreadsCreated DirectChatThread[]       @relation("DirectChatCreatedBy")
   remoteVisualReviews      RemoteVisualReview[]     @relation("RvrResponsible")
+  panicEventsAssigned      PanicEvent[]             @relation("PanicAssignedTo")
+  panicEventsReviewed      PanicEvent[]             @relation("PanicReviewedBy")
+  panicEventLogs           PanicEventLog[]          @relation("PanicLogActor")
 
   @@index([tenantId, role])
   @@index([tenantId, active])
@@ -741,6 +746,7 @@ model Bus {
   inboundEvents      IntegrationInboundEvent[]
   integrationVideos  IntegrationVideo[]
   remoteChecks       RemoteVisualReviewBus[]
+  panicEvents        PanicEvent[]
 
   @@unique([tenantId, code])
 }
@@ -809,6 +815,7 @@ model Case {
   caseEquipments       CaseEquipment[]
   chatMessages         CaseChatMessage[]
   interventionReceipts InterventionReceipt[]
+  panicEvents          PanicEvent[]
 
   @@unique([tenantId, caseNo])
   @@index([tenantId, createdAt])
@@ -1553,4 +1560,150 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([tenantId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Botón de pánico (videos enviados por los NVR de la flota)
+//
+// Un PanicEvent = una activación del botón de pánico en un bus. El NVR envía un
+// clip por cámara (1 minuto antes y 4 después de la activación); cada clip es un
+// PanicVideoClip. El evento agrupa los clips por `externalEventId` (id de
+// registro/alarma que entrega el NVR) y controla la completitud del cargue.
+// ---------------------------------------------------------------------------
+
+enum PanicEventStatus {
+  PENDIENTE
+  EN_REVISION
+  ATENDIDO
+  DESCARTADO
+}
+
+enum PanicClipStatus {
+  COMPLETO
+  INCOMPLETO
+  RECHAZADO
+}
+
+enum PanicEventLogType {
+  EVENTO_CREADO
+  CLIP_RECIBIDO
+  CLIP_FALLIDO
+  CAMBIO_ESTADO
+  ASIGNACION
+  COMENTARIO
+  CASO_VINCULADO
+}
+
+model PanicEvent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  busId   String?
+  bus     Bus?    @relation(fields: [busId], references: [id], onDelete: SetNull)
+  busCode String?
+  plate   String?
+
+  // Identificador del evento en el NVR (registerid / alarmid). Es la clave de
+  // agrupación e idempotencia del cargue.
+  externalEventId String
+  deviceId        String?
+  vehicleId       String?
+  alarmCode       String?
+  alarmLabel      String?
+
+  eventAt    DateTime? @db.Timestamptz(3)
+  receivedAt DateTime  @default(now()) @db.Timestamptz(3)
+  firstClipAt DateTime? @db.Timestamptz(3)
+  lastClipAt  DateTime? @db.Timestamptz(3)
+
+  latitude  Float?
+  longitude Float?
+  speedKmh  Float?
+
+  expectedClips Int     @default(0)
+  receivedClips Int     @default(0)
+  complete      Boolean @default(false)
+  totalBytes    BigInt  @default(0)
+
+  status       PanicEventStatus @default(PENDIENTE)
+  assignedToId String?
+  assignedTo   User?            @relation("PanicAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reviewedById String?
+  reviewedBy   User?            @relation("PanicReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?        @db.Timestamptz(3)
+  resolution   String?
+  notes        String?
+
+  caseId String?
+  case   Case?   @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  metadata    Json?
+  requestMeta Json?
+
+  clips PanicVideoClip[]
+  logs  PanicEventLog[]
+
+  @@unique([tenantId, externalEventId])
+  @@index([tenantId, receivedAt])
+  @@index([tenantId, status, receivedAt])
+  @@index([tenantId, busCode, receivedAt])
+  @@index([tenantId, complete, receivedAt])
+  @@index([tenantId, eventAt])
+}
+
+model PanicVideoClip {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  eventId String
+  event   PanicEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  channel     Int?
+  cameraLabel String?
+
+  filename     String?
+  originalName String?
+  // Ruta relativa dentro de la raíz de almacenamiento (prefijo panic-videos/...)
+  filePath String  @unique
+  storage  String  @default("panic")
+  mimeType String?
+
+  // Bytes escritos en disco y bytes declarados por el dispositivo (Content-Length).
+  sizeBytes     BigInt  @default(0)
+  declaredBytes BigInt?
+  durationSec   Int?
+  startedAt     DateTime? @db.Timestamptz(3)
+  endedAt       DateTime? @db.Timestamptz(3)
+  checksum      String?
+
+  status PanicClipStatus @default(COMPLETO)
+  error  String?
+
+  receivedAt  DateTime @default(now()) @db.Timestamptz(3)
+  metadata    Json?
+  requestMeta Json?
+
+  @@unique([eventId, channel])
+  @@index([tenantId, receivedAt])
+}
+
+model PanicEventLog {
+  id      String     @id @default(cuid())
+  eventId String
+  event   PanicEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  type       PanicEventLogType
+  message    String?
+  fromStatus PanicEventStatus?
+  toStatus   PanicEventStatus?
+
+  actorUserId String?
+  actor       User?   @relation("PanicLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  meta      Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([eventId, createdAt])
 }

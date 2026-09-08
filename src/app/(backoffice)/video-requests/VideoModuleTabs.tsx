@@ -1,6 +1,14 @@
 import Link from "next/link";
 
-export default function VideoModuleTabs({ active }: { active: "requests" | "received" }) {
+type TabKey = "requests" | "received" | "panic";
+
+export default function VideoModuleTabs({
+  active,
+  showPanic = false,
+}: {
+  active: TabKey;
+  showPanic?: boolean;
+}) {
   const base =
     "inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium transition";
   const inactive = "text-muted-foreground hover:bg-muted/50 hover:text-foreground";
@@ -14,6 +22,14 @@ export default function VideoModuleTabs({ active }: { active: "requests" | "rece
       >
         Solicitudes
       </Link>
+      {showPanic ? (
+        <Link
+          href="/video-requests/panic"
+          className={`${base} ${active === "panic" ? current : inactive}`}
+        >
+          Botón de pánico
+        </Link>
+      ) : null}
     </nav>
   );
 }

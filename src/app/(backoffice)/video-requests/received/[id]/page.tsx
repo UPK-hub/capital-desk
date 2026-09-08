@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { Role } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canViewPanic } from "@/lib/panic/access";
 import VideoModuleTabs from "../../VideoModuleTabs";
 
 function fmtDate(d: Date) {
@@ -78,7 +79,7 @@ export default async function ReceivedVideoDetailPage({ params }: { params: { id
             <p className="truncate text-xs text-muted-foreground lg:text-sm">
               {item.filename ?? item.originalName ?? item.filePath}
             </p>
-            <VideoModuleTabs active="received" />
+            <VideoModuleTabs active="received" showPanic={canViewPanic(session.user as any)} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link className="sts-btn-ghost text-sm" href="/video-requests/received">
