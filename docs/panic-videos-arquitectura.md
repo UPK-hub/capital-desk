@@ -81,6 +81,12 @@ Cada clip guarda la clave del volumen donde quedó (`cbsts1` / `cbsts2`), de mod
 que la reproducción siempre resuelve la ruta correcta aunque después se agreguen
 o reordenen volúmenes.
 
+**Los dos clips de una cámara.** El NVR puede enviarlos con el mismo nombre de
+archivo y sin declarar el tramo. La mesa lo resuelve por declaración, nombre,
+marcas de tiempo o duración y, como último recurso, asignando el tramo que quede
+libre para esa cámara. En disco el tramo forma parte del nombre, así que dos
+archivos homónimos nunca se sobrescriben.
+
 **Cómo se mide el espacio libre.** El cliente SMB de Windows no sabe informar el
 espacio de un recurso de red mayor a 4 TB: devuelve siempre 4 TiB, tanto por
 `statfs` como por `Scripting.FileSystemObject` (comprobado en CBSTS3 el
@@ -102,7 +108,7 @@ precisión.
 | Conexión cortada a mitad del envío | El archivo se escribe primero como `.part` y solo se renombra al nombre definitivo cuando el flujo cierra bien. Un cargue interrumpido nunca queda registrado como completo. |
 | Archivo truncado | Se comparan los bytes escritos contra el `Content-Length` declarado. Si no coinciden: clip marcado `INCOMPLETO` y respuesta `422` para que el dispositivo reintente. |
 | Archivo vacío o de pocos bytes | Umbral mínimo configurable (`PANIC_MIN_CLIP_BYTES`). |
-| Reenvíos del dispositivo | Idempotencia por `evento + cámara`: un clip ya completo responde `200 duplicate` y no se duplica en disco. |
+| Reenvíos del dispositivo | Idempotencia por `evento + cámara + tramo`: un clip ya completo responde `200 duplicate` y no se duplica en disco. |
 | Clips que nunca llegan | El evento lleva contador `recibidos/esperados` sobre 26; con faltantes queda marcado como incompleto y aparece en el filtro "solo incompletos". |
 | Clip de duración distinta a la nominal | Se compara contra la duración esperada según el tramo (60 s el previo, 300 s el posterior, ± 30 s) y se anota en el clip. |
 | Consumo de memoria del servidor | La escritura es en streaming: la aplicación no carga el video en memoria (en modo multipart, que sí lo hace, el tope es de 512 MB). |

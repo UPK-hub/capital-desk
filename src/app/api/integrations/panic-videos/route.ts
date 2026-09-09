@@ -152,10 +152,47 @@ function parseInteger(value: string | null): number | null {
 }
 
 /**
- * Tramo del clip. Cada cámara envía dos por activación: el minuto anterior y los
- * cinco minutos posteriores. El dispositivo debería declararlo; si no lo hace, se
- * deduce por las marcas de tiempo o por la duración.
+ * Tramo del clip. Cada cámara envía dos por activación: el de un minuto previo y
+ * el de cinco minutos posteriores. La duración es el criterio más confiable —los
+ * dos archivos nunca pueden durar lo mismo—, de modo que manda sobre el nombre y
+ * sobre las marcas de tiempo. Si el dispositivo declara un tramo que contradice
+ * la duración, se conserva lo que dice la duración y se deja constancia.
  */
+function segmentoDeclarado(valor: string | null): PanicClipSegment | null {
+  const crudo = String(valor ?? "").trim().toLowerCase();
+  if (!crudo) return null;
+  if (/^(previo|previa|pre|antes|before|anterior)/.test(crudo)) return PanicClipSegment.PREVIO;
+  if (/^(posterior|post|despues|después|after)/.test(crudo)) return PanicClipSegment.POSTERIOR;
+  return null;
+}
+
+function segmentoPorDuracion(durationSec: number | null): PanicClipSegment | null {
+  if (!durationSec || durationSec <= 0) return null;
+  const frontera =
+    (targetSecondsForSegment("PREVIO") + targetSecondsForSegment("POSTERIOR")) / 2; // 180 s
+  return durationSec < frontera ? PanicClipSegment.PREVIO : PanicClipSegment.POSTERIOR;
+}
+
+function segmentoPorNombre(filename: string | null): PanicClipSegment | null {
+  // El NVR nombra los archivos con el tramo: ...-5MIN.mp4 y ...-1MIN.mp4
+  const marca = String(filename ?? "").toUpperCase().match(/(\d+)\s*MIN/);
+  if (!marca) return null;
+  return Number(marca[1]) <= 2 ? PanicClipSegment.PREVIO : PanicClipSegment.POSTERIOR;
+}
+
+function segmentoPorTiempos(params: {
+  startedAt: Date | null;
+  endedAt: Date | null;
+  eventAt: Date | null;
+}): PanicClipSegment | null {
+  const { startedAt, endedAt, eventAt } = params;
+  if (!eventAt) return null;
+  if (endedAt && endedAt.getTime() <= eventAt.getTime() + 30_000) return PanicClipSegment.PREVIO;
+  if (startedAt && startedAt.getTime() < eventAt.getTime() - 30_000) return PanicClipSegment.PREVIO;
+  if (startedAt && startedAt.getTime() >= eventAt.getTime() - 30_000) return PanicClipSegment.POSTERIOR;
+  return null;
+}
+
 function resolveSegment(params: {
   declarado: string | null;
   filename?: string | null;
@@ -163,35 +200,32 @@ function resolveSegment(params: {
   startedAt: Date | null;
   endedAt: Date | null;
   eventAt: Date | null;
-}): PanicClipSegment {
-  const crudo = String(params.declarado ?? "").trim().toLowerCase();
-  if (crudo) {
-    if (/^(previo|previa|pre|antes|before|anterior)/.test(crudo)) return PanicClipSegment.PREVIO;
-    if (/^(posterior|post|despues|después|after)/.test(crudo)) return PanicClipSegment.POSTERIOR;
+}): { segment: PanicClipSegment; criterio: string; conflicto: string | null } {
+  const declarado = segmentoDeclarado(params.declarado);
+  const porDuracion = segmentoPorDuracion(params.durationSec);
+
+  if (declarado && porDuracion && declarado !== porDuracion) {
+    return {
+      segment: porDuracion,
+      criterio: "duracion",
+      conflicto: `El dispositivo declaró el tramo ${declarado.toLowerCase()} pero la duración informada (${params.durationSec} s) corresponde al tramo ${porDuracion.toLowerCase()}; se tomó la duración.`,
+    };
   }
 
-  // El NVR nombra los archivos con el tramo: ...-5MIN.mp4 y ...-1MIN.mp4
-  const nombre = String(params.filename ?? "").toUpperCase();
-  const marca = nombre.match(/(\d+)\s*MIN/);
-  if (marca) {
-    return Number(marca[1]) <= 2 ? PanicClipSegment.PREVIO : PanicClipSegment.POSTERIOR;
-  }
+  if (declarado) return { segment: declarado, criterio: "declarado", conflicto: null };
+  if (porDuracion) return { segment: porDuracion, criterio: "duracion", conflicto: null };
 
-  // Sin declaración: si el clip termina en el momento de la activación, es el previo.
-  if (params.eventAt && params.endedAt && params.endedAt.getTime() <= params.eventAt.getTime() + 30_000) {
-    return PanicClipSegment.PREVIO;
-  }
-  if (params.eventAt && params.startedAt && params.startedAt.getTime() < params.eventAt.getTime() - 30_000) {
-    return PanicClipSegment.PREVIO;
-  }
+  const porNombre = segmentoPorNombre(params.filename ?? null);
+  if (porNombre) return { segment: porNombre, criterio: "nombre", conflicto: null };
 
-  // Último criterio: la duración. El clip previo dura un minuto; el posterior, cinco.
-  if (params.durationSec && params.durationSec > 0) {
-    const mitad = (targetSecondsForSegment("PREVIO") + targetSecondsForSegment("POSTERIOR")) / 2;
-    return params.durationSec < mitad ? PanicClipSegment.PREVIO : PanicClipSegment.POSTERIOR;
-  }
+  const porTiempos = segmentoPorTiempos({
+    startedAt: params.startedAt,
+    endedAt: params.endedAt,
+    eventAt: params.eventAt,
+  });
+  if (porTiempos) return { segment: porTiempos, criterio: "marcas de tiempo", conflicto: null };
 
-  return PanicClipSegment.POSTERIOR;
+  return { segment: PanicClipSegment.POSTERIOR, criterio: "valor por defecto", conflicto: null };
 }
 
 function segmentoLegible(segment: PanicClipSegment) {
@@ -394,8 +428,9 @@ export async function POST(req: NextRequest) {
     select: { id: true, expectedClips: true, busCode: true },
   });
 
-  // 2) Tramo del clip y ruta destino (determinista: el reenvío no duplica archivos).
-  const segment = resolveSegment({
+  // 2) Tramo del clip. Se toma la declaración del dispositivo y, si no viene, se
+  //    deduce del nombre del archivo, de las marcas de tiempo o de la duración.
+  const resolucionTramo = resolveSegment({
     declarado: segmentParam,
     filename: filenameParam,
     durationSec,
@@ -403,6 +438,31 @@ export async function POST(req: NextRequest) {
     endedAt,
     eventAt: eventAt ?? startedAt ?? null,
   });
+  const segmentoPreferido = resolucionTramo.segment;
+
+  // Los dos clips de una misma cámara pueden llegar con el mismo nombre de
+  // archivo y sin declarar el tramo. En ese caso el segundo envío ocupa el tramo
+  // que quede libre, en lugar de tomarse por un reenvío del primero.
+  const clipsDeLaCamara = await prisma.panicVideoClip.findMany({
+    where: { eventId: event.id, cameraKey: camara.cameraKey },
+    select: { id: true, segment: true, status: true, filePath: true, storage: true, sizeBytes: true },
+  });
+
+  const ocupado = (valor: PanicClipSegment) =>
+    clipsDeLaCamara.find((clip) => clip.segment === valor && clip.status === PanicClipStatus.COMPLETO);
+
+  let segment = segmentoPreferido;
+  let tramoReasignado = false;
+  const tramoIncierto =
+    resolucionTramo.criterio === "valor por defecto" || resolucionTramo.criterio === "nombre";
+  if (tramoIncierto && ocupado(segment)) {
+    const otro =
+      segment === PanicClipSegment.PREVIO ? PanicClipSegment.POSTERIOR : PanicClipSegment.PREVIO;
+    if (!ocupado(otro)) {
+      segment = otro;
+      tramoReasignado = true;
+    }
+  }
 
   const filename = safeFilename(filenameParam, camara.cameraKey, externalEventId, segment);
   const relPath = buildClipRelPath({
@@ -416,12 +476,7 @@ export async function POST(req: NextRequest) {
   });
 
   // 3) Idempotencia: si ese clip ya llegó completo, no se vuelve a escribir.
-  const existing = await prisma.panicVideoClip.findUnique({
-    where: {
-      eventId_cameraKey_segment: { eventId: event.id, cameraKey: camara.cameraKey, segment },
-    },
-    select: { id: true, status: true, filePath: true, storage: true, sizeBytes: true },
-  });
+  const existing = clipsDeLaCamara.find((clip) => clip.segment === segment) ?? null;
 
   if (existing && existing.status === PanicClipStatus.COMPLETO) {
     return NextResponse.json(
@@ -513,12 +568,31 @@ export async function POST(req: NextRequest) {
   const status: PanicClipStatus =
     declaredOk && sizeOk ? PanicClipStatus.COMPLETO : PanicClipStatus.INCOMPLETO;
 
+  // Observaciones que no invalidan el archivo pero deben quedar visibles en la mesa.
+  const observaciones: string[] = [];
+  if (resolucionTramo.conflicto) observaciones.push(resolucionTramo.conflicto);
+  if (tramoReasignado) {
+    observaciones.push(
+      "El dispositivo no declaró el tramo y el archivo no traía datos para deducirlo; se asignó el tramo que estaba libre para esta cámara."
+    );
+  }
+  if (!durationOk) {
+    observaciones.push(
+      `Duración informada (${durationSec} s) fuera del rango esperado para el tramo ${segmentoLegible(
+        segment
+      )} (nominal ${targetSecondsForSegment(segment)} s).`
+    );
+  }
+  if (!durationSec) {
+    observaciones.push("El dispositivo no informó la duración del clip.");
+  }
+
   const errorDetail = !sizeOk
     ? `Clip demasiado pequeño (${bytesWritten} bytes)`
     : !declaredOk
-    ? `Bytes recibidos (${bytesWritten}) distintos de Content-Length (${declaredLength})`
-    : !durationOk
-    ? `Duración fuera del rango esperado (${durationSec}s)`
+    ? `Bytes recibidos (${bytesWritten}) distintos del tamaño declarado (${declaredLength})`
+    : observaciones.length
+    ? observaciones.join(" ")
     : null;
 
   const now = new Date();
@@ -546,6 +620,13 @@ export async function POST(req: NextRequest) {
     checksum,
     status,
     error: errorDetail,
+    metadata: {
+      criterioTramo: resolucionTramo.criterio,
+      tramoDeclaradoPorElDispositivo: segmentParam ?? null,
+      tramoReasignadoPorDisponibilidad: tramoReasignado,
+      duracionInformadaSegundos: durationSec,
+      duracionNominalSegundos: targetSecondsForSegment(segment),
+    },
     receivedAt: now,
     requestMeta,
   };
@@ -553,6 +634,14 @@ export async function POST(req: NextRequest) {
   const clip = existing
     ? await prisma.panicVideoClip.update({ where: { id: existing.id }, data: clipData, select: { id: true } })
     : await prisma.panicVideoClip.create({ data: clipData, select: { id: true } });
+
+  if (tramoReasignado) {
+    console.info("PANIC_TRAMO_ASIGNADO_POR_DISPONIBILIDAD", {
+      eventId: event.id,
+      camera: camara.cameraKey,
+      segment,
+    });
+  }
 
   // La contabilidad de consumo por volumen cambió: se recalcula en la próxima lectura.
   invalidateUsedBytesCache();
@@ -585,7 +674,9 @@ export async function POST(req: NextRequest) {
       type: status === PanicClipStatus.COMPLETO ? PanicEventLogType.CLIP_RECIBIDO : PanicEventLogType.CLIP_FALLIDO,
       message:
         status === PanicClipStatus.COMPLETO
-          ? `Clip ${segmentoLegible(segment)} recibido de ${camara.label} (${bytesWritten} bytes)`
+          ? `Clip ${segmentoLegible(segment)} recibido de ${camara.label} (${bytesWritten} bytes)${
+              observaciones.length ? ` — ${observaciones.join(" ")}` : ""
+            }`
           : `Clip con inconsistencias: ${errorDetail}`,
       meta: {
         camera: camara.cameraCode ?? channel,
@@ -624,6 +715,7 @@ export async function POST(req: NextRequest) {
       channel,
       camera: camara.cameraCode ?? (channel === null ? null : `CAM${channel}`),
       segment,
+      segmentDeclarado: Boolean(segmentParam),
       storage: picked.volume.key,
       bytesWritten,
       receivedClips: completos.length,

@@ -123,7 +123,7 @@ hora local de Bogotá) o en ISO 8601 con zona.
 | `eventid` | Sí | Identificador de la activación en el NVR (registro o alarma). Igual para todos los clips del mismo evento. Es la clave de agrupación e idempotencia. |
 | `vehicleid` | Sí | Código del bus o placa. La mesa lo normaliza y lo empareja con su inventario. |
 | `camera` | Sí | Código de la cámara tal como lo maneja el NVR, por ejemplo `BV1-4` (vagón 1, cámara 4). Se acepta también el nombre `codigoCamara`. Alternativamente puede enviarse `channel` con el número de cámara. |
-| `segment` | Sí | Tramo del clip: `previo` (el minuto anterior a la activación) o `posterior` (los cinco minutos siguientes). Junto con `eventid` y `camera` identifica el clip de forma única. Si no se envía, la mesa lo deduce del nombre del archivo (`...-1MIN.mp4` o `...-5MIN.mp4`), de las marcas de tiempo o de la duración; aun así se recomienda declararlo. |
+| `segment` | Recomendado | Tramo del clip: `previo` (el minuto anterior a la activación) o `posterior` (los cinco minutos siguientes). Junto con `eventid` y `camera` identifica el clip de forma única. Si no se envía, la mesa lo deduce (ver el numeral 6). |
 | `eventtime` | Sí | Fecha y hora de la activación del botón. ISO 8601 con zona (`2026-09-08T14:32:10-05:00`) o epoch en segundos/milisegundos. |
 | `deviceid` | Recomendado | Serial o identificador del NVR. |
 | `duration` | Recomendado | Duración del clip en segundos: 60 para el tramo previo y 300 para el posterior. |
@@ -138,7 +138,36 @@ hora local de Bogotá) o en ISO 8601 con zona.
 
 Formato del archivo: `.mp4` (H.264/H.265). Tamaño máximo por clip: 2 GB.
 
-## 6. Respuestas
+## 6. Cómo se identifica cada uno de los dos clips
+
+Cada cámara envía dos archivos por activación y pueden llegar con el mismo nombre.
+La mesa los distingue en este orden:
+
+1. **La duración**, que es el criterio decisivo: los dos archivos de una misma
+   cámara nunca pueden durar lo mismo, uno es de 60 segundos y el otro de 300. Si
+   el dispositivo declara un tramo que contradice la duración informada, la mesa
+   se queda con lo que dice la duración y deja la observación registrada en el
+   evento.
+2. **El parámetro `segment`**, cuando no viene la duración.
+3. **El nombre del archivo**, si trae la marca de duración (`...-1MIN.mp4` o
+   `...-5MIN.mp4`).
+4. **Las marcas de tiempo**: un clip que termina en el instante de la activación
+   es el previo.
+5. Si nada de lo anterior permite decidirlo y esa cámara ya tiene un clip
+   almacenado, el nuevo archivo ocupa **el tramo que quede libre**.
+
+Con enviar la duración (`duration` o `infoVideo_duration`) basta para que los dos
+clips queden correctamente clasificados, aunque compartan nombre y no se declare
+el tramo. Declarar además `segment` es lo más seguro.
+
+Los archivos se almacenan con el tramo incorporado en el nombre, de modo que dos
+clips con el mismo nombre original nunca se sobrescriben entre sí.
+
+La mesa también verifica que la duración corresponda al tramo (60 o 300 segundos,
+con tolerancia de 30) y anota cualquier desviación en el clip, de modo que sea
+visible durante la revisión.
+
+## 7. Respuestas
 
 | Código | Significado | Acción del NVR |
 |---|---|---|
@@ -173,7 +202,7 @@ Respuesta exitosa (ejemplo):
 }
 ```
 
-## 7. Política de reintentos exigida al dispositivo
+## 8. Política de reintentos exigida al dispositivo
 
 Para garantizar el cargue de los 5 minutos de cada cámara:
 
@@ -186,7 +215,7 @@ Para garantizar el cargue de los 5 minutos de cada cámara:
 4. El material debe permanecer en el NVR hasta recibir una respuesta `201` o
    `200` para ese clip.
 
-## 8. Envío de los 26 clips
+## 9. Envío de los 26 clips
 
 Para no saturar el enlace del vehículo ni el de la mesa, se solicita al
 dispositivo:
@@ -197,14 +226,14 @@ dispositivo:
 3. Mantener el evento abierto en el NVR hasta confirmar la recepción de los 26
    clips; los faltantes quedan visibles en la mesa como cargue incompleto.
 
-## 9. Verificación desde la mesa
+## 10. Verificación desde la mesa
 
 Cada evento muestra en Capital Desk el indicador `recibidas/esperadas` de
 cámaras. Un evento con cámaras faltantes queda marcado como cargue incompleto y
 es visible en el filtro correspondiente, de modo que la mesa puede exigir el
 reenvío.
 
-## 10. Prueba de conexión
+## 11. Prueba de conexión
 
 ```bash
 curl -i "https://<host>/api/integrations/panic-videos"
