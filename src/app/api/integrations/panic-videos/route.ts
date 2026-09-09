@@ -102,7 +102,11 @@ function parseDate(value: string | null): Date | null {
   }
 
   const normalized = limpio.includes("T") ? limpio : limpio.replace(" ", "T");
-  const parsed = new Date(normalized);
+  // Si la fecha no trae zona, es hora local de la operación: se le añade el
+  // desfase explícito. De lo contrario Node la interpretaría con la zona del
+  // servidor (UTC en este caso), corriendo el evento cinco horas.
+  const traeZona = /(Z|[+-]\d{2}:?\d{2})$/.test(normalized);
+  const parsed = new Date(traeZona ? normalized : `${normalized}${TZ_OFFSET}`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 

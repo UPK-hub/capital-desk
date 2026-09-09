@@ -13,9 +13,17 @@ export const CLIP_STATUS_LABEL: Record<PanicClipStatus, string> = {
   RECHAZADO: "Rechazado",
 };
 
+// La mesa se renderiza en el servidor, cuya zona puede no ser la de la operación:
+// se fija explícitamente para que las horas coincidan con las del bus.
+export const PANIC_TIMEZONE = process.env.NEXT_PUBLIC_PANIC_TIMEZONE || "America/Bogota";
+
 export function fmtDateTime(value: Date | null | undefined) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(value);
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: PANIC_TIMEZONE,
+  }).format(value);
 }
 
 export function fmtBytes(value: bigint | number | null | undefined) {
