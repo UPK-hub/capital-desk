@@ -1584,6 +1584,13 @@ enum PanicClipStatus {
   RECHAZADO
 }
 
+// Cada cámara envía dos clips por activación: el minuto anterior al evento y los
+// cinco minutos posteriores. Por eso un evento completo son 26 archivos (13 x 2).
+enum PanicClipSegment {
+  PREVIO
+  POSTERIOR
+}
+
 enum PanicEventLogType {
   EVENTO_CREADO
   CLIP_RECIBIDO
@@ -1660,7 +1667,14 @@ model PanicVideoClip {
   eventId String
   event   PanicEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
+  // Identificación de la cámara. El NVR usa códigos tipo "BV1-4" (vagón 1,
+  // cámara 4); cameraKey es la forma normalizada con la que se controla que un
+  // mismo clip no se duplique.
+  cameraCode  String?
+  cameraKey   String           @default("UNICO")
+  wagon       String?
   channel     Int?
+  segment     PanicClipSegment @default(POSTERIOR)
   cameraLabel String?
 
   filename     String?
@@ -1685,8 +1699,9 @@ model PanicVideoClip {
   metadata    Json?
   requestMeta Json?
 
-  @@unique([eventId, channel])
+  @@unique([eventId, cameraKey, segment])
   @@index([tenantId, receivedAt])
+  @@index([eventId, cameraKey])
 }
 
 model PanicEventLog {

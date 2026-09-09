@@ -6,8 +6,9 @@ Capital Desk · CapitalBus · septiembre de 2026
 
 Del cliente:
 
-1. Garantizar el cargue de los videos de 5 minutos (1 minuto antes y 4 después
-   de la activación) que genera el NVR, en las **13 cámaras** que tiene cada bus.
+1. Garantizar el cargue del material que genera el NVR ante cada activación: por
+   cada una de las **13 cámaras** del bus, un clip del minuto anterior y otro de
+   los cinco minutos posteriores, es decir **26 archivos por evento**.
 2. Un endpoint de la mesa de ayuda al cual apunten los dispositivos NVR, con los
    parámetros de envío definidos.
 3. Una vista en la mesa de trabajo para que usuarios autorizados revisen el
@@ -102,8 +103,8 @@ precisión.
 | Archivo truncado | Se comparan los bytes escritos contra el `Content-Length` declarado. Si no coinciden: clip marcado `INCOMPLETO` y respuesta `422` para que el dispositivo reintente. |
 | Archivo vacío o de pocos bytes | Umbral mínimo configurable (`PANIC_MIN_CLIP_BYTES`). |
 | Reenvíos del dispositivo | Idempotencia por `evento + cámara`: un clip ya completo responde `200 duplicate` y no se duplica en disco. |
-| Cámaras que nunca llegan | El evento lleva contador `recibidas/esperadas`; con faltantes queda marcado como incompleto y aparece en el filtro "solo incompletos". |
-| Clip de duración distinta a 5 minutos | Se compara con la duración nominal (300 s ± 30 s) y se anota en el clip. |
+| Clips que nunca llegan | El evento lleva contador `recibidos/esperados` sobre 26; con faltantes queda marcado como incompleto y aparece en el filtro "solo incompletos". |
+| Clip de duración distinta a la nominal | Se compara contra la duración esperada según el tramo (60 s el previo, 300 s el posterior, ± 30 s) y se anota en el clip. |
 | Consumo de memoria del servidor | La escritura es en streaming: la aplicación no carga el video en memoria (en modo multipart, que sí lo hace, el tope es de 512 MB). |
 | El sistema operativo miente sobre el espacio libre | Se detecta el valor saturado del cliente SMB de Windows y se calcula el espacio con la capacidad declarada menos lo escrito. |
 
@@ -128,68 +129,64 @@ discos, copia a un tercer destino, o RAID/replicación a nivel de la plataforma.
 Capacidad total del pool: 5,89 TB + 6,03 TB = **11,92 TB** (aproximadamente
 11,3 TB útiles después del sistema de archivos y de los umbrales de reserva).
 
-Cada bus tiene **13 cámaras**, de modo que una activación del botón produce hasta
-13 clips de 5 minutos:
+Cada activación produce **26 archivos**: por cada una de las 13 cámaras, un clip
+del minuto previo y otro de los cinco minutos posteriores, es decir seis minutos
+de video por cámara y 78 minutos por evento.
 
-| Calidad por cámara | Tamaño por clip (5 min) | Tamaño por evento (13 cámaras) |
-|---|---|---|
-| D1 / 1 Mbps | ~37 MB | ~0,47 GB |
-| 720p / 2 Mbps | ~75 MB | ~0,95 GB |
-| 1080p / 4 Mbps | ~150 MB | ~1,95 GB |
+Dato real medido sobre una trama del NVR (septiembre de 2026): clip de 300
+segundos, 1280x720, bitrate 2048 kbps, **37,1 MB**. Con ese perfil el clip previo
+pesa alrededor de 7,4 MB.
+
+| Perfil por cámara | Clip previo (1 min) | Clip posterior (5 min) | Evento completo (13 cámaras) |
+|---|---|---|---|
+| 1 Mbps | ~7,5 MB | ~37 MB | ~0,58 GB |
+| 2 Mbps (perfil actual) | ~15 MB | ~74 MB | ~1,13 GB |
+| 4 Mbps | ~30 MB | ~150 MB | ~2,29 GB |
+
+Nota: el dato medido de 37,1 MB para 300 segundos corresponde a 2048 kbps
+nominales con un promedio real cercano a 1 Mbps, de modo que el consumo por
+evento se ubica hoy alrededor de **0,58 GB**.
 
 Años cubiertos por los 11,3 TB útiles:
 
-| Activaciones por día | 0,47 GB/evento | 0,95 GB/evento | 1,95 GB/evento |
+| Activaciones por día | 0,58 GB/evento | 1,13 GB/evento | 2,29 GB/evento |
 |---|---|---|---|
-| 5 | 13,5 años | 6,7 años | 3,3 años |
-| 10 | 6,7 años | 3,3 años | 1,6 años |
-| 20 | 3,4 años | 1,7 años | 0,8 años |
-| 40 | 1,7 años | 0,8 años | 0,4 años |
+| 5 | 10,7 años | 5,5 años | 2,7 años |
+| 10 | 5,3 años | 2,7 años | 1,4 años |
+| 20 | 2,7 años | 1,4 años | 0,7 años |
+| 40 | 1,3 años | 0,7 años | 0,3 años |
 
 Almacenamiento necesario para cumplir los 5 años completos:
 
-| Activaciones por día | 0,47 GB/evento | 0,95 GB/evento | 1,95 GB/evento |
+| Activaciones por día | 0,58 GB/evento | 1,13 GB/evento | 2,29 GB/evento |
 |---|---|---|---|
-| 5 | 4,3 TB | 8,7 TB | 17,8 TB |
-| 10 | 8,6 TB | 17,3 TB | 35,6 TB |
-| 20 | 17,2 TB | 34,7 TB | 71,2 TB |
+| 5 | 5,3 TB | 10,3 TB | 20,9 TB |
+| 10 | 10,6 TB | 20,6 TB | 41,8 TB |
+| 20 | 21,2 TB | 41,2 TB | 83,6 TB |
 
-**Conclusión:** con 13 cámaras por bus, los 11,92 TB disponibles sostienen la
-retención de 5 años solo si la operación se mantiene por debajo de unas **5 a 10
-activaciones diarias en toda la flota**, y con clips de calidad media (720p o
-menos). Por encima de ese rango la capacidad se agota antes de cumplir la
-política.
+**Conclusión:** con el perfil de video actual, los 11,92 TB disponibles sostienen
+la retención de cinco años mientras la operación se mantenga alrededor de diez
+activaciones diarias en toda la flota. Por encima de ese ritmo hay que ampliar
+disco, cosa que en estas máquinas se hace en caliente desde VMware Cloud
+Director.
 
-Alternativas, en orden de conveniencia:
-
-1. **Medir primero.** Durante el primer mes de operación, registrar el tamaño
-   real de los clips y la frecuencia de activaciones (`npm run panic:almacenamiento`
-   entrega ambos datos y la proyección con el ritmo observado). Las cifras de
-   arriba son estimaciones de bitrate; el dato real puede ser bastante menor.
-2. **Definir un subconjunto de cámaras por evento.** Si la operación acepta que
-   la activación del botón se documente con, por ejemplo, 5 de las 13 cámaras
-   (puesto de conducción, puertas y pasillo), el consumo baja a menos de la
-   mitad y la retención de 5 años entra con holgura. Es la palanca de mayor
-   efecto y no requiere hardware adicional.
-3. **Reducir la calidad del clip de respaldo.** Un perfil de menor bitrate solo
-   para el material que se sube por botón de pánico.
-4. **Ampliar disco.** Los discos de estas VM se amplían en caliente desde VMware
-   Cloud Director de ETB; es la opción si se mantiene el envío de las 13 cámaras
-   y la frecuencia supera las 10 activaciones diarias.
-
-Estas alternativas quedan como referencia técnica. La decisión sobre capacidad y
-ampliación de disco es del cliente, dueño de la infraestructura: la mesa opera con
-los volúmenes que se le declaren, desborda sola de uno a otro y, si ambos se
-llenan, responde `507` y deja el evento marcado como incompleto para que el
-material se reenvíe una vez ampliado el almacenamiento.
+La decisión sobre capacidad y ampliación es del cliente, dueño de la
+infraestructura: la mesa opera con los volúmenes que se le declaren, desborda
+sola de uno a otro y, si ambos se llenan, responde `507` y deja el evento marcado
+como incompleto para que el material se reenvíe una vez ampliado el
+almacenamiento. El comando `npm run panic:almacenamiento` entrega el consumo real
+observado y la proyección correspondiente.
 
 ## 7. Modelo de datos
 
 - `PanicEvent` — una activación del botón: bus, equipo, fecha, coordenadas,
   cámaras esperadas/recibidas, completitud, estado de gestión, responsable,
   conclusión y caso vinculado.
-- `PanicVideoClip` — un clip por cámara: canal, ruta, volumen, tamaño, duración,
-  estado (`COMPLETO` / `INCOMPLETO` / `RECHAZADO`) y motivo.
+- `PanicVideoClip` — un clip por cámara y tramo: código de cámara del NVR
+  (`BV1-4`), vagón, número, tramo (`PREVIO` / `POSTERIOR`), ruta, volumen,
+  tamaño, duración, estado (`COMPLETO` / `INCOMPLETO` / `RECHAZADO`) y motivo.
+  La unicidad es evento + cámara + tramo, de modo que los dos clips de una misma
+  cámara conviven y un reenvío no duplica material.
 - `PanicEventLog` — bitácora: recepción de clips, fallas de cargue, cambios de
   estado, asignaciones, comentarios y vinculación con casos.
 
@@ -209,9 +206,8 @@ parcial (Range) para que el navegador no tenga que descargar el clip completo.
 
 ## 9. Puntos abiertos
 
-1. Confirmar con la operación si cada activación debe subir las 13 cámaras o un
-   subconjunto (ver alternativas del punto 6). El valor configurado hoy es 13
-   (`PANIC_EXPECTED_CLIPS`).
+1. Seguimiento del consumo real durante el primer mes para contrastar la
+   proyección de capacidad (`npm run panic:almacenamiento`).
 2. Definir con el cliente si un evento de botón de pánico debe generar además
    una novedad automática en la mesa y con qué prioridad.
 3. Definir la medida de respaldo del material (ver advertencia del punto 5).

@@ -108,8 +108,8 @@ export default async function PanicEventsPage({ searchParams }: { searchParams?:
           <div className="space-y-1">
             <h1 className="break-words text-xl font-semibold tracking-tight lg:text-3xl">Botón de pánico</h1>
             <p className="text-sm text-muted-foreground">
-              Videos enviados por los NVR ante una activación del botón. Cada evento agrupa los clips de las
-              cámaras del bus (1 minuto antes y 4 después).
+              Videos enviados por los NVR ante una activación del botón. Cada cámara envía dos clips —el minuto
+              previo y los cinco minutos posteriores—, de modo que un evento completo son 26 archivos.
             </p>
             <VideoModuleTabs active="panic" showPanic />
           </div>
@@ -213,7 +213,7 @@ export default async function PanicEventsPage({ searchParams }: { searchParams?:
                               : "bg-amber-500/15 text-amber-600"
                           }`}
                         >
-                          {item.receivedClips}/{esperado} cámaras
+                          {item.receivedClips}/{esperado} clips
                         </span>
                       </DataTableCell>
                       <DataTableCell>{STATUS_LABEL[item.status]}</DataTableCell>

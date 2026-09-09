@@ -46,7 +46,7 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
       assignedTo: { select: { id: true, name: true } },
       reviewedBy: { select: { id: true, name: true } },
       case: { select: { id: true, caseNo: true, title: true } },
-      clips: { orderBy: [{ channel: "asc" }, { receivedAt: "asc" }] },
+      clips: { orderBy: [{ cameraKey: "asc" }, { segment: "asc" }, { receivedAt: "asc" }] },
       logs: {
         orderBy: { createdAt: "desc" },
         take: 100,
@@ -100,20 +100,21 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
           <div className="space-y-6 lg:col-span-2">
             <section className="sts-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-base font-semibold">Cargue de cámaras</h2>
+                <h2 className="text-base font-semibold">Cargue de clips</h2>
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
                     event.complete ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"
                   }`}
                 >
-                  {completos.length}/{esperado} completos
+                  {completos.length}/{esperado} clips
                   {faltantes > 0 ? ` · faltan ${faltantes}` : ""}
                 </span>
               </div>
 
               {event.clips.length === 0 ? (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  El evento fue registrado pero todavía no llegó ningún video.
+                  El evento fue registrado pero todavía no llegó ningún video. Se esperan dos clips por cámara: el
+                  minuto previo y los cinco minutos posteriores a la activación.
                 </p>
               ) : (
                 <div className="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -121,7 +122,10 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
                     <div key={clip.id} className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium">
-                          {clip.cameraLabel ?? (clip.channel === null ? "Cámara" : `Cámara ${clip.channel}`)}
+                          {clip.cameraLabel ??
+                            `${clip.cameraCode ?? (clip.channel === null ? "Cámara" : `Cámara ${clip.channel}`)} · ${
+                              clip.segment === "PREVIO" ? "minuto previo" : "cinco minutos posteriores"
+                            }`}
                         </p>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

@@ -270,7 +270,8 @@ export function buildClipRelPath(params: {
   eventAt: Date;
   busCode: string | null;
   externalEventId: string;
-  channel: number | null;
+  cameraKey: string;
+  segment: "PREVIO" | "POSTERIOR";
   filename: string;
 }) {
   const date = params.eventAt;
@@ -288,8 +289,9 @@ export function buildClipRelPath(params: {
     sanitizeSegment(params.externalEventId),
   ].join("/");
 
-  const channelPart = params.channel === null ? "cam" : `cam${params.channel}`;
-  const name = `${channelPart}_${sanitizeSegment(params.filename) || "clip.mp4"}`;
+  const camaraPart = sanitizeSegment(params.cameraKey) || "cam";
+  const segmentPart = params.segment === "PREVIO" ? "previo" : "posterior";
+  const name = `${camaraPart}_${segmentPart}_${sanitizeSegment(params.filename) || "clip.mp4"}`;
 
   return `${dir}/${name}`;
 }

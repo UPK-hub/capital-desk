@@ -6,10 +6,11 @@ Versión 1.0 · Capital Desk (mesa de ayuda CapitalBus) · UP KEEP SERVICES S.A.
 ## 1. Alcance
 
 Los NVR instalados en los buses deben entregar a la mesa de ayuda, ante cada
-activación del botón de pánico, el material de video de las cámaras del vehículo:
-un clip por cámara que cubre **1 minuto antes y 4 minutos después** de la
-activación (5 minutos por cámara). Los buses de la flota tienen **13 cámaras**,
-de modo que cada evento genera hasta 13 peticiones.
+activación del botón de pánico, el material de video de las cámaras del vehículo.
+Cada cámara envía **dos clips**: el **minuto anterior** a la activación y los
+**cinco minutos posteriores**. Los buses de la flota tienen **13 cámaras**, de
+modo que cada activación genera **26 peticiones** (13 clips previos y 13
+posteriores).
 
 La mesa expone un único punto de recepción. El material se almacena en los
 servidores dedicados (CBSTS1 / CBSTS2) y queda disponible para revisión y
@@ -21,8 +22,8 @@ tratamiento en Capital Desk.
 POST https://<host-de-la-mesa>/api/integrations/panic-videos
 ```
 
-- Un clip por petición. Un evento de botón de pánico genera tantas peticiones
-  como cámaras tenga el vehículo (13 en la flota actual).
+- Un clip por petición. Una activación genera 26 peticiones: dos por cada una de
+  las 13 cámaras.
 - Todas las peticiones del mismo evento deben enviar **el mismo `eventid`**: es
   la clave con la que la mesa agrupa los clips y verifica que el cargue quedó
   completo.
@@ -48,9 +49,9 @@ El cuerpo de la petición es el archivo de video, sin envolver. Los metadatos
 viajan en la query string (o en cabeceras `x-panic-<parámetro>`).
 
 ```
-POST /api/integrations/panic-videos?eventid=1234567&vehicleid=CB-1032&channel=1
-     &eventtime=2026-09-08T14:32:10-05:00&duration=300&deviceid=NVR-0451
-     &lat=4.6512&lon=-74.0931&speed=32.4&filename=CB1032_cam1.mp4
+POST /api/integrations/panic-videos?eventid=20260909110654001&vehicleid=K1488&camera=BV1-4
+     &segment=posterior&eventtime=2026-09-08T14:32:10-05:00&duration=300&deviceid=NVR-0451
+     &lat=4.63205&lon=-74.1748&filename=BV1-4EV909-09-2026-11_05_54-5MIN.mp4
 Content-Type: video/mp4
 Content-Length: 78451200
 x-integration-secret: <secreto>
@@ -67,11 +68,11 @@ completo.
 Ejemplo con `curl`:
 
 ```bash
-curl -X POST "https://<host>/api/integrations/panic-videos?eventid=1234567&vehicleid=CB-1032&channel=1&eventtime=2026-09-08T14:32:10-05:00&duration=300" \
+curl -X POST "https://<host>/api/integrations/panic-videos?eventid=1234567&vehicleid=K1488&camera=BV1-4&segment=posterior&eventtime=2026-09-08T14:32:10-05:00&duration=300" \
   -H "x-integration-secret: <secreto>" \
   -H "x-tenant-code: CAPITALBUS" \
   -H "Content-Type: video/mp4" \
-  --data-binary @CB1032_cam1.mp4
+  --data-binary @BV1-4EV909-09-2026-11_05_54-5MIN.mp4
 ```
 
 ### 4.2 Modo B — multipart (compatibilidad)
@@ -83,8 +84,8 @@ campo `file` y los metadatos como campos de texto del mismo formulario.
 curl -X POST "https://<host>/api/integrations/panic-videos" \
   -H "x-integration-secret: <secreto>" \
   -H "x-tenant-code: CAPITALBUS" \
-  -F "file=@CB1032_cam1.mp4;type=video/mp4" \
-  -F "eventid=1234567" -F "vehicleid=CB-1032" -F "channel=1" \
+  -F "file=@BV1-4EV909-09-2026-11_05_54-5MIN.mp4;type=video/mp4" \
+  -F "eventid=20260909110654001" -F "vehicleid=K1488" -F "camera=BV1-4" -F "segment=posterior" \
   -F "eventtime=2026-09-08T14:32:10-05:00" -F "duration=300"
 ```
 
@@ -94,21 +95,45 @@ varias cámaras se recomienda el Modo A.
 
 ## 5. Parámetros
 
+La mesa acepta tanto los nombres de esta especificación como los que el NVR ya
+emite en sus tramas, de modo que no es necesario renombrar lo que el equipo
+produce hoy. Equivalencias reconocidas:
+
+| Nombre en la trama del NVR | Equivale a |
+|---|---|
+| `idRegistroEvento` | `eventid` |
+| `idVehiculo` | `vehicleid` |
+| `codigoCamara` | `camera` |
+| `codigoEvento` | `alarmcode` |
+| `nombreArchivoVideo` | `filename` |
+| `infoVideo_duration` | `duration` |
+| `infoVideo_fechaInicioGrabacion` | `starttime` |
+| `infoVideo_fechaFinGrabacion` | `endtime` |
+| `idOcurrenciaEvento` / `fechaHoraHistorico` | `eventtime` |
+| `localizacionVehiculo_latitud` / `_longitud` | `lat` / `lon` |
+| `md5Hash` | `checksum` |
+| `size` | tamaño declarado del archivo |
+
+Las fechas se aceptan en el formato de las tramas (`09/09/2026 11:34:21.00`,
+hora local de Bogotá) o en ISO 8601 con zona.
+
+
 | Parámetro | Obligatorio | Descripción |
 |---|---|---|
 | `eventid` | Sí | Identificador de la activación en el NVR (registro o alarma). Igual para todos los clips del mismo evento. Es la clave de agrupación e idempotencia. |
 | `vehicleid` | Sí | Código del bus o placa. La mesa lo normaliza y lo empareja con su inventario. |
-| `channel` | Sí | Número de cámara (1..13). Permite saber qué cámaras faltan por llegar. |
+| `camera` | Sí | Código de la cámara tal como lo maneja el NVR, por ejemplo `BV1-4` (vagón 1, cámara 4). Se acepta también el nombre `codigoCamara`. Alternativamente puede enviarse `channel` con el número de cámara. |
+| `segment` | Sí | Tramo del clip: `previo` (el minuto anterior a la activación) o `posterior` (los cinco minutos siguientes). Junto con `eventid` y `camera` identifica el clip de forma única. Si no se envía, la mesa lo deduce del nombre del archivo (`...-1MIN.mp4` o `...-5MIN.mp4`), de las marcas de tiempo o de la duración; aun así se recomienda declararlo. |
 | `eventtime` | Sí | Fecha y hora de la activación del botón. ISO 8601 con zona (`2026-09-08T14:32:10-05:00`) o epoch en segundos/milisegundos. |
 | `deviceid` | Recomendado | Serial o identificador del NVR. |
-| `duration` | Recomendado | Duración del clip en segundos (nominal: 300). |
+| `duration` | Recomendado | Duración del clip en segundos: 60 para el tramo previo y 300 para el posterior. |
 | `starttime` / `endtime` | Recomendado | Inicio y fin del clip. |
 | `lat` / `lon` | Recomendado | Coordenadas en el momento de la activación (grados decimales). |
 | `speed` | Opcional | Velocidad en km/h. |
 | `alarmcode` / `alarmlabel` | Opcional | Código y descripción de la alarma según el NVR. |
 | `filename` | Opcional | Nombre original del archivo. |
 | `checksum` | Opcional | MD5 o SHA-256 del archivo, para verificación de integridad. |
-| `expectedclips` | Opcional | Número de cámaras que se enviarán para ese evento. Si no se envía, la mesa asume 13. |
+| `expectedclips` | Opcional | Número total de clips que se enviarán para esa activación. Si no se envía, la mesa asume 26. |
 | `tenantcode` | Opcional | Alternativa a la cabecera `x-tenant-code`. |
 
 Formato del archivo: `.mp4` (H.264/H.265). Tamaño máximo por clip: 2 GB.
@@ -132,15 +157,18 @@ Respuesta exitosa (ejemplo):
 {
   "ok": true,
   "eventId": "clx8...",
-  "externalEventId": "1234567",
+  "externalEventId": "20260909110654001",
   "clipId": "clx9...",
-  "busCode": "CB-1032",
+  "busCode": "K1488",
   "busMatched": true,
   "channel": 1,
   "storage": "cbsts1",
   "bytesWritten": 78451200,
+  "channel": 4,
+  "camera": "BV1-4",
+  "segment": "POSTERIOR",
   "receivedClips": 3,
-  "expectedClips": 13,
+  "expectedClips": 26,
   "complete": false
 }
 ```
@@ -152,27 +180,22 @@ Para garantizar el cargue de los 5 minutos de cada cámara:
 1. Reintentar ante `422`, `500`, `507` y ante error de red o corte de conexión.
 2. Esquema de espera progresiva sugerido: 1, 5, 15, 30 y 60 minutos; luego cada
    hora hasta 24 horas.
-3. El reenvío debe conservar el mismo `eventid` y `channel`. La mesa es
-   idempotente: un clip ya almacenado y completo no se duplica (responde `200`
+3. El reenvío debe conservar el mismo `eventid`, `camera` y `segment`. La mesa
+   es idempotente: un clip ya almacenado y completo no se duplica (responde `200`
    con `duplicate: true`).
 4. El material debe permanecer en el NVR hasta recibir una respuesta `201` o
    `200` para ese clip.
 
-## 8. Envío de las 13 cámaras
+## 8. Envío de los 26 clips
 
 Para no saturar el enlace del vehículo ni el de la mesa, se solicita al
 dispositivo:
 
-1. Enviar los clips del evento **de forma secuencial**, no las 13 cámaras en
-   paralelo.
-2. Priorizar el orden de envío según la relevancia definida por la operación
-   (por ejemplo, puesto de conducción y puertas primero), de modo que el material
-   más útil esté disponible en la mesa aunque el resto tarde.
-3. Mantener el evento abierto en el NVR hasta confirmar la recepción de las 13
-   cámaras; las faltantes quedan visibles en la mesa como cargue incompleto.
-
-Si la operación decide que no se requieren las 13 cámaras en cada activación,
-puede definirse un subconjunto fijo de canales y declararlo en `expectedclips`.
+1. Enviar los clips **de forma secuencial**, no en paralelo.
+2. Priorizar los clips del tramo previo, que son cortos y llegan rápido, y luego
+   los posteriores, según el orden de relevancia que defina la operación.
+3. Mantener el evento abierto en el NVR hasta confirmar la recepción de los 26
+   clips; los faltantes quedan visibles en la mesa como cargue incompleto.
 
 ## 9. Verificación desde la mesa
 

@@ -19,7 +19,7 @@ export const maxDuration = 300;
 // ---------------------------------------------------------------------------
 
 import { NextRequest, NextResponse } from "next/server";
-import { PanicClipStatus, PanicEventLogType, Prisma } from "@prisma/client";
+import { PanicClipSegment, PanicClipStatus, PanicEventLogType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeBusCode } from "@/lib/integrations/tramas";
 import { getClientIp } from "@/lib/security/client-ip";
@@ -28,6 +28,7 @@ import {
   PANIC_MAX_CLIP_BYTES,
   PANIC_MIN_CLIP_BYTES,
   isClipDurationAcceptable,
+  targetSecondsForSegment,
 } from "@/lib/panic/config";
 import {
   buildClipRelPath,
@@ -72,18 +73,71 @@ function readParam(req: NextRequest, form: FormData | null, names: string[]): st
   return null;
 }
 
+// Zona horaria de la operación. Las tramas del NVR traen la hora local sin zona.
+const TZ_OFFSET = process.env.PANIC_TIMEZONE_OFFSET || "-05:00";
+
 function parseDate(value: string | null): Date | null {
   if (!value) return null;
-  const numeric = Number(value);
+  const limpio = value.trim();
+  if (!limpio) return null;
+
+  const numeric = Number(limpio);
   if (Number.isFinite(numeric) && numeric > 1000000000) {
     // epoch en segundos o milisegundos
     const ms = numeric > 1e12 ? numeric : numeric * 1000;
     const fromEpoch = new Date(ms);
     return Number.isNaN(fromEpoch.getTime()) ? null : fromEpoch;
   }
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+
+  // Formato de las tramas del NVR: dd/MM/yyyy HH:mm:ss(.SS) o con guiones.
+  const nvr = limpio.match(
+    /^(\d{2})[/-](\d{2})[/-](\d{4})[ T](\d{2}):(\d{2}):(\d{2})(?:[.,](\d{1,3}))?$/
+  );
+  if (nvr) {
+    const [, dd, mm, yyyy, hh, mi, ss, frac] = nvr;
+    const ms = String(frac ?? "0").padEnd(3, "0").slice(0, 3);
+    const iso = `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}.${ms}${TZ_OFFSET}`;
+    const parsed = new Date(iso);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const normalized = limpio.includes("T") ? limpio : limpio.replace(" ", "T");
   const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Identificación de la cámara. El NVR entrega códigos tipo "BV1-4": vagón 1,
+ * cámara 4. Se conserva el código tal cual, se extrae el vagón y el número, y se
+ * arma una clave normalizada para el control de duplicados.
+ */
+function parseCamera(codigo: string | null, channel: number | null) {
+  const limpio = String(codigo ?? "").trim().toUpperCase();
+
+  if (limpio) {
+    const m = limpio.match(/^([A-Z]*\d*)[-_ ]?(\d+)$/);
+    const wagon = m && m[1] ? m[1] : null;
+    const numero = m && m[2] ? Number(m[2]) : channel;
+    return {
+      cameraCode: limpio,
+      wagon,
+      channel: Number.isFinite(numero as number) ? (numero as number) : null,
+      cameraKey: limpio.replace(/[^A-Z0-9]/g, "-"),
+      label: wagon ? `Cámara ${numero} · vagón ${wagon.replace(/^BV/, "")}` : `Cámara ${limpio}`,
+    };
+  }
+
+  if (channel !== null) {
+    return {
+      cameraCode: null,
+      wagon: null,
+      channel,
+      cameraKey: `CAM${channel}`,
+      label: `Cámara ${channel}`,
+    };
+  }
+
+  return { cameraCode: null, wagon: null, channel: null, cameraKey: "UNICO", label: "Cámara" };
 }
 
 function parseNumber(value: string | null): number | null {
@@ -97,15 +151,62 @@ function parseInteger(value: string | null): number | null {
   return parsed === null ? null : Math.trunc(parsed);
 }
 
-function safeFilename(value: string | null, channel: number | null, fallbackId: string) {
+/**
+ * Tramo del clip. Cada cámara envía dos por activación: el minuto anterior y los
+ * cinco minutos posteriores. El dispositivo debería declararlo; si no lo hace, se
+ * deduce por las marcas de tiempo o por la duración.
+ */
+function resolveSegment(params: {
+  declarado: string | null;
+  filename?: string | null;
+  durationSec: number | null;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  eventAt: Date | null;
+}): PanicClipSegment {
+  const crudo = String(params.declarado ?? "").trim().toLowerCase();
+  if (crudo) {
+    if (/^(previo|previa|pre|antes|before|anterior)/.test(crudo)) return PanicClipSegment.PREVIO;
+    if (/^(posterior|post|despues|después|after)/.test(crudo)) return PanicClipSegment.POSTERIOR;
+  }
+
+  // El NVR nombra los archivos con el tramo: ...-5MIN.mp4 y ...-1MIN.mp4
+  const nombre = String(params.filename ?? "").toUpperCase();
+  const marca = nombre.match(/(\d+)\s*MIN/);
+  if (marca) {
+    return Number(marca[1]) <= 2 ? PanicClipSegment.PREVIO : PanicClipSegment.POSTERIOR;
+  }
+
+  // Sin declaración: si el clip termina en el momento de la activación, es el previo.
+  if (params.eventAt && params.endedAt && params.endedAt.getTime() <= params.eventAt.getTime() + 30_000) {
+    return PanicClipSegment.PREVIO;
+  }
+  if (params.eventAt && params.startedAt && params.startedAt.getTime() < params.eventAt.getTime() - 30_000) {
+    return PanicClipSegment.PREVIO;
+  }
+
+  // Último criterio: la duración. El clip previo dura un minuto; el posterior, cinco.
+  if (params.durationSec && params.durationSec > 0) {
+    const mitad = (targetSecondsForSegment("PREVIO") + targetSecondsForSegment("POSTERIOR")) / 2;
+    return params.durationSec < mitad ? PanicClipSegment.PREVIO : PanicClipSegment.POSTERIOR;
+  }
+
+  return PanicClipSegment.POSTERIOR;
+}
+
+function segmentoLegible(segment: PanicClipSegment) {
+  return segment === PanicClipSegment.PREVIO ? "previo" : "posterior";
+}
+
+function safeFilename(value: string | null, cameraKey: string, fallbackId: string, segment: PanicClipSegment) {
   const base = String(value ?? "").split(/[\\/]/).pop() ?? "";
   const clean = base.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
   if (clean && /\.(mp4|avi|mkv|mov|ts)$/i.test(clean)) return clean;
   // Sin nombre útil se arma uno determinista: el reenvío del mismo clip
   // resuelve la misma ruta y no deja archivos huérfanos.
-  const suffix = channel === null ? "" : `_cam${channel}`;
+  const suffix = cameraKey ? `_${cameraKey.replace(/[^a-zA-Z0-9._-]/g, "_")}` : "";
   const id = String(fallbackId ?? "").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60) || "evento";
-  return `${id}${suffix}.mp4`;
+  return `${id}${suffix}_${segmentoLegible(segment)}.mp4`;
 }
 
 function isFileLike(value: FormDataEntryValue | null): value is File {
@@ -145,26 +246,101 @@ export async function POST(req: NextRequest) {
   });
   if (!tenant) return bad(400, "Tenant no encontrado", { tenantCode });
 
-  const vehicleId = readParam(req, form, ["vehicleid", "vehicleId", "buscode", "busCode"]);
+  // Se aceptan tanto los nombres de esta especificación como los que ya emite el
+  // NVR en sus tramas (idVehiculo, codigoCamara, infoVideo_duration, etc.), para
+  // que el proveedor no tenga que renombrar lo que ya produce.
+  const vehicleId = readParam(req, form, [
+    "vehicleid",
+    "vehicleId",
+    "buscode",
+    "busCode",
+    "idvehiculo",
+    "idVehiculo",
+  ]);
   const busCode = vehicleId ? normalizeBusCode(vehicleId) : null;
-  const deviceId = readParam(req, form, ["deviceid", "deviceId"]);
-  const channel = parseInteger(readParam(req, form, ["channel", "camera", "chn"]));
-  const eventAt = parseDate(readParam(req, form, ["eventtime", "eventAt", "alarmtime"]));
-  const startedAt = parseDate(readParam(req, form, ["starttime", "startAt"]));
-  const endedAt = parseDate(readParam(req, form, ["endtime", "endAt"]));
-  const durationSec = parseInteger(readParam(req, form, ["duration", "durationsec"]));
-  const latitude = parseNumber(readParam(req, form, ["lat", "latitude"]));
-  const longitude = parseNumber(readParam(req, form, ["lon", "lng", "longitude"]));
-  const speedKmh = parseNumber(readParam(req, form, ["speed", "speedkmh"]));
-  const alarmCode = readParam(req, form, ["alarmcode", "alarmCode"]);
+  const deviceId = readParam(req, form, ["deviceid", "deviceId", "idequipo", "idnvr", "idOperador"]);
+  const cameraParam = readParam(req, form, [
+    "camera",
+    "cameracode",
+    "cameraCode",
+    "codigocamara",
+    "codigoCamara",
+  ]);
+  const channelParam = parseInteger(readParam(req, form, ["channel", "chn", "canal"]));
+  const camara = parseCamera(cameraParam, channelParam);
+  const channel = camara.channel;
+  const eventAt = parseDate(
+    readParam(req, form, [
+      "eventtime",
+      "eventAt",
+      "alarmtime",
+      "idocurrenciaevento",
+      "idOcurrenciaEvento",
+      "fechahorahistorico",
+      "fechaHoraHistorico",
+    ])
+  );
+  const startedAt = parseDate(
+    readParam(req, form, [
+      "starttime",
+      "startAt",
+      "infovideo_fechainiciograbacion",
+      "infoVideo_fechaInicioGrabacion",
+    ])
+  );
+  const endedAt = parseDate(
+    readParam(req, form, [
+      "endtime",
+      "endAt",
+      "infovideo_fechafingrabacion",
+      "infoVideo_fechaFinGrabacion",
+    ])
+  );
+  const durationSec = parseInteger(
+    readParam(req, form, ["duration", "durationsec", "infovideo_duration", "infoVideo_duration"])
+  );
+  const latitude = parseNumber(
+    readParam(req, form, [
+      "lat",
+      "latitude",
+      "localizacionvehiculo_latitud",
+      "localizacionVehiculo_latitud",
+    ])
+  );
+  const longitude = parseNumber(
+    readParam(req, form, [
+      "lon",
+      "lng",
+      "longitude",
+      "localizacionvehiculo_longitud",
+      "localizacionVehiculo_longitud",
+    ])
+  );
+  const speedKmh = parseNumber(readParam(req, form, ["speed", "speedkmh", "velocidad"]));
+  const alarmCode = readParam(req, form, ["alarmcode", "alarmCode", "codigoevento", "codigoEvento"]);
   const alarmLabel = readParam(req, form, ["alarmlabel", "alarmLabel"]);
-  const checksum = readParam(req, form, ["checksum", "md5", "sha256"]);
-  const expectedClipsParam = parseInteger(readParam(req, form, ["expectedclips", "totalchannels"]));
-  const filenameParam = readParam(req, form, ["filename", "name"]);
+  const checksum = readParam(req, form, ["checksum", "md5", "sha256", "md5hash", "md5Hash"]);
+  const expectedClipsParam = parseInteger(readParam(req, form, ["expectedclips", "totalclips"]));
+  const filenameParam = readParam(req, form, [
+    "filename",
+    "name",
+    "nombrearchivovideo",
+    "nombreArchivoVideo",
+  ]);
+  const segmentParam = readParam(req, form, ["segment", "tramo", "parte", "part", "tipo"]);
+  const sizeParam = parseInteger(readParam(req, form, ["size", "sizebytes", "tamano"]));
 
   const eventReference = eventAt ?? startedAt ?? new Date();
   const externalEventId =
-    readParam(req, form, ["eventid", "eventId", "registerid", "registerId", "alarmid"]) ??
+    readParam(req, form, [
+      "eventid",
+      "eventId",
+      "registerid",
+      "registerId",
+      "alarmid",
+      "idregistroevento",
+      "idRegistroEvento",
+    ]) ??
     `${busCode ?? deviceId ?? "SIN_BUS"}-${eventReference.toISOString().replace(/[:.]/g, "")}`;
 
   const bus = busCode
@@ -218,28 +394,34 @@ export async function POST(req: NextRequest) {
     select: { id: true, expectedClips: true, busCode: true },
   });
 
-  // 2) Ruta destino del clip (determinista: el reenvío del mismo clip no duplica archivos).
-  const filename = safeFilename(filenameParam, channel, externalEventId);
+  // 2) Tramo del clip y ruta destino (determinista: el reenvío no duplica archivos).
+  const segment = resolveSegment({
+    declarado: segmentParam,
+    filename: filenameParam,
+    durationSec,
+    startedAt,
+    endedAt,
+    eventAt: eventAt ?? startedAt ?? null,
+  });
+
+  const filename = safeFilename(filenameParam, camara.cameraKey, externalEventId, segment);
   const relPath = buildClipRelPath({
     tenantCode: tenant.code,
     eventAt: eventReference,
     busCode: event.busCode ?? busCode,
     externalEventId,
-    channel,
+    cameraKey: camara.cameraKey,
+    segment,
     filename,
   });
 
   // 3) Idempotencia: si ese clip ya llegó completo, no se vuelve a escribir.
-  const existing =
-    channel === null
-      ? await prisma.panicVideoClip.findFirst({
-          where: { eventId: event.id, filePath: { endsWith: `/${relPath}` } },
-          select: { id: true, status: true, filePath: true, storage: true, sizeBytes: true },
-        })
-      : await prisma.panicVideoClip.findUnique({
-          where: { eventId_channel: { eventId: event.id, channel } },
-          select: { id: true, status: true, filePath: true, storage: true, sizeBytes: true },
-        });
+  const existing = await prisma.panicVideoClip.findUnique({
+    where: {
+      eventId_cameraKey_segment: { eventId: event.id, cameraKey: camara.cameraKey, segment },
+    },
+    select: { id: true, status: true, filePath: true, storage: true, sizeBytes: true },
+  });
 
   if (existing && existing.status === PanicClipStatus.COMPLETO) {
     return NextResponse.json(
@@ -248,7 +430,7 @@ export async function POST(req: NextRequest) {
         duplicate: true,
         eventId: event.id,
         clipId: existing.id,
-        message: "El clip de esa cámara ya estaba registrado para el evento",
+        message: `El clip ${segmentoLegible(segment)} de esa cámara ya estaba registrado para el evento`,
       },
       { status: 200 }
     );
@@ -257,6 +439,7 @@ export async function POST(req: NextRequest) {
   // 4) Cuerpo del video.
   const headerLength = Number(req.headers.get("content-length") ?? 0);
   let declaredLength = Number.isFinite(headerLength) && headerLength > 0 ? headerLength : 0;
+  if (!declaredLength && sizeParam && sizeParam > 0) declaredLength = sizeParam;
 
   const picked = await pickVolumeForWrite(declaredLength);
   if (!picked) {
@@ -265,7 +448,7 @@ export async function POST(req: NextRequest) {
         eventId: event.id,
         type: PanicEventLogType.CLIP_FALLIDO,
         message: "Sin espacio disponible en los volúmenes de almacenamiento",
-        meta: { channel },
+        meta: { camera: camara.cameraCode ?? channel, segment },
       },
     });
     return bad(507, "Sin espacio de almacenamiento disponible");
@@ -315,7 +498,7 @@ export async function POST(req: NextRequest) {
         eventId: event.id,
         type: PanicEventLogType.CLIP_FALLIDO,
         message: `Error escribiendo el clip: ${message}`,
-        meta: { channel, volume: picked.volume.key },
+        meta: { camera: camara.cameraCode ?? channel, segment, volume: picked.volume.key },
       },
     });
     return bad(500, "No se pudo almacenar el clip", { details: message });
@@ -324,7 +507,7 @@ export async function POST(req: NextRequest) {
   // 5) Validación del cargue: tamaño mínimo, coincidencia con el tamaño declarado y duración.
   const declaredOk = declaredLength <= 0 || declaredLength === bytesWritten;
 
-  const durationOk = isClipDurationAcceptable(durationSec);
+  const durationOk = isClipDurationAcceptable(durationSec, segment);
   const sizeOk = bytesWritten >= PANIC_MIN_CLIP_BYTES;
 
   const status: PanicClipStatus =
@@ -342,8 +525,14 @@ export async function POST(req: NextRequest) {
   const clipData = {
     tenantId: tenant.id,
     eventId: event.id,
+    cameraCode: camara.cameraCode,
+    cameraKey: camara.cameraKey,
+    wagon: camara.wagon,
     channel,
-    cameraLabel: channel === null ? null : `Cámara ${channel}`,
+    segment,
+    cameraLabel: `${camara.label} · ${
+      segment === PanicClipSegment.PREVIO ? "minuto previo" : "cinco minutos posteriores"
+    }`,
     filename,
     originalName,
     filePath: `${picked.volume.key}/${relPath}`,
@@ -396,9 +585,15 @@ export async function POST(req: NextRequest) {
       type: status === PanicClipStatus.COMPLETO ? PanicEventLogType.CLIP_RECIBIDO : PanicEventLogType.CLIP_FALLIDO,
       message:
         status === PanicClipStatus.COMPLETO
-          ? `Clip recibido${channel === null ? "" : ` de la cámara ${channel}`} (${bytesWritten} bytes)`
+          ? `Clip ${segmentoLegible(segment)} recibido de ${camara.label} (${bytesWritten} bytes)`
           : `Clip con inconsistencias: ${errorDetail}`,
-      meta: { channel, volume: picked.volume.key, bytesWritten, declaredLength },
+      meta: {
+        camera: camara.cameraCode ?? channel,
+        segment,
+        volume: picked.volume.key,
+        bytesWritten,
+        declaredLength,
+      },
     },
   });
 
@@ -427,6 +622,8 @@ export async function POST(req: NextRequest) {
       busCode: event.busCode,
       busMatched: Boolean(bus),
       channel,
+      camera: camara.cameraCode ?? (channel === null ? null : `CAM${channel}`),
+      segment,
       storage: picked.volume.key,
       bytesWritten,
       receivedClips: completos.length,

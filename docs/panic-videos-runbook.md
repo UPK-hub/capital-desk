@@ -105,8 +105,8 @@ PANIC_STORAGE_VOLUMES=cbsts1|\\10.216.170.194\panic|500|5600;cbsts2|\\10.216.170
 # Secreto que deben enviar los NVR en la cabecera x-integration-secret
 PANIC_INTEGRATION_SECRET=<generar uno propio para pánico>
 
-# Cámaras esperadas por evento (la flota tiene 13 cámaras por bus)
-PANIC_EXPECTED_CLIPS=13
+# Clips esperados por evento: 13 cámaras x 2 tramos (previo y posterior)
+PANIC_EXPECTED_CLIPS=26
 
 # Opcionales (valores por defecto entre paréntesis)
 # PANIC_CLIP_TARGET_SECONDS=300
@@ -211,8 +211,8 @@ Entregar `docs/panic-videos-endpoint.md` junto con:
 
 - URL del endpoint (host público de la mesa).
 - Secreto `x-integration-secret` (por canal seguro, no por correo).
-- Confirmación de cuántas cámaras se suben por evento (13 o el subconjunto que
-  defina la operación).
+- Confirmación de la nomenclatura de cámaras en uso (códigos tipo BV1-4) y de que
+  se envían los dos tramos por cámara.
 
 ## Parte 6 · Mantenimiento
 
