@@ -301,7 +301,10 @@ export function resolveClipAbsPath(volumeKey: string, relPath: string): string |
   const clean = String(relPath ?? "").replace(/\\/g, "/").replace(/^\/+/, "");
   if (!clean || clean.includes("..")) return null;
 
-  const root = path.resolve(volume.root);
+  // path.resolve deja una barra final en las raíces (unidades y, sobre todo,
+  // recursos de red UNC: "\\\\host\\panic\\"). Si no se quita, la comprobación
+  // anti-escape de abajo rechaza rutas legítimas.
+  const root = path.resolve(volume.root).replace(/[\\/]+$/, "");
   const candidate = path.resolve(root, clean);
   if (candidate !== root && !candidate.startsWith(root + path.sep)) return null;
   return candidate;
