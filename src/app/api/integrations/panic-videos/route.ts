@@ -623,7 +623,7 @@ export async function POST(req: NextRequest) {
     channel,
     segment,
     cameraLabel: `${camara.label} · ${
-      segment === PanicClipSegment.PREVIO ? "minuto previo" : "cinco minutos posteriores"
+      segment === PanicClipSegment.PREVIO ? "1 minuto previo" : "5 minutos posteriores"
     }`,
     filename,
     originalName,

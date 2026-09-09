@@ -114,7 +114,7 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
               {event.clips.length === 0 ? (
                 <p className="mt-4 text-sm text-muted-foreground">
                   El evento fue registrado pero todavía no llegó ningún video. Se esperan dos clips por cámara: el
-                  minuto previo y los cinco minutos posteriores a la activación.
+                  1 minuto previo y los 5 minutos posteriores a la activación.
                 </p>
               ) : (
                 <div className="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -124,7 +124,7 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
                         <p className="text-sm font-medium">
                           {clip.cameraLabel ??
                             `${clip.cameraCode ?? (clip.channel === null ? "Cámara" : `Cámara ${clip.channel}`)} · ${
-                              clip.segment === "PREVIO" ? "minuto previo" : "cinco minutos posteriores"
+                              clip.segment === "PREVIO" ? "1 minuto previo" : "5 minutos posteriores"
                             }`}
                         </p>
                         <span

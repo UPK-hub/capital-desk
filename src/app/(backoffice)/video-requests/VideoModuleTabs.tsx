@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type TabKey = "requests" | "received" | "panic";
+type TabKey = "requests" | "received" | "panic" | "almacenamiento";
 
 export default function VideoModuleTabs({
   active,
@@ -28,6 +28,14 @@ export default function VideoModuleTabs({
           className={`${base} ${active === "panic" ? current : inactive}`}
         >
           Botón de pánico
+        </Link>
+      ) : null}
+      {showPanic ? (
+        <Link
+          href="/video-requests/panic/almacenamiento"
+          className={`${base} ${active === "almacenamiento" ? current : inactive}`}
+        >
+          Almacenamiento
         </Link>
       ) : null}
     </nav>

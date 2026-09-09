@@ -34,34 +34,39 @@ function vagonDesdeCodigo(codigo: string): string | null {
 }
 
 async function main() {
+  // Se recorren todos los clips: los que no tienen código se completan y los que
+  // ya lo tienen se aprovechan para refrescar la etiqueta si cambió el formato.
   const clips = await prisma.panicVideoClip.findMany({
-    where: { cameraCode: null },
     select: {
       id: true,
       filename: true,
       originalName: true,
+      cameraCode: true,
       channel: true,
       segment: true,
       cameraLabel: true,
     },
+    orderBy: { receivedAt: "desc" },
   });
 
-  console.log(`Clips sin código de cámara: ${clips.length}`);
+  console.log(`Clips revisados: ${clips.length}`);
   if (!clips.length) return;
 
   let actualizados = 0;
 
   for (const clip of clips) {
-    const codigo = codigoDesdeNombre(clip.originalName, clip.filename);
+    const codigo = clip.cameraCode ?? codigoDesdeNombre(clip.originalName, clip.filename);
     if (!codigo) {
       console.log(`- ${clip.id}: no se pudo deducir el código (${clip.originalName ?? clip.filename})`);
       continue;
     }
 
     const tramo =
-      clip.segment === PanicClipSegment.PREVIO ? "minuto previo" : "cinco minutos posteriores";
+      clip.segment === PanicClipSegment.PREVIO ? "1 minuto previo" : "5 minutos posteriores";
     const base = clip.channel !== null ? `Cámara ${clip.channel} · ${codigo}` : `Cámara ${codigo}`;
     const etiqueta = `${base} · ${tramo}`;
+
+    if (clip.cameraLabel === etiqueta && clip.cameraCode === codigo) continue;
 
     console.log(`- ${codigo.padEnd(6)} canal ${String(clip.channel ?? "-").padStart(2)} -> ${etiqueta}`);
 
