@@ -2143,3 +2143,343 @@
   background: hsl(var(--muted) / 0.55);
   font-weight: 500;
 }
+
+/* ==========================================================================
+   Botón de pánico · cargue de clips
+   Cada activación produce dos archivos por cámara (1 minuto previo y 5
+   minutos posteriores). El bloque se organiza por cámara para que la
+   revisión sea cámara a cámara y el tramo faltante se lea de inmediato.
+   ========================================================================== */
+
+.panic-upload__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.panic-upload__title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.panic-upload__subtitle {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.panic-upload__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.panic-upload__badge--ok {
+  background: hsl(160 84% 39% / 0.14);
+  color: hsl(160 84% 30%);
+}
+
+.panic-upload__badge--parcial {
+  background: hsl(38 92% 50% / 0.16);
+  color: hsl(32 81% 35%);
+}
+
+.dark .panic-upload__badge--ok {
+  color: hsl(160 70% 62%);
+}
+
+.dark .panic-upload__badge--parcial {
+  color: hsl(38 92% 68%);
+}
+
+.panic-progress {
+  margin-top: 0.9rem;
+  height: 6px;
+  width: 100%;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  overflow: hidden;
+}
+
+.panic-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(262 83% 58%));
+}
+
+.panic-progress__fill--ok {
+  background: linear-gradient(90deg, hsl(160 84% 39%), hsl(160 84% 32%));
+}
+
+.panic-progress__legend {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  font-size: 0.72rem;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.panic-progress__legend strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+/* --- Tarjeta por cámara --- */
+
+.panic-cam-grid {
+  margin-top: 1.1rem;
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1280px) {
+  .panic-cam-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.panic-cam {
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: hsl(var(--card));
+  overflow: hidden;
+  transition:
+    border-color var(--motion-base, 160ms) var(--ease-standard, ease),
+    box-shadow var(--motion-base, 160ms) var(--ease-standard, ease);
+}
+
+.panic-cam:hover {
+  border-color: var(--border-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.panic-cam--parcial {
+  border-color: hsl(38 92% 50% / 0.45);
+}
+
+.panic-cam__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: hsl(var(--muted) / 0.4);
+}
+
+.panic-cam__ident {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+
+.panic-cam__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.panic-cam__code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
+
+.panic-cam__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.panic-cam__count--ok {
+  background: hsl(160 84% 39% / 0.14);
+  color: hsl(160 84% 30%);
+}
+
+.panic-cam__count--parcial {
+  background: hsl(38 92% 50% / 0.16);
+  color: hsl(32 81% 35%);
+}
+
+.dark .panic-cam__count--ok {
+  color: hsl(160 70% 62%);
+}
+
+.dark .panic-cam__count--parcial {
+  color: hsl(38 92% 68%);
+}
+
+.panic-cam__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .panic-cam__body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.panic-cam__extra {
+  border-top: 1px dashed var(--border-normal);
+  padding: 0.75rem;
+}
+
+.panic-cam__extra-title {
+  margin-bottom: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* --- Tramo (clip) --- */
+
+.panic-clip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.panic-clip__label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.panic-clip__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  flex: none;
+}
+
+.panic-clip__dot--previo {
+  background: hsl(var(--primary));
+}
+
+.panic-clip__dot--posterior {
+  background: hsl(262 83% 58%);
+}
+
+.panic-clip__dot--vacio {
+  background: hsl(var(--border));
+}
+
+.panic-clip__flag {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: hsl(var(--destructive) / 0.14);
+  color: hsl(var(--destructive));
+}
+
+.panic-clip__video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: #000;
+  border: 1px solid var(--border-subtle);
+}
+
+.panic-clip__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  border: 1px dashed var(--border-normal);
+  background: hsl(var(--muted) / 0.35);
+  font-size: 0.72rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.panic-clip__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+
+.panic-clip__stats {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panic-clip__dl {
+  flex: none;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  text-decoration: none;
+}
+
+.panic-clip__dl:hover {
+  text-decoration: underline;
+}
+
+.panic-clip__note {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: hsl(32 81% 35%);
+}
+
+.dark .panic-clip__note {
+  color: hsl(38 92% 68%);
+}
+
+.panic-upload__empty {
+  margin-top: 1rem;
+  border: 1px dashed var(--border-normal);
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.3);
+}
