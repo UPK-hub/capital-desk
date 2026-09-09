@@ -121,13 +121,18 @@ function parseCamera(codigo: string | null, channel: number | null) {
   if (limpio) {
     const m = limpio.match(/^([A-Z]*\d*)[-_ ]?(\d+)$/);
     const wagon = m && m[1] ? m[1] : null;
-    const numero = m && m[2] ? Number(m[2]) : channel;
+    const numeroDelCodigo = m && m[2] ? Number(m[2]) : null;
+    // El canal declarado por el equipo manda: es el que numera las cámaras del
+    // bus de 1 a 13. El código (BV3-2) identifica vagón y posición.
+    const numero = channel ?? numeroDelCodigo;
     return {
       cameraCode: limpio,
       wagon,
       channel: Number.isFinite(numero as number) ? (numero as number) : null,
-      cameraKey: limpio.replace(/[^A-Z0-9]/g, "-"),
-      label: wagon ? `Cámara ${numero} · vagón ${wagon.replace(/^BV/, "")}` : `Cámara ${limpio}`,
+      // La clave de unicidad sigue el canal cuando el equipo lo envía, para que
+      // los dos tramos de una misma cámara queden emparejados.
+      cameraKey: channel !== null ? `CAM${channel}` : limpio.replace(/[^A-Z0-9]/g, "-"),
+      label: numero !== null ? `Cámara ${numero} · ${limpio}` : `Cámara ${limpio}`,
     };
   }
 
@@ -305,8 +310,6 @@ export async function POST(req: NextRequest) {
     "codigoCamara",
   ]);
   const channelParam = parseInteger(readParam(req, form, ["channel", "chn", "canal"]));
-  const camara = parseCamera(cameraParam, channelParam);
-  const channel = camara.channel;
   const eventAt = parseDate(
     readParam(req, form, [
       "eventtime",
@@ -365,6 +368,17 @@ export async function POST(req: NextRequest) {
     "nombrearchivovideo",
     "nombreArchivoVideo",
   ]);
+
+  // El NVR nombra los archivos anteponiendo el código de cámara al del evento:
+  // "BV3-2EV909-09-2026-11_05_54-5MIN.mp4" -> BV3-2. Cuando el equipo no envía
+  // codigoCamara como parámetro, se toma de ahí para poder rotularlo en la mesa.
+  const codigoEnArchivo =
+    String(filenameParam ?? "")
+      .toUpperCase()
+      .match(/^([A-Z0-9_-]+?)EV\d/)?.[1] ?? null;
+
+  const camara = parseCamera(cameraParam ?? codigoEnArchivo, channelParam);
+  const channel = camara.channel;
   const segmentParam = readParam(req, form, ["segment", "tramo", "parte", "part", "tipo"]);
   const sizeParam = parseInteger(readParam(req, form, ["size", "sizebytes", "tamano"]));
 
