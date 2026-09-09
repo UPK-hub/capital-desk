@@ -111,6 +111,20 @@ function parseDate(value: string | null): Date | null {
 }
 
 /**
+ * El identificador de evento del NVR incluye la marca de tiempo de la
+ * activación: "2026090913340900" es 2026-09-09 13:34:09 en hora local. Sirve
+ * como respaldo cuando el equipo no envía la fecha, y como verificación cuando
+ * la envía sin zona horaria.
+ */
+function fechaDesdeIdEvento(externalEventId: string): Date | null {
+  const m = String(externalEventId ?? "").match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  const [, yyyy, mm, dd, hh, mi, ss] = m;
+  const fecha = new Date(`${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}.000${TZ_OFFSET}`);
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
+}
+
+/**
  * Identificación de la cámara. El NVR entrega códigos tipo "BV1-4": vagón 1,
  * cámara 4. Se conserva el código tal cual, se extrae el vagón y el número, y se
  * arma una clave normalizada para el control de duplicados.
@@ -395,6 +409,21 @@ export async function POST(req: NextRequest) {
     ]) ??
     `${busCode ?? deviceId ?? "SIN_BUS"}-${eventReference.toISOString().replace(/[:.]/g, "")}`;
 
+  // Verificación de la hora: si el identificador del NVR trae la marca de tiempo
+  // y difiere en más de dos minutos de la fecha recibida, se toma la del
+  // identificador. Cubre el caso de tramas enviadas sin zona horaria.
+  const fechaDelId = fechaDesdeIdEvento(externalEventId);
+  let eventAtFinal = eventAt;
+  let horaCorregida = false;
+  if (fechaDelId) {
+    if (!eventAtFinal) {
+      eventAtFinal = fechaDelId;
+    } else if (Math.abs(eventAtFinal.getTime() - fechaDelId.getTime()) > 120_000) {
+      eventAtFinal = fechaDelId;
+      horaCorregida = true;
+    }
+  }
+
   const bus = busCode
     ? await prisma.bus.findFirst({
         where: { tenantId: tenant.id, code: busCode },
@@ -423,7 +452,7 @@ export async function POST(req: NextRequest) {
       vehicleId,
       alarmCode,
       alarmLabel,
-      eventAt: eventAt ?? startedAt ?? null,
+      eventAt: eventAtFinal ?? startedAt ?? null,
       latitude,
       longitude,
       speedKmh,
@@ -437,7 +466,7 @@ export async function POST(req: NextRequest) {
       deviceId: deviceId ?? undefined,
       alarmCode: alarmCode ?? undefined,
       alarmLabel: alarmLabel ?? undefined,
-      eventAt: eventAt ?? undefined,
+      eventAt: eventAtFinal ?? undefined,
       latitude: latitude ?? undefined,
       longitude: longitude ?? undefined,
       speedKmh: speedKmh ?? undefined,
@@ -454,7 +483,7 @@ export async function POST(req: NextRequest) {
     durationSec,
     startedAt,
     endedAt,
-    eventAt: eventAt ?? startedAt ?? null,
+    eventAt: eventAtFinal ?? startedAt ?? null,
   });
   const segmentoPreferido = resolucionTramo.segment;
 
@@ -588,6 +617,11 @@ export async function POST(req: NextRequest) {
 
   // Observaciones que no invalidan el archivo pero deben quedar visibles en la mesa.
   const observaciones: string[] = [];
+  if (horaCorregida) {
+    observaciones.push(
+      "La hora recibida no coincidía con la marca de tiempo del identificador del evento; se tomó la del identificador."
+    );
+  }
   if (resolucionTramo.conflicto) observaciones.push(resolucionTramo.conflicto);
   if (tramoReasignado) {
     observaciones.push(

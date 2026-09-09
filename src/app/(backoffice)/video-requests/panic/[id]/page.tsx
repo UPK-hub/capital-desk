@@ -1,14 +1,107 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { PanicClipStatus, Role } from "@prisma/client";
+import type { PanicVideoClip } from "@prisma/client";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canManagePanic, canViewPanic } from "@/lib/panic/access";
-import { PANIC_EXPECTED_CLIPS, retentionUntil } from "@/lib/panic/config";
+import { PANIC_CAMERAS_PER_BUS, PANIC_EXPECTED_CLIPS, retentionUntil } from "@/lib/panic/config";
 import VideoModuleTabs from "../../VideoModuleTabs";
 import PanicManagePanel from "../PanicManagePanel";
 import { CLIP_STATUS_LABEL, STATUS_LABEL, fmtBytes, fmtDateTime, fmtDuration } from "../format";
+
+type ClipRow = PanicVideoClip;
+
+type CamaraAgrupada = {
+  key: string;
+  canal: number | null;
+  codigo: string | null;
+  previo: ClipRow | null;
+  posterior: ClipRow | null;
+  extras: ClipRow[];
+};
+
+/**
+ * Cada cámara envía dos archivos por activación (1 minuto previo y 5 minutos
+ * posteriores). La vista los agrupa por cámara para que la revisión se haga
+ * cámara por cámara y los tramos faltantes se vean de inmediato.
+ */
+function agruparPorCamara(clips: ClipRow[]): CamaraAgrupada[] {
+  const mapa = new Map<string, CamaraAgrupada>();
+
+  for (const clip of clips) {
+    const key = clip.cameraKey || clip.cameraCode || clip.id;
+    let grupo = mapa.get(key);
+    if (!grupo) {
+      grupo = { key, canal: null, codigo: null, previo: null, posterior: null, extras: [] };
+      mapa.set(key, grupo);
+    }
+    if (grupo.canal === null && clip.channel !== null) grupo.canal = clip.channel;
+    if (!grupo.codigo && clip.cameraCode) grupo.codigo = clip.cameraCode;
+
+    if (clip.segment === "PREVIO") {
+      if (!grupo.previo) grupo.previo = clip;
+      else grupo.extras.push(clip);
+    } else if (!grupo.posterior) {
+      grupo.posterior = clip;
+    } else {
+      grupo.extras.push(clip);
+    }
+  }
+
+  return [...mapa.values()].sort((a, b) => {
+    const ca = a.canal ?? Number.MAX_SAFE_INTEGER;
+    const cb = b.canal ?? Number.MAX_SAFE_INTEGER;
+    if (ca !== cb) return ca - cb;
+    return a.key.localeCompare(b.key, "es");
+  });
+}
+
+function tituloCamara(camara: CamaraAgrupada): string {
+  if (camara.canal !== null) return `Cámara ${camara.canal}`;
+  if (camara.codigo) return camara.codigo;
+  return "Cámara sin identificar";
+}
+
+function ClipSlot({ clip, tramo }: { clip: ClipRow | null; tramo: string }) {
+  if (!clip) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{tramo}</p>
+        <div className="flex aspect-video w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/20">
+          <span className="text-[11px] text-muted-foreground">Pendiente</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Sin recibir</p>
+      </div>
+    );
+  }
+
+  const completo = clip.status === PanicClipStatus.COMPLETO;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{tramo}</p>
+        {completo ? null : (
+          <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+            {CLIP_STATUS_LABEL[clip.status]}
+          </span>
+        )}
+      </div>
+      <video className="aspect-video w-full rounded-md bg-black" controls preload="metadata" src={`/api/panic-clips/${clip.id}`} />
+      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span className="truncate">
+          {fmtDuration(clip.durationSec)} · {fmtBytes(clip.sizeBytes)} · {clip.storage.toUpperCase()}
+        </span>
+        <a className="shrink-0 underline" href={`/api/panic-clips/${clip.id}?dl=1`}>
+          Descargar
+        </a>
+      </div>
+      {clip.error ? <p className="text-[11px] leading-snug text-amber-600">{clip.error}</p> : null}
+    </div>
+  );
+}
 
 export default async function PanicEventDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -74,6 +167,11 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
   const faltantes = Math.max(esperado - completos.length, 0);
   const conservarHasta = retentionUntil(event.receivedAt);
 
+  const camaras = agruparPorCamara(event.clips as ClipRow[]);
+  const camarasEsperadas = Math.max(Math.round(esperado / 2), PANIC_CAMERAS_PER_BUS);
+  const camarasFaltantes = Math.max(camarasEsperadas - camaras.length, 0);
+  const camarasCompletas = camaras.filter((camara) => camara.previo && camara.posterior).length;
+
   return (
     <div className="mobile-page-shell">
       <header className="mobile-page-header">
@@ -100,7 +198,13 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
           <div className="space-y-6 lg:col-span-2">
             <section className="sts-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-base font-semibold">Cargue de clips</h2>
+                <div>
+                  <h2 className="text-base font-semibold">Cargue de clips</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {camarasCompletas} de {camarasEsperadas} cámaras con sus dos tramos
+                    {camarasFaltantes > 0 ? ` · ${camarasFaltantes} sin reportar` : ""}
+                  </p>
+                </div>
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
                     event.complete ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"
@@ -111,47 +215,58 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
                 </span>
               </div>
 
-              {event.clips.length === 0 ? (
+              {camaras.length === 0 ? (
                 <p className="mt-4 text-sm text-muted-foreground">
                   El evento fue registrado pero todavía no llegó ningún video. Se esperan dos clips por cámara: el
                   1 minuto previo y los 5 minutos posteriores a la activación.
                 </p>
               ) : (
-                <div className="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {event.clips.map((clip) => (
-                    <div key={clip.id} className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">
-                          {clip.cameraLabel ??
-                            `${clip.cameraCode ?? (clip.channel === null ? "Cámara" : `Cámara ${clip.channel}`)} · ${
-                              clip.segment === "PREVIO" ? "1 minuto previo" : "5 minutos posteriores"
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  {camaras.map((camara) => {
+                    const recibidos = (camara.previo ? 1 : 0) + (camara.posterior ? 1 : 0);
+                    const completa = recibidos === 2;
+                    return (
+                      <article key={camara.key} className="rounded-lg border border-border/70 bg-muted/10 p-3">
+                        <header className="flex items-center justify-between gap-2 pb-2.5">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate text-sm font-semibold">{tituloCamara(camara)}</span>
+                            {camara.codigo ? (
+                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                                {camara.codigo}
+                              </span>
+                            ) : null}
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              completa ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"
                             }`}
-                        </p>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            clip.status === PanicClipStatus.COMPLETO
-                              ? "bg-emerald-500/15 text-emerald-600"
-                              : "bg-red-500/15 text-red-600"
-                          }`}
-                        >
-                          {CLIP_STATUS_LABEL[clip.status]}
-                        </span>
-                      </div>
-                      <video
-                        className="aspect-video w-full rounded-md bg-black"
-                        controls
-                        preload="metadata"
-                        src={`/api/panic-clips/${clip.id}`}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {fmtDuration(clip.durationSec)} · {fmtBytes(clip.sizeBytes)} · {clip.storage.toUpperCase()}
-                      </p>
-                      {clip.error ? <p className="text-xs text-red-600">{clip.error}</p> : null}
-                      <a className="text-xs underline" href={`/api/panic-clips/${clip.id}?dl=1`}>
-                        Descargar
-                      </a>
-                    </div>
-                  ))}
+                          >
+                            {recibidos}/2
+                          </span>
+                        </header>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <ClipSlot clip={camara.previo} tramo="1 minuto previo" />
+                          <ClipSlot clip={camara.posterior} tramo="5 minutos posteriores" />
+                        </div>
+                        {camara.extras.length > 0 ? (
+                          <div className="mt-3 border-t border-border/60 pt-3">
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Archivos adicionales de esta cámara
+                            </p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {camara.extras.map((extra) => (
+                                <ClipSlot
+                                  key={extra.id}
+                                  clip={extra}
+                                  tramo={extra.segment === "PREVIO" ? "1 minuto previo (extra)" : "5 minutos posteriores (extra)"}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </section>
