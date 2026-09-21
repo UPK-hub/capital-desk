@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { videoCaseStatusLabels, videoDownloadStatusLabels } from "@/lib/labels";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type Row = {
   id: string;
@@ -19,7 +20,7 @@ type Row = {
 
 function fmtDate(iso: string) {
   try {
-    return new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+    return formatFechaHoraCO(new Date(iso));
   } catch {
     return iso;
   }

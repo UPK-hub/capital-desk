@@ -24,15 +24,11 @@ import { getCaseStakeholderUserIds } from "@/lib/notify-recipients";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 import { notifyPreventivoClosed } from "@/lib/telegram-notify";
+import { formatHoraCO } from "@/lib/datetime";
 
 function formatInternalTime(d?: Date | null) {
   if (!d) return null;
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatHoraCO(d);
 }
 
 function extractLatestQuickVerification(events: Array<{ meta: unknown }>) {

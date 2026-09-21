@@ -18,6 +18,7 @@ import {
 } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { findInventoryModelBySerial } from "@/lib/inventory-catalog";
+import { formatHoraCO } from "@/lib/datetime";
 
 
 
@@ -132,12 +133,7 @@ function sanitizeTemplateData(raw: unknown): Record<string, string> | null {
 
 function formatInternalTime(d?: Date | null): string | null {
   if (!d) return null;
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatHoraCO(d);
 }
 
 // Acepta solo enums válidos. Si viene basura -> null

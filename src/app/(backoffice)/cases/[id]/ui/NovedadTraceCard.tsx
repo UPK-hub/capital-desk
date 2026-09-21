@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type PriorityOption = "BAJA" | "MEDIA" | "ALTA";
 type AffectedEquipmentType =
@@ -51,11 +52,7 @@ type NovedadCatalogOption = {
 };
 
 function formatBogotaDateTime(date: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(date);
+  return formatFechaHoraCO(date);
 }
 
 function applyObservationTemplate(

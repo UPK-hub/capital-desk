@@ -29,6 +29,7 @@ import OdometerPanel from "./OdometerPanel";
 import CoordinatesPanel from "./CoordinatesPanel";
 import TelemetryBusBreakdown, { type BusBreakdownRow } from "./TelemetryBusBreakdown";
 import TelemetryTypeBreakdown from "./TelemetryTypeBreakdown";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 const TelemetrySatelliteMap = dynamic(() => import("./TelemetrySatelliteMap"), {
   ssr: false,
@@ -103,7 +104,7 @@ function formatDateTime(value: string | null) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("es-CO");
+  return formatFechaHoraCO(d);
 }
 
 function nfmt(n: number) {

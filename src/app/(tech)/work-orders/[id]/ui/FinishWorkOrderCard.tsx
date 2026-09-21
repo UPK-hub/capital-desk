@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, FileText, Upload } from "lucide-react";
 import { withPhotoWatermarkMany } from "@/lib/photo-watermark-client";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type FinishAutoContent = {
   catalogCode: string;
@@ -81,11 +82,7 @@ function isImageUploadPath(path: string | null | undefined) {
 }
 
 function formatBogotaDateTime(date: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(date);
+  return formatFechaHoraCO(date);
 }
 
 function minutesSince(startedAtIso: string | null | undefined) {

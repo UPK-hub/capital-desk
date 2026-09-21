@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
 import type { TelemetryMapPoint } from "./TelemetryDashboard";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type Props = {
   points: TelemetryMapPoint[];
@@ -15,7 +16,7 @@ function formatDateTime(value: string | null) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("es-CO");
+  return formatFechaHoraCO(d);
 }
 
 export default function TelemetrySatelliteMap({ points, selectedBusId }: Props) {

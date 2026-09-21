@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMediaPreview, mediaKindFromPath } from "@/components/MediaPreview";
+import { formatHoraCO } from "@/lib/datetime";
 
 type ChatMessage = {
   id: string;
@@ -275,10 +276,7 @@ export default function DirectChat({
           ) : null}
           {messages.map((m) => {
             const isMe = currentUserId && m.sender.id === currentUserId;
-            const time = new Intl.DateTimeFormat("es-CO", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }).format(new Date(m.createdAt));
+            const time = formatHoraCO(new Date(m.createdAt));
             return (
               <div key={m.id} className={`chat-row ${isMe ? "chat-row--me" : "chat-row--other"}`}>
                 <div className="chat-stack">

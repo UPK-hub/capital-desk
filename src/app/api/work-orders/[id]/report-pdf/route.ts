@@ -9,6 +9,7 @@ import { Role, WorkOrderStatus } from "@prisma/client";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import path from "node:path";
 import { readUploadBinary } from "@/lib/uploads";
+import { formatFechaHoraCO, formatHoraCO } from "@/lib/datetime";
 
 type MediaInfo = { kind: string; filePath: string };
 
@@ -40,21 +41,12 @@ function fmtDateTime(v: any) {
   if (!v) return "";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v ?? "");
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtInternalTime(v?: Date | null) {
   if (!v) return "";
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Bogota",
-  }).format(v);
+  return formatHoraCO(v);
 }
 
 function renderPreventive(report: Record<string, any>, internalStart: string, internalEnd: string) {

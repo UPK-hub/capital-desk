@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/data-table";
 import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import VideoTabs from "./VideoTabs";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function mapCaseStatus(v: string): StatusPillStatus {

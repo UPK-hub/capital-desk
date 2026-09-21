@@ -8,10 +8,11 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { caseStatusLabels, caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d?: Date | null) {
   if (!d) return "-";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function safe(value: unknown) {

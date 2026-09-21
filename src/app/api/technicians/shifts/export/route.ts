@@ -8,10 +8,11 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import * as XLSX from "xlsx";
 import { shiftDurationMinutes } from "@/lib/technician-schedule";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date | null) {
   if (!d) return "";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function hoursDiff(start: Date, end: Date) {

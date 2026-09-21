@@ -1,4 +1,5 @@
 import { PanicClipStatus, PanicEventStatus } from "@prisma/client";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 export const STATUS_LABEL: Record<PanicEventStatus, string> = {
   PENDIENTE: "Pendiente",
@@ -19,11 +20,7 @@ export const PANIC_TIMEZONE = process.env.NEXT_PUBLIC_PANIC_TIMEZONE || "America
 
 export function fmtDateTime(value: Date | null | undefined) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: PANIC_TIMEZONE,
-  }).format(value);
+  return formatFechaHoraCO(value);
 }
 
 export function fmtBytes(value: bigint | number | null | undefined) {

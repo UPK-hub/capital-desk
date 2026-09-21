@@ -6,9 +6,10 @@ import { getServerSession } from "next-auth";
 import ExcelJS from "exceljs";
 import { authOptions } from "@/lib/auth";
 import { getLatestOdometer } from "@/lib/telemetry/odometer";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmt(d: Date | null) {
-  return d ? new Date(d).toLocaleString("es-CO") : "";
+  return d ? formatFechaHoraCO(d) : "";
 }
 
 function dateTag(d: Date) {

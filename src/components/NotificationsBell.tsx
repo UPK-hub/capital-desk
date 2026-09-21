@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type NotificationItem = {
   id: string;
@@ -17,7 +18,7 @@ type NotificationItem = {
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function inferHref(n: NotificationItem): string | null {

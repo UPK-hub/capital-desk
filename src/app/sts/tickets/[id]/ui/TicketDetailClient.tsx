@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { StsTicketStatus } from "@prisma/client";
 import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 import { Select } from "@/components/Field";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type UserRow = { id: string; name: string; email: string; role: string };
 type Ticket = {
@@ -178,7 +179,7 @@ export default function TicketDetailClient({ ticketId, userRole }: { ticketId: s
           </div>
           <p className="text-sm text-muted-foreground">{ticket.description}</p>
           <p className="text-xs text-muted-foreground">
-            {labelFromMap(ticket.severity, stsSeverityLabels)} | {labelFromMap(ticket.channel, stsChannelLabels)} | Abierto {new Date(ticket.openedAt).toLocaleString("es-CO")}
+            {labelFromMap(ticket.severity, stsSeverityLabels)} | {labelFromMap(ticket.channel, stsChannelLabels)} | Abierto {formatFechaHoraCO(ticket.openedAt)}
           </p>
           {ticket.caseId ? (
             <p className="text-xs text-muted-foreground">
@@ -193,7 +194,7 @@ export default function TicketDetailClient({ ticketId, userRole }: { ticketId: s
             {ticket.events.map((e) => (
               <div key={e.id} className="sts-card p-3">
                 <p className="text-xs text-muted-foreground">
-                  {new Date(e.createdAt).toLocaleString("es-CO")} | {e.type} {e.status ? `-> ${labelFromMap(e.status, stsStatusLabels)}` : ""}
+                  {formatFechaHoraCO(e.createdAt)} | {e.type} {e.status ? `-> ${labelFromMap(e.status, stsStatusLabels)}` : ""}
                 </p>
                 {e.message ? <p className="text-sm">{e.message}</p> : null}
               </div>

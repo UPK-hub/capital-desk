@@ -20,12 +20,10 @@ import RenewalTechReportForm from "./ui/RenewalTechReportForm";
 import { preventiveCompletion, correctiveCompletion, renewalCompletion } from "@/lib/work-orders/report-completion";
 import { fmtWorkOrderNo, fmtCaseNo } from "@/lib/format-no";
 import { caseTypeLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function normalizeStoredUploadPath(value: string | null | undefined) {

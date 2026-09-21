@@ -5,9 +5,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { caseStatusLabels, labelFromMap, workOrderStatusLabels } from "@/lib/labels";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function badge(base: string) {

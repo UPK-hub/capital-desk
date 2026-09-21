@@ -12,6 +12,7 @@ import {
 import { Select } from "@/components/Field";
 import { useMediaPreview, mediaKindFromPath, downloadUrl } from "@/components/MediaPreview";
 import VideoCamerasFolders from "@/app/(backoffice)/cases/[id]/ui/VideoCamerasFolders";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type Item = {
   id: string;
@@ -91,7 +92,74 @@ function fmtEta(s: number | null) {
 }
 
 function fmtDate(d: string) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(d));
+  return formatFechaHoraCO(new Date(d));
+}
+
+function duracionEntre(inicio?: string | null, fin?: string | null): string | null {
+  if (!inicio || !fin) return null;
+  const a = new Date(inicio).getTime();
+  const b = new Date(fin).getTime();
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return null;
+  const min = Math.round((b - a) / 60000);
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const r = min % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+
+function Chips({ items }: { items: string[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((v) => (
+        <span
+          key={v}
+          className="inline-flex items-center rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 text-xs font-medium"
+        >
+          {v}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Campo({
+  label,
+  value,
+  ancho = false,
+  mono = false,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  ancho?: boolean;
+  mono?: boolean;
+}) {
+  const vacio = value === null || value === undefined || value === "" || value === "-";
+  return (
+    <div className={ancho ? "min-w-0 sm:col-span-2 lg:col-span-3" : "min-w-0"}>
+      <dt className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </dt>
+      <dd
+        className={`mt-1 break-words text-sm ${mono ? "tabular-nums" : ""} ${
+          vacio ? "text-muted-foreground/60" : ""
+        }`}
+      >
+        {vacio ? "\u2014" : value}
+      </dd>
+    </div>
+  );
+}
+
+function GrupoDatos({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-border/60 pt-4 first:border-t-0 first:pt-0">
+      <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+        {titulo}
+      </h3>
+      <dl className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">{children}</dl>
+    </div>
+  );
 }
 
 function inputCls() {
@@ -290,9 +358,17 @@ export default function VideoRequestDetailClient({
     }
   }
 
-  const requesterEmails = Array.isArray(item.requesterEmails)
-    ? item.requesterEmails.filter(Boolean).join(", ")
-    : "";
+  const requesterEmailList: string[] = Array.isArray(item.requesterEmails)
+    ? item.requesterEmails.filter(Boolean).map((c: unknown) => String(c))
+    : [];
+  const camerasList = String(item.camerasRequested ?? "")
+    .split(/[,;]/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+  const finSolicitudList: string[] = Array.isArray(item.finSolicitud)
+    ? item.finSolicitud.filter(Boolean).map((c: unknown) => String(c))
+    : [];
+  const duracionEvento = duracionEntre(item.eventStart, item.eventEnd);
 
   return (
     <div className="mobile-page-shell">
@@ -334,112 +410,72 @@ export default function VideoRequestDetailClient({
         <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Datos de la solicitud</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="text-xs text-muted-foreground">Solicitante</label>
-                <p className="text-sm">{item.requesterName ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Cargo</label>
-                <p className="text-sm">{item.requesterRole ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Telefono</label>
-                <p className="text-sm">{item.requesterPhone ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Email</label>
-                <p className="text-sm">{item.requesterEmail ?? "-"}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground">Correos envio</label>
-                <p className="text-sm">{requesterEmails || "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Vehiculo</label>
-                <p className="text-sm">{item.vehicleId ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Creado</label>
-                <p className="text-sm">{fmtDate(item.createdAt)}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Procedencia</label>
-                <p className="text-sm">{item.origin ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Tipo requerimiento</label>
-                <p className="text-sm">{item.requestType ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Radicado TMSA</label>
-                <p className="text-sm">{item.tmsaRadicado ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Fecha radicado concesionario</label>
-                <p className="text-sm">{item.concessionaireFiledAt ? fmtDate(item.concessionaireFiledAt) : "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Fecha evento inicio</label>
-                <p className="text-sm">{item.eventStart ? fmtDate(item.eventStart) : "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Fecha evento fin</label>
-                <p className="text-sm">{item.eventEnd ? fmtDate(item.eventEnd) : "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Camaras solicitadas</label>
-                <p className="text-sm">{item.camerasRequested ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Medio de entrega</label>
-                <p className="text-sm">{item.deliveryMethod ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Procedencia</label>
-                <p className="text-sm">{item.origin ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Tipo requerimiento</label>
-                <p className="text-sm">{item.requestType ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Radicado TMSA</label>
-                <p className="text-sm">{item.tmsaRadicado ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Fecha radicado concesionario</label>
-                <p className="text-sm">{item.concessionaireFiledAt ? fmtDate(item.concessionaireFiledAt) : "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Fecha evento inicio</label>
-                <p className="text-sm">{item.eventStart ? fmtDate(item.eventStart) : "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Fecha evento fin</label>
-                <p className="text-sm">{item.eventEnd ? fmtDate(item.eventEnd) : "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Camaras solicitadas</label>
-                <p className="text-sm">{item.camerasRequested ?? "-"}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Medio de entrega</label>
-                <p className="text-sm">{item.deliveryMethod ?? "-"}</p>
-              </div>
-             <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground">Descripcion</label>
-                <p className="text-sm whitespace-pre-wrap">{item.case.description ?? item.descriptionNovedad ?? "-"}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground">Fin solicitud</label>
-                <p className="text-sm">
-                  {Array.isArray(item.finSolicitud) && item.finSolicitud.length
-                    ? item.finSolicitud.join(", ")
-                    : "-"}
-                </p>
-              </div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-base font-semibold">Datos de la solicitud</h2>
+              <span className="text-xs text-muted-foreground">
+                Registrada el {fmtDate(item.createdAt)}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-5">
+              <GrupoDatos titulo="Solicitante">
+                <Campo label="Nombre" value={item.requesterName} />
+                <Campo label="Cargo" value={item.requesterRole} />
+                <Campo label="Telefono" value={item.requesterPhone} mono />
+                <Campo label="Email" value={item.requesterEmail} />
+                <Campo
+                  label="Correos de envio"
+                  ancho
+                  value={requesterEmailList.length ? <Chips items={requesterEmailList} /> : null}
+                />
+              </GrupoDatos>
+
+              <GrupoDatos titulo="Solicitud">
+                <Campo label="Vehiculo" value={item.vehicleId} mono />
+                <Campo label="Procedencia" value={item.origin} />
+                <Campo label="Tipo de requerimiento" value={item.requestType} mono />
+                <Campo label="Radicado TMSA" value={item.tmsaRadicado} mono />
+                <Campo
+                  label="Radicado concesionario"
+                  value={item.concessionaireFiledAt ? fmtDate(item.concessionaireFiledAt) : null}
+                  mono
+                />
+                <Campo label="Medio de entrega" value={item.deliveryMethod} />
+              </GrupoDatos>
+
+              <GrupoDatos titulo="Evento">
+                <Campo
+                  label="Inicio"
+                  value={item.eventStart ? fmtDate(item.eventStart) : null}
+                  mono
+                />
+                <Campo label="Fin" value={item.eventEnd ? fmtDate(item.eventEnd) : null} mono />
+                <Campo label="Duracion" value={duracionEvento} mono />
+                <Campo
+                  label="Camaras solicitadas"
+                  ancho
+                  value={camerasList.length ? <Chips items={camerasList} /> : null}
+                />
+              </GrupoDatos>
+
+              <GrupoDatos titulo="Detalle">
+                <Campo
+                  label="Descripcion"
+                  ancho
+                  value={
+                    item.case.description || item.descriptionNovedad ? (
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {item.case.description ?? item.descriptionNovedad}
+                      </p>
+                    ) : null
+                  }
+                />
+                <Campo
+                  label="Fin de solicitud"
+                  ancho
+                  value={finSolicitudList.length ? <Chips items={finSolicitudList} /> : null}
+                />
+              </GrupoDatos>
             </div>
           </section>
 

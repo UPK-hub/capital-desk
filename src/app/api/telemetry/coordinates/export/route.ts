@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import ExcelJS from "exceljs";
 import { authOptions } from "@/lib/auth";
 import { getCoordinateQuality } from "@/lib/telemetry/coordinates";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 const REP = 50;
 
@@ -43,7 +44,7 @@ export async function GET() {
   ];
   resumen.getRow(1).font = { bold: true };
   resumen.addRows([
-    { k: "Generado", v: new Date().toLocaleString("es-CO") },
+    { k: "Generado", v: formatFechaHoraCO(new Date()) },
     { k: "Buses con GPS hoy", v: rows.length },
     { k: "OK (moviéndose)", v: ok },
     { k: `Coordenada repetida (>= ${REP} veces)`, v: repetida },

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { FileText, ImageIcon, Film, File as FileIcon, Download } from "lucide-react";
 import { useMediaPreview } from "@/components/MediaPreview";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 export type EvidenceKind = "image" | "pdf" | "video" | "other";
 export type EvidenceSource =
@@ -32,7 +33,7 @@ function fmtDate(value: string | null) {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function uploadUrl(filePath: string) {

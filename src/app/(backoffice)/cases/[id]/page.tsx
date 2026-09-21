@@ -43,9 +43,10 @@ import {
 } from "lucide-react";
 import DeleteCaseButton from "./ui/DeleteCaseButton";
 import VideoCamerasFolders from "./ui/VideoCamerasFolders";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtCaseNo(n?: number | null) {

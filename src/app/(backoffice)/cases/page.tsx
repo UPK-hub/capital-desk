@@ -167,6 +167,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     assigned: assignedParam || undefined,
     dateFrom: params.dateFromStr,
     dateTo: params.dateToStr,
+    dateField: params.dateField === "resolved" ? "resolved" : undefined,
     rmonth,
   };
   const qs = (obj: Record<string, string | null | undefined>) => {
@@ -315,6 +316,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
             creator={params.creator ?? ""}
             dateFrom={params.dateFromStr ?? ""}
             dateTo={params.dateToStr ?? ""}
+            dateField={params.dateField ?? "created"}
             typeLabels={caseTypeLabels}
             creators={creators}
           />

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CASE_EVENT_LABELS, fmtCaseNo, fmtWoNo } from "@/lib/traceability/labels";
 import { useMediaPreview } from "@/components/MediaPreview";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type TimelineItem = {
   kind: "CASE" | "BUS" | "WO_STEP" | "FORM";
@@ -17,7 +18,7 @@ type TimelineItem = {
 
 function fmtDate(d: any) {
   const x = new Date(d);
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(x);
+  return formatFechaHoraCO(x);
 }
 
 function pill(cls: string) {

@@ -8,9 +8,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildTramaQuality } from "@/lib/telemetry/quality";
 import { parseQualityRange } from "@/lib/telemetry/quality-params";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmt(d: Date | null) {
-  return d ? new Date(d).toLocaleString("es-CO") : "";
+  return d ? formatFechaHoraCO(d) : "";
 }
 
 function dateTag(d: Date) {

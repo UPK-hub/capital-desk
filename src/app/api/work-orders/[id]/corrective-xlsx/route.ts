@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { readUploadBinary } from "@/lib/uploads";
 import { Role } from "@prisma/client";
 import ExcelJS from "exceljs";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function safeToken(value: string | null | undefined, fallback = "BUS") {
   const clean = String(value ?? "")
@@ -37,11 +38,7 @@ function fmtDateTime(v: unknown) {
   if (!v) return "";
   const d = new Date(String(v));
   if (Number.isNaN(d.getTime())) return String(v ?? "");
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function setCellText(ws: ExcelJS.Worksheet, address: string, value: string) {

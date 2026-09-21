@@ -15,6 +15,7 @@ function fmtLabel(key: string): string {
 }
 
 export type CasesSummary = {
+  creadosMes: number;
   atendidos: number;
   pendientes: number;
   vencidos: number;
@@ -41,17 +42,19 @@ export async function getCasesSummary(opts: {
   const openStatuses = [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION];
   const doneStatuses = [CaseStatus.RESUELTO, CaseStatus.CERRADO];
 
-  const seriesStart = new Date(Date.now() - 29 * DAY);
-
-  const [pendientes, openRows, grouped, creadosRows, doneCases, groupedType, groupedPrio, groupedAssignee] = await Promise.all([
+  const [pendientes, openRows, grouped, creadosRows, doneCases, groupedAssignee] = await Promise.all([
     prisma.case.count({ where: { ...base, status: { in: openStatuses } } }),
     prisma.case.findMany({
       where: { ...base, status: { in: openStatuses } },
       select: { createdAt: true, priority: true, type: true },
     }),
-    prisma.case.groupBy({ by: ["status"], where: base, _count: { _all: true } }),
+    prisma.case.groupBy({
+      by: ["status"],
+      where: { ...base, createdAt: { gte: monthStart, lt: monthEnd } },
+      _count: { _all: true },
+    }),
     prisma.case.findMany({
-      where: { ...base, createdAt: { gte: seriesStart } },
+      where: { ...base, createdAt: { gte: monthStart, lt: monthEnd } },
       select: { createdAt: true },
     }),
     // Casos resueltos/cerrados con su ÚLTIMO evento de cambio de estado = fecha REAL de resolución
@@ -59,6 +62,8 @@ export async function getCasesSummary(opts: {
     prisma.case.findMany({
       where: { ...base, status: { in: doneStatuses } },
       select: {
+        type: true,
+        priority: true,
         workOrder: { select: { finishedAt: true } },
         // Fecha REAL de resolución = finalización de la OT o, si no hay, el PRIMER
         // cambio de estado a Resuelto/Cerrado (por el texto del evento). Tomar el más
@@ -88,8 +93,6 @@ export async function getCasesSummary(opts: {
         },
       },
     }),
-    prisma.case.groupBy({ by: ["type"], where: base, _count: { _all: true } }),
-    prisma.case.groupBy({ by: ["priority"], where: base, _count: { _all: true } }),
     prisma.case.groupBy({
       by: ["assignedToId"],
       where: { ...base, status: { in: openStatuses } },
@@ -102,23 +105,31 @@ export async function getCasesSummary(opts: {
   // "hoy" y falsea el gráfico, p. ej. el pico de resueltos por una migración).
   const resolvedAtOf = (c: { workOrder: { finishedAt: Date | null } | null; events: { createdAt: Date }[] }): Date | null =>
     c.workOrder?.finishedAt ?? c.events[0]?.createdAt ?? null;
-  const atendidos = doneCases.filter((c) => {
+  const resueltosDelMes = doneCases.filter((c) => {
     const r = resolvedAtOf(c);
     return r != null && r >= monthStart && r < monthEnd;
-  }).length;
+  });
+  const atendidos = resueltosDelMes.length;
+  const creadosMes = creadosRows.length;
 
-  const keys: string[] = [];
-  const now = Date.now();
-  for (let k = 29; k >= 0; k--) keys.push(cotKey(new Date(now - k * DAY)));
+  // Dias del mes seleccionado. En el mes en curso se corta en el dia de hoy,
+  // para no dibujar una cola de ceros de los dias que aun no han pasado.
+  const diasDelMes: string[] = [];
+  for (let d = monthStart.getTime(); d < monthEnd.getTime(); d += DAY) {
+    diasDelMes.push(cotKey(new Date(d)));
+  }
+  const hoyKey = cotKey(new Date());
+  const hastaHoy = diasDelMes.filter((k) => k <= hoyKey);
+  const keys: string[] = hastaHoy.length ? hastaHoy : diasDelMes;
   const cMap = new Map<string, number>(keys.map((k) => [k, 0]));
   const rMap = new Map<string, number>(keys.map((k) => [k, 0]));
   for (const r of creadosRows) {
     const k = cotKey(r.createdAt);
     if (cMap.has(k)) cMap.set(k, (cMap.get(k) ?? 0) + 1);
   }
-  for (const c of doneCases) {
+  for (const c of resueltosDelMes) {
     const r = resolvedAtOf(c);
-    if (!r || r.getTime() < seriesStart.getTime()) continue;
+    if (!r) continue;
     const k = cotKey(r);
     if (rMap.has(k)) rMap.set(k, (rMap.get(k) ?? 0) + 1);
   }
@@ -153,7 +164,7 @@ export async function getCasesSummary(opts: {
     { key: "SOLICITUD_DESCARGA_VIDEO", label: "Video", color: "#64748b" },
   ];
   const tCnt: Record<string, number> = {};
-  for (const g of groupedType) tCnt[g.type] = g._count._all;
+  for (const c of resueltosDelMes) tCnt[c.type] = (tCnt[c.type] ?? 0) + 1;
   const porTipo = TIPO.map((t) => ({ label: t.label, value: tCnt[t.key] ?? 0, color: t.color })).filter((x) => x.value > 0);
 
   const PRIO = [
@@ -164,7 +175,7 @@ export async function getCasesSummary(opts: {
     { p: 5, label: "P5 Baja", color: "#64748b" },
   ];
   const pCnt: Record<number, number> = {};
-  for (const g of groupedPrio) pCnt[g.priority] = g._count._all;
+  for (const c of resueltosDelMes) pCnt[c.priority] = (pCnt[c.priority] ?? 0) + 1;
   const porPrioridad = PRIO.map((x) => ({ label: x.label, value: pCnt[x.p] ?? 0, color: x.color })).filter((x) => x.value > 0);
 
   const assigneeIds = groupedAssignee.map((g) => g.assignedToId).filter((x): x is string => Boolean(x));
@@ -177,7 +188,17 @@ export async function getCasesSummary(opts: {
     .sort((a, b) => b.value - a.value)
     .slice(0, 7);
 
-  return { atendidos, pendientes, vencidos, series, porEstado, porTipo, porPrioridad, cargaResponsable };
+  return {
+    creadosMes,
+    atendidos,
+    pendientes,
+    vencidos,
+    series,
+    porEstado,
+    porTipo,
+    porPrioridad,
+    cargaResponsable,
+  };
 }
 
 // Etiquetas de meses recientes (para el selector del Resumen), en hora Colombia.

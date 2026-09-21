@@ -12,10 +12,11 @@ import {
   DataTableHeader,
   DataTableRow,
 } from "@/components/ui/data-table";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date | null) {
   if (!d) return "-";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function hoursDiff(start: Date, end: Date) {

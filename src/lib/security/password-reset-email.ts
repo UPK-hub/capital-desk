@@ -1,4 +1,5 @@
 import { sendMail } from "@/lib/mailer";
+import { formatFechaHoraCO } from "../datetime";
 
 function escapeHtml(value: string) {
   return String(value)
@@ -41,10 +42,7 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
       ? "Haz clic en el enlace para configurar tu contrasena."
       : "Haz clic en el enlace para restablecer tu contrasena.";
 
-  const expiresText = params.expiresAt.toLocaleString("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  const expiresText = formatFechaHoraCO(params.expiresAt);
 
   const html = `<!doctype html>
 <html>

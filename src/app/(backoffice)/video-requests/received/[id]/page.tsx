@@ -6,9 +6,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canViewPanic } from "@/lib/panic/access";
 import VideoModuleTabs from "../../VideoModuleTabs";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtBytes(value: number | null) {

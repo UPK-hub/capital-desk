@@ -13,6 +13,7 @@ import {
   DataTableRow,
 } from "@/components/ui/data-table";
 import VideoModuleTabs from "../VideoModuleTabs";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type SearchParams = {
   q?: string;
@@ -21,7 +22,7 @@ type SearchParams = {
 };
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtBytes(value: number | null) {

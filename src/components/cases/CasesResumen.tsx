@@ -37,6 +37,7 @@ function hexToRgba(hex: string, a: number) {
 }
 
 type Summary = {
+  creadosMes: number;
   atendidos: number;
   pendientes: number;
   vencidos: number;
@@ -46,6 +47,15 @@ type Summary = {
   porPrioridad: { label: string; value: number; color: string }[];
   cargaResponsable: { label: string; value: number }[];
 };
+
+function Titulo({ texto, alcance }: { texto: string; alcance: string }) {
+  return (
+    <div className="mb-1.5">
+      <div className="text-xs font-semibold text-slate-600">{texto}</div>
+      <div className="text-[10px] uppercase tracking-wide text-slate-400">{alcance}</div>
+    </div>
+  );
+}
 
 export default function CasesResumen({
   summary,
@@ -164,6 +174,9 @@ export default function CasesResumen({
     },
   };
 
+  const mesCorto =
+    (months.find((m) => m.key === currentMonth)?.label ?? "").split(" ")[0] || "el mes";
+
   return (
     <div className="rounded-2xl border border-border/60 bg-white p-3.5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -184,17 +197,21 @@ export default function CasesResumen({
       </div>
 
       {/* KPIs */}
-      <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <div className="rounded-xl border border-border/50 p-3">
-          <div className="text-[10.5px] text-muted-foreground">Atendidos este mes</div>
+      <div className="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3">
+          <div className="text-[10.5px] text-muted-foreground">Realizados en {mesCorto}</div>
           <div className="text-[22px] font-semibold tabular-nums text-blue-600">{summary.atendidos.toLocaleString("es-CO")}</div>
         </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3">
+          <div className="text-[10.5px] text-muted-foreground">Creados en {mesCorto}</div>
+          <div className="text-[22px] font-semibold tabular-nums text-slate-700">{summary.creadosMes.toLocaleString("es-CO")}</div>
+        </div>
         <div className="rounded-xl border border-border/50 p-3">
-          <div className="text-[10.5px] text-muted-foreground">Pendientes</div>
+          <div className="text-[10.5px] text-muted-foreground">Pendientes a la fecha</div>
           <div className="text-[22px] font-semibold tabular-nums text-amber-600">{summary.pendientes.toLocaleString("es-CO")}</div>
         </div>
         <div className="rounded-xl border border-red-100 bg-red-50/40 p-3">
-          <div className="text-[10.5px] text-red-400">Vencidos (SLA)</div>
+          <div className="text-[10.5px] text-red-400">Vencidos (SLA) a la fecha</div>
           <div className="text-[22px] font-semibold tabular-nums text-red-600">{summary.vencidos.toLocaleString("es-CO")}</div>
         </div>
       </div>
@@ -202,13 +219,13 @@ export default function CasesResumen({
       {/* Gráficas */}
       <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-[1.8fr_1fr]">
         <div className="rounded-xl border border-border/50 p-3">
-          <div className="mb-1 text-xs font-semibold text-slate-600">Creados vs. resueltos · 30 días</div>
+          <Titulo texto="Creados vs. resueltos" alcance={`día a día · ${mesCorto}`} />
           <div style={{ position: "relative", height: 150 }}>
             <Line data={lineData} options={lineOpts} />
           </div>
         </div>
         <div className="rounded-xl border border-border/50 p-3">
-          <div className="mb-1 text-xs font-semibold text-slate-600">Por estado</div>
+          <Titulo texto="Por estado" alcance={`casos creados en ${mesCorto}`} />
           <div style={{ position: "relative", height: 150 }}>
             {hasDonut ? (
               <Doughnut data={donutData} options={donutOpts} />
@@ -222,7 +239,7 @@ export default function CasesResumen({
       {/* Más gráficas: por tipo, por prioridad, carga por responsable */}
       <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-border/50 p-3">
-          <div className="mb-1 text-xs font-semibold text-slate-600">Por tipo</div>
+          <Titulo texto="Por tipo" alcance={`realizados en ${mesCorto}`} />
           <div style={{ position: "relative", height: 150 }}>
             {hasTipo ? (
               <Doughnut data={tipoData} options={donutOpts} />
@@ -232,7 +249,7 @@ export default function CasesResumen({
           </div>
         </div>
         <div className="rounded-xl border border-border/50 p-3">
-          <div className="mb-1 text-xs font-semibold text-slate-600">Por prioridad</div>
+          <Titulo texto="Por prioridad" alcance={`realizados en ${mesCorto}`} />
           <div style={{ position: "relative", height: 150 }}>
             {hasPrio ? (
               <Doughnut data={prioData} options={donutOpts} />
@@ -242,7 +259,7 @@ export default function CasesResumen({
           </div>
         </div>
         <div className="rounded-xl border border-border/50 p-3">
-          <div className="mb-1 text-xs font-semibold text-slate-600">Carga por responsable</div>
+          <Titulo texto="Carga por responsable" alcance="casos abiertos a la fecha" />
           <div style={{ position: "relative", height: 150 }}>
             {hasCarga ? (
               <Bar data={barData} options={barOpts} />

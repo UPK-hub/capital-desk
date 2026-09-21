@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role, WorkOrderStatus } from "@prisma/client";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function safeToken(value: string | null | undefined, fallback = "BUS") {
   const clean = String(value ?? "")
@@ -18,10 +19,7 @@ function safeToken(value: string | null | undefined, fallback = "BUS") {
 
 function fmtDateTime(d: Date | null) {
   if (!d) return "";
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtDurationMinutes(totalMinutes: number) {

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Paperclip, Image as ImageIcon, AtSign, User, X, FileText } from "lucide-react";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type Attachment = { filePath: string; fileName: string; mimeType: string; size: number };
 
@@ -17,7 +18,7 @@ type CommentItem = {
 function fmtDate(value: string) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function isImage(a: { mimeType?: string; fileName?: string }) {

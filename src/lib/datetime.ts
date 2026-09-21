@@ -55,3 +55,78 @@ export function parseCoDateTime(input: unknown): Date | null {
   if (Number.isNaN(d.getTime())) return null;
   return d;
 }
+
+// ---------------------------------------------------------------------------
+// Formato institucional de fecha y hora — SIEMPRE en formato de 24 horas
+// (hora militar) y en la zona horaria de Bogota.
+//
+// Toda la aplicacion (vistas, exportables, correos y notificaciones) debe
+// mostrar las horas con estos formateadores. No usar toLocaleString ni
+// Intl.DateTimeFormat directamente para mostrar horas: el locale es-CO
+// devuelve "a. m." / "p. m." por defecto.
+// ---------------------------------------------------------------------------
+
+export const CO_TIME_ZONE = "America/Bogota";
+
+export type DateLike = Date | string | number | null | undefined;
+
+function toDate(value: DateLike): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// Se usa en-GB solo para obtener partes numericas estables (digitos ASCII y
+// dos digitos en hora); el ensamblado del texto lo hacemos nosotros.
+const CO_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: CO_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+function coParts(date: Date): Record<string, string> {
+  const parts: Record<string, string> = {};
+  for (const part of CO_PARTS_FORMATTER.formatToParts(date)) {
+    if (part.type !== "literal") parts[part.type] = part.value;
+  }
+  // Algunas versiones de ICU devuelven "24" para la medianoche.
+  if (parts.hour === "24") parts.hour = "00";
+  return parts;
+}
+
+/** dd/mm/aaaa HH:mm  (ej: 01/09/2026 15:05) */
+export function formatFechaHoraCO(value: DateLike, fallback = "-"): string {
+  const d = toDate(value);
+  if (!d) return fallback;
+  const p = coParts(d);
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
+}
+
+/** dd/mm/aaaa HH:mm:ss */
+export function formatFechaHoraSegCO(value: DateLike, fallback = "-"): string {
+  const d = toDate(value);
+  if (!d) return fallback;
+  const p = coParts(d);
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
+}
+
+/** dd/mm/aaaa */
+export function formatFechaCO(value: DateLike, fallback = "-"): string {
+  const d = toDate(value);
+  if (!d) return fallback;
+  const p = coParts(d);
+  return `${p.day}/${p.month}/${p.year}`;
+}
+
+/** HH:mm */
+export function formatHoraCO(value: DateLike, fallback = "-"): string {
+  const d = toDate(value);
+  if (!d) return fallback;
+  const p = coParts(d);
+  return `${p.hour}:${p.minute}`;
+}

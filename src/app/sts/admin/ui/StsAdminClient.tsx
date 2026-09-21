@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import { labelFromMap, stsMetricLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 import { Select } from "@/components/Field";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type ComponentRow = { id: string; code: string; name: string; active: boolean };
 type SlaRow = {
@@ -427,8 +428,8 @@ export default function StsAdminClient() {
               {maintenance.map((m) => (
                 <tr key={m.id} className="border-t">
                   <td className="p-2">{components.find((c) => c.id === m.componentId)?.name ?? "Todos"}</td>
-                  <td className="p-2">{new Date(m.startAt).toLocaleString("es-CO")}</td>
-                  <td className="p-2">{new Date(m.endAt).toLocaleString("es-CO")}</td>
+                  <td className="p-2">{formatFechaHoraCO(m.startAt)}</td>
+                  <td className="p-2">{formatFechaHoraCO(m.endAt)}</td>
                   <td className="p-2">{m.reason ?? "-"}</td>
                 </tr>
               ))}

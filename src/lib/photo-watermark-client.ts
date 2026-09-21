@@ -1,4 +1,5 @@
 "use client";
+import { formatFechaHoraSegCO } from "./datetime";
 
 export type PhotoWatermarkContext = {
   equipmentLabel?: string | null;
@@ -8,11 +9,7 @@ export type PhotoWatermarkContext = {
 };
 
 function formatBogotaDateTime(date: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "medium",
-    timeZone: "America/Bogota",
-  }).format(date);
+  return formatFechaHoraSegCO(date);
 }
 
 function isImageFile(file: File) {

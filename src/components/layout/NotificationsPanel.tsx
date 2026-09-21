@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Bell, CheckCircle2, Clock3, FileText, X } from "lucide-react";
 import { eases, listItem, scaleIn, staggerContainer } from "@/lib/animations";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type NotificationItem = {
   id: string;
@@ -18,7 +19,7 @@ type NotificationItem = {
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

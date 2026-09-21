@@ -5,6 +5,7 @@ import { Role } from "@prisma/client";
 import { Select } from "@/components/Field";
 import { StatusPill } from "@/components/ui/status-pill";
 import { MIN_PASSWORD_LENGTH } from "@/lib/security/constants";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type UserRow = {
   id: string;
@@ -149,7 +150,7 @@ export default function UsersAdminClient() {
       return;
     }
 
-    setMsg(`Correo de restablecimiento enviado. Expira ${new Date(data.expiresAt).toLocaleString()}.`);
+    setMsg(`Correo de restablecimiento enviado. Expira ${formatFechaHoraCO(data.expiresAt)}.`);
   }
 
   async function deleteUser(id: string, reassignToId?: string) {

@@ -10,6 +10,7 @@ import { saveUpload } from "@/lib/uploads";
 import { Role, NotificationType, CaseEventType } from "@prisma/client";
 import { z } from "zod";
 import { notifyTenantUsers } from "@/lib/notifications";
+import { formatHoraCO } from "@/lib/datetime";
 
 
 
@@ -90,12 +91,7 @@ function normalizeActivities(value: unknown) {
 
 const formatInternalTime = (d?: Date | null) => {
   if (!d) return null;
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatHoraCO(d);
 };
 
 const allowedGet: Role[] = [Role.ADMIN, Role.TECHNICIAN, Role.BACKOFFICE];

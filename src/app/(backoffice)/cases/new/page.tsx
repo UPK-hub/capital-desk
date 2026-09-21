@@ -12,6 +12,7 @@ import { BusEquipmentSelect } from "@/components/BusEquipmentSelect";
 import { BusEquipmentMultiSelect } from "@/components/BusEquipmentMultiSelect";
 import { RVR_CAMERA_ORDER } from "@/lib/rvr";
 import { StsTicketSeverity } from "@prisma/client";
+import { formatFechaHoraCO } from "@/lib/datetime";
 type BusOption = { id: string; code: string; plate: string | null };
 type PriorityOption = "BAJA" | "MEDIA" | "ALTA";
 type AffectedEquipmentType =
@@ -94,11 +95,7 @@ type NovedadCatalogOption = {
 };
 
 function formatBogotaDateTime(date: Date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(date);
+  return formatFechaHoraCO(date);
 }
 
 function applyObservationTemplate(
@@ -665,6 +662,24 @@ export default function NewCasePage() {
     );
   }
 
+  // Campos obligatorios pendientes. Refleja exactamente las validaciones de submit(),
+  // para poder avisar (y bloquear el boton) antes de enviar el formulario.
+  const faltantes: string[] = [];
+  if (type === "NOVEDAD") {
+    const incompletos = novedadItems.filter(
+      (item) =>
+        !item.buses.length ||
+        !item.affectedEquipment ||
+        !item.priority ||
+        !(item.reportedNovelty.trim() || item.catalogCode.trim())
+    ).length;
+    if (incompletos === 1) faltantes.push("1 registro de novedad incompleto");
+    else if (incompletos > 1) faltantes.push(`${incompletos} registros de novedad incompletos`);
+  } else {
+    if (!bus?.id) faltantes.push("bus");
+    if (config.requiresEquipment && !busEquipmentIds.length) faltantes.push("equipos del bus");
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6">
       <div className="space-y-1">
@@ -680,29 +695,7 @@ export default function NewCasePage() {
         </div>
       ) : null}
 
-      <FormCard
-        title="Datos del caso"
-        footer={
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => router.push("/cases")}
-              className="sts-btn-ghost h-11 px-6 text-sm"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={submit}
-              className="sts-btn-primary h-11 px-7 text-base disabled:opacity-60"
-            >
-              {saving ? "Guardando…" : "Crear caso"}
-            </button>
-          </div>
-        }
-      >
+      <FormCard title="Datos del caso">
         {type !== "NOVEDAD" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-4">
@@ -1348,6 +1341,40 @@ export default function NewCasePage() {
           </div>
         </FormCard>
       ) : null}
+
+      <div className="sticky bottom-0 z-20 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.35)] backdrop-blur supports-[backdrop-filter]:bg-white/85">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600">
+            {faltantes.length ? (
+              <>
+                Falta diligenciar:{" "}
+                <span className="font-semibold text-slate-800">{faltantes.join(", ")}</span>.
+              </>
+            ) : (
+              "Revisa el formulario completo antes de crear el caso."
+            )}
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => router.push("/cases")}
+              className="sts-btn-ghost h-11 px-6 text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={saving || faltantes.length > 0}
+              onClick={submit}
+              title={faltantes.length ? `Falta diligenciar: ${faltantes.join(", ")}` : undefined}
+              className="sts-btn-primary h-11 px-7 text-base disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? "Guardando\u2026" : "Crear caso"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

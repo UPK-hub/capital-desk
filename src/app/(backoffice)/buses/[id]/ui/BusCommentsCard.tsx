@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type CommentItem = {
   id: string;
@@ -12,7 +13,7 @@ type CommentItem = {
 function fmtDate(value: string) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 export default function BusCommentsCard({

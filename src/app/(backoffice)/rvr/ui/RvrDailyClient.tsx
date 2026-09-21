@@ -12,6 +12,7 @@ import {
   RVR_BUS_ASPECTS,
   RVR_MAX_BUSES_PER_DAY,
 } from "@/lib/rvr";
+import { formatHoraCO } from "@/lib/datetime";
 
 type EligibleBus = {
   id: string;
@@ -180,12 +181,7 @@ function renderObservationTemplate(
     code: string;
   }
 ) {
-  const hour = new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "America/Bogota",
-  }).format(new Date());
+  const hour = formatHoraCO(new Date());
 
   const replacements: Record<string, string> = {
     BUS: values.busCode,
@@ -570,7 +566,7 @@ export default function RvrDailyClient({ userName, initialDate }: { userName: st
       });
       setAutoState("saved");
       setAutoAt(
-        new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" }).format(new Date())
+        formatHoraCO(new Date())
       );
     } catch {
       dirtyRef.current = true;

@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSeriesCached } from "@/lib/telemetry/cache";
 import { parseQualityRange } from "@/lib/telemetry/quality-params";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 const NOUN: Record<string, string> = { eventos: "Eventos", alarmas: "Alarmas", periodicas: "Periódicas" };
 
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   const peak = perDay.reduce((best: any, d: any) => (!best || d.total > best.total ? d : best), null as any);
   resumen.addRows([
     { k: "Reporte", v: noun },
-    { k: "Generado", v: new Date().toLocaleString("es-CO") },
+    { k: "Generado", v: formatFechaHoraCO(new Date()) },
     { k: "Rango", v: `${fmtDay(start.toISOString().slice(0, 10))} → ${fmtDay(end.toISOString().slice(0, 10))}` },
     { k: "Bus", v: busCode ?? "Toda la flota" },
     { k: "Filtro por tipo", v: code || "Todos" },

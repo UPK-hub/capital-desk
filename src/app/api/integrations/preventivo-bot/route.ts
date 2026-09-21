@@ -30,6 +30,7 @@ import { getDocumentSignatures } from "@/lib/document-signatures";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 import { isCameraEquipment } from "@/lib/equipment-category";
 import { CaseEventType, CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
+import { formatHoraCO, formatFechaHoraCO } from "@/lib/datetime";
 
 const DEFAULT_TENANT_CODE = (process.env.NOVEDADES_TENANT_CODE || process.env.TENANT_CODE || "CAPITALBUS")
   .trim()
@@ -73,12 +74,7 @@ async function getUserByChat(tenantId: string, chatId: string) {
 }
 
 function hhmmBogota(d = new Date()): string {
-  return new Intl.DateTimeFormat("es-CO", {
-    timeZone: "America/Bogota",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(d);
+  return formatHoraCO(d);
 }
 
 const CAPTURAS = PREVENTIVE_CHECKLIST.find((s) => s.id === "capturas");
@@ -388,7 +384,7 @@ export async function POST(req: NextRequest) {
         // Fecha del cierre = fecha manual (si la puso el técnico) o el momento del cierre.
         // Es la que se usará como fecha de resolución (WorkOrder.finishedAt).
         const finishedAt = parseFechaCO(fechaTexto) ?? new Date();
-        const realizado = fechaTexto || new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });
+        const realizado = fechaTexto || formatFechaHoraCO(new Date());
         if (porCamara.length) {
           // Un registro estandarizado por cámara.
           for (const cam of porCamara) {

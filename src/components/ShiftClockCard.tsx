@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type ShiftLog = {
   id: string;
@@ -9,7 +10,7 @@ type ShiftLog = {
 };
 
 function fmtDate(d: string) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(d));
+  return formatFechaHoraCO(new Date(d));
 }
 
 export default function ShiftClockCard() {

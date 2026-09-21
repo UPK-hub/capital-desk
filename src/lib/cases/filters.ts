@@ -25,6 +25,9 @@ export function parseCasesParams(sp: any) {
     creator: toStr(sp?.creator),
     dateFromStr: toStr(sp?.dateFrom),
     dateToStr: toStr(sp?.dateTo),
+    // "created" (por defecto) = fecha de creacion del caso.
+    // "resolved" = fecha REAL de resolucion (cierre de la OT o cambio de estado).
+    dateField: toStr(sp?.dateField) === "resolved" ? "resolved" : "created",
   };
 }
 
@@ -36,10 +39,51 @@ export function buildCasesWhere(sp: any, ctx: CasesFilterCtx) {
   const dateToVal = p.dateToStr ? new Date(`${p.dateToStr}T23:59:59`) : null;
   const validFrom = dateFromVal && !Number.isNaN(dateFromVal.getTime()) ? dateFromVal : null;
   const validTo = dateToVal && !Number.isNaN(dateToVal.getTime()) ? dateToVal : null;
-  const createdAtWhere =
-    validFrom || validTo
-      ? { createdAt: { ...(validFrom ? { gte: validFrom } : {}), ...(validTo ? { lte: validTo } : {}) } }
-      : {};
+  const rango = {
+    ...(validFrom ? { gte: validFrom } : {}),
+    ...(validTo ? { lte: validTo } : {}),
+  };
+  const hayRango = Boolean(validFrom || validTo);
+
+  // Fecha de resolucion: misma definicion que usa el tablero de Resumen
+  // (ver lib/cases/summary.ts). Primero la finalizacion de la OT; si el caso no
+  // tiene OT, el cambio de estado a resuelto/cerrado, ignorando los eventos de
+  // procesos masivos (backfill / unificaciones) que no son la resolucion real.
+  const resueltoEnRango = {
+    status: { in: [CaseStatus.RESUELTO, CaseStatus.CERRADO] },
+    OR: [
+      { workOrder: { finishedAt: rango } },
+      {
+        AND: [
+          { OR: [{ workOrder: { is: null } }, { workOrder: { finishedAt: null } }] },
+          {
+            events: {
+              some: {
+                type: CaseEventType.STATUS_CHANGE,
+                createdAt: rango,
+                OR: [
+                  { message: { contains: "cerrad", mode: "insensitive" as const } },
+                  { message: { contains: "resuelt", mode: "insensitive" as const } },
+                ],
+                NOT: {
+                  OR: [
+                    { message: { contains: "backfill", mode: "insensitive" as const } },
+                    { message: { contains: "unific", mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const fechaWhere = !hayRango
+    ? {}
+    : p.dateField === "resolved"
+    ? resueltoEnRango
+    : { createdAt: rango };
 
   const creatorWhere = p.creator
     ? {
@@ -65,14 +109,18 @@ export function buildCasesWhere(sp: any, ctx: CasesFilterCtx) {
       }
     : {};
 
+  // Se componen con AND en vez de mezclar las claves: filtro de fecha, creador y
+  // busqueda pueden usar las mismas claves (OR, events) y se pisarian entre si.
+  const condiciones = [fechaWhere, creatorWhere, searchWhere].filter(
+    (w) => Object.keys(w).length > 0
+  );
+
   const baseWhere: any = {
     tenantId: ctx.tenantId,
     ...(ctx.ownOnly ? ctx.ownWhere ?? ownCasesWhere(ctx.userId) : {}),
     ...(p.type ? { type: p.type } : {}),
     ...(priorityInt ? { priority: priorityInt } : {}),
-    ...createdAtWhere,
-    ...creatorWhere,
-    ...searchWhere,
+    ...(condiciones.length ? { AND: condiciones } : {}),
   };
 
   const statusWhere =

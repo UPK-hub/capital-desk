@@ -6,6 +6,7 @@ import { StsTicketSeverity, StsTicketStatus } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import * as XLSX from "xlsx";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function pct(num: number, den: number) {
   if (!den) return 0;
@@ -434,7 +435,7 @@ export default async function StsDashboardPage() {
                     <span className="sts-chip">{severityLabels[t.severity]}</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {statusLabels[t.status]} · {t.openedAt.toLocaleString("es-CO")}
+                    {statusLabels[t.status]} · {formatFechaHoraCO(t.openedAt)}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {t.breachResponse ? <span className="sts-chip">Breach respuesta</span> : null}
@@ -542,7 +543,7 @@ export default async function StsDashboardPage() {
                 <span className="sts-chip">{severityLabels[t.severity]}</span>
               </div>
               <p className="text-xs text-muted-foreground">{statusLabels[t.status]}</p>
-              <p className="text-[11px] text-muted-foreground">{t.openedAt.toLocaleString("es-CO")}</p>
+              <p className="text-[11px] text-muted-foreground">{formatFechaHoraCO(t.openedAt)}</p>
             </div>
           ))}
         </div>

@@ -4,6 +4,7 @@ import { videoDownloadStatusLabels, videoOriginLabels, videoDeliveryLabels } fro
 import { actionForRootCause, technicalForRootCause } from "@/lib/video-root-causes";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { formatFechaHoraCO } from "./datetime";
 
 const STATUS_LABEL = videoDownloadStatusLabels as Record<string, string>;
 const ORIGIN_LABEL = videoOriginLabels as Record<string, string>;
@@ -57,7 +58,7 @@ async function loadLogo(file: string): Promise<Buffer | null> {
 function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "-";
   try {
-    return new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "short" }).format(new Date(d));
+    return formatFechaHoraCO(new Date(d));
   } catch {
     return "-";
   }
@@ -92,7 +93,7 @@ export async function buildRootCauseReportPdf(input: RootCauseReportInput): Prom
   const capLogo = capBytes ? await pdf.embedPng(capBytes).catch(() => null) : null;
   const upkLogo = upkBytes ? await pdf.embedPng(upkBytes).catch(() => null) : null;
 
-  const fecha = new Date().toLocaleString("es-CO");
+  const fecha = formatFechaHoraCO(new Date());
   let page: PDFPage = pdf.addPage([pageW, pageH]);
   let y = pageH - M;
 

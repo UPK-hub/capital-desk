@@ -11,6 +11,7 @@ import { buildCasesWhere } from "@/lib/cases/filters";
 import { restrictedCasesWhere } from "@/lib/access-control";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import { utils, write } from "xlsx";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
   });
 
   const fmt = (d: Date | null | undefined) =>
-    d ? new Date(d).toLocaleString("es-CO", { timeZone: "America/Bogota" }) : "";
+    d ? formatFechaHoraCO(d) : "";
 
   const rows = cases.map((c) => ({
     "#": c.caseNo ?? "",

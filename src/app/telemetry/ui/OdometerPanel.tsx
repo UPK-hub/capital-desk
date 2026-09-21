@@ -20,6 +20,7 @@ import {
   DataTableHeader,
   DataTableRow,
 } from "@/components/ui/data-table";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type OdometerRow = {
   busCode: string;
@@ -50,7 +51,7 @@ function fmtKm(n: number | null) {
 function fmtDate(s: string | null) {
   if (!s) return "—";
   const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("es-CO");
+  return Number.isNaN(d.getTime()) ? "—" : formatFechaHoraCO(d);
 }
 
 function statusOf(km: number | null): StatusFilter {

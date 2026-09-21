@@ -18,9 +18,10 @@ import { TypeBadge } from "@/components/ui/TypeBadge";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import BusCommentsCard from "./ui/BusCommentsCard";
 import BusTimelineCaseFilter from "./ui/BusTimelineCaseFilter";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtCaseNo(n?: number | null) {

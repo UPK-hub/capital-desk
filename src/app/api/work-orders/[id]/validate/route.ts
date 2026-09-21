@@ -19,15 +19,11 @@ import {
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { maybeAutoCloseLinkedNovedad } from "@/lib/novedades/auto-close";
 import { notifyPreventivoClosed } from "@/lib/telegram-notify";
+import { formatHoraCO } from "@/lib/datetime";
 
 function formatInternalTime(d?: Date | null) {
   if (!d) return null;
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatHoraCO(d);
 }
 
 export async function POST(_: NextRequest, ctx: { params: { id: string } }) {

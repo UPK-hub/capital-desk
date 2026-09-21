@@ -10,6 +10,7 @@ import { CaseEventType, NotificationType, Role } from "@prisma/client";
 import { notifyTenantUsers } from "@/lib/notifications";
 import { findInventoryModelBySerial } from "@/lib/inventory-catalog";
 import { z } from "zod";
+import { formatHoraCO } from "@/lib/datetime";
 
 const schema = z.object({
   ticketNumber: z.string().trim().optional().nullable(),
@@ -43,12 +44,7 @@ function normalizeSerialKey(v?: string | null) {
 
 function formatInternalTime(d?: Date | null): string | null {
   if (!d) return null;
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatHoraCO(d);
 }
 
 type PhotoBucket = "old" | "new" | "checklist";

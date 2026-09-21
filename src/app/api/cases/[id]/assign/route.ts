@@ -20,6 +20,7 @@ import {
   overlaps,
   toBogotaParts,
 } from "@/lib/technician-schedule";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function short(s: string | null | undefined, max = 260) {
   const x = String(s ?? "").trim();
@@ -41,11 +42,7 @@ function toBogotaDayKey(value: Date | null | undefined) {
 
 function fmtBogotaDateTime(value: Date | null | undefined) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(value);
+  return formatFechaHoraCO(value);
 }
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {

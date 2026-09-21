@@ -5,6 +5,7 @@ import Link from "next/link";
 import { StsTicketChannel, StsTicketSeverity, StsTicketStatus } from "@prisma/client";
 import { labelFromMap, stsChannelLabels, stsSeverityLabels, stsStatusLabels } from "@/lib/labels";
 import { Select } from "@/components/Field";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 type ComponentRow = { id: string; name: string; code: string };
 type TicketRow = {
@@ -276,7 +277,7 @@ export default function TicketsClient() {
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-xs uppercase text-muted-foreground">Apertura</span>
                       <span className="text-right text-xs text-muted-foreground">
-                        {new Date(t.openedAt).toLocaleString("es-CO")}
+                        {formatFechaHoraCO(t.openedAt)}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3">
@@ -315,7 +316,7 @@ export default function TicketsClient() {
                         <span className="sts-chip">{labelFromMap(t.status, stsStatusLabels)}</span>
                       </td>
                       <td>{labelFromMap(t.channel, stsChannelLabels)}</td>
-                      <td>{new Date(t.openedAt).toLocaleString("es-CO")}</td>
+                      <td>{formatFechaHoraCO(t.openedAt)}</td>
                       <td>
                         {t.breachResponse ? "Resp" : ""} {t.breachResolution ? "Res" : ""}
                       </td>

@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import JSZip from "jszip";
 import { readUploadBinary, saveGeneratedUpload } from "@/lib/uploads";
+import { formatFechaHoraCO } from "@/lib/datetime";
 
 function text(v: unknown) {
   return String(v ?? "").trim();
@@ -40,11 +41,7 @@ function fmtDateTime(v: unknown) {
   if (!v) return "";
   const d = new Date(String(v));
   if (Number.isNaN(d.getTime())) return text(v);
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Bogota",
-  }).format(d);
+  return formatFechaHoraCO(d);
 }
 
 function fmtDateOnly(v: unknown) {
