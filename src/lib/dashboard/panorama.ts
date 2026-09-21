@@ -3,7 +3,8 @@
 // leer de un vistazo: estado de la flota, cumplimiento del preventivo del mes,
 // lo que está vencido hoy y la actividad del mes.
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType, Prisma } from "@prisma/client";
+import { CaseStatus, CaseType, Prisma, StsTelemetryKind } from "@prisma/client";
+import { ALARM_CATALOG, EVENT_CATALOG } from "@/lib/telemetry/catalog";
 import { slaDeadlineMs } from "@/lib/cases/sla";
 import { getCasesSummary } from "@/lib/cases/summary";
 
@@ -59,7 +60,21 @@ export type Panorama = {
   carga: { label: string; value: number }[];
   topBuses: { code: string; falla: string; casos: number }[];
   videoSla: { dentro: number; porSalir: number; fuera: number; diasRetencion: number };
+  telemetria: {
+    hayDatos: boolean;
+    periodicas: number;
+    p20: number;
+    p60: number;
+    eventos: number;
+    alarmas: number;
+    alarmasCriticas: number;
+    alarmasPorTipo: { code: string; label: string; total: number; criticas: number }[];
+    eventosTop: { code: string; label: string; total: number }[];
+  };
 };
+
+// Niveles que el diccionario de datos de CapitalBus define como críticos.
+const NIVELES_CRITICOS = new Set(["N1", "N5"]);
 
 /**
  * Preventivos ejecutados dentro de un rango, por bus.
@@ -135,6 +150,9 @@ export async function getPanoramaOperativo(opts: {
   const mesFin = new Date(`${siguiente}-01T05:00:00.000Z`);
 
   const abiertos = [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION];
+  // La telemetría se acumula por día calendario (columna date, sin hora).
+  const diaDesde = new Date(`${monthKey}-01T00:00:00.000Z`);
+  const diaHasta = new Date(Date.UTC(yy, mm, 0));
   const hace5 = new Date(ahora.getTime() - 5 * DIA_MS);
   const hace7 = new Date(ahora.getTime() - 7 * DIA_MS);
   const hace30 = new Date(ahora.getTime() - 30 * DIA_MS);
@@ -150,6 +168,10 @@ export async function getPanoramaOperativo(opts: {
     panicIncompletos,
     correctivos30,
     solicitudesVideo,
+    telemetriaPorTipo,
+    telemetriaTramas,
+    telemetriaAlarmas,
+    telemetriaEventos,
     resumen,
   ] = await Promise.all([
     prisma.bus.findMany({
@@ -193,6 +215,28 @@ export async function getPanoramaOperativo(opts: {
     prisma.videoDownloadRequest.findMany({
       where: { case: { tenantId, status: { in: abiertos } } },
       select: { eventStart: true },
+    }),
+    // Telemetría del mes, leída de los acumulados diarios que ya calcula el
+    // módulo de Telemetría (no se recalcula nada desde el Inicio).
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["kind"],
+      where: { tenantId, day: { gte: diaDesde, lte: diaHasta } },
+      _sum: { count: true },
+    }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["code"],
+      where: { tenantId, day: { gte: diaDesde, lte: diaHasta }, kind: StsTelemetryKind.TRAMAS },
+      _sum: { count: true },
+    }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["code", "level"],
+      where: { tenantId, day: { gte: diaDesde, lte: diaHasta }, kind: StsTelemetryKind.ALARMAS },
+      _sum: { count: true },
+    }),
+    prisma.telemetryDailyRollup.groupBy({
+      by: ["code"],
+      where: { tenantId, day: { gte: diaDesde, lte: diaHasta }, kind: StsTelemetryKind.EVENTOS },
+      _sum: { count: true },
     }),
     getCasesSummary({ tenantId, monthKey }),
   ]);
@@ -304,6 +348,37 @@ export async function getPanoramaOperativo(opts: {
     };
   });
 
+  // ------------------------------------------------------------ telemetría
+  const sumaTipo = (k: StsTelemetryKind) =>
+    telemetriaPorTipo.find((r) => r.kind === k)?._sum.count ?? 0;
+  const periodicas = sumaTipo(StsTelemetryKind.TRAMAS);
+  const eventosTotal = sumaTipo(StsTelemetryKind.EVENTOS);
+  const alarmasTotal = sumaTipo(StsTelemetryKind.ALARMAS);
+  const subTrama = (c: string) =>
+    telemetriaTramas.find((r) => (r.code || "").toUpperCase() === c)?._sum.count ?? 0;
+
+  const alarmasPorTipo = ALARM_CATALOG.map((a) => {
+    const filas = telemetriaAlarmas.filter((r) => (r.code || "").toUpperCase() === a.code);
+    const total = filas.reduce((acc, r) => acc + (r._sum.count ?? 0), 0);
+    const criticas = filas
+      .filter((r) => NIVELES_CRITICOS.has((r.level || "").toUpperCase()))
+      .reduce((acc, r) => acc + (r._sum.count ?? 0), 0);
+    return { code: a.code, label: a.label, total, criticas };
+  })
+    .filter((a) => a.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  const eventosTop = EVENT_CATALOG.map((e) => ({
+    code: e.code,
+    label: e.label,
+    total: telemetriaEventos
+      .filter((r) => (r.code || "").toUpperCase() === e.code)
+      .reduce((acc, r) => acc + (r._sum.count ?? 0), 0),
+  }))
+    .filter((e) => e.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
   return {
     mesKey: monthKey,
     generadoEn: ahora.toISOString(),
@@ -345,6 +420,17 @@ export async function getPanoramaOperativo(opts: {
     preventivosHeat: { valores: valores.slice(0, semanasUsadas), max: maxHeat },
     carga: resumen.cargaResponsable.slice(0, 5),
     topBuses,
+    telemetria: {
+      hayDatos: periodicas + eventosTotal + alarmasTotal > 0,
+      periodicas,
+      p20: subTrama("P20"),
+      p60: subTrama("P60"),
+      eventos: eventosTotal,
+      alarmas: alarmasTotal,
+      alarmasCriticas: alarmasPorTipo.reduce((acc, a) => acc + a.criticas, 0),
+      alarmasPorTipo,
+      eventosTop,
+    },
     videoSla: {
       dentro: videoDentro,
       porSalir: videoPorSalir,
