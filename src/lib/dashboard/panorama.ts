@@ -68,8 +68,9 @@ export type Panorama = {
     eventos: number;
     alarmas: number;
     alarmasCriticas: number;
+    // Catálogo completo del diccionario de datos: ALA1-ALA7 y EV1-EV18.
     alarmasPorTipo: { code: string; label: string; total: number; criticas: number }[];
-    eventosTop: { code: string; label: string; total: number }[];
+    eventosPorTipo: { code: string; label: string; total: number }[];
   };
 };
 
@@ -364,20 +365,15 @@ export async function getPanoramaOperativo(opts: {
       .filter((r) => NIVELES_CRITICOS.has((r.level || "").toUpperCase()))
       .reduce((acc, r) => acc + (r._sum.count ?? 0), 0);
     return { code: a.code, label: a.label, total, criticas };
-  })
-    .filter((a) => a.total > 0)
-    .sort((a, b) => b.total - a.total);
+  }).sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 
-  const eventosTop = EVENT_CATALOG.map((e) => ({
+  const eventosPorTipo = EVENT_CATALOG.map((e) => ({
     code: e.code,
     label: e.label,
     total: telemetriaEventos
       .filter((r) => (r.code || "").toUpperCase() === e.code)
       .reduce((acc, r) => acc + (r._sum.count ?? 0), 0),
-  }))
-    .filter((e) => e.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6);
+  })).sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 
   return {
     mesKey: monthKey,
@@ -429,7 +425,7 @@ export async function getPanoramaOperativo(opts: {
       alarmas: alarmasTotal,
       alarmasCriticas: alarmasPorTipo.reduce((acc, a) => acc + a.criticas, 0),
       alarmasPorTipo,
-      eventosTop,
+      eventosPorTipo,
     },
     videoSla: {
       dentro: videoDentro,

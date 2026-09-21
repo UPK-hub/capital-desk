@@ -8,14 +8,34 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Tooltip,
   Legend,
   Filler,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Line, Bar, Doughnut } from "react-chartjs-2";
 import type { Panorama } from "@/lib/dashboard/panorama";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+const TOOLTIP = {
+  backgroundColor: "rgba(13,22,38,.94)",
+  padding: 10,
+  cornerRadius: 9,
+  titleFont: { size: 12 },
+  bodyFont: { size: 12 },
+};
 
 const COLOR = {
   serie1: "#2563eb",
@@ -301,6 +321,174 @@ export default function PanoramaOperativo({
     []
   );
 
+  const tramasData = React.useMemo(
+    () => ({
+      labels: ["Periódicas", "Eventos", "Alarmas"],
+      datasets: [
+        {
+          data: [telemetria.periodicas, telemetria.eventos, telemetria.alarmas],
+          backgroundColor: [COLOR.serie1, COLOR.serie2, COLOR.warn],
+          borderColor: "#ffffff",
+          borderWidth: 2,
+          hoverOffset: 6,
+        },
+      ],
+    }),
+    [telemetria]
+  );
+
+  const tramasOpts = React.useMemo<any>(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "68%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            label: (ctx: any) => ` ${ctx.label}: ${Number(ctx.raw).toLocaleString("es-CO")}`,
+          },
+        },
+      },
+    }),
+    []
+  );
+
+  const eventosData = React.useMemo(
+    () => ({
+      labels: telemetria.eventosPorTipo.map((e) => e.code),
+      datasets: [
+        {
+          label: "Ocurrencias",
+          data: telemetria.eventosPorTipo.map((e) => e.total),
+          backgroundColor: telemetria.eventosPorTipo.map((e) =>
+            e.total > 0 ? COLOR.serie2 : "#e2e8f0"
+          ),
+          borderRadius: 5,
+          borderSkipped: false,
+          barThickness: 14,
+        },
+      ],
+    }),
+    [telemetria]
+  );
+
+  const eventosOpts = React.useMemo<any>(
+    () => ({
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 42 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            title: (items: any) => {
+              const i = items[0]?.dataIndex ?? 0;
+              const e = telemetria.eventosPorTipo[i];
+              return e ? `${e.code} · ${e.label}` : "";
+            },
+            label: (ctx: any) => ` ${Number(ctx.raw).toLocaleString("es-CO")} ocurrencias`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          grid: { color: "#eef2f7" },
+          border: { display: false },
+          ticks: { color: "#94a3b8", font: { size: 10 }, precision: 0 },
+        },
+        y: {
+          grid: { display: false },
+          border: { color: "#e2e8f0" },
+          ticks: { color: "#475569", font: { size: 10.5, weight: "600" } },
+        },
+      },
+    }),
+    [telemetria]
+  );
+
+  const alarmasData = React.useMemo(
+    () => ({
+      labels: telemetria.alarmasPorTipo.map((a) => a.code),
+      datasets: [
+        {
+          label: "Nivel crítico (N1 · N5)",
+          data: telemetria.alarmasPorTipo.map((a) => a.criticas),
+          backgroundColor: COLOR.bad,
+          borderRadius: 4,
+          borderSkipped: false,
+          barThickness: 16,
+          stack: "alarmas",
+        },
+        {
+          label: "Otros niveles",
+          data: telemetria.alarmasPorTipo.map((a) => Math.max(0, a.total - a.criticas)),
+          backgroundColor: COLOR.warn,
+          borderRadius: 4,
+          borderSkipped: false,
+          barThickness: 16,
+          stack: "alarmas",
+        },
+      ],
+    }),
+    [telemetria]
+  );
+
+  const alarmasOpts = React.useMemo<any>(
+    () => ({
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 42 } },
+      plugins: {
+        legend: {
+          display: true,
+          align: "end",
+          labels: {
+            boxWidth: 9,
+            boxHeight: 9,
+            usePointStyle: true,
+            pointStyle: "rectRounded",
+            color: "#64748b",
+            font: { size: 11 },
+          },
+        },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            title: (items: any) => {
+              const i = items[0]?.dataIndex ?? 0;
+              const a = telemetria.alarmasPorTipo[i];
+              return a ? `${a.code} · ${a.label}` : "";
+            },
+            label: (ctx: any) =>
+              ` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString("es-CO")}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          beginAtZero: true,
+          grid: { color: "#eef2f7" },
+          border: { display: false },
+          ticks: { color: "#94a3b8", font: { size: 10 }, precision: 0 },
+        },
+        y: {
+          stacked: true,
+          grid: { display: false },
+          border: { color: "#e2e8f0" },
+          ticks: { color: "#475569", font: { size: 10.5, weight: "600" } },
+        },
+      },
+    }),
+    [telemetria]
+  );
+
   const maxCarga = Math.max(1, ...carga.map((c) => c.value));
   const totalVideo = Math.max(1, videoSla.dentro + videoSla.porSalir + videoSla.fuera);
   const leyendaFlota = [
@@ -474,107 +662,57 @@ export default function PanoramaOperativo({
       </div>
 
       {telemetria.hayDatos ? (
-        <div className="grid gap-3.5 lg:grid-cols-[1fr_1.05fr_1fr]">
-          <Panel titulo="Telemetría de la flota" alcance="tramas del mes">
-            <div className="space-y-2.5">
-              {[
-                {
-                  label: "Periódicas",
-                  valor: telemetria.periodicas,
-                  color: COLOR.serie1,
-                  sub: `P20 ${miles(telemetria.p20)} · P60 ${miles(telemetria.p60)}`,
-                },
-                {
-                  label: "Eventos",
-                  valor: telemetria.eventos,
-                  color: COLOR.serie2,
-                  sub: "EV1 a EV18 del diccionario",
-                },
-                {
-                  label: "Alarmas",
-                  valor: telemetria.alarmas,
-                  color: COLOR.warn,
-                  sub: `${miles(telemetria.alarmasCriticas)} en nivel crítico`,
-                },
-              ].map((t) => (
-                <div
-                  key={t.label}
-                  className="rounded-xl border border-border/40 bg-slate-50/70 px-3.5 py-2.5"
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[11.5px] font-semibold text-slate-500">{t.label}</span>
-                    <b className="text-[20px] tabular-nums" style={{ color: t.color }}>
-                      {miles(t.valor)}
-                    </b>
-                  </div>
-                  <p className="mt-0.5 text-[10.5px] text-slate-400">{t.sub}</p>
+        <>
+          <div className="grid gap-3.5 lg:grid-cols-[1fr_1.9fr]">
+            <Panel titulo="Tramas recibidas" alcance="mes · por naturaleza">
+              <div className="relative mx-auto h-[196px] w-[196px]">
+                <Doughnut data={tramasData} options={tramasOpts} />
+                <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
+                  <b className="block text-[24px] font-extrabold leading-none tabular-nums text-slate-900">
+                    {miles(telemetria.periodicas + telemetria.eventos + telemetria.alarmas)}
+                  </b>
+                  <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">tramas</span>
                 </div>
-              ))}
+              </div>
+              <ul className="mt-3 space-y-1.5">
+                {[
+                  { l: "Periódicas", v: telemetria.periodicas, c: COLOR.serie1, s: `P20 ${miles(telemetria.p20)} · P60 ${miles(telemetria.p60)}` },
+                  { l: "Eventos", v: telemetria.eventos, c: COLOR.serie2, s: "EV1 a EV18" },
+                  { l: "Alarmas", v: telemetria.alarmas, c: COLOR.warn, s: `${miles(telemetria.alarmasCriticas)} en nivel crítico` },
+                ].map((x) => (
+                  <li
+                    key={x.l}
+                    className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-slate-50/70 px-3 py-2"
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: x.c }} />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[12px] text-slate-600">{x.l}</span>
+                      <span className="block text-[10.5px] text-slate-400">{x.s}</span>
+                    </span>
+                    <b className="text-[14px] tabular-nums text-slate-800">{miles(x.v)}</b>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+
+            <Panel titulo="Eventos del diccionario" alcance="EV1 a EV18 · mes">
+              <div className="relative h-[420px]">
+                <Bar data={eventosData} options={eventosOpts} />
+              </div>
+            </Panel>
+          </div>
+
+          <Panel titulo="Alarmas por tipo" alcance="ALA1 a ALA7 · nivel crítico destacado">
+            <div className="relative h-[230px]">
+              <Bar data={alarmasData} options={alarmasOpts} />
             </div>
-            <p className="mt-3 text-[11.5px] text-slate-500">
-              Las periódicas son el pulso del equipo; su caída delata un bus sin reportar antes de
-              que lo note la operación.
+            <p className="mt-2 text-[11.5px] text-slate-500">
+              Crítico corresponde a los niveles N1 y N5 del diccionario. Las alarmas de ausencia de
+              imagen (ALA5 y ALA6) son, en la práctica, fallas de CCTV que deberían terminar en un
+              correctivo.
             </p>
           </Panel>
-
-          <Panel titulo="Alarmas por tipo" alcance="mes · nivel crítico aparte">
-            {telemetria.alarmasPorTipo.length ? (
-              telemetria.alarmasPorTipo.map((a) => (
-                <div key={a.code} className="mb-2.5 flex items-center gap-3">
-                  <span className="w-[136px] shrink-0 truncate text-[11.5px] text-slate-500" title={a.label}>
-                    <b className="mr-1.5 text-slate-700">{a.code}</b>
-                    {a.label}
-                  </span>
-                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <span
-                      className="block h-full rounded-full"
-                      style={{
-                        width: `${(a.total / Math.max(1, telemetria.alarmasPorTipo[0].total)) * 100}%`,
-                        background: a.criticas > 0 ? COLOR.warn : COLOR.serie2,
-                      }}
-                    />
-                  </span>
-                  <span className="w-14 text-right text-[12px] font-bold tabular-nums text-slate-700">
-                    {miles(a.total)}
-                  </span>
-                  {a.criticas > 0 ? (
-                    <span
-                      className="rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                      style={{ background: "rgba(220,38,38,0.10)", color: COLOR.bad }}
-                      title="Alarmas en nivel crítico (N1 o N5)"
-                    >
-                      {miles(a.criticas)}
-                    </span>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <p className="text-[12px] text-slate-400">Sin alarmas registradas en el mes.</p>
-            )}
-          </Panel>
-
-          <Panel titulo="Eventos más frecuentes" alcance="mes">
-            {telemetria.eventosTop.length ? (
-              <table className="w-full border-collapse text-[12px]">
-                <tbody>
-                  {telemetria.eventosTop.map((e) => (
-                    <tr key={e.code} className="border-t border-border/40 first:border-t-0">
-                      <td className="py-[7px] pr-2 font-extrabold text-slate-700">{e.code}</td>
-                      <td className="py-[7px] pr-2 text-slate-500">
-                        <span className="line-clamp-1">{e.label}</span>
-                      </td>
-                      <td className="py-[7px] text-right font-semibold tabular-nums text-slate-700">
-                        {miles(e.total)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-[12px] text-slate-400">Sin eventos registrados en el mes.</p>
-            )}
-          </Panel>
-        </div>
+        </>
       ) : null}
 
       <div className="grid gap-3.5 lg:grid-cols-3">
