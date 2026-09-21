@@ -6,6 +6,9 @@ import { Role } from "@prisma/client";
 import DashboardClient from "@/components/dashboard/DashboardClient";
 import { computeAccessFlags } from "@/lib/dashboard/access";
 import type { DashboardData } from "@/lib/dashboard/catalog";
+import PanoramaOperativo from "@/components/dashboard/PanoramaOperativo";
+import { getPanoramaOperativo, type Panorama } from "@/lib/dashboard/panorama";
+import { recentMonths } from "@/lib/cases/summary";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +33,38 @@ export default async function HomePage() {
 
   const initialData = (row?.data as DashboardData | undefined) ?? null;
 
+  // Panorama operativo: solo para quien ve la operación completa. Si falla una
+  // consulta no se cae el Inicio: el tablero de widgets sigue funcionando.
+  const mes = recentMonths(1)[0];
+  let panorama: Panorama | null = null;
+  if (flags.canBackoffice) {
+    try {
+      panorama = await getPanoramaOperativo({ tenantId, monthKey: mes.key });
+    } catch (e) {
+      console.error("[inicio] panorama operativo no disponible:", e);
+    }
+  }
+
   return (
-    <DashboardClient
-      flags={flags}
-      initialData={initialData}
-      userName={name}
-      tenantName={tenant?.name ?? "CapitalBus"}
-    />
+    <div className="space-y-5">
+      {panorama ? (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight text-slate-900">Panorama operativo</h2>
+            <span className="text-xs text-slate-500">
+              {tenant?.name ?? "CapitalBus"} · {mes.label}
+            </span>
+          </div>
+          <PanoramaOperativo data={panorama} />
+        </section>
+      ) : null}
+
+      <DashboardClient
+        flags={flags}
+        initialData={initialData}
+        userName={name}
+        tenantName={tenant?.name ?? "CapitalBus"}
+      />
+    </div>
   );
 }
