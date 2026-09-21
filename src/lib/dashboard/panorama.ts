@@ -21,6 +21,9 @@ export type Panorama = {
   flota: {
     total: number;
     alDia: number;
+    // Buses con preventivo del mes que, por tener una alerta activa (correctivo
+    // abierto o sin reportar), se pintan en otra categoría del muro.
+    alDiaConAlerta: number;
     pendiente: number;
     correctivo: number;
     sinReporte: number;
@@ -307,6 +310,7 @@ export async function getPanoramaOperativo(opts: {
     flota: {
       total: meta,
       alDia: cuenta("AL_DIA"),
+      alDiaConAlerta: Math.max(0, hechos - cuenta("AL_DIA")),
       pendiente: cuenta("PENDIENTE"),
       correctivo: cuenta("CORRECTIVO"),
       sinReporte: cuenta("SIN_REPORTE"),

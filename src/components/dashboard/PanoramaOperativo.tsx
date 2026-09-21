@@ -323,12 +323,21 @@ export default function PanoramaOperativo({ data }: { data: Panorama }) {
               </li>
             ))}
           </ul>
+          {flota.alDiaConAlerta > 0 ? (
+            <p className="mt-2.5 text-[11px] text-slate-400">
+              El muro pinta una sola condición por bus, la más crítica.{" "}
+              <b className="text-slate-500">{flota.alDiaConAlerta}</b>{" "}
+              {flota.alDiaConAlerta === 1 ? "bus tiene" : "buses tienen"} el preventivo del mes, pero
+              se {flota.alDiaConAlerta === 1 ? "muestra" : "muestran"} en otra categoría por una
+              alerta activa. El cumplimiento del mes los cuenta.
+            </p>
+          ) : null}
         </Panel>
 
         <Panel titulo="Cumplimiento preventivo" alcance={`meta ${cumplimiento.meta} · mes`}>
           <Medidor pct={cumplimiento.pct} />
           <p className="-mt-1 text-center text-[11.5px] text-slate-500">
-            {cumplimiento.hechos} de {cumplimiento.meta} buses
+            {cumplimiento.hechos} de {cumplimiento.meta} buses con preventivo del mes
           </p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {[
