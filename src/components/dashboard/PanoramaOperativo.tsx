@@ -815,9 +815,7 @@ export default function PanoramaOperativo({
               <Bar data={alarmasData} options={alarmasOpts} />
             </div>
             <p className="mt-2 text-[11.5px] text-slate-500">
-              Crítico corresponde a los niveles N1 y N5 del diccionario. Las alarmas de ausencia de
-              imagen (ALA5 y ALA6) son, en la práctica, fallas de CCTV que deberían terminar en un
-              correctivo.
+              Crítico corresponde a los niveles N1 y N5 del diccionario de datos.
             </p>
           </Panel>
         </>
