@@ -3,7 +3,7 @@
 // leer de un vistazo: estado de la flota, cumplimiento del preventivo del mes,
 // lo que está vencido hoy y la actividad del mes.
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseType, WorkOrderStatus } from "@prisma/client";
+import { CaseStatus, CaseType, Prisma } from "@prisma/client";
 import { slaDeadlineMs } from "@/lib/cases/sla";
 import { getCasesSummary } from "@/lib/cases/summary";
 
@@ -58,6 +58,62 @@ export type Panorama = {
   videoSla: { dentro: number; porSalir: number; fuera: number; diasRetencion: number };
 };
 
+/**
+ * Preventivos ejecutados dentro de un rango, por bus.
+ *
+ * Un preventivo se da por ejecutado desde tres fuentes, igual que el cálculo de
+ * "último preventivo" que ya usa la Revisión Remota: el cierre de la orden de
+ * trabajo, el checklist del bot de preventivos y el cambio de estado del caso a
+ * resuelto/cerrado. Mirar solo la OT deja por fuera casi todo, porque muchos
+ * preventivos se cierran por el bot o desde el caso sin finalizar la OT.
+ */
+async function getPreventivosEjecutados(
+  tenantId: string,
+  desde: Date,
+  hasta: Date
+): Promise<{ busId: string; at: Date }[]> {
+  return prisma.$queryRaw<Array<{ busId: string; at: Date }>>(Prisma.sql`
+    SELECT "busId", "at" FROM (
+      SELECT c."busId" AS "busId", w."finishedAt" AS "at"
+      FROM "WorkOrder" w
+      JOIN "Case" c ON c."id" = w."caseId"
+      WHERE w."tenantId" = ${tenantId}
+        AND w."finishedAt" >= ${desde}
+        AND w."finishedAt" < ${hasta}
+        AND c."type"::text = 'PREVENTIVO'
+        AND c."busId" IS NOT NULL
+
+      UNION ALL
+
+      SELECT c."busId" AS "busId", COALESCE(pc."cierreAt", pc."executedAt") AS "at"
+      FROM "CasePreventiveChecklist" pc
+      JOIN "Case" c ON c."id" = pc."caseId"
+      WHERE c."tenantId" = ${tenantId}
+        AND COALESCE(pc."cierreAt", pc."executedAt") >= ${desde}
+        AND COALESCE(pc."cierreAt", pc."executedAt") < ${hasta}
+        AND c."type"::text = 'PREVENTIVO'
+        AND c."busId" IS NOT NULL
+
+      UNION ALL
+
+      SELECT c."busId" AS "busId", e."createdAt" AS "at"
+      FROM "CaseEvent" e
+      JOIN "Case" c ON c."id" = e."caseId"
+      WHERE c."tenantId" = ${tenantId}
+        AND c."type"::text = 'PREVENTIVO'
+        AND c."status"::text IN ('RESUELTO', 'CERRADO')
+        AND e."type"::text = 'STATUS_CHANGE'
+        AND e."createdAt" >= ${desde}
+        AND e."createdAt" < ${hasta}
+        AND (e."message" ILIKE '%cerrad%' OR e."message" ILIKE '%resuelt%')
+        AND e."message" NOT ILIKE '%backfill%'
+        AND e."message" NOT ILIKE '%unific%'
+        AND c."busId" IS NOT NULL
+    ) t
+    WHERE t."busId" IS NOT NULL AND t."at" IS NOT NULL
+  `);
+}
+
 /** Fecha local Colombia (para agrupar por día/semana sin depender del servidor). */
 function local(d: Date): Date {
   return new Date(d.getTime() - COT_MS);
@@ -98,14 +154,7 @@ export async function getPanoramaOperativo(opts: {
       select: { id: true, code: true },
       orderBy: { code: "asc" },
     }),
-    prisma.workOrder.findMany({
-      where: {
-        tenantId,
-        finishedAt: { gte: mesInicio, lt: mesFin },
-        case: { type: CaseType.PREVENTIVO },
-      },
-      select: { finishedAt: true, case: { select: { busId: true } } },
-    }),
+    getPreventivosEjecutados(tenantId, mesInicio, mesFin),
     prisma.case.findMany({
       where: { tenantId, type: CaseType.CORRECTIVO, status: { in: abiertos } },
       select: { busId: true },
@@ -122,8 +171,9 @@ export async function getPanoramaOperativo(opts: {
     prisma.workOrder.count({
       where: {
         tenantId,
-        status: { not: WorkOrderStatus.FINALIZADA },
+        finishedAt: null,
         createdAt: { lt: hace7 },
+        case: { status: { in: abiertos } },
       },
     }),
     prisma.case.count({
@@ -145,7 +195,7 @@ export async function getPanoramaOperativo(opts: {
   ]);
 
   // ---------------------------------------------------------------- flota
-  const busesConPreventivo = new Set(preventivosMes.map((w) => w.case.busId));
+  const busesConPreventivo = new Set(preventivosMes.map((r) => r.busId));
   const busesConCorrectivo = new Set(correctivosAbiertos.map((c) => c.busId));
   const codigosQueReportan = new Set(reportanTelemetria.map((r) => r.busCode));
 
@@ -167,9 +217,10 @@ export async function getPanoramaOperativo(opts: {
   const diasRestantes = mismoMes ? Math.max(0, diasMes - diaHoy) : 0;
   const ritmoDiario = transcurridos > 0 ? hechos / transcurridos : 0;
   const faltan = Math.max(0, meta - hechos);
-  const estaSemana = preventivosMes.filter(
-    (w) => w.finishedAt && w.finishedAt >= hace7
-  ).length;
+  const busesEstaSemana = new Set(
+    preventivosMes.filter((r) => new Date(r.at) >= hace7).map((r) => r.busId)
+  );
+  const estaSemana = busesEstaSemana.size;
 
   // ------------------------------------------------------------ alertas
   const ahoraMs = ahora.getTime();
@@ -206,9 +257,14 @@ export async function getPanoramaOperativo(opts: {
   const semanasMax = 6;
   const valores: number[][] = Array.from({ length: semanasMax }, () => Array(7).fill(0));
   let maxHeat = 0;
-  for (const w of preventivosMes) {
-    if (!w.finishedAt) continue;
-    const l = local(w.finishedAt);
+  const vistosEnDia = new Set<string>();
+  for (const r of preventivosMes) {
+    if (!r.at) continue;
+    const fecha = new Date(r.at);
+    const clave = `${r.busId}|${fecha.toISOString().slice(0, 10)}`;
+    if (vistosEnDia.has(clave)) continue; // un bus cuenta una vez por día
+    vistosEnDia.add(clave);
+    const l = local(fecha);
     const diaMes = l.getUTCDate();
     const diaSemana = (l.getUTCDay() + 6) % 7; // lunes = 0
     const primerDia = local(mesInicio).getUTCDay();
