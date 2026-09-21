@@ -63,6 +63,68 @@ const ESTADO_TEXTO: Record<string, string> = {
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+/**
+ * Separa los valores que aplastan la escala. Cuando un tipo tiene un orden de
+ * magnitud más que el siguiente, graficarlos juntos deja al resto en una raya
+ * invisible: se muestra aparte, con su cifra, y la gráfica queda comparable.
+ */
+function separarDominantes<T extends { total: number }>(lista: T[], maximo = 2) {
+  const orden = [...lista].sort((a, b) => b.total - a.total);
+  const destacados: T[] = [];
+  let i = 0;
+  while (
+    i < maximo &&
+    orden.length - destacados.length > 2 &&
+    orden[i] &&
+    orden[i + 1] &&
+    orden[i].total > 4 * Math.max(1, orden[i + 1].total)
+  ) {
+    destacados.push(orden[i]);
+    i += 1;
+  }
+  return { destacados, resto: orden.slice(destacados.length) };
+}
+
+function Destacado({
+  code,
+  label,
+  total,
+  criticas,
+  porcentaje,
+  color,
+}: {
+  code: string;
+  label: string;
+  total: number;
+  criticas?: number;
+  porcentaje: number;
+  color: string;
+}) {
+  return (
+    <div
+      className="rounded-xl border border-border/40 bg-slate-50/70 px-3.5 py-2.5"
+      style={{ borderLeftColor: color, borderLeftWidth: 3 }}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 text-[12px] text-slate-600">
+          <b className="mr-1.5 text-slate-800">{code}</b>
+          <span className="text-slate-500">{label}</span>
+        </span>
+        <b className="shrink-0 text-[17px] tabular-nums text-slate-800">
+          {total.toLocaleString("es-CO")}
+        </b>
+      </div>
+      <p className="mt-0.5 text-[10.5px] text-slate-400">
+        {porcentaje}% del total
+        {criticas != null && criticas > 0
+          ? ` · ${criticas.toLocaleString("es-CO")} en nivel crítico`
+          : ""}
+        {" · fuera de la gráfica por volumen"}
+      </p>
+    </div>
+  );
+}
+
 function Panel({
   titulo,
   alcance,
@@ -355,14 +417,25 @@ export default function PanoramaOperativo({
     []
   );
 
+  const eventosSep = React.useMemo(
+    () => separarDominantes(telemetria.eventosPorTipo),
+    [telemetria]
+  );
+  const alarmasSep = React.useMemo(
+    () => separarDominantes(telemetria.alarmasPorTipo),
+    [telemetria]
+  );
+  const totalEventos = Math.max(1, telemetria.eventos);
+  const totalAlarmas = Math.max(1, telemetria.alarmas);
+
   const eventosData = React.useMemo(
     () => ({
-      labels: telemetria.eventosPorTipo.map((e) => e.code),
+      labels: eventosSep.resto.map((e) => e.code),
       datasets: [
         {
           label: "Ocurrencias",
-          data: telemetria.eventosPorTipo.map((e) => e.total),
-          backgroundColor: telemetria.eventosPorTipo.map((e) =>
+          data: eventosSep.resto.map((e) => e.total),
+          backgroundColor: eventosSep.resto.map((e) =>
             e.total > 0 ? COLOR.serie2 : "#e2e8f0"
           ),
           borderRadius: 5,
@@ -371,7 +444,7 @@ export default function PanoramaOperativo({
         },
       ],
     }),
-    [telemetria]
+    [eventosSep]
   );
 
   const eventosOpts = React.useMemo<any>(
@@ -387,7 +460,7 @@ export default function PanoramaOperativo({
           callbacks: {
             title: (items: any) => {
               const i = items[0]?.dataIndex ?? 0;
-              const e = telemetria.eventosPorTipo[i];
+              const e = eventosSep.resto[i];
               return e ? `${e.code} · ${e.label}` : "";
             },
             label: (ctx: any) => ` ${Number(ctx.raw).toLocaleString("es-CO")} ocurrencias`,
@@ -408,16 +481,16 @@ export default function PanoramaOperativo({
         },
       },
     }),
-    [telemetria]
+    [eventosSep]
   );
 
   const alarmasData = React.useMemo(
     () => ({
-      labels: telemetria.alarmasPorTipo.map((a) => a.code),
+      labels: alarmasSep.resto.map((a) => a.code),
       datasets: [
         {
           label: "Nivel crítico (N1 · N5)",
-          data: telemetria.alarmasPorTipo.map((a) => a.criticas),
+          data: alarmasSep.resto.map((a) => a.criticas),
           backgroundColor: COLOR.bad,
           borderRadius: 4,
           borderSkipped: false,
@@ -426,7 +499,7 @@ export default function PanoramaOperativo({
         },
         {
           label: "Otros niveles",
-          data: telemetria.alarmasPorTipo.map((a) => Math.max(0, a.total - a.criticas)),
+          data: alarmasSep.resto.map((a) => Math.max(0, a.total - a.criticas)),
           backgroundColor: COLOR.warn,
           borderRadius: 4,
           borderSkipped: false,
@@ -435,7 +508,7 @@ export default function PanoramaOperativo({
         },
       ],
     }),
-    [telemetria]
+    [alarmasSep]
   );
 
   const alarmasOpts = React.useMemo<any>(
@@ -462,7 +535,7 @@ export default function PanoramaOperativo({
           callbacks: {
             title: (items: any) => {
               const i = items[0]?.dataIndex ?? 0;
-              const a = telemetria.alarmasPorTipo[i];
+              const a = alarmasSep.resto[i];
               return a ? `${a.code} · ${a.label}` : "";
             },
             label: (ctx: any) =>
@@ -486,7 +559,7 @@ export default function PanoramaOperativo({
         },
       },
     }),
-    [telemetria]
+    [alarmasSep]
   );
 
   const maxCarga = Math.max(1, ...carga.map((c) => c.value));
@@ -696,14 +769,49 @@ export default function PanoramaOperativo({
             </Panel>
 
             <Panel titulo="Eventos del diccionario" alcance="EV1 a EV18 · mes">
-              <div className="relative h-[420px]">
+              {eventosSep.destacados.length ? (
+                <div className="mb-3 space-y-2">
+                  {eventosSep.destacados.map((e) => (
+                    <Destacado
+                      key={e.code}
+                      code={e.code}
+                      label={e.label}
+                      total={e.total}
+                      porcentaje={Math.round((e.total / totalEventos) * 100)}
+                      color={COLOR.serie2}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div
+                className="relative"
+                style={{ height: Math.max(180, eventosSep.resto.length * 23) }}
+              >
                 <Bar data={eventosData} options={eventosOpts} />
               </div>
             </Panel>
           </div>
 
           <Panel titulo="Alarmas por tipo" alcance="ALA1 a ALA7 · nivel crítico destacado">
-            <div className="relative h-[230px]">
+            {alarmasSep.destacados.length ? (
+              <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                {alarmasSep.destacados.map((a) => (
+                  <Destacado
+                    key={a.code}
+                    code={a.code}
+                    label={a.label}
+                    total={a.total}
+                    criticas={a.criticas}
+                    porcentaje={Math.round((a.total / totalAlarmas) * 100)}
+                    color={COLOR.bad}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div
+              className="relative"
+              style={{ height: Math.max(160, alarmasSep.resto.length * 30) }}
+            >
               <Bar data={alarmasData} options={alarmasOpts} />
             </div>
             <p className="mt-2 text-[11.5px] text-slate-500">
