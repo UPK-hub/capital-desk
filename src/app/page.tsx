@@ -46,6 +46,9 @@ export default async function HomePage() {
     }
   }
 
+  // Con el panorama operativo arriba, el tablero de widgets repetía los mismos
+  // indicadores (casos abiertos, OTs, actividad, preventivos por día). Se deja
+  // solo para los perfiles que no ven el panorama: técnicos y videos.
   return (
     <div className="space-y-5">
       {panorama ? (
@@ -60,12 +63,14 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      <DashboardClient
-        flags={flags}
-        initialData={initialData}
-        userName={name}
-        tenantName={tenant?.name ?? "CapitalBus"}
-      />
+      {panorama ? null : (
+        <DashboardClient
+          flags={flags}
+          initialData={initialData}
+          userName={name}
+          tenantName={tenant?.name ?? "CapitalBus"}
+        />
+      )}
     </div>
   );
 }
