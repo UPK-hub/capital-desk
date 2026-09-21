@@ -190,7 +190,15 @@ function BarraFila({
   );
 }
 
-export default function PanoramaOperativo({ data }: { data: Panorama }) {
+export default function PanoramaOperativo({
+  data,
+  verPanico = false,
+}: {
+  data: Panorama;
+  /** El módulo de botón de pánico aún no se expone al cliente: la tarjeta solo
+   *  se muestra a quien tiene permiso sobre ese módulo. */
+  verPanico?: boolean;
+}) {
   const { flota, cumplimiento, alertas, actividad, preventivosHeat, carga, topBuses, videoSla } = data;
 
   const lineData = React.useMemo(
@@ -362,7 +370,11 @@ export default function PanoramaOperativo({ data }: { data: Panorama }) {
       </div>
 
       <Panel titulo="Requiere atención" alcance="a la fecha">
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div
+          className={`grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 ${
+            verPanico ? "xl:grid-cols-6" : "xl:grid-cols-5"
+          }`}
+        >
           <Alerta
             label="Casos vencidos (SLA)"
             valor={alertas.casosVencidos}
@@ -385,13 +397,15 @@ export default function PanoramaOperativo({ data }: { data: Panorama }) {
             color={COLOR.warn}
             href="/novedades?assigned=none"
           />
-          <Alerta
-            label="Eventos de pánico incompletos"
-            valor={alertas.panicIncompletos}
-            sub="faltan clips"
-            color={COLOR.violeta}
-            href="/video-requests/panic"
-          />
+          {verPanico ? (
+            <Alerta
+              label="Eventos de pánico incompletos"
+              valor={alertas.panicIncompletos}
+              sub="faltan clips"
+              color={COLOR.violeta}
+              href="/video-requests/panic"
+            />
+          ) : null}
           <Alerta
             label="Buses reincidentes"
             valor={alertas.busesReincidentes}

@@ -9,6 +9,7 @@ import type { DashboardData } from "@/lib/dashboard/catalog";
 import PanoramaOperativo from "@/components/dashboard/PanoramaOperativo";
 import { getPanoramaOperativo, type Panorama } from "@/lib/dashboard/panorama";
 import { recentMonths } from "@/lib/cases/summary";
+import { canViewPanic } from "@/lib/panic/access";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export default async function HomePage() {
               {tenant?.name ?? "CapitalBus"} · {mes.label}
             </span>
           </div>
-          <PanoramaOperativo data={panorama} />
+          <PanoramaOperativo data={panorama} verPanico={canViewPanic({ role, capabilities: caps })} />
         </section>
       ) : null}
 
