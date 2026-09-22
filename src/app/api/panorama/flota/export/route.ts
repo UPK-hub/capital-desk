@@ -13,6 +13,7 @@ import {
   ESTADO_LABEL,
   getDetalleFlota,
   JORNADA_CORTE_HORA,
+  SIN_REPORTE_DIAS,
   type EstadoBus,
   type FilaFlota,
 } from "@/lib/dashboard/panorama";
@@ -204,7 +205,7 @@ export async function GET(req: NextRequest) {
     ["prevCount", "diasPrev", "correctivos", "casos", "diasRep"].forEach((k) => {
       fila.getCell(k).alignment = { horizontal: "center" };
     });
-    if ((f.diasSinReportar ?? 0) >= 5 || f.ultimoReporte === null) {
+    if ((f.diasSinReportar ?? 0) >= SIN_REPORTE_DIAS || f.ultimoReporte === null) {
       fila.getCell("diasRep").font = { bold: true, color: { argb: "FFB91C1C" } };
       fila.getCell("reporte").font = { color: { argb: "FFB91C1C" } };
     }

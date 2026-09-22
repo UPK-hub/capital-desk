@@ -58,7 +58,7 @@ const ESTADO_TEXTO: Record<string, string> = {
   AL_DIA: "preventivo del mes al día",
   PENDIENTE: "preventivo pendiente",
   CORRECTIVO: "correctivo abierto",
-  SIN_REPORTE: "sin reportar hace 5+ días",
+  SIN_REPORTE: "sin reportar (sin trama reciente)",
 };
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -584,7 +584,7 @@ export default function PanoramaOperativo({
     { label: "Preventivo del mes al día", valor: flota.alDia, color: COLOR.ok, grupo: "AL_DIA" },
     { label: "Preventivo pendiente", valor: flota.pendiente, color: COLOR.warn, grupo: "PENDIENTE" },
     { label: "Con correctivo abierto", valor: flota.correctivo, color: COLOR.bad, grupo: "CORRECTIVO" },
-    { label: "Sin reportar hace 5+ días", valor: flota.sinReporte, color: COLOR.gris, grupo: "SIN_REPORTE" },
+    { label: `Sin reportar hace ${flota.umbralSinReporte}+ días`, valor: flota.sinReporte, color: COLOR.gris, grupo: "SIN_REPORTE" },
   ];
 
   return (

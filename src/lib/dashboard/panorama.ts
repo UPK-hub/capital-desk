@@ -18,6 +18,10 @@ export const JORNADA_CORTE_HORA = 5;
 // Retención del material de video en los NVR. Una solicitud cuyo evento sea
 // anterior a este límite ya no se puede atender: el video no existe.
 export const RETENCION_VIDEO_DIAS = 45;
+// Un bus se considera "sin reportar" cuando no hay trama en la telemetría
+// diaria en este número de días. La alerta se levanta temprano, a los 3 días,
+// para alcanzar a gestionarlo antes de que la novedad se vuelva crónica.
+export const SIN_REPORTE_DIAS = 3;
 const COT_MS = 5 * 3600 * 1000;
 const CORTE_MS = JORNADA_CORTE_HORA * 3600 * 1000;
 
@@ -35,6 +39,8 @@ export type Panorama = {
     pendiente: number;
     correctivo: number;
     sinReporte: number;
+    // Días sin trama a partir de los cuales el bus se marca como sin reportar.
+    umbralSinReporte: number;
     buses: { code: string; estado: EstadoBus }[];
   };
   cumplimiento: {
@@ -166,7 +172,7 @@ export async function getPanoramaOperativo(opts: {
   // La telemetría se acumula por día calendario (columna date, sin hora).
   const diaDesde = new Date(`${monthKey}-01T00:00:00.000Z`);
   const diaHasta = new Date(Date.UTC(yy, mm, 0));
-  const hace5 = new Date(ahora.getTime() - 5 * DIA_MS);
+  const sinReporteDesde = new Date(ahora.getTime() - SIN_REPORTE_DIAS * DIA_MS);
   const hace7 = new Date(ahora.getTime() - 7 * DIA_MS);
   const hace30 = new Date(ahora.getTime() - 30 * DIA_MS);
 
@@ -199,7 +205,7 @@ export async function getPanoramaOperativo(opts: {
     }),
     prisma.telemetryDailyRollup.groupBy({
       by: ["busCode"],
-      where: { tenantId, day: { gte: hace5 } },
+      where: { tenantId, day: { gte: sinReporteDesde } },
       _count: { _all: true },
     }),
     prisma.case.findMany({
@@ -397,6 +403,7 @@ export async function getPanoramaOperativo(opts: {
       pendiente: cuenta("PENDIENTE"),
       correctivo: cuenta("CORRECTIVO"),
       sinReporte: cuenta("SIN_REPORTE"),
+      umbralSinReporte: SIN_REPORTE_DIAS,
       buses: conEstado,
     },
     cumplimiento: {
@@ -458,7 +465,7 @@ export const ESTADO_LABEL: Record<EstadoBus, string> = {
   AL_DIA: "Preventivo del mes al día",
   PENDIENTE: "Preventivo pendiente",
   CORRECTIVO: "Con correctivo abierto",
-  SIN_REPORTE: "Sin reportar hace 5+ días",
+  SIN_REPORTE: `Sin reportar hace ${SIN_REPORTE_DIAS}+ días`,
 };
 
 export type FilaFlota = {
@@ -486,7 +493,7 @@ export async function getDetalleFlota(opts: {
   const mesInicio = new Date(Date.UTC(yy, mm - 1, 1, 5 + JORNADA_CORTE_HORA));
   const mesFin = new Date(Date.UTC(yy, mm, 1, 5 + JORNADA_CORTE_HORA));
   const abiertos = [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION];
-  const hace5 = new Date(ahora.getTime() - 5 * DIA_MS);
+  const sinReporteDesde = new Date(ahora.getTime() - SIN_REPORTE_DIAS * DIA_MS);
 
   const [buses, preventivosMes, ultimoPrevPorBus, casosAbiertosPorBus, correctivosPorBus, reportes] =
     await Promise.all([
@@ -535,7 +542,7 @@ export async function getDetalleFlota(opts: {
     const ultimoPrev = ultimoPrevPorBus.get(b.id) ?? null;
     const ultimoReporte = reportePorCodigo.get(b.code) ?? null;
     const correctivos = correctivosMap.get(b.id) ?? 0;
-    const reportaReciente = Boolean(ultimoReporte && ultimoReporte >= hace5);
+    const reportaReciente = Boolean(ultimoReporte && ultimoReporte >= sinReporteDesde);
 
     const estado: EstadoBus = correctivos > 0
       ? "CORRECTIVO"
