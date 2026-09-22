@@ -9,7 +9,6 @@ import type { DashboardData } from "@/lib/dashboard/catalog";
 import PanoramaOperativo from "@/components/dashboard/PanoramaOperativo";
 import { getPanoramaOperativo, type Panorama } from "@/lib/dashboard/panorama";
 import { recentMonths } from "@/lib/cases/summary";
-import { canViewPanic } from "@/lib/panic/access";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +58,12 @@ export default async function HomePage() {
               {tenant?.name ?? "CapitalBus"} · {mes.label}
             </span>
           </div>
-          <PanoramaOperativo data={panorama} verPanico={canViewPanic({ role, capabilities: caps })} />
+          {/* El módulo de botón de pánico todavía no se muestra a CapitalBus, así que
+              su tarjeta permanece oculta para todos los perfiles, incluido el
+              administrador. Para volver a mostrarla basta con cambiar esta línea por
+              verPanico={canViewPanic({ role, capabilities: caps })} e importar
+              canViewPanic desde "@/lib/panic/access". */}
+          <PanoramaOperativo data={panorama} verPanico={false} />
         </section>
       ) : null}
 
