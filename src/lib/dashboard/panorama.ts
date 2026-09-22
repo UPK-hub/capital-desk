@@ -9,10 +9,16 @@ import { slaDeadlineMs } from "@/lib/cases/sla";
 import { getCasesSummary } from "@/lib/cases/summary";
 
 const DIA_MS = 86400000;
+// Jornada operativa: el mantenimiento se ejecuta de noche y en la madrugada, y
+// ese trabajo pertenece al día que termina, no al que empieza. Por eso la
+// jornada no corta a medianoche sino a las 05:00 de Bogotá: un preventivo
+// cerrado a la 01:30 del 1 de septiembre cuenta para el 31 de agosto.
+export const JORNADA_CORTE_HORA = 5;
 // Retención del material de video en los NVR. Una solicitud cuyo evento sea
 // anterior a este límite ya no se puede atender: el video no existe.
 export const RETENCION_VIDEO_DIAS = 45;
 const COT_MS = 5 * 3600 * 1000;
+const CORTE_MS = JORNADA_CORTE_HORA * 3600 * 1000;
 
 export type EstadoBus = "AL_DIA" | "PENDIENTE" | "CORRECTIVO" | "SIN_REPORTE";
 
@@ -133,9 +139,13 @@ async function getPreventivosEjecutados(
   `);
 }
 
-/** Fecha local Colombia (para agrupar por día/semana sin depender del servidor). */
+/**
+ * Fecha de la JORNADA a la que pertenece un instante, en hora Colombia.
+ * Resta la zona horaria y además el corte de jornada, de modo que lo ocurrido
+ * entre medianoche y las 05:00 se agrupa con el día anterior.
+ */
 function local(d: Date): Date {
-  return new Date(d.getTime() - COT_MS);
+  return new Date(d.getTime() - COT_MS - CORTE_MS);
 }
 
 export async function getPanoramaOperativo(opts: {
@@ -145,10 +155,11 @@ export async function getPanoramaOperativo(opts: {
   const { tenantId, monthKey } = opts;
   const ahora = new Date();
 
-  const mesInicio = new Date(`${monthKey}-01T05:00:00.000Z`);
   const [yy, mm] = monthKey.split("-").map(Number);
-  const siguiente = mm === 12 ? `${yy + 1}-01` : `${yy}-${String(mm + 1).padStart(2, "0")}`;
-  const mesFin = new Date(`${siguiente}-01T05:00:00.000Z`);
+  // El mes va del primer día a las 05:00 de Bogotá hasta la misma hora del
+  // primero del mes siguiente (05:00 Bogotá = 10:00 UTC).
+  const mesInicio = new Date(Date.UTC(yy, mm - 1, 1, 5 + JORNADA_CORTE_HORA));
+  const mesFin = new Date(Date.UTC(yy, mm, 1, 5 + JORNADA_CORTE_HORA));
 
   const abiertos = [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION];
   // La telemetría se acumula por día calendario (columna date, sin hora).

@@ -729,7 +729,8 @@ export default function PanoramaOperativo({
             ))}
           </div>
           <p className="mt-3 text-[11.5px] text-slate-500">
-            Pico de <b className="text-slate-800">{preventivosHeat.max}</b> preventivos en un día.
+            Pico de <b className="text-slate-800">{preventivosHeat.max}</b> preventivos en una jornada.
+            La jornada corta a las 05:00: lo ejecutado en la madrugada cuenta para el día anterior.
           </p>
         </Panel>
       </div>
