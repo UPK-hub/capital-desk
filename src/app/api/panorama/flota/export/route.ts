@@ -63,7 +63,36 @@ export async function GET(req: NextRequest) {
   const grupo = GRUPOS[grupoParam] ?? "TODOS";
 
   const { filas, mesInicio, mesFin } = await getDetalleFlota({ tenantId, monthKey: mesKey });
-  const seleccion = grupo === "TODOS" ? filas : filas.filter((f) => f.estado === grupo);
+  const filtradas = grupo === "TODOS" ? filas : filas.filter((f) => f.estado === grupo);
+
+  // Cada categoría se ordena por lo que hay que atender primero: el que lleva
+  // más tiempo sin transmitir, el que lleva más tiempo sin preventivo o el que
+  // acumula más correctivos. Sin esto el archivo sale en orden de código, que
+  // no dice nada.
+  const seleccion = [...filtradas].sort((a, b) => {
+    if (grupo === "SIN_REPORTE") {
+      const da = a.diasSinReportar ?? Number.MAX_SAFE_INTEGER;
+      const db = b.diasSinReportar ?? Number.MAX_SAFE_INTEGER;
+      if (da !== db) return db - da;
+    }
+    if (grupo === "PENDIENTE") {
+      const da = a.diasDesdePreventivo ?? Number.MAX_SAFE_INTEGER;
+      const db = b.diasDesdePreventivo ?? Number.MAX_SAFE_INTEGER;
+      if (da !== db) return db - da;
+    }
+    if (grupo === "CORRECTIVO" && a.correctivosAbiertos !== b.correctivosAbiertos) {
+      return b.correctivosAbiertos - a.correctivosAbiertos;
+    }
+    return a.code.localeCompare(b.code, "es");
+  });
+
+  const ORDEN_TEXTO: Record<string, string> = {
+    SIN_REPORTE: "Ordenado por días sin transmitir, de mayor a menor",
+    PENDIENTE: "Ordenado por días desde el último preventivo, de mayor a menor",
+    CORRECTIVO: "Ordenado por cantidad de correctivos abiertos",
+    AL_DIA: "Ordenado por código de bus",
+    TODOS: "Ordenado por código de bus",
+  };
 
   const cuenta = (e: EstadoBus) => filas.filter((f) => f.estado === e).length;
   const conPreventivo = filas.filter((f) => f.preventivoMesAt).length;
@@ -109,6 +138,7 @@ export async function GET(req: NextRequest) {
     [ESTADO_LABEL.SIN_REPORTE, cuenta("SIN_REPORTE")],
     ["", ""],
     ["Buses incluidos en este archivo", seleccion.length],
+    ["Orden del detalle", ORDEN_TEXTO[grupo] ?? "Ordenado por código de bus"],
   ];
   filasResumen.forEach(([k, v]) => {
     const fila = resumen.addRow({ k, v });
@@ -174,6 +204,16 @@ export async function GET(req: NextRequest) {
     ["prevCount", "diasPrev", "correctivos", "casos", "diasRep"].forEach((k) => {
       fila.getCell(k).alignment = { horizontal: "center" };
     });
+    if ((f.diasSinReportar ?? 0) >= 5 || f.ultimoReporte === null) {
+      fila.getCell("diasRep").font = { bold: true, color: { argb: "FFB91C1C" } };
+      fila.getCell("reporte").font = { color: { argb: "FFB91C1C" } };
+    }
+    if ((f.diasDesdePreventivo ?? 0) > 30 || f.ultimoPreventivoAt === null) {
+      fila.getCell("diasPrev").font = { bold: true, color: { argb: "FFB45309" } };
+    }
+    if (f.correctivosAbiertos > 0) {
+      fila.getCell("correctivos").font = { bold: true, color: { argb: "FFB91C1C" } };
+    }
   });
 
   hoja.autoFilter = { from: "A1", to: { row: 1, column: hoja.columnCount } };
