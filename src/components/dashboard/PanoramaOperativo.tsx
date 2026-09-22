@@ -293,6 +293,14 @@ export default function PanoramaOperativo({
     telemetria,
   } = data;
   const miles = (n: number) => n.toLocaleString("es-CO");
+  const muroRef = React.useRef<HTMLDivElement>(null);
+  const [busEncima, setBusEncima] = React.useState<{
+    code: string;
+    estado: string;
+    color: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const lineData = React.useMemo(
     () => ({
@@ -575,18 +583,47 @@ export default function PanoramaOperativo({
     <div className="space-y-3.5">
       <div className="grid gap-3.5 lg:grid-cols-[1.5fr_1fr]">
         <Panel titulo="Muro de flota" alcance="un recuadro por bus · hoy">
-          <div
-            className="grid gap-1"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(16px, 1fr))" }}
-          >
-            {flota.buses.map((b) => (
-              <span
-                key={b.code}
-                title={`Bus ${b.code} · ${ESTADO_TEXTO[b.estado]}`}
-                className="aspect-square rounded-[3px] ring-1 ring-inset ring-white/60"
-                style={{ background: ESTADO_COLOR[b.estado] }}
-              />
-            ))}
+          <div className="relative" ref={muroRef}>
+            <div
+              className="grid gap-1"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(16px, 1fr))" }}
+              onMouseLeave={() => setBusEncima(null)}
+            >
+              {flota.buses.map((b) => (
+                <span
+                  key={b.code}
+                  aria-label={`Bus ${b.code}, ${ESTADO_TEXTO[b.estado]}`}
+                  onMouseEnter={(e) => {
+                    const caja = e.currentTarget.getBoundingClientRect();
+                    const cont = muroRef.current?.getBoundingClientRect();
+                    if (!cont) return;
+                    setBusEncima({
+                      code: b.code,
+                      estado: ESTADO_TEXTO[b.estado],
+                      color: ESTADO_COLOR[b.estado],
+                      x: caja.left - cont.left + caja.width / 2,
+                      y: caja.top - cont.top,
+                    });
+                  }}
+                  className="aspect-square cursor-default rounded-[3px] ring-1 ring-inset ring-white/60 transition hover:ring-2 hover:ring-slate-900/50"
+                  style={{ background: ESTADO_COLOR[b.estado] }}
+                />
+              ))}
+            </div>
+            {busEncima ? (
+              <div
+                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11.5px] text-white shadow-lg"
+                style={{ left: busEncima.x, top: busEncima.y - 6 }}
+              >
+                <span className="font-bold">{busEncima.code}</span>
+                <span className="mx-1.5 text-slate-500">·</span>
+                <span className="text-slate-200">{busEncima.estado}</span>
+                <span
+                  className="ml-2 inline-block h-2 w-2 rounded-[2px] align-middle"
+                  style={{ background: busEncima.color }}
+                />
+              </div>
+            ) : null}
           </div>
           <ul className="mt-3.5 grid gap-2 sm:grid-cols-2">
             {leyendaFlota.map((l) => (
