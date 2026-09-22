@@ -129,20 +129,25 @@ function Panel({
   titulo,
   alcance,
   children,
+  accion,
   className = "",
 }: {
   titulo: string;
   alcance: string;
   children: React.ReactNode;
+  accion?: React.ReactNode;
   className?: string;
 }) {
   return (
     <section className={`rounded-2xl border border-border/60 bg-white p-4 shadow-sm ${className}`}>
       <header className="mb-3 flex items-baseline justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-800">{titulo}</h3>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400">
-          {alcance}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400">
+            {alcance}
+          </span>
+          {accion}
+        </div>
       </header>
       {children}
     </section>
@@ -291,7 +296,10 @@ export default function PanoramaOperativo({
     topBuses,
     videoSla,
     telemetria,
+    mesKey,
   } = data;
+  const urlExporte = (grupo: string) =>
+    `/api/panorama/flota/export?grupo=${grupo}&mes=${encodeURIComponent(mesKey)}`;
   const miles = (n: number) => n.toLocaleString("es-CO");
   const muroRef = React.useRef<HTMLDivElement>(null);
   const [busEncima, setBusEncima] = React.useState<{
@@ -573,16 +581,28 @@ export default function PanoramaOperativo({
   const maxCarga = Math.max(1, ...carga.map((c) => c.value));
   const totalVideo = Math.max(1, videoSla.dentro + videoSla.porSalir + videoSla.fuera);
   const leyendaFlota = [
-    { label: "Preventivo del mes al día", valor: flota.alDia, color: COLOR.ok },
-    { label: "Preventivo pendiente", valor: flota.pendiente, color: COLOR.warn },
-    { label: "Con correctivo abierto", valor: flota.correctivo, color: COLOR.bad },
-    { label: "Sin reportar hace 5+ días", valor: flota.sinReporte, color: COLOR.gris },
+    { label: "Preventivo del mes al día", valor: flota.alDia, color: COLOR.ok, grupo: "AL_DIA" },
+    { label: "Preventivo pendiente", valor: flota.pendiente, color: COLOR.warn, grupo: "PENDIENTE" },
+    { label: "Con correctivo abierto", valor: flota.correctivo, color: COLOR.bad, grupo: "CORRECTIVO" },
+    { label: "Sin reportar hace 5+ días", valor: flota.sinReporte, color: COLOR.gris, grupo: "SIN_REPORTE" },
   ];
 
   return (
     <div className="space-y-3.5">
       <div className="grid gap-3.5 lg:grid-cols-[1.5fr_1fr]">
-        <Panel titulo="Muro de flota" alcance="un recuadro por bus · hoy">
+        <Panel
+          titulo="Muro de flota"
+          alcance="un recuadro por bus · hoy"
+          accion={
+            <a
+              href={urlExporte("TODOS")}
+              className="rounded-lg border border-border/60 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
+              title="Descargar toda la flota en Excel"
+            >
+              Exportar
+            </a>
+          }
+        >
           <div className="relative" ref={muroRef}>
             <div
               className="grid gap-1"
@@ -627,16 +647,24 @@ export default function PanoramaOperativo({
           </div>
           <ul className="mt-3.5 grid gap-2 sm:grid-cols-2">
             {leyendaFlota.map((l) => (
-              <li
-                key={l.label}
-                className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-slate-50/70 px-3 py-2"
-              >
-                <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: l.color }} />
-                <span className="flex-1 text-[12px] text-slate-500">{l.label}</span>
-                <span className="text-[14px] font-extrabold tabular-nums text-slate-800">{l.valor}</span>
-                <span className="w-9 text-right text-[11px] tabular-nums text-slate-400">
-                  {flota.total > 0 ? Math.round((l.valor / flota.total) * 100) : 0}%
-                </span>
+              <li key={l.label}>
+                <a
+                  href={urlExporte(l.grupo)}
+                  title={`Descargar en Excel los buses en "${l.label}"`}
+                  className="group flex items-center gap-2.5 rounded-xl border border-border/40 bg-slate-50/70 px-3 py-2 transition hover:border-slate-300 hover:bg-white"
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: l.color }} />
+                  <span className="flex-1 text-[12px] text-slate-500">{l.label}</span>
+                  <span className="text-[14px] font-extrabold tabular-nums text-slate-800 group-hover:text-blue-700">
+                    {l.valor}
+                  </span>
+                  <span className="w-9 text-right text-[11px] tabular-nums text-slate-400 group-hover:hidden">
+                    {flota.total > 0 ? Math.round((l.valor / flota.total) * 100) : 0}%
+                  </span>
+                  <span className="hidden w-9 text-right text-[10px] font-bold uppercase tracking-wide text-blue-700 group-hover:block">
+                    xlsx
+                  </span>
+                </a>
               </li>
             ))}
           </ul>
@@ -654,7 +682,13 @@ export default function PanoramaOperativo({
         <Panel titulo="Cumplimiento preventivo" alcance={`meta ${cumplimiento.meta} · mes`}>
           <Medidor pct={cumplimiento.pct} />
           <p className="-mt-1 text-center text-[11.5px] text-slate-500">
-            {cumplimiento.hechos} de {cumplimiento.meta} buses con preventivo del mes
+            <a
+              href={urlExporte("TODOS")}
+              className="underline decoration-slate-300 underline-offset-2 transition hover:text-blue-700 hover:decoration-blue-400"
+              title="Descargar en Excel el detalle bus por bus"
+            >
+              {cumplimiento.hechos} de {cumplimiento.meta} buses con preventivo del mes
+            </a>
           </p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {[

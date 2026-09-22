@@ -7,6 +7,7 @@ import { CaseStatus, CaseType, Prisma, StsTelemetryKind } from "@prisma/client";
 import { ALARM_CATALOG, EVENT_CATALOG } from "@/lib/telemetry/catalog";
 import { slaDeadlineMs } from "@/lib/cases/sla";
 import { getCasesSummary } from "@/lib/cases/summary";
+import { getLastPreventiveByBus } from "@/lib/rvr/priority";
 
 const DIA_MS = 86400000;
 // Jornada operativa: el mantenimiento se ejecuta de noche y en la madrugada, y
@@ -445,4 +446,124 @@ export async function getPanoramaOperativo(opts: {
       diasRetencion: RETENCION_VIDEO_DIAS,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Detalle de flota para el exportable de Excel.
+// Reutiliza exactamente las mismas definiciones del panorama para que el
+// archivo y el tablero nunca digan cosas distintas.
+// ---------------------------------------------------------------------------
+
+export const ESTADO_LABEL: Record<EstadoBus, string> = {
+  AL_DIA: "Preventivo del mes al día",
+  PENDIENTE: "Preventivo pendiente",
+  CORRECTIVO: "Con correctivo abierto",
+  SIN_REPORTE: "Sin reportar hace 5+ días",
+};
+
+export type FilaFlota = {
+  code: string;
+  plate: string | null;
+  estado: EstadoBus;
+  estadoLabel: string;
+  preventivoMesAt: Date | null;
+  ultimoPreventivoAt: Date | null;
+  diasDesdePreventivo: number | null;
+  preventivosEnElMes: number;
+  correctivosAbiertos: number;
+  casosAbiertos: number;
+  ultimoReporte: Date | null;
+  diasSinReportar: number | null;
+};
+
+export async function getDetalleFlota(opts: {
+  tenantId: string;
+  monthKey: string;
+}): Promise<{ filas: FilaFlota[]; mesInicio: Date; mesFin: Date }> {
+  const { tenantId, monthKey } = opts;
+  const ahora = new Date();
+  const [yy, mm] = monthKey.split("-").map(Number);
+  const mesInicio = new Date(Date.UTC(yy, mm - 1, 1, 5 + JORNADA_CORTE_HORA));
+  const mesFin = new Date(Date.UTC(yy, mm, 1, 5 + JORNADA_CORTE_HORA));
+  const abiertos = [CaseStatus.NUEVO, CaseStatus.OT_ASIGNADA, CaseStatus.EN_EJECUCION];
+  const hace5 = new Date(ahora.getTime() - 5 * DIA_MS);
+
+  const [buses, preventivosMes, ultimoPrevPorBus, casosAbiertosPorBus, correctivosPorBus, reportes] =
+    await Promise.all([
+      prisma.bus.findMany({
+        where: { tenantId, active: true },
+        select: { id: true, code: true, plate: true },
+        orderBy: { code: "asc" },
+      }),
+      getPreventivosEjecutados(tenantId, mesInicio, mesFin),
+      getLastPreventiveByBus(tenantId),
+      prisma.case.groupBy({
+        by: ["busId"],
+        where: { tenantId, status: { in: abiertos } },
+        _count: { _all: true },
+      }),
+      prisma.case.groupBy({
+        by: ["busId"],
+        where: { tenantId, type: CaseType.CORRECTIVO, status: { in: abiertos } },
+        _count: { _all: true },
+      }),
+      prisma.telemetryDailyRollup.groupBy({
+        by: ["busCode"],
+        where: { tenantId },
+        _max: { day: true },
+      }),
+    ]);
+
+  const prevMesPorBus = new Map<string, { ultima: Date; total: number }>();
+  for (const r of preventivosMes) {
+    const fecha = new Date(r.at);
+    const actual = prevMesPorBus.get(r.busId);
+    if (!actual) prevMesPorBus.set(r.busId, { ultima: fecha, total: 1 });
+    else {
+      actual.total += 1;
+      if (fecha > actual.ultima) actual.ultima = fecha;
+    }
+  }
+  const abiertosPorBus = new Map(casosAbiertosPorBus.map((g) => [g.busId, g._count._all]));
+  const correctivosMap = new Map(correctivosPorBus.map((g) => [g.busId, g._count._all]));
+  const reportePorCodigo = new Map(
+    reportes.filter((r) => r._max.day).map((r) => [r.busCode, r._max.day as Date])
+  );
+
+  const filas: FilaFlota[] = buses.map((b) => {
+    const prevMes = prevMesPorBus.get(b.id) ?? null;
+    const ultimoPrev = ultimoPrevPorBus.get(b.id) ?? null;
+    const ultimoReporte = reportePorCodigo.get(b.code) ?? null;
+    const correctivos = correctivosMap.get(b.id) ?? 0;
+    const reportaReciente = Boolean(ultimoReporte && ultimoReporte >= hace5);
+
+    const estado: EstadoBus = correctivos > 0
+      ? "CORRECTIVO"
+      : !reportaReciente
+      ? "SIN_REPORTE"
+      : prevMes
+      ? "AL_DIA"
+      : "PENDIENTE";
+
+    return {
+      code: b.code,
+      plate: b.plate,
+      estado,
+      estadoLabel: ESTADO_LABEL[estado],
+      preventivoMesAt: prevMes?.ultima ?? null,
+      ultimoPreventivoAt: ultimoPrev,
+      diasDesdePreventivo: ultimoPrev
+        ? Math.floor((ahora.getTime() - ultimoPrev.getTime()) / DIA_MS)
+        : null,
+      preventivosEnElMes: prevMes?.total ?? 0,
+      correctivosAbiertos: correctivos,
+      casosAbiertos: abiertosPorBus.get(b.id) ?? 0,
+      ultimoReporte,
+      diasSinReportar: ultimoReporte
+        ? Math.floor((ahora.getTime() - ultimoReporte.getTime()) / DIA_MS)
+        : null,
+    };
+  });
+
+  return { filas, mesInicio, mesFin };
 }
