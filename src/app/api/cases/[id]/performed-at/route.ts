@@ -3,7 +3,10 @@
  *
  *   PATCH /api/cases/<id>/performed-at   { "date": "2026-08-31" }  // o null para volver al valor por defecto
  *
- * Solo administración y backoffice. Queda registrado en la actividad del caso.
+ * La puede ajustar cualquier usuario con acceso al caso (incluidos los
+ * técnicos), porque es quien estuvo en el bus el que sabe qué día se hizo el
+ * trabajo. Cada cambio queda registrado en la actividad del caso con el nombre
+ * de quien lo hizo, la fecha anterior y la nueva.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,16 +28,16 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   if (!session?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const role = (session.user as any).role as Role;
-  if (role !== Role.ADMIN && role !== Role.BACKOFFICE) {
-    return NextResponse.json({ error: "Solo administración y backoffice pueden cambiar esta fecha." }, { status: 403 });
-  }
-
   const tenantId = (session.user as any).tenantId as string;
   const userId = (session.user as any).id as string;
   const capabilities = (session.user as any).capabilities as string[] | undefined;
 
   const current = await prisma.case.findFirst({
-    where: await buildCaseAccessWhere({ caseId: ctx.params.id, tenantId, role, capabilities, userId }),
+    where: {
+      ...(await buildCaseAccessWhere({ caseId: ctx.params.id, tenantId, role, capabilities, userId })),
+      // El técnico solo puede tocar los casos que tiene asignados.
+      ...(role === Role.TECHNICIAN ? { assignedToId: userId } : {}),
+    },
     select: { id: true, createdAt: true, performedAt: true },
   });
   if (!current) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -63,15 +66,25 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   });
 
   const despues = casePerformedAt(updated);
+  let autor: { name: string | null } | null = null;
+
   if (antes.getTime() !== despues.getTime()) {
+    autor = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    const quien = autor?.name?.trim() || "un usuario";
     await prisma.caseEvent.create({
       data: {
         caseId: current.id,
         type: CaseEventType.COMMENT,
         message: performedAt
-          ? `Fecha de realización ajustada a ${fmt(despues)} (antes ${fmt(antes)}).`
-          : `Fecha de realización restablecida a la de creación (${fmt(despues)}).`,
-        meta: { performedAt: performedAt?.toISOString() ?? null, actorUserId: userId },
+          ? `Fecha de realización ajustada de ${fmt(antes)} a ${fmt(despues)} por ${quien}.`
+          : `Fecha de realización restablecida a la de creación (${fmt(despues)}) por ${quien}.`,
+        meta: {
+          kind: "PERFORMED_AT",
+          by: userId,
+          byName: quien,
+          from: antes.toISOString(),
+          to: updated.performedAt?.toISOString() ?? null,
+        },
       },
     });
   }
@@ -81,5 +94,9 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     performedAt: updated.performedAt?.toISOString() ?? null,
     effectiveDate: performedDateInputValue(despues),
     isDefault: !updated.performedAt,
+    lastChange:
+      antes.getTime() !== despues.getTime()
+        ? { by: autor?.name ?? null, at: new Date().toISOString() }
+        : undefined,
   });
 }

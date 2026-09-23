@@ -496,8 +496,23 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     role === Role.PLANNER ||
     role === Role.TECHNICIAN;
   const showGestion = c.type === CaseType.PREVENTIVO || c.type === CaseType.CORRECTIVO;
-  // La fecha de realización (con la que el caso cuenta en el mes) solo la ajusta administración/backoffice.
-  const canEditPerformedAt = role === Role.ADMIN || role === Role.BACKOFFICE;
+  // La fecha de realización (con la que el caso cuenta en el mes) la puede ajustar
+  // cualquiera con acceso al caso, incluidos los técnicos: quien estuvo en el bus
+  // es quien sabe qué día se hizo el trabajo. Todo cambio queda trazado con autor.
+  const canEditPerformedAt = true;
+  const performedAtChange = c.events
+    .filter((event) => {
+      const meta = (event.meta ?? {}) as any;
+      return event.type === CaseEventType.COMMENT && meta?.kind === "PERFORMED_AT";
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  const performedAtChangeBy = performedAtChange
+    ? (() => {
+        const meta = (performedAtChange.meta ?? {}) as any;
+        const actor = meta?.by ? userById.get(String(meta.by)) : null;
+        return actor?.name ?? (meta?.byName ? String(meta.byName) : null);
+      })()
+    : null;
   // Flujo de OT antiguo oculto en backoffice (reemplazado por "Gestionar caso").
   // El código, las rutas y los datos se conservan. Poner en true para volver a mostrarlo.
   const SHOW_OT_FLOW = false;
@@ -785,6 +800,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               performedAt={c.performedAt ? c.performedAt.toISOString() : null}
               canManage={canEditPerformedAt}
               titulo="Fecha de realización del preventivo"
+              lastChangeBy={performedAtChangeBy}
+              lastChangeAt={performedAtChange ? performedAtChange.createdAt.toISOString() : null}
             />
           ) : null}
 

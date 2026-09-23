@@ -19,12 +19,17 @@ export default function FechaRealizacionCard({
   performedAt,
   canManage = false,
   titulo = "Fecha de realización",
+  lastChangeBy = null,
+  lastChangeAt = null,
 }: {
   caseId: string;
   createdAt: string;
   performedAt: string | null;
   canManage?: boolean;
   titulo?: string;
+  /** Quién hizo el último ajuste de esta fecha (trazabilidad). */
+  lastChangeBy?: string | null;
+  lastChangeAt?: string | null;
 }) {
   const router = useRouter();
   const porDefecto = performedDateInputValue(createdAt);
@@ -33,6 +38,9 @@ export default function FechaRealizacionCard({
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [traza, setTraza] = React.useState<{ by: string | null; at: string } | null>(
+    lastChangeBy || lastChangeAt ? { by: lastChangeBy ?? null, at: lastChangeAt ?? "" } : null
+  );
 
   const actual = performedDateInputValue(guardado ?? createdAt);
   const usaDefecto = !guardado;
@@ -55,6 +63,7 @@ export default function FechaRealizacionCard({
       }
       setGuardado(data?.performedAt ?? null);
       setValue(data?.effectiveDate ?? porDefecto);
+      if (data?.lastChange) setTraza({ by: data.lastChange.by ?? null, at: data.lastChange.at });
       setMsg(fecha ? "Fecha de realización actualizada." : "Se restableció la fecha de creación.");
       router.refresh();
     } catch (e: any) {
@@ -129,6 +138,13 @@ export default function FechaRealizacionCard({
           {actual.split("-").reverse().join("/")}
         </p>
       )}
+
+      {traza ? (
+        <p className="mt-3 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+          Último ajuste: {traza.by || "usuario no identificado"}
+          {traza.at ? ` · ${new Date(traza.at).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}` : ""}
+        </p>
+      ) : null}
     </section>
   );
 }
