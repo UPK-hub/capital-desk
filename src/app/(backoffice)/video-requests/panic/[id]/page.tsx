@@ -10,6 +10,7 @@ import { PANIC_CAMERAS_PER_BUS, PANIC_EXPECTED_CLIPS, retentionUntil } from "@/l
 import VideoModuleTabs from "../../VideoModuleTabs";
 import PanicManagePanel from "../PanicManagePanel";
 import { CLIP_STATUS_LABEL, STATUS_LABEL, fmtBytes, fmtDateTime, fmtDuration } from "../format";
+import { InlineVideoPlayer } from "@/components/MediaPreview";
 
 type ClipRow = PanicVideoClip;
 
@@ -102,7 +103,7 @@ function ClipSlot({
           <span className="panic-clip__flag">{CLIP_STATUS_LABEL[clip.status]}</span>
         )}
       </p>
-      <video className="panic-clip__video" controls preload="metadata" src={`/api/panic-clips/${clip.id}`} />
+      <InlineVideoPlayer className="panic-clip__video" url={`/api/panic-clips/${clip.id}`} name={clip.filename} />
       <div className="panic-clip__meta">
         <span className="panic-clip__stats">
           {fmtDuration(clip.durationSec)} · {fmtBytes(clip.sizeBytes)} · {clip.storage.toUpperCase()}
@@ -240,6 +241,15 @@ export default async function PanicEventDetailPage({ params }: { params: { id: s
             <VideoModuleTabs active="panic" showPanic />
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {event.clips.length ? (
+              <a
+                className="sts-btn-ghost text-sm"
+                href={`/api/panic-events/${event.id}/zip`}
+                title="Descargar todos los clips del evento en un ZIP, en carpetas por cámara"
+              >
+                Descargar todos (ZIP)
+              </a>
+            ) : null}
             <Link className="sts-btn-ghost text-sm" href="/video-requests/panic">
               Volver
             </Link>

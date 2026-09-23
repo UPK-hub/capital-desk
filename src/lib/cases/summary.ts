@@ -1,6 +1,7 @@
 // Datos del panel "Resumen" de Casos (solo servidor: usa prisma).
 import { prisma } from "@/lib/prisma";
-import { CaseStatus, CaseEventType } from "@prisma/client";
+import { CaseStatus, CaseEventType, CaseType } from "@prisma/client";
+import { monthScopeWhere } from "@/lib/cases/performed-at";
 import { slaDeadlineMs } from "@/lib/cases/sla";
 
 const DAY = 86400000;
@@ -50,12 +51,14 @@ export async function getCasesSummary(opts: {
     }),
     prisma.case.groupBy({
       by: ["status"],
-      where: { ...base, createdAt: { gte: monthStart, lt: monthEnd } },
+      // Los preventivos cuentan en el mes en que se REALIZARON, no en el que se
+      // cargaron: uno hecho el 31 de agosto y cerrado el 1 de septiembre es de agosto.
+      where: { AND: [base, monthScopeWhere(monthStart, monthEnd)] },
       _count: { _all: true },
     }),
     prisma.case.findMany({
-      where: { ...base, createdAt: { gte: monthStart, lt: monthEnd } },
-      select: { createdAt: true },
+      where: { AND: [base, monthScopeWhere(monthStart, monthEnd)] },
+      select: { createdAt: true, performedAt: true, type: true },
     }),
     // Casos resueltos/cerrados con su ÚLTIMO evento de cambio de estado = fecha REAL de resolución
     // (no usamos updatedAt: cualquier edición —p.ej. reasignar responsable— lo pondría en hoy).
@@ -64,6 +67,8 @@ export async function getCasesSummary(opts: {
       select: {
         type: true,
         priority: true,
+        createdAt: true,
+        performedAt: true,
         workOrder: { select: { finishedAt: true } },
         // Fecha REAL de resolución = finalización de la OT o, si no hay, el PRIMER
         // cambio de estado a Resuelto/Cerrado (por el texto del evento). Tomar el más
@@ -103,8 +108,19 @@ export async function getCasesSummary(opts: {
   // Fecha REAL de resolución = createdAt del último STATUS_CHANGE; si no hay, la
   // finalización de la OT. NUNCA updatedAt (cualquier edición en lote lo mueve a
   // "hoy" y falsea el gráfico, p. ej. el pico de resueltos por una migración).
-  const resolvedAtOf = (c: { workOrder: { finishedAt: Date | null } | null; events: { createdAt: Date }[] }): Date | null =>
-    c.workOrder?.finishedAt ?? c.events[0]?.createdAt ?? null;
+  // En los PREVENTIVOS manda la fecha de realización (editable en el caso; por
+  // defecto la de creación), para que el trabajo cuente en el mes en que se hizo
+  // aunque el técnico lo haya cargado y cerrado al día siguiente.
+  const resolvedAtOf = (c: {
+    type: CaseType;
+    createdAt?: Date;
+    performedAt?: Date | null;
+    workOrder: { finishedAt: Date | null } | null;
+    events: { createdAt: Date }[];
+  }): Date | null => {
+    if (c.type === CaseType.PREVENTIVO) return c.performedAt ?? c.createdAt ?? null;
+    return c.workOrder?.finishedAt ?? c.events[0]?.createdAt ?? null;
+  };
   const resueltosDelMes = doneCases.filter((c) => {
     const r = resolvedAtOf(c);
     return r != null && r >= monthStart && r < monthEnd;
@@ -124,7 +140,7 @@ export async function getCasesSummary(opts: {
   const cMap = new Map<string, number>(keys.map((k) => [k, 0]));
   const rMap = new Map<string, number>(keys.map((k) => [k, 0]));
   for (const r of creadosRows) {
-    const k = cotKey(r.createdAt);
+    const k = cotKey(r.type === CaseType.PREVENTIVO ? r.performedAt ?? r.createdAt : r.createdAt);
     if (cMap.has(k)) cMap.set(k, (cMap.get(k) ?? 0) + 1);
   }
   for (const c of resueltosDelMes) {

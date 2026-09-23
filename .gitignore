@@ -49,3 +49,9 @@ next-env.d.ts
 /evidencias/
 /6.Junio/
 *.Junio.zip
+
+# Binarios de ffmpeg del servidor (no se versionan)
+/tools/ffmpeg/
+
+# Cache de previsualizaciones de video (se regenera solo)
+/uploads/_previews/

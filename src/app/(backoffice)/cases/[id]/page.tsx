@@ -24,6 +24,7 @@ import NovedadEstadoControl from "./ui/NovedadEstadoControl";
 import LinkedCasesCard from "./ui/LinkedCasesCard";
 import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
 import GestionCasoCard from "./ui/GestionCasoCard";
+import FechaRealizacionCard from "./ui/FechaRealizacionCard";
 import { normalizeChecklistData } from "@/lib/preventive/checklist-template";
 import { getDuplicateGroup, findSimilarOtherCreator, type DuplicateGroup } from "@/lib/novedades/duplicates-server";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
@@ -495,6 +496,8 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
     role === Role.PLANNER ||
     role === Role.TECHNICIAN;
   const showGestion = c.type === CaseType.PREVENTIVO || c.type === CaseType.CORRECTIVO;
+  // La fecha de realización (con la que el caso cuenta en el mes) solo la ajusta administración/backoffice.
+  const canEditPerformedAt = role === Role.ADMIN || role === Role.BACKOFFICE;
   // Flujo de OT antiguo oculto en backoffice (reemplazado por "Gestionar caso").
   // El código, las rutas y los datos se conservan. Poner en true para volver a mostrarlo.
   const SHOW_OT_FLOW = false;
@@ -772,6 +775,16 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               initialChecklist={initialChecklist}
               hasOrderFile={Boolean(c.workOrder?.orderFilePath)}
               orderFileName={(c.workOrder as any)?.orderFileName ?? null}
+            />
+          ) : null}
+
+          {c.type === CaseType.PREVENTIVO ? (
+            <FechaRealizacionCard
+              caseId={c.id}
+              createdAt={c.createdAt.toISOString()}
+              performedAt={c.performedAt ? c.performedAt.toISOString() : null}
+              canManage={canEditPerformedAt}
+              titulo="Fecha de realización del preventivo"
             />
           ) : null}
 

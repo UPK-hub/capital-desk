@@ -23,6 +23,7 @@
     "import:inventory": "tsx scripts/import-inventory-catalog.ts",
     "kpi:recompute": "tsx scripts/recompute-sts-kpis.ts",
     "backfill:video-cases": "tsx scripts/backfill-video-cases-cerrado.ts",
+    "videos:purgar-previews": "tsx scripts/purgar-previews.ts",
     "equipos:ensure": "tsx scripts/ensure-new-equipments.ts",
     "rollup:backfill": "tsx scripts/recompute-telemetry-rollup.ts",
     "rollup:daily": "tsx scripts/rollup-daily.ts",

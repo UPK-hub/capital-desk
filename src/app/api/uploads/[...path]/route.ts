@@ -8,6 +8,7 @@ import path from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUploadsRoot, getUploadBackup, normalizeUploadRelPath, resolveUploadPath } from "@/lib/uploads";
+import { contentTypeFromPath, parseRange, rangeNotSatisfiable } from "@/lib/http-range";
 
 // Seguridad: los archivos solo se sirven a usuarios con sesión activa,
 // o a integraciones (bots) que envíen un secreto válido en `x-integration-secret`.
@@ -24,67 +25,6 @@ function integrationSecretOk(req: NextRequest) {
   return secrets.includes(provided);
 }
 
-
-const MIME_BY_EXT: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".bmp": "image/bmp",
-  ".heic": "image/heic",
-  ".heif": "image/heif",
-  ".pdf": "application/pdf",
-  ".txt": "text/plain; charset=utf-8",
-  ".csv": "text/csv; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-};
-
-function contentTypeFromPath(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  return MIME_BY_EXT[ext] ?? "application/octet-stream";
-}
-
-function parseRange(rangeHeader: string | null, size: number) {
-  if (!rangeHeader || size <= 0) return null;
-
-  const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
-  if (!match) return null;
-
-  const [, startRaw, endRaw] = match;
-  if (!startRaw && !endRaw) return null;
-
-  let start: number;
-  let end: number;
-
-  if (!startRaw) {
-    const suffixLength = Number(endRaw);
-    if (!Number.isInteger(suffixLength) || suffixLength <= 0) return null;
-    start = Math.max(size - suffixLength, 0);
-    end = size - 1;
-  } else {
-    start = Number(startRaw);
-    end = endRaw ? Number(endRaw) : size - 1;
-  }
-
-  if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
-  if (start < 0 || start >= size || end < start) return null;
-
-  return { start, end: Math.min(end, size - 1) };
-}
-
-function rangeNotSatisfiable(size: number) {
-  return new Response("Range Not Satisfiable", {
-    status: 416,
-    headers: {
-      "Content-Range": `bytes */${size}`,
-      "Accept-Ranges": "bytes",
-    },
-  });
-}
 
 export async function GET(
   req: NextRequest,

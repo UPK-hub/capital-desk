@@ -563,7 +563,18 @@ export default function VideoRequestDetailClient({
           />
 
           <section className="sts-card p-5">
-            <h2 className="text-base font-semibold">Adjuntos</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Adjuntos</h2>
+              {item.attachments.length ? (
+                <a
+                  className="text-xs underline"
+                  href={`/api/video-requests/${item.id}/zip`}
+                  title="Descargar todos los videos de la solicitud en un ZIP"
+                >
+                  Descargar todos (ZIP)
+                </a>
+              ) : null}
+            </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Tipo</label>

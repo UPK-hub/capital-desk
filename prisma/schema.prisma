@@ -802,6 +802,12 @@ model Case {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
+  // Fecha real en que se REALIZÓ el trabajo (sobre todo el preventivo).
+  // Puede diferir de createdAt/cierre: un preventivo hecho el 31 de agosto que
+  // el técnico cargó y cerró el 1 de septiembre debe contar en agosto.
+  // Si está en null, la fecha de realización es createdAt.
+  performedAt DateTime? @db.Timestamptz(3)
+
   assignedToId String?
   assignedTo   User?   @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
 
@@ -824,6 +830,7 @@ model Case {
   // Índices compuestos para los filtros más usados en los listados
   @@index([tenantId, status, createdAt])
   @@index([tenantId, type, createdAt])
+  @@index([tenantId, type, performedAt])
 }
 
 model CaseEquipment {

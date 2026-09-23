@@ -43,6 +43,18 @@ const MIME_BY_EXT: Record<string, string> = {
   ".zip": "application/zip",
   ".mp4": "video/mp4",
   ".mov": "video/quicktime",
+  ".m4v": "video/x-m4v",
+  ".webm": "video/webm",
+  ".mkv": "video/x-matroska",
+  ".avi": "video/x-msvideo",
+  ".wmv": "video/x-ms-wmv",
+  ".asf": "video/x-ms-asf",
+  ".3gp": "video/3gpp",
+  ".mpg": "video/mpeg",
+  ".mpeg": "video/mpeg",
+  ".ts": "video/mp2t",
+  ".rar": "application/vnd.rar",
+  ".7z": "application/x-7z-compressed",
 };
 
 function contentTypeFromPath(filePath: string) {

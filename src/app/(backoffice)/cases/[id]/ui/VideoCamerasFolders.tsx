@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Film, FolderClosed, Upload, Download, FileText } from "lucide-react";
+import { Film, FolderClosed, Upload, Download, FileText, FolderDown } from "lucide-react";
 import { useMediaPreview, mediaKindFromPath } from "@/components/MediaPreview";
 import { VIDEO_ROOT_CAUSES } from "@/lib/video-root-causes";
 
@@ -276,8 +276,18 @@ export default function VideoCamerasFolders({
     <section className="sts-card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-muted/20 p-5">
         <h2 className="text-base font-semibold">Videos por cámara</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs text-muted-foreground">{attachments.length} archivo(s)</span>
+          {attachments.length ? (
+            <a
+              className="inline-flex items-center gap-1 text-xs underline"
+              href={`/api/video-requests/${requestId}/zip`}
+              title="Descarga todos los videos de la solicitud en un ZIP, en carpetas por cámara"
+            >
+              <FolderDown className="h-3.5 w-3.5" />
+              Descargar todos (ZIP)
+            </a>
+          ) : null}
           {requestedCameras.length ? (
             <a
               className="inline-flex items-center gap-1 text-xs underline"
@@ -362,6 +372,16 @@ export default function VideoCamerasFolders({
                       </span>
                     ) : null}
                     <span className="text-xs text-muted-foreground">{items.length} video(s)</span>
+                    {items.length && !isSinCamara ? (
+                      <a
+                        className="inline-flex items-center gap-1 text-xs underline"
+                        href={`/api/video-requests/${requestId}/zip?camera=${encodeURIComponent(camera)}`}
+                        title="Descargar en un ZIP todos los videos de esta cámara"
+                      >
+                        <FolderDown className="h-3.5 w-3.5" />
+                        ZIP
+                      </a>
+                    ) : null}
                   </div>
                 </div>
 

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { canViewPanic } from "@/lib/panic/access";
 import VideoModuleTabs from "../../VideoModuleTabs";
 import { formatFechaHoraCO } from "@/lib/datetime";
+import { InlineVideoPlayer } from "@/components/MediaPreview";
 
 function fmtDate(d: Date) {
   return formatFechaHoraCO(d);
@@ -97,7 +98,11 @@ export default async function ReceivedVideoDetailPage({ params }: { params: { id
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <section className="sts-card overflow-hidden">
-              <video className="aspect-video w-full bg-black" controls preload="metadata" src={`/api/uploads/${item.filePath}`} />
+              <InlineVideoPlayer
+                className="aspect-video w-full bg-black"
+                url={`/api/uploads/${item.filePath}`}
+                name={item.filePath}
+              />
             </section>
 
             <section className="sts-card p-5">
