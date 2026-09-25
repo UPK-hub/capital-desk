@@ -8,6 +8,23 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { isCapitalUserEmail } from "@/lib/users";
 
+/**
+ * Dominios de correo del equipo interno de UPK. Sirve solo para ordenar y
+ * etiquetar la lista de contactos, no para excluir a nadie. Se puede ampliar sin
+ * tocar el código con la variable INTERNAL_EMAIL_DOMAINS (separada por comas).
+ */
+const DOMINIOS_INTERNOS = String(
+  process.env.INTERNAL_EMAIL_DOMAINS || "upklatam.com,upkeepservices.com.co,upkeepservices.com"
+)
+  .split(",")
+  .map((d) => d.trim().toLowerCase())
+  .filter(Boolean);
+
+function isInternalUpkEmail(email?: string | null): boolean {
+  const e = String(email ?? "").toLowerCase();
+  return DOMINIOS_INTERNOS.some((d) => e.endsWith(`@${d}`));
+}
+
 // Roles que pueden listar usuarios asignables (gestionan asignaciones).
 const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER, Role.HELPDESK];
 
@@ -35,7 +52,10 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("query")?.trim() ?? "";
 
   if (context === "cliente") {
-    // Contactos del cliente: usuarios activos con correo del dominio de Capital.
+    // Contactos a los que se les puede avisar el cierre de una novedad.
+    // No se filtra por un dominio fijo: los correos del cliente cambian
+    // (capitalbus, moveitcapital...). Se listan todos los usuarios activos y se
+    // marcan los internos de UPK para que aparezcan de últimos.
     const users = await prisma.user.findMany({
       where: {
         tenantId,
@@ -54,8 +74,18 @@ export async function GET(req: NextRequest) {
     });
 
     const items = users
-      .filter((u) => isCapitalUserEmail(u.email))
-      .map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, isCapital: true }));
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        isCapital: isCapitalUserEmail(u.email),
+        isInterno: isInternalUpkEmail(u.email),
+      }))
+      .sort((a, b) => {
+        if (a.isInterno !== b.isInterno) return a.isInterno ? 1 : -1;
+        return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+      });
 
     return NextResponse.json({ items });
   }

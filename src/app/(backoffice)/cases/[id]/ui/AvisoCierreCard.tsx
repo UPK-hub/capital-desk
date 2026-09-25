@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { BellRing } from "lucide-react";
 
-type Contacto = { id: string; name: string; email: string };
+type Contacto = { id: string; name: string; email: string; isInterno?: boolean };
 
 /**
  * Contacto del cliente al que se le avisa cuando la novedad se cierre.
@@ -95,11 +95,28 @@ export default function AvisoCierreCard({
                 onChange={(e) => setValor(e.target.value)}
               >
                 <option value="">Sin aviso</option>
-                {contactos.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} · {c.email}
-                  </option>
-                ))}
+                {contactos.filter((c) => !c.isInterno).length ? (
+                  <optgroup label="Contactos del cliente">
+                    {contactos
+                      .filter((c) => !c.isInterno)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} · {c.email}
+                        </option>
+                      ))}
+                  </optgroup>
+                ) : null}
+                {contactos.filter((c) => c.isInterno).length ? (
+                  <optgroup label="Equipo UPK">
+                    {contactos
+                      .filter((c) => c.isInterno)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} · {c.email}
+                        </option>
+                      ))}
+                  </optgroup>
+                ) : null}
               </select>
             </div>
             <button

@@ -23,6 +23,7 @@ import { nextNumbers } from "@/lib/tenant-sequence";
 import { loadNovedadCatalog } from "@/lib/novedad-catalog";
 import { isCameraEquipment } from "@/lib/equipment-category";
 import { parsePerformedDateInput, performedDateInputValue } from "@/lib/cases/performed-at";
+import { notifyClienteNovedadesCreadas } from "@/lib/novedades/notify-close";
 import {
   CODIGO_NOVEDAD_CAMARA,
   ORIGEN_IMPORTACION,
@@ -225,6 +226,21 @@ export async function POST(req: NextRequest) {
       console.error("IMPORT_CAMARAS_OFFLINE_FALLO", { busCode: fila.busCode, error: String(e?.message ?? e) });
       omitidos.push({ busCode: fila.busCode, motivo: "Error al crear el ticket. Revisa el log del servidor." });
     }
+  }
+
+  // Aviso al contacto del cliente de que sus novedades quedaron radicadas.
+  if (notifyOnCloseUserId && creados.length) {
+    await notifyClienteNovedadesCreadas({
+      tenantId,
+      contactoUserId: notifyOnCloseUserId,
+      fechaReporte: fechaTexto,
+      casos: creados.map((c) => ({
+        caseId: c.caseId,
+        caseNo: c.caseNo,
+        busCode: c.busCode,
+        camaras: c.camaras,
+      })),
+    });
   }
 
   return NextResponse.json({

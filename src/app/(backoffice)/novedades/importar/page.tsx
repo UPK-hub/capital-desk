@@ -27,7 +27,7 @@ type FilaEditable = FilaDetectada & { incluir: boolean; camerasText: string };
 
 type Creado = { busCode: string; caseNo: number | null; caseId: string; camaras: number };
 
-type Contacto = { id: string; name: string; email: string };
+type Contacto = { id: string; name: string; email: string; isInterno?: boolean };
 
 function textoDeCamaras(cams: CamaraDetectada[]): string {
   return cams.map((c) => `${c.name}${c.ip ? ` (${c.ip})` : ""}`).join("; ");
@@ -211,11 +211,28 @@ export default function ImportarNovedadesPage() {
                   onChange={(e) => setNotificarA(e.target.value)}
                 >
                   <option value="">Sin aviso</option>
-                  {contactos.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} · {c.email}
-                    </option>
-                  ))}
+                {contactos.filter((c) => !c.isInterno).length ? (
+                    <optgroup label="Contactos del cliente">
+                      {contactos
+                        .filter((c) => !c.isInterno)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} · {c.email}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ) : null}
+                  {contactos.filter((c) => c.isInterno).length ? (
+                    <optgroup label="Equipo UPK">
+                      {contactos
+                        .filter((c) => c.isInterno)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} · {c.email}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ) : null}
                 </select>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Contacto del cliente que recibirá el reporte cuando cada novedad se cierre. Se puede

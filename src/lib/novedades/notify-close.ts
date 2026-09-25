@@ -1,13 +1,15 @@
 /**
- * Aviso de cierre al contacto del cliente.
+ * Avisos al contacto del cliente sobre sus novedades.
  *
- * Cada novedad puede tener asociado un contacto de CapitalBus (campo
- * `Case.notifyOnCloseUserId`). Cuando la novedad se cierra —manualmente o en
- * automático al resolverse el correctivo— esa persona recibe el reporte de
- * cierre en la aplicación y por correo, sin tener que entrar a consultar.
+ * Cada novedad puede tener asociado un contacto del cliente (campo
+ * `Case.notifyOnCloseUserId`). Esa persona recibe dos avisos, en la aplicación y
+ * por correo, sin tener que entrar a consultar:
  *
- * Es fire-and-forget: si algo falla, se registra en el log y el cierre sigue su
- * curso. Nunca lanza.
+ *  - Al REGISTRARSE las novedades de un reporte importado.
+ *  - Al CERRARSE cada novedad, sea cierre manual o automático por el correctivo.
+ *
+ * Todo es fire-and-forget: si algo falla, se registra en el log y la operación
+ * principal sigue su curso. Nunca lanza.
  */
 import { prisma } from "@/lib/prisma";
 import { CaseStatus, CaseType, NotificationType } from "@prisma/client";
@@ -88,5 +90,71 @@ export async function notifyClienteNovedadCerrada(
     });
   } catch (e) {
     console.error("NOTIFY_CLIENTE_NOVEDAD_CERRADA_FAILED", e);
+  }
+}
+
+/**
+ * Aviso de registro: se le informa al contacto del cliente que sus novedades
+ * quedaron radicadas. Se manda UN solo mensaje con la lista de casos, en vez de
+ * uno por bus, para no llenarle el correo cuando el reporte trae varios buses.
+ */
+export async function notifyClienteNovedadesCreadas(params: {
+  tenantId: string;
+  contactoUserId: string;
+  fechaReporte: string;
+  casos: Array<{ caseId: string; caseNo: number | null; busCode: string; camaras: number }>;
+}): Promise<void> {
+  try {
+    const { tenantId, contactoUserId, fechaReporte, casos } = params;
+    if (!contactoUserId || !casos.length) return;
+
+    const contacto = await prisma.user.findFirst({
+      where: { id: contactoUserId, tenantId, active: true },
+      select: { id: true },
+    });
+    if (!contacto) return;
+
+    const base = baseUrl();
+    const lineas = casos.map(
+      (c) => `CASO-${c.caseNo ?? "?"} · ${c.busCode} · ${c.camaras} cámara(s)`
+    );
+    const titulo =
+      casos.length === 1
+        ? `Novedad registrada · CASO-${casos[0].caseNo ?? "?"} · ${casos[0].busCode}`
+        : `${casos.length} novedades registradas del reporte del ${fechaReporte}`;
+
+    await notifyTenantUsers({
+      tenantId,
+      userIds: [contacto.id],
+      type: NotificationType.CASE_CREATED,
+      title: titulo,
+      body: lineas.join(" · "),
+      href: casos.length === 1 ? `/cases/${casos[0].caseId}` : "/novedades",
+      meta: { kind: "NOVEDADES_CREADAS", fechaReporte, caseIds: casos.map((c) => c.caseId) },
+      emailBodyHtml: [
+        `<p>Se registraron en la mesa las novedades del reporte del <strong>${fechaReporte}</strong>:</p>`,
+        "<ul>",
+        ...casos.map(
+          (c) =>
+            `<li>${
+              base
+                ? `<a href="${base}/cases/${c.caseId}">CASO-${c.caseNo ?? "?"}</a>`
+                : `CASO-${c.caseNo ?? "?"}`
+            } · Bus ${c.busCode} · ${c.camaras} cámara(s)</li>`
+        ),
+        "</ul>",
+        "<p>Le avisaremos por este mismo medio cuando cada una quede cerrada.</p>",
+      ].join("\n"),
+      emailBodyText: [
+        `Se registraron en la mesa las novedades del reporte del ${fechaReporte}:`,
+        ...lineas,
+        base ? `${base}/novedades` : "",
+        "Le avisaremos cuando cada una quede cerrada.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    });
+  } catch (e) {
+    console.error("NOTIFY_CLIENTE_NOVEDADES_CREADAS_FAILED", e);
   }
 }
