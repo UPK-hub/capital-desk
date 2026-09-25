@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CaseEventType, CaseStatus, CaseType } from "@prisma/client";
 import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
 import { notifyNovedadClosed, notifyNovedadReopened } from "@/lib/telegram-notify";
+import { notifyClienteNovedadCerrada } from "@/lib/novedades/notify-close";
 
 /**
  * Lee los CaseEvent de un caso y devuelve el id de la novedad de origen
@@ -124,6 +125,7 @@ export async function maybeAutoCloseLinkedNovedad(
 
     // Avisar al grupo de Telegram que la novedad se cerró (automático).
     await notifyNovedadClosed(novedad.id, { auto: true, closedById: byUserId });
+    await notifyClienteNovedadCerrada(novedad.id, { auto: true, closedById: byUserId });
 
     return true;
   } catch (error) {

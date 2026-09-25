@@ -75,6 +75,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "La fecha del reporte no puede ser futura." }, { status: 400 });
   }
 
+  // Contacto del cliente al que se le avisará el cierre de estas novedades.
+  const notifyRaw = String(body?.notifyOnCloseUserId ?? "").trim();
+  let notifyOnCloseUserId: string | null = null;
+  if (notifyRaw) {
+    const contacto = await prisma.user.findFirst({
+      where: { id: notifyRaw, tenantId, active: true },
+      select: { id: true },
+    });
+    if (!contacto) {
+      return NextResponse.json({ error: "El contacto del cliente seleccionado no existe o está inactivo." }, { status: 400 });
+    }
+    notifyOnCloseUserId = contacto.id;
+  }
+
   const filasEntrada: FilaEntrada[] = Array.isArray(body?.filas) ? body.filas : [];
   const filas = filasEntrada
     .map((f) => ({
@@ -161,6 +175,7 @@ export async function POST(req: NextRequest) {
               creador: autor?.name ?? null,
             }),
             busId: bus.id,
+            notifyOnCloseUserId,
             // El ticket queda con la fecha en que el cliente reportó, no con la
             // fecha en que se cargó el archivo.
             createdAt: fecha,
@@ -191,6 +206,7 @@ export async function POST(req: NextRequest) {
               busIp: fila.busIp,
               cameras: fila.cameras,
               busEquipmentIds: vinculados.map((v) => v.id),
+              notifyOnCloseUserId,
             },
             createdAt: fecha,
           },

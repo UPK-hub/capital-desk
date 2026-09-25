@@ -25,6 +25,7 @@ import LinkedCasesCard from "./ui/LinkedCasesCard";
 import DuplicateNovedadesCard from "./ui/DuplicateNovedadesCard";
 import GestionCasoCard from "./ui/GestionCasoCard";
 import FechaRealizacionCard from "./ui/FechaRealizacionCard";
+import AvisoCierreCard from "./ui/AvisoCierreCard";
 import { normalizeChecklistData } from "@/lib/preventive/checklist-template";
 import { getDuplicateGroup, findSimilarOtherCreator, type DuplicateGroup } from "@/lib/novedades/duplicates-server";
 import CaseCommentsCard from "./ui/CaseCommentsCard";
@@ -217,6 +218,7 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
         },
       },
       assignedTo: { select: { id: true, name: true } },
+      notifyOnCloseUser: { select: { id: true, name: true } },
       checklist: { orderBy: [{ position: "asc" }, { createdAt: "asc" }] },
       workOrder: {
         include: {
@@ -500,6 +502,9 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
   // cualquiera con acceso al caso, incluidos los técnicos: quien estuvo en el bus
   // es quien sabe qué día se hizo el trabajo. Todo cambio queda trazado con autor.
   const canEditPerformedAt = true;
+  // El aviso de cierre al cliente lo configura la mesa, no los técnicos.
+  const canEditAvisoCierre =
+    role === Role.ADMIN || role === Role.BACKOFFICE || role === Role.SUPERVISOR || role === Role.HELPDESK;
   const performedAtChange = c.events
     .filter((event) => {
       const meta = (event.meta ?? {}) as any;
@@ -790,6 +795,15 @@ export default async function CaseDetailPage({ params, searchParams }: PageProps
               initialChecklist={initialChecklist}
               hasOrderFile={Boolean(c.workOrder?.orderFilePath)}
               orderFileName={(c.workOrder as any)?.orderFileName ?? null}
+            />
+          ) : null}
+
+          {c.type === CaseType.NOVEDAD ? (
+            <AvisoCierreCard
+              caseId={c.id}
+              actualId={c.notifyOnCloseUserId ?? null}
+              actualNombre={(c as any).notifyOnCloseUser?.name ?? null}
+              canManage={canEditAvisoCierre}
             />
           ) : null}
 

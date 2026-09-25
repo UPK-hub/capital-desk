@@ -27,6 +27,8 @@ type FilaEditable = FilaDetectada & { incluir: boolean; camerasText: string };
 
 type Creado = { busCode: string; caseNo: number | null; caseId: string; camaras: number };
 
+type Contacto = { id: string; name: string; email: string };
+
 function textoDeCamaras(cams: CamaraDetectada[]): string {
   return cams.map((c) => `${c.name}${c.ip ? ` (${c.ip})` : ""}`).join("; ");
 }
@@ -46,6 +48,25 @@ export default function ImportarNovedadesPage() {
   const [filas, setFilas] = React.useState<FilaEditable[] | null>(null);
   const [ignoradas, setIgnoradas] = React.useState<string[]>([]);
   const [resultado, setResultado] = React.useState<{ creados: Creado[]; omitidos: { busCode: string; motivo: string }[] } | null>(null);
+  const [contactos, setContactos] = React.useState<Contacto[]>([]);
+  const [notificarA, setNotificarA] = React.useState("");
+
+  // Contactos del cliente a los que se les puede avisar el cierre.
+  React.useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/users/assignable?context=cliente", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelado && res.ok) setContactos(Array.isArray(data?.items) ? data.items : []);
+      } catch {
+        /* si falla, el selector queda vacío y el campo es opcional */
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   const seleccionadas = filas?.filter((f) => f.incluir) ?? [];
   const totalCamaras = seleccionadas.reduce((n, f) => n + f.cameras.length, 0);
@@ -93,6 +114,7 @@ export default function ImportarNovedadesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fechaReporte: fecha,
+          notifyOnCloseUserId: notificarA || null,
           filas: seleccionadas.map((f) => ({
             busCode: f.busCode,
             busIp: f.busIp,
@@ -176,6 +198,28 @@ export default function ImportarNovedadesPage() {
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Los tickets quedan con esta fecha, no con la de hoy.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Avisar el cierre a (opcional)
+                </label>
+                <select
+                  className="mt-1 h-9 w-full rounded-md border px-2 text-sm focus-visible:outline-none"
+                  value={notificarA}
+                  onChange={(e) => setNotificarA(e.target.value)}
+                >
+                  <option value="">Sin aviso</option>
+                  {contactos.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · {c.email}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Contacto del cliente que recibirá el reporte cuando cada novedad se cierre. Se puede
+                  cambiar después en cada caso.
                 </p>
               </div>
 

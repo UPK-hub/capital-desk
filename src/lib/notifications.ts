@@ -27,6 +27,7 @@ function shouldEmail(type: NotificationType) {
     NotificationType.WO_STARTED,
     NotificationType.WO_FINISHED,
     NotificationType.CASE_CREATED,
+    NotificationType.CASE_CLOSED,
     NotificationType.FORM_SAVED,
     NotificationType.VIDEO_REQUEST_CREATED,
     NotificationType.VIDEO_REQUEST_IN_PROGRESS,

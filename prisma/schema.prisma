@@ -235,6 +235,7 @@ document       String?
 
   assignedWorkOrders       WorkOrder[]              @relation("WOAssignedTo")
   casesAssigned            Case[]                   @relation("CaseAssignedTo")
+  casesNotifyOnClose       Case[]                   @relation("CaseNotifyOnClose")
   notifications            Notification[]
   passwordResetTokens      PasswordResetToken[]
   assignedVideoRequests    VideoDownloadRequest[]
@@ -811,6 +812,10 @@ model Case {
   assignedToId String?
   assignedTo   User?   @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
 
+  // Contacto del cliente al que se le avisa cuando la novedad se cierra.
+  notifyOnCloseUserId String?
+  notifyOnCloseUser   User?   @relation("CaseNotifyOnClose", fields: [notifyOnCloseUserId], references: [id])
+
   workOrder WorkOrder?
   events    CaseEvent[]
   stsTicket StsTicket?
@@ -831,6 +836,7 @@ model Case {
   @@index([tenantId, status, createdAt])
   @@index([tenantId, type, createdAt])
   @@index([tenantId, type, performedAt])
+  @@index([notifyOnCloseUserId])
 }
 
 model CaseEquipment {
@@ -1539,6 +1545,7 @@ model Team {
 enum NotificationType {
   CASE_CREATED
   CASE_ASSIGNED
+  CASE_CLOSED
   WO_STARTED
   WO_FINISHED
   FORM_SAVED

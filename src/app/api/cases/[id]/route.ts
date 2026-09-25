@@ -12,6 +12,7 @@ import { notifyTenantUsers } from "@/lib/notifications";
 import { nextNumbers } from "@/lib/tenant-sequence";
 import { propagateStatusToGroup } from "@/lib/novedades/duplicates-server";
 import { notifyNovedadClosed } from "@/lib/telegram-notify";
+import { notifyClienteNovedadCerrada } from "@/lib/novedades/notify-close";
 import { findSourceNovedadId, maybeReopenNovedadAfterUnlink } from "@/lib/novedades/auto-close";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { restrictedCasesWhere } from "@/lib/access-control";
@@ -466,6 +467,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
       console.error("CLOSE_PROPAGATE_FAILED", e);
     }
     await notifyNovedadClosed(found.id, { closedById: userId });
+    await notifyClienteNovedadCerrada(found.id, { closedById: userId });
   }
 
   return NextResponse.json({ ok: true, caseId: found.id, status: nextStatus, propagated });

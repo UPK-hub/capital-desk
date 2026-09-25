@@ -9,13 +9,15 @@ import { Role } from "@prisma/client";
 import { isCapitalUserEmail } from "@/lib/users";
 
 // Roles que pueden listar usuarios asignables (gestionan asignaciones).
-const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER];
+const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.BACKOFFICE, Role.SUPERVISOR, Role.PLANNER, Role.HELPDESK];
 
 /**
  * GET /api/users/assignable?context=video|case
  *
- * - context=case  -> solo técnicos activos (flujo de correctivo/preventivo).
- * - context=video -> técnicos activos + usuarios de Capital (email @capitalbus.).
+ * - context=case    -> solo técnicos activos (flujo de correctivo/preventivo).
+ * - context=video   -> técnicos activos + usuarios de Capital (email @capitalbus.).
+ * - context=cliente -> solo contactos del cliente (email @capitalbus.), para
+ *                     avisarles del cierre de una novedad.
  *
  * Tenant-scoped. Devuelve { items: [{ id, name, email, role, isCapital }] }.
  */
@@ -31,6 +33,32 @@ export async function GET(req: NextRequest) {
   const tenantId = (session.user as any).tenantId as string;
   const context = String(req.nextUrl.searchParams.get("context") ?? "case").trim().toLowerCase();
   const q = req.nextUrl.searchParams.get("query")?.trim() ?? "";
+
+  if (context === "cliente") {
+    // Contactos del cliente: usuarios activos con correo del dominio de Capital.
+    const users = await prisma.user.findMany({
+      where: {
+        tenantId,
+        active: true,
+        ...(q.length >= 2
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    const items = users
+      .filter((u) => isCapitalUserEmail(u.email))
+      .map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, isCapital: true }));
+
+    return NextResponse.json({ items });
+  }
 
   if (context === "video") {
     // Para video: técnicos O usuarios de Capital. El filtro por dominio Capital
