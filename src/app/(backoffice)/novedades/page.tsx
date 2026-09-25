@@ -9,7 +9,7 @@ import { buildCasesWhere } from "@/lib/cases/filters";
 import { getCasesSummary, recentMonths } from "@/lib/cases/summary";
 import { resolveDuplicateGroupId } from "@/lib/novedades/duplicates";
 import { Select } from "@/components/Field";
-import { FileSpreadsheet, Plus } from "lucide-react";
+import { FileSpreadsheet, Plus, Upload } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
 import NovedadesTable, { NovedadRow } from "@/components/novedades/NovedadesTable";
 import PorEquipoChart from "@/components/novedades/PorEquipoChart";
@@ -338,6 +338,13 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
           >
             <FileSpreadsheet className="h-4 w-4" /> Exportar
           </a>
+          <Link
+            href="/novedades/importar"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 text-sm font-medium text-blue-700 transition hover:bg-blue-50"
+            title="Crear novedades a partir del cuadro de cámaras offline del cliente"
+          >
+            <Upload className="h-4 w-4" /> Importar reporte
+          </Link>
           <Link
             href="/cases/new?type=NOVEDAD"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
