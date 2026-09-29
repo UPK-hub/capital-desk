@@ -63,7 +63,10 @@
     "videos:listar-purgados": "tsx scripts/listar-videos-purgados.ts",
     "videos:recuperar": "tsx scripts/recuperar-videos.ts",
     "panic:almacenamiento": "tsx scripts/panic-storage.ts",
-    "panic:camaras": "tsx scripts/panic-backfill-camaras.ts"
+    "panic:camaras": "tsx scripts/panic-backfill-camaras.ts",
+    "onedrive:probar": "tsx scripts/onedrive-probar.ts",
+    "onedrive:sync": "tsx scripts/onedrive-sync.ts",
+    "onedrive:estado": "tsx scripts/onedrive-estado.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

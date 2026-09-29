@@ -1326,6 +1326,15 @@ enum VideoAttachmentKind {
   OTRO
 }
 
+/// Estado de la replica del adjunto al OneDrive del cliente.
+enum OneDriveSyncStatus {
+  PENDIENTE
+  SUBIENDO
+  REPLICADO
+  ERROR
+  OMITIDO
+}
+
 enum VideoRequestEventType {
   STATUS_CHANGE
   DOWNLOAD_STATUS_CHANGE
@@ -1425,9 +1434,22 @@ model VideoAttachment {
 
   tokens VideoDownloadToken[]
 
+  // --- Replica automatica al OneDrive de CapitalBus ---
+  // odStatus en null = el adjunto no entra a la cola (p.ej. cargado antes
+  // de existir el modulo, o kind distinto de VIDEO cuando asi se configure).
+  odStatus        OneDriveSyncStatus?
+  odItemId        String?
+  odWebUrl        String?
+  odPath          String?
+  odSyncedAt      DateTime?           @db.Timestamptz(3)
+  odAttempts      Int                 @default(0)
+  odError         String?
+  odNextAttemptAt DateTime?           @db.Timestamptz(3)
+
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([requestId, kind])
+  @@index([odStatus, odNextAttemptAt])
 }
 
 model VideoRequestEvent {

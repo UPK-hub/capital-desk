@@ -110,6 +110,28 @@ module.exports = {
       },
     },
 
+    // --- Replica de videos al OneDrive de CapitalBus ---
+    // Toma los adjuntos marcados como PENDIENTE y los sube al OneDrive del
+    // cliente con reintentos. Si ONEDRIVE_SYNC_ENABLED no esta en "true" en el
+    // .env, el proceso arranca y se queda inerte. Lee del .env:
+    // GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, ONEDRIVE_DRIVE_ID.
+    {
+      name: "onedrive-sync",
+      cwd: "D:/apps/capital-desk",
+      script: "C:/Program Files/nodejs/node.exe",
+      args: "node_modules/tsx/dist/cli.mjs scripts/onedrive-sync.ts --loop",
+
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "20s",
+      restart_delay: 5000,
+      max_memory_restart: "1G",
+
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+
     // --- Bot de Telegram de CARGA de preventivos ---
     // El técnico manda el código del bus y sube evidencias/voltajes/checks con
     // botones, marca inicio/fin y cierra generando el certificado. Habla con

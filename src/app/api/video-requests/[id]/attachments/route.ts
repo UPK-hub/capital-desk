@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/uploads";
 import { Role, VideoAttachmentKind, VideoRequestEventType } from "@prisma/client";
 import { buildVideoRequestCaseScope, isBackofficeRestricted, isVideosOnlyBackoffice } from "@/lib/access-control";
+import { encolarAdjunto } from "@/lib/onedrive/sync";
 
 function fileExt(name: string) {
   const m = /\.[a-z0-9]{1,8}$/i.exec(name || "");
@@ -89,6 +90,12 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       actorUserId,
     },
   });
+
+  // Replica al OneDrive del cliente: solo se encola, la subida real la hace el
+  // proceso onedrive-sync. Nunca debe demorar ni tumbar el cargue del tecnico.
+  if (kind === VideoAttachmentKind.VIDEO) {
+    await encolarAdjunto(created.id);
+  }
 
   return NextResponse.json({ ok: true, attachment: created });
 }
