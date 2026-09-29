@@ -36,8 +36,53 @@ export const ONEDRIVE_MAX_ATTEMPTS = Number(process.env.ONEDRIVE_MAX_ATTEMPTS ??
 /** Cuántos adjuntos toma el worker por vuelta. */
 export const ONEDRIVE_BATCH_SIZE = Number(process.env.ONEDRIVE_BATCH_SIZE ?? 3);
 
+/**
+ * Cuantas subidas simultaneas. Mas de 3 rara vez ayuda y si puede saturar la
+ * salida del servidor y afectar la mesa. Subirlo solo si se midio que sirve.
+ */
+export const ONEDRIVE_CONCURRENCIA = Math.max(
+  1,
+  Math.min(6, Number(process.env.ONEDRIVE_CONCURRENCIA ?? 2))
+);
+
 /** Descanso del worker cuando no hay nada pendiente, en milisegundos. */
 export const ONEDRIVE_IDLE_MS = Number(process.env.ONEDRIVE_IDLE_MS ?? 30_000);
+
+/**
+ * Ventana horaria para el material viejo (el backfill), en hora de Bogota.
+ *
+ * Fuera de esa ventana el worker solo atiende los videos RECIENTES, es decir
+ * los que los tecnicos acaban de cargar, para no competir con la operacion por
+ * el ancho de banda de salida. Poner "siempre" para desactivar la restriccion.
+ */
+export const ONEDRIVE_BACKFILL_VENTANA = String(
+  process.env.ONEDRIVE_BACKFILL_VENTANA ?? "19:00-06:00"
+).trim();
+
+/** Un adjunto de estos ultimos dias se considera reciente y sube a cualquier hora. */
+export const ONEDRIVE_DIAS_RECIENTE = Number(process.env.ONEDRIVE_DIAS_RECIENTE ?? 7);
+
+export function enVentanaBackfill(ahora: Date = new Date()): boolean {
+  const v = ONEDRIVE_BACKFILL_VENTANA.toLowerCase();
+  if (!v || v === "siempre") return true;
+
+  const m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(v);
+  if (!m) return true;
+
+  const hhmm = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Bogota",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(ahora);
+  const [h, mi] = hhmm.split(":").map(Number);
+  const actual = h * 60 + mi;
+  const inicio = Number(m[1]) * 60 + Number(m[2]);
+  const fin = Number(m[3]) * 60 + Number(m[4]);
+
+  // Ventana que cruza la medianoche (19:00-06:00) o normal (01:00-05:00).
+  return inicio <= fin ? actual >= inicio && actual < fin : actual >= inicio || actual < fin;
+}
 
 export function onedriveConfigured(): boolean {
   return Boolean(GRAPH_TENANT_ID && GRAPH_CLIENT_ID && GRAPH_CLIENT_SECRET && ONEDRIVE_DRIVE_ID);

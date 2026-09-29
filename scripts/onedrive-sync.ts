@@ -13,7 +13,9 @@
 import "./cargar-env";
 import { prisma } from "@/lib/prisma";
 import {
+  ONEDRIVE_BACKFILL_VENTANA,
   ONEDRIVE_BATCH_SIZE,
+  ONEDRIVE_DIAS_RECIENTE,
   ONEDRIVE_IDLE_MS,
   ONEDRIVE_SYNC_ENABLED,
   onedriveConfigError,
@@ -59,6 +61,10 @@ async function main() {
   }
 
   log(`arrancando en modo continuo, lote ${ONEDRIVE_BATCH_SIZE}, descanso ${ONEDRIVE_IDLE_MS} ms`);
+  log(
+    `material reciente (ultimos ${ONEDRIVE_DIAS_RECIENTE} dias): sube a cualquier hora. ` +
+      `Material viejo: solo en la ventana ${ONEDRIVE_BACKFILL_VENTANA} hora Bogota.`
+  );
 
   // Bucle adaptativo: si hubo trabajo sigue de una, si no descansa.
   for (;;) {

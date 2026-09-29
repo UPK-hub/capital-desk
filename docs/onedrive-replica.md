@@ -60,7 +60,23 @@ ONEDRIVE_ROOT_FOLDER=Descargas de video Capital Desk
 ```
 
 Opcionales: `ONEDRIVE_CHUNK_BYTES` (10 MiB), `ONEDRIVE_MAX_ATTEMPTS` (8),
-`ONEDRIVE_BATCH_SIZE` (3), `ONEDRIVE_IDLE_MS` (30000).
+`ONEDRIVE_BATCH_SIZE` (3), `ONEDRIVE_IDLE_MS` (30000),
+`ONEDRIVE_BACKFILL_VENTANA` (`19:00-06:00`), `ONEDRIVE_DIAS_RECIENTE` (7),
+`ONEDRIVE_CONCURRENCIA` (2, máximo 6).
+
+## Ventana nocturna para el material viejo
+
+El worker atiende con prioridad los videos cargados en los últimos
+`ONEDRIVE_DIAS_RECIENTE` días: esos suben a cualquier hora, porque son los que
+el cliente está esperando. El material viejo del backfill solo sube dentro de
+`ONEDRIVE_BACKFILL_VENTANA`, en hora de Bogotá, para no competir con la
+operación por el ancho de banda de salida del servidor.
+
+La ventana admite cruzar la medianoche (`19:00-06:00`). Para desactivar la
+restricción y que suba todo a cualquier hora, poner el valor `siempre`.
+
+Con esto se puede encolar el histórico completo de una sola vez y olvidarse:
+el worker lo irá subiendo noche tras noche sin afectar el día.
 
 Arranque en `false` a propósito. Se enciende solo después de que
 `npm run onedrive:probar` pase en verde.

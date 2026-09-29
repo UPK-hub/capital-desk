@@ -29,6 +29,9 @@ function arg(nombre: string): string | null {
 }
 
 const APPLY = process.argv.includes("--apply");
+/** Con --solo-video se excluyen los adjuntos que no son archivos de video. */
+const SOLO_VIDEO = process.argv.includes("--solo-video");
+const EXT_VIDEO = new Set([".mp4", ".avi", ".mkv", ".mov", ".wmv", ".ts", ".m4v", ".mpg", ".mpeg"]);
 const LIMITE = Number(arg("limite") ?? 0) || 0;
 const DESDE = arg("desde");
 const HASTA = arg("hasta");
@@ -79,11 +82,28 @@ async function main() {
   const conArchivo: string[] = [];
   let bytes = 0;
   let sinArchivo = 0;
+  let excluidos = 0;
+  const porExtension = new Map<string, { n: number; bytes: number }>();
 
   for (const c of candidatos) {
+    const nombre = c.originalName || c.filePath;
+    const punto = nombre.lastIndexOf(".");
+    const ext = punto >= 0 ? nombre.slice(punto).toLowerCase() : "(sin extension)";
+
     try {
       const abs = resolveUploadPath(c.filePath);
       const st = await fs.stat(abs);
+
+      const actual = porExtension.get(ext) ?? { n: 0, bytes: 0 };
+      actual.n += 1;
+      actual.bytes += st.size;
+      porExtension.set(ext, actual);
+
+      if (SOLO_VIDEO && !EXT_VIDEO.has(ext)) {
+        excluidos += 1;
+        continue;
+      }
+
       conArchivo.push(c.id);
       bytes += st.size;
     } catch {
@@ -93,6 +113,13 @@ async function main() {
 
   console.log(`Con archivo en disco : ${conArchivo.length}  (${gb(bytes)} GB a subir)`);
   console.log(`Sin archivo en disco : ${sinArchivo}  (purgados, no se pueden replicar)`);
+  if (SOLO_VIDEO) console.log(`Excluidos por no ser video: ${excluidos}`);
+
+  console.log("\nDesglose por tipo de archivo:");
+  const orden = [...porExtension.entries()].sort((a, b) => b[1].bytes - a[1].bytes);
+  for (const [ext, v] of orden) {
+    console.log(`  ${ext.padEnd(16)} ${String(v.n).padStart(6)} archivos   ${gb(v.bytes).padStart(9)} GB`);
+  }
 
   if (candidatos.length) {
     const primero = candidatos[0];

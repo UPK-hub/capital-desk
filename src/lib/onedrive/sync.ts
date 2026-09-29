@@ -14,6 +14,9 @@ import { prisma } from "@/lib/prisma";
 import { resolveUploadPath } from "@/lib/uploads";
 import {
   ONEDRIVE_BATCH_SIZE,
+  ONEDRIVE_CONCURRENCIA,
+  ONEDRIVE_DIAS_RECIENTE,
+  enVentanaBackfill,
   ONEDRIVE_MAX_ATTEMPTS,
   ONEDRIVE_ROOT_FOLDER,
   ONEDRIVE_SYNC_ENABLED,
@@ -215,25 +218,62 @@ export async function procesarPendientes(limite = ONEDRIVE_BATCH_SIZE): Promise<
   }
 
   const ahora = new Date();
-  const pendientes = await prisma.videoAttachment.findMany({
+  const corte = new Date(ahora.getTime() - ONEDRIVE_DIAS_RECIENTE * 24 * 60 * 60 * 1000);
+  const vencidos = { OR: [{ odNextAttemptAt: null }, { odNextAttemptAt: { lte: ahora } }] };
+
+  // Prioridad 1: lo que los tecnicos acaban de cargar. Sube a cualquier hora.
+  const recientes = await prisma.videoAttachment.findMany({
     where: {
       active: true,
       kind: VideoAttachmentKind.VIDEO,
       odStatus: OneDriveSyncStatus.PENDIENTE,
-      OR: [{ odNextAttemptAt: null }, { odNextAttemptAt: { lte: ahora } }],
+      createdAt: { gte: corte },
+      ...vencidos,
     },
     orderBy: { createdAt: "asc" },
     select: { id: true },
     take: limite,
   });
 
+  const pendientes = [...recientes];
+
+  // Prioridad 2: el material viejo (backfill). Solo dentro de la ventana
+  // horaria, para no competir con la operacion durante el dia.
+  if (pendientes.length < limite && enVentanaBackfill(ahora)) {
+    const viejos = await prisma.videoAttachment.findMany({
+      where: {
+        active: true,
+        kind: VideoAttachmentKind.VIDEO,
+        odStatus: OneDriveSyncStatus.PENDIENTE,
+        createdAt: { lt: corte },
+        ...vencidos,
+      },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+      take: limite - pendientes.length,
+    });
+    pendientes.push(...viejos);
+  }
+
+  // Subidas en paralelo con un pool pequeno: varios archivos a la vez aprovechan
+  // mejor el enlace que uno solo, sin llegar a saturarlo.
   let replicados = 0;
   let fallidos = 0;
-  for (const p of pendientes) {
-    const r = await replicarAdjunto(p.id);
-    if (r.ok) replicados += 1;
-    else fallidos += 1;
+  const cola = [...pendientes];
+
+  async function trabajador() {
+    for (;;) {
+      const siguiente = cola.shift();
+      if (!siguiente) return;
+      const r = await replicarAdjunto(siguiente.id);
+      if (r.ok) replicados += 1;
+      else fallidos += 1;
+    }
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(ONEDRIVE_CONCURRENCIA, cola.length) }, () => trabajador())
+  );
 
   return { tomados: pendientes.length, replicados, fallidos };
 }
