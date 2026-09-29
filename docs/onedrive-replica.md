@@ -107,6 +107,28 @@ build:
 - `npm run onedrive:sync` — una sola pasada, sin bucle, para diagnosticar.
 - `pm2 logs onedrive-sync` — seguimiento en vivo.
 
+## Videos que ya estaban cargados
+
+Los adjuntos subidos antes de que existiera este módulo tienen `odStatus` en
+null, es decir no entran a la cola por sí solos. Para replicarlos se usa el
+comando de backfill, que solo toma los que todavía tienen su archivo en el
+disco del servidor:
+
+```
+npm run onedrive:backfill                             simula todo lo pendiente
+npm run onedrive:backfill -- --limite 200             simula los 200 más viejos
+npm run onedrive:backfill -- --limite 200 --apply     los encola de verdad
+npm run onedrive:backfill -- --desde 2026-08-01 --hasta 2026-08-31 --apply
+```
+
+Por defecto simula: cuenta cuántos hay, cuántos GB pesan, cuántos ya no tienen
+archivo en disco y muestra un ejemplo de la ruta destino. Solo con `--apply`
+los marca como pendientes.
+
+Conviene hacerlo por tandas y en horario nocturno. Una tanda de 200 videos
+puede ser del orden de decenas de GB de subida y compite con la operación por
+el ancho de banda de salida del servidor.
+
 ## Capacidad
 
 La cuenta destino tiene 5 TB. La operación genera entre 300 y 440 GB de video
