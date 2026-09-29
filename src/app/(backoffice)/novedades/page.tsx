@@ -13,6 +13,7 @@ import { FileSpreadsheet, Plus, Upload } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
 import NovedadesTable, { NovedadRow } from "@/components/novedades/NovedadesTable";
 import PorEquipoChart from "@/components/novedades/PorEquipoChart";
+import { listarContactosAviso } from "@/lib/cases/contactos-cliente";
 
 type EventLike = { createdAt: Date; meta: unknown };
 
@@ -127,6 +128,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       include: {
         bus: { select: { code: true, plate: true } },
         assignedTo: { select: { name: true } },
+        notifyOnCloseUser: { select: { id: true, name: true } },
         events: { orderBy: { createdAt: "asc" }, select: { type: true, createdAt: true, meta: true } },
       },
     }),
@@ -232,6 +234,8 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       creator: userNameById.get(creatorByCaseId.get(c.id) ?? "") ?? null,
       assignee: c.assignedTo?.name ?? null,
       assignedToId: c.assignedToId ?? null,
+      notifyOnCloseId: c.notifyOnCloseUserId ?? null,
+      notifyOnCloseName: (c as any).notifyOnCloseUser?.name ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
       // Fecha de resolución = día en que se finalizó el correctivo (OT). Si no hay
@@ -254,6 +258,9 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
       dupRelated,
     };
   });
+
+  // Contactos a los que se les puede avisar el cierre de una novedad.
+  const contactosAviso = await listarContactosAviso(tenantId);
 
   // Personal de UPK (para asignar responsable con un clic desde la lista).
   const assignableUsers = await prisma.user.findMany({
@@ -491,7 +498,7 @@ export default async function NovedadesPage({ searchParams }: { searchParams: an
               No hay novedades con estos filtros.
             </div>
           ) : (
-            <NovedadesTable rows={rows} users={assignableUsers} />
+            <NovedadesTable rows={rows} users={assignableUsers} contacts={contactosAviso} />
           )}
 
           {/* Paginación */}

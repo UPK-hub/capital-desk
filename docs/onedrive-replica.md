@@ -88,10 +88,14 @@ build:
 2. En el servidor, PowerShell como Administrador, en `D:\apps\capital-desk`:
    `git fetch origin` y `git reset --hard origin/main`.
 3. Cargar las variables nuevas en el `.env`, con `ONEDRIVE_SYNC_ENABLED=false`.
-4. `pm2 stop capitaldesk tramas-processor`
+4. `pm2 stop capitaldesk tramas-processor onedrive-sync`
+
+   Los tres usan Prisma. Si alguno queda corriendo, el build falla con
+   `EPERM ... unlink ... query_engine-windows.dll.node`. Si ya pasó:
+   `Remove-Item -Recurse -Force .\node_modules\.prisma\client` y repetir.
 5. `npm run prisma:migrate:deploy`
 6. `npm run build`
-7. `pm2 restart capitaldesk tramas-processor`
+7. `pm2 restart capitaldesk tramas-processor onedrive-sync`
 8. `npm run onedrive:probar`
 9. Si pasa en verde, poner `ONEDRIVE_SYNC_ENABLED=true` en el `.env`.
 10. `pm2 start ecosystem.config.cjs --only onedrive-sync` y `pm2 save`.

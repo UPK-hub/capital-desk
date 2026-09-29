@@ -13,6 +13,7 @@ import { FileSpreadsheet, Plus } from "lucide-react";
 import CasesResumen from "@/components/cases/CasesResumen";
 import CasesTable, { CaseRow } from "@/components/cases/CasesTable";
 import CasesFilterBar from "@/components/cases/CasesFilterBar";
+import { listarContactosAviso } from "@/lib/cases/contactos-cliente";
 
 export default async function CasesPage({ searchParams }: { searchParams: any }) {
   const session = await getServerSession(authOptions);
@@ -73,6 +74,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
       include: {
         bus: { select: { code: true, plate: true } },
         assignedTo: { select: { name: true } },
+        notifyOnCloseUser: { select: { id: true, name: true } },
         workOrder: { select: { workOrderNo: true, assignedTo: { select: { name: true } } } },
       },
     }),
@@ -141,6 +143,8 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
     priority: c.priority,
     assignee: c.assignedTo?.name ?? c.workOrder?.assignedTo?.name ?? null,
     assignedToId: c.assignedToId ?? null,
+    notifyOnCloseId: c.notifyOnCloseUserId ?? null,
+    notifyOnCloseName: (c as any).notifyOnCloseUser?.name ?? null,
     creator: creatorNameById.get(creatorByCase.get(c.id) ?? "") ?? null,
     workOrderNo: c.workOrder?.workOrderNo ?? null,
     createdAt: c.createdAt.toISOString(),
@@ -148,6 +152,9 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
   }));
 
   // Personal de UPK (para asignar responsable con un clic desde la lista).
+  // Contactos a los que se les puede avisar el cierre de una novedad.
+  const contactosAviso = isTech ? [] : await listarContactosAviso(tenantId);
+
   const assignableUsers = await prisma.user.findMany({
     where: {
       tenantId,
@@ -327,7 +334,7 @@ export default async function CasesPage({ searchParams }: { searchParams: any })
               No hay casos con estos filtros.
             </div>
           ) : (
-            <CasesTable rows={rows} users={isTech ? [] : assignableUsers} />
+            <CasesTable rows={rows} users={isTech ? [] : assignableUsers} contacts={contactosAviso} />
           )}
 
           {/* Paginación */}

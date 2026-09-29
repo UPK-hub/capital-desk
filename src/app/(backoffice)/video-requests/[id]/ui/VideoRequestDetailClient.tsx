@@ -48,6 +48,8 @@ case: { id: string; caseNo: number | null; title: string; description: string | 
     originalName: string | null;
     uploadedById: string | null;
     createdAt: string;
+    odStatus?: string | null;
+    odWebUrl?: string | null;
   }>;
   cameraResults: Array<{ camera: string; status: string; rootCause: string | null }>;
   events: Array<{
@@ -665,7 +667,31 @@ export default function VideoRequestDetailClient({
                       className="flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium">{a.kind}</p>
+                        <p className="flex items-center gap-2 font-medium">
+                          {a.kind}
+                          {a.odStatus ? (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
+                                a.odStatus === "REPLICADO"
+                                  ? "bg-emerald-500/10 text-emerald-600 ring-emerald-500/30"
+                                  : a.odStatus === "ERROR"
+                                  ? "bg-red-500/10 text-red-600 ring-red-500/30"
+                                  : a.odStatus === "OMITIDO"
+                                  ? "bg-muted text-muted-foreground ring-border"
+                                  : "bg-amber-500/10 text-amber-600 ring-amber-500/30"
+                              }`}
+                              title="Estado de la copia en el OneDrive de CapitalBus"
+                            >
+                              {a.odStatus === "REPLICADO"
+                                ? "En OneDrive"
+                                : a.odStatus === "ERROR"
+                                ? "Error al copiar"
+                                : a.odStatus === "OMITIDO"
+                                ? "No se copia"
+                                : "Copiando..."}
+                            </span>
+                          ) : null}
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">{a.originalName ?? a.filePath}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
@@ -685,6 +711,16 @@ export default function VideoRequestDetailClient({
                         >
                           Descargar
                         </a>
+                        {a.odWebUrl ? (
+                          <a
+                            className="text-xs underline"
+                            href={a.odWebUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            OneDrive
+                          </a>
+                        ) : null}
                         {canDelete ? (
                           <button
                             type="button"

@@ -148,16 +148,27 @@ export type ArchivoSubido = {
   webUrl: string;
 };
 
-export async function leerDrive() {
+type InfoDrive = {
+  name: string;
+  quota: { total: number; used: number; remaining: number };
+};
+
+// La cuota cambia despacio y la pantalla de replica se abre seguido:
+// se cachea un minuto para no pedirsela a Graph en cada render.
+let driveCache: { valor: InfoDrive; expiraEn: number } | null = null;
+
+export async function leerDrive(): Promise<InfoDrive> {
+  const ahora = Date.now();
+  if (driveCache && driveCache.expiraEn > ahora) return driveCache.valor;
+
   const token = await getAccessToken();
   const res = await graphFetch(`${GRAPH}/drives/${ONEDRIVE_DRIVE_ID}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
   });
-  return (await res.json()) as {
-    name: string;
-    quota: { total: number; used: number; remaining: number };
-  };
+  const valor = (await res.json()) as InfoDrive;
+  driveCache = { valor, expiraEn: ahora + 60_000 };
+  return valor;
 }
 
 async function subirDirecto(rutaRemota: string, contenido: Buffer, mimeType: string): Promise<ArchivoSubido> {

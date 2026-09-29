@@ -7,6 +7,7 @@ import { StatusPill, StatusPillStatus } from "@/components/ui/status-pill";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { caseStatusLabels, labelFromMap } from "@/lib/labels";
 import AssigneeCell from "@/components/cases/AssigneeCell";
+import NotifyClientCell from "@/components/cases/NotifyClientCell";
 
 export type NovedadRow = {
   id: string;
@@ -20,6 +21,8 @@ export type NovedadRow = {
   creator: string | null;
   assignee: string | null;
   assignedToId: string | null;
+  notifyOnCloseId?: string | null;
+  notifyOnCloseName?: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -51,12 +54,13 @@ const COLUMNS: Col[] = [
   { key: "correctivo", label: "Correctivo", sortable: true },
   { key: "creador", label: "Creador", sortable: true },
   { key: "asignado", label: "Asignado", sortable: true },
+  { key: "avisoCliente", label: "Avisar al cliente" },
   { key: "ot", label: "# OT", sortable: true },
   { key: "updatedAt", label: "Actualizado", sortable: true },
   { key: "resolvedAt", label: "Resolución", sortable: true },
 ];
 const ALL_KEYS = COLUMNS.map((c) => c.key);
-const DEFAULT_ORDER = ["caseNo", "createdAt", "bus", "placa", "asunto", "equipo", "priority", "status", "duplicada", "correctivo", "creador", "asignado", "resolvedAt", "ot", "updatedAt"];
+const DEFAULT_ORDER = ["caseNo", "createdAt", "bus", "placa", "asunto", "equipo", "priority", "status", "duplicada", "correctivo", "creador", "asignado", "avisoCliente", "resolvedAt", "ot", "updatedAt"];
 const DEFAULT_HIDDEN = ["ot", "updatedAt"];
 const ORDER_KEY = "capitaldesk.novedades.colOrder.v3";
 const HIDDEN_KEY = "capitaldesk.novedades.hiddenCols.v4";
@@ -101,7 +105,16 @@ function reconcileOrder(stored: string[]): string[] {
   return valid;
 }
 
-export default function NovedadesTable({ rows, users }: { rows: NovedadRow[]; users: { id: string; name: string }[] }) {
+export default function NovedadesTable({
+  rows,
+  users,
+  contacts = [],
+}: {
+  rows: NovedadRow[];
+  users: { id: string; name: string }[];
+  /** Contactos para el aviso de cierre al cliente. */
+  contacts?: { id: string; name: string; interno?: boolean }[];
+}) {
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);
@@ -339,6 +352,16 @@ export default function NovedadesTable({ rows, users }: { rows: NovedadRow[]; us
         );
       case "asignado":
         return <AssigneeCell caseId={c.id} currentId={c.assignedToId} currentName={c.assignee} users={users} />;
+      case "avisoCliente":
+        return (
+          <NotifyClientCell
+            caseId={c.id}
+            caseType="NOVEDAD"
+            currentId={c.notifyOnCloseId ?? null}
+            currentName={c.notifyOnCloseName ?? null}
+            contacts={contacts}
+          />
+        );
       case "ot": return <span className="text-xs tabular-nums text-slate-500">{c.corrWorkOrderNo ? `#${c.corrWorkOrderNo}` : "—"}</span>;
       case "updatedAt": return dateCell(c.updatedAt);
       case "resolvedAt": return c.resolvedAt ? dateCell(c.resolvedAt) : <span className="text-xs text-slate-400">—</span>;

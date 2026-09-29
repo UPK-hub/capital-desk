@@ -9,6 +9,7 @@ import { TypeBadge } from "@/components/ui/TypeBadge";
 import { caseStatusLabels, caseTypeLabels, labelFromMap } from "@/lib/labels";
 import { slaInfo, slaDeadlineMs, isOpenStatus } from "@/lib/cases/sla";
 import AssigneeCell from "./AssigneeCell";
+import NotifyClientCell from "./NotifyClientCell";
 
 export type CaseRow = {
   id: string;
@@ -21,6 +22,8 @@ export type CaseRow = {
   priority: number;
   assignee: string | null;
   assignedToId: string | null;
+  notifyOnCloseId?: string | null;
+  notifyOnCloseName?: string | null;
   creator: string | null;
   workOrderNo: number | null;
   description: string;
@@ -36,6 +39,7 @@ const COLUMNS: { key: string; label: string; always?: boolean; sortable?: boolea
   { key: "status", label: "Estado", sortable: true },
   { key: "vence", label: "Vence (SLA)", sortable: true },
   { key: "assignee", label: "Asignado", sortable: true },
+  { key: "notifyOnClose", label: "Avisar al cliente" },
   { key: "creador", label: "Creador", sortable: true },
   { key: "ot", label: "# OT", sortable: true },
   { key: "descripcion", label: "Descripción" },
@@ -92,7 +96,16 @@ function venceClass(state: string) {
   return "text-slate-300";
 }
 
-export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { id: string; name: string }[] }) {
+export default function CasesTable({
+  rows,
+  users,
+  contacts = [],
+}: {
+  rows: CaseRow[];
+  users: { id: string; name: string }[];
+  /** Contactos para el aviso de cierre al cliente (solo novedades). */
+  contacts?: { id: string; name: string; interno?: boolean }[];
+}) {
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [sortKey, setSortKey] = useState<string>("createdAt");
@@ -278,6 +291,17 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
         {visible("assignee") && (
           <td className="px-3 py-2.5">
             <AssigneeCell caseId={c.id} currentId={c.assignedToId} currentName={c.assignee} users={users} />
+          </td>
+        )}
+        {visible("notifyOnClose") && (
+          <td className="px-3 py-2">
+            <NotifyClientCell
+              caseId={c.id}
+              caseType={c.type}
+              currentId={c.notifyOnCloseId ?? null}
+              currentName={c.notifyOnCloseName ?? null}
+              contacts={contacts}
+            />
           </td>
         )}
         {visible("creador") && (
@@ -480,6 +504,7 @@ export default function CasesTable({ rows, users }: { rows: CaseRow[]; users: { 
                 {visible("status") && <SortHead ck="status" label="Estado" />}
                 {visible("vence") && <SortHead ck="vence" label="Vence (SLA)" />}
                 {visible("assignee") && <SortHead ck="assignee" label="Asignado" />}
+                {visible("notifyOnClose") && <th className="px-3 py-2 text-left font-medium">Avisar al cliente</th>}
                 {visible("ot") && <SortHead ck="ot" label="# OT" />}
                 {visible("descripcion") && <SortHead ck="descripcion" label="Descripción" />}
                 {visible("createdAt") && <SortHead ck="createdAt" label="Creado" />}
