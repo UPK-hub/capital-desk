@@ -67,7 +67,8 @@
     "onedrive:probar": "tsx scripts/onedrive-probar.ts",
     "onedrive:sync": "tsx scripts/onedrive-sync.ts",
     "onedrive:estado": "tsx scripts/onedrive-estado.ts",
-    "onedrive:backfill": "tsx scripts/onedrive-backfill.ts"
+    "onedrive:backfill": "tsx scripts/onedrive-backfill.ts",
+    "onedrive:recolocar": "tsx scripts/onedrive-recolocar.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
