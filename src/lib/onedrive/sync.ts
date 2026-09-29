@@ -51,7 +51,9 @@ export function anioMesBogota(fecha: Date): { anio: string; mes: string } {
     month: "2-digit",
   }).formatToParts(fecha);
   const anio = partes.find((p) => p.type === "year")?.value ?? "0000";
-  const numero = partes.find((p) => p.type === "month")?.value ?? "00";
+  // Ojo: segun la version de ICU, "2-digit" en es-CO puede devolver "4" en vez
+  // de "04". Se rellena a mano para que el orden de carpetas sea correcto.
+  const numero = String(partes.find((p) => p.type === "month")?.value ?? "0").padStart(2, "0");
   const nombre = NOMBRES_MES[Number(numero) - 1] ?? "";
   const mes = nombre ? `${numero} - ${nombre}` : numero;
   return { anio, mes };
