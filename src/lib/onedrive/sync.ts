@@ -22,7 +22,28 @@ import {
 } from "./config";
 import { GraphError, limpiarNombre, subirArchivo } from "./graph";
 
-/** Devuelve el anio y el mes en zona Bogota, con dos digitos el mes. */
+const NOMBRES_MES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+/**
+ * Devuelve el anio y la carpeta de mes en zona Bogota.
+ *
+ * La carpeta del mes lleva el numero delante del nombre ("09 - Septiembre")
+ * para que el explorador la ordene cronologicamente. Con solo el nombre,
+ * OneDrive ordenaria alfabeticamente y quedaria Abril, Agosto, Diciembre...
+ */
 export function anioMesBogota(fecha: Date): { anio: string; mes: string } {
   const partes = new Intl.DateTimeFormat("es-CO", {
     timeZone: "America/Bogota",
@@ -30,13 +51,15 @@ export function anioMesBogota(fecha: Date): { anio: string; mes: string } {
     month: "2-digit",
   }).formatToParts(fecha);
   const anio = partes.find((p) => p.type === "year")?.value ?? "0000";
-  const mes = partes.find((p) => p.type === "month")?.value ?? "00";
+  const numero = partes.find((p) => p.type === "month")?.value ?? "00";
+  const nombre = NOMBRES_MES[Number(numero) - 1] ?? "";
+  const mes = nombre ? `${numero} - ${nombre}` : numero;
   return { anio, mes };
 }
 
 /**
  * Ruta destino dentro del OneDrive:
- *   Descargas de video Capital Desk / 2026 / 09 / BUS 5001 - CASO 1234 / archivo.mp4
+ *   Descargas de video Capital Desk / 2026 / 09 - Septiembre / BUS 5001 - CASO 1234 / archivo.mp4
  *
  * El anio y el mes se toman de la FECHA DE CREACION DE LA SOLICITUD, no de la
  * fecha de cargue, para que todos los videos de un mismo caso queden juntos

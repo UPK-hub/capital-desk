@@ -24,7 +24,7 @@ disco. `ERROR` es cuando se agotaron los intentos y requiere revisión.
 ```
 Descargas de video Capital Desk/
   2026/
-    09/
+    09 - Septiembre/
       BUS 5001 - CASO 1234/
         Bus5001_BV1-4_CASO-1234.mp4
 ```
@@ -32,6 +32,10 @@ Descargas de video Capital Desk/
 El año y el mes salen de la **fecha de creación de la solicitud**, no de la
 fecha de cargue, para que todos los videos de un caso queden en la misma
 carpeta aunque se suban días después.
+
+La carpeta del mes lleva el número delante del nombre para que el explorador la
+ordene cronológicamente. Con solo el nombre, OneDrive ordenaría alfabéticamente
+y quedaría Abril, Agosto, Diciembre, en ese orden.
 
 ## Subida
 

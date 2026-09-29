@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type TabKey = "requests" | "received" | "panic" | "almacenamiento";
+type TabKey = "requests" | "received" | "panic" | "almacenamiento" | "replica";
 
 export default function VideoModuleTabs({
   active,
@@ -21,6 +21,12 @@ export default function VideoModuleTabs({
         className={`${base} ${active === "requests" ? current : inactive}`}
       >
         Solicitudes
+      </Link>
+      <Link
+        href="/video-requests/replica"
+        className={`${base} ${active === "replica" ? current : inactive}`}
+      >
+        Réplica en OneDrive
       </Link>
       {showPanic ? (
         <Link
