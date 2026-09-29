@@ -278,6 +278,22 @@ export async function procesarPendientes(limite = ONEDRIVE_BATCH_SIZE): Promise<
   return { tomados: pendientes.length, replicados, fallidos };
 }
 
+/**
+ * Devuelve a PENDIENTE los adjuntos que quedaron en SUBIENDO.
+ *
+ * Solo corre una instancia del worker, asi que cualquier registro en SUBIENDO
+ * al arrancar es un huerfano de un reinicio o una caida en medio de la subida.
+ * Sin esto se quedarian colgados para siempre, porque la cola solo mira los
+ * PENDIENTE.
+ */
+export async function rescatarColgados(): Promise<number> {
+  const r = await prisma.videoAttachment.updateMany({
+    where: { odStatus: OneDriveSyncStatus.SUBIENDO },
+    data: { odStatus: OneDriveSyncStatus.PENDIENTE, odNextAttemptAt: new Date() },
+  });
+  return r.count;
+}
+
 /** Resumen para el tablero y para el comando de estado. */
 export async function resumenCola() {
   const filas = await prisma.videoAttachment.groupBy({

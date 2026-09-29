@@ -123,6 +123,11 @@ build:
 - `npm run onedrive:sync` — una sola pasada, sin bucle, para diagnosticar.
 - `pm2 logs onedrive-sync` — seguimiento en vivo.
 
+Al arrancar, el worker devuelve a la cola cualquier adjunto que haya quedado en
+`SUBIENDO`, que es lo que pasa cuando se reinicia el proceso en medio de una
+subida. Por eso reiniciarlo es seguro: lo que estaba a medias se vuelve a
+intentar desde cero.
+
 ## Videos que ya estaban cargados
 
 Los adjuntos subidos antes de que existiera este módulo tienen `odStatus` en

@@ -21,7 +21,7 @@ import {
   onedriveConfigError,
   onedriveConfigured,
 } from "@/lib/onedrive/config";
-import { procesarPendientes, resumenCola } from "@/lib/onedrive/sync";
+import { procesarPendientes, rescatarColgados, resumenCola } from "@/lib/onedrive/sync";
 
 const LOOP = process.argv.includes("--loop");
 
@@ -51,6 +51,14 @@ async function main() {
   if (ONEDRIVE_SYNC_ENABLED && problema) {
     log("CONFIGURACION INCOMPLETA:", problema);
     if (!LOOP) return;
+  }
+
+  // Al arrancar, devolver a la cola lo que quedo a medio subir en un reinicio.
+  try {
+    const rescatados = await rescatarColgados();
+    if (rescatados > 0) log(`rescatados ${rescatados} adjuntos que quedaron a medio subir`);
+  } catch (error) {
+    log("no se pudo rescatar los colgados:", String((error as any)?.message ?? error));
   }
 
   if (!LOOP) {
