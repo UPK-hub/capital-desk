@@ -33,11 +33,11 @@ import TelemetryTypeBreakdown from "./TelemetryTypeBreakdown";
 import TelemetryOverview from "./TelemetryOverview";
 import { formatFechaHoraCO } from "@/lib/datetime";
 
-const TelemetrySatelliteMap = dynamic(() => import("./TelemetrySatelliteMap"), {
+const TelemetryMapaFlota = dynamic(() => import("./TelemetryMapaFlota"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[420px] items-center justify-center rounded-2xl border border-border bg-muted/20 text-sm text-muted-foreground">
-      Cargando mapa satelital...
+      Cargando el mapa...
     </div>
   ),
 });
@@ -463,10 +463,10 @@ export default function TelemetryDashboard({
 
       <section className="sts-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">Mapa satelital (latitud/longitud)</h2>
-          <p className="text-xs text-muted-foreground">Puntos con coordenadas: {points.length}</p>
+          <h2 className="text-base font-semibold">Mapa de la flota</h2>
+          <p className="text-xs text-muted-foreground">Última posición conocida · {points.length} buses con coordenadas</p>
         </div>
-        <TelemetrySatelliteMap points={points} selectedBusId={bus?.id ?? null} />
+        <TelemetryMapaFlota points={points} selectedBusId={bus?.id ?? null} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">

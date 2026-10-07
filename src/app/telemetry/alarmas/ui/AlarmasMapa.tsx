@@ -11,9 +11,17 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { leafletLayer } from "protomaps-leaflet";
 import type { EventoAlarma } from "@/lib/telemetry/alarms";
 import { formatFechaHoraCO } from "@/lib/datetime";
+import {
+  AvisoSinMapaBase,
+  BotonTema,
+  CapaBase,
+  FONDO_CLARO,
+  FONDO_OSCURO,
+  useEstadoMapaBase,
+  type TemaMapa,
+} from "@/components/mapa/CapaBasePropia";
 
 /**
  * Mapa de alarmas con agrupacion propia y mapa base propio.
@@ -33,12 +41,6 @@ import { formatFechaHoraCO } from "@/lib/datetime";
 const BOGOTA: [number, number] = [4.60971, -74.08175];
 const CELDA_PX = 56;
 
-/** Hasta donde trae datos el archivo; mas alla el renderizador amplia la ultima tesela. */
-const ZOOM_MAXIMO_DATOS = 15;
-const URL_TESELAS = "/api/mapa/teselas/{z}/{x}/{y}.mvt";
-const ATRIBUCION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> · teselas propias';
-
 const COLOR_NIVEL: Record<string, string> = {
   N1: "#d03b3b",
   N2: "#ec835a",
@@ -48,12 +50,6 @@ const COLOR_NIVEL: Record<string, string> = {
 };
 
 const ORDEN_SEVERIDAD = ["N1", "N5", "N2", "N4", "N3"];
-
-type Tema = "claro" | "oscuro";
-
-type EstadoMapa =
-  | { disponible: true; actualizado: string; maxZoom: number }
-  | { disponible: false; motivo: string };
 
 function peorNivel(items: EventoAlarma[]): string {
   for (const n of ORDEN_SEVERIDAD) if (items.some((e) => e.level === n)) return n;
@@ -91,33 +87,6 @@ function PopupEvento({ e }: { e: EventoAlarma }) {
       </a>
     </div>
   );
-}
-
-/**
- * Capa base servida por nosotros. Se reconstruye al cambiar de tema porque las
- * reglas de pintado de protomaps-leaflet se fijan al crear la capa.
- */
-function CapaBase({ tema, activa }: { tema: Tema; activa: boolean }) {
-  const map = useMap();
-
-  React.useEffect(() => {
-    if (!activa) return;
-
-    const capa = leafletLayer({
-      url: URL_TESELAS,
-      flavor: tema === "oscuro" ? "dark" : "light",
-      maxDataZoom: ZOOM_MAXIMO_DATOS,
-      lang: "es",
-      attribution: ATRIBUCION,
-    }) as unknown as L.Layer;
-
-    capa.addTo(map);
-    return () => {
-      map.removeLayer(capa);
-    };
-  }, [map, tema, activa]);
-
-  return null;
 }
 
 /** Encaja la vista a los puntos la primera vez que hay datos. */
@@ -245,23 +214,8 @@ function Agrupados({ puntos }: { puntos: EventoAlarma[] }) {
 
 export default function AlarmasMapa({ eventos }: { eventos: EventoAlarma[] }) {
   const [soloCriticas, setSoloCriticas] = React.useState(false);
-  const [tema, setTema] = React.useState<Tema>("claro");
-  const [estado, setEstado] = React.useState<EstadoMapa | null>(null);
-
-  React.useEffect(() => {
-    let vivo = true;
-    fetch("/api/mapa/estado")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: EstadoMapa) => {
-        if (vivo) setEstado(d);
-      })
-      .catch(() => {
-        if (vivo) setEstado({ disponible: false, motivo: "No se pudo consultar el mapa base." });
-      });
-    return () => {
-      vivo = false;
-    };
-  }, []);
+  const [tema, setTema] = React.useState<TemaMapa>("claro");
+  const estado = useEstadoMapaBase();
 
   const conGps = React.useMemo(
     () => eventos.filter((e) => e.lat != null && e.lng != null),
@@ -291,7 +245,7 @@ export default function AlarmasMapa({ eventos }: { eventos: EventoAlarma[] }) {
         scrollWheelZoom
         className="h-[480px] w-full"
         zoomControl={false}
-        style={{ background: tema === "oscuro" ? "#0f1620" : "#eef1f5" }}
+        style={{ background: tema === "oscuro" ? FONDO_OSCURO : FONDO_CLARO }}
       >
         <CapaBase tema={tema} activa={baseLista} />
         <EncajarVista puntos={puntos} />
@@ -322,25 +276,14 @@ export default function AlarmasMapa({ eventos }: { eventos: EventoAlarma[] }) {
           {soloCriticas ? "Viendo solo críticas" : "Ver solo críticas"}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setTema((t) => (t === "claro" ? "oscuro" : "claro"))}
-          disabled={!baseLista}
-          className="pointer-events-auto rounded-lg border border-border/70 bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur transition hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {tema === "claro" ? "Fondo oscuro" : "Fondo claro"}
-        </button>
+        <BotonTema
+          tema={tema}
+          onCambiar={() => setTema((t) => (t === "claro" ? "oscuro" : "claro"))}
+          disponible={baseLista}
+        />
       </div>
 
-      {/* Aviso si el archivo de teselas todavia no esta en el servidor */}
-      {estado && !estado.disponible ? (
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-[400] flex justify-center">
-          <div className="pointer-events-auto max-w-md rounded-lg border border-[#f0d79a] bg-[#fff8e6] px-3 py-2 text-[11px] leading-snug text-[#4d3c0d] shadow-sm">
-            <span className="font-semibold">Mapa base sin generar.</span> Los puntos son correctos,
-            pero falta el fondo. {estado.motivo}
-          </div>
-        </div>
-      ) : null}
+      <AvisoSinMapaBase estado={estado} />
 
       {/* Leyenda */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-lg border border-border/70 bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
