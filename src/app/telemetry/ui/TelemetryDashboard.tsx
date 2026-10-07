@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
@@ -282,6 +283,9 @@ export default function TelemetryDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/telemetry/alarmas" className="sts-btn-primary text-sm">
+            Tablero de alarmas
+          </Link>
           <div className="min-w-[220px]">
             <BusCombobox value={bus} onChange={applyBus} />
           </div>

@@ -15,6 +15,7 @@ import { leerDrive } from "@/lib/onedrive/graph";
 import { onedriveConfigured } from "@/lib/onedrive/config";
 import VideoModuleTabs from "../VideoModuleTabs";
 import ReintentarBoton from "./ReintentarBoton";
+import ReplicaCharts, { type EstadoDato, type PuntoDia, type PuntoMes } from "./ReplicaCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,6 @@ export default async function ReplicaOneDrivePage({ searchParams }: { searchPara
 
   // Espacio del OneDrive de destino. Si Graph falla, la pagina sigue viva.
   let almacenamiento: { usadoGB: number; libreGB: number; totalGB: number } | null = null;
-  let errorAlmacenamiento: string | null = null;
   if (onedriveConfigured()) {
     try {
       const d = await leerDrive();
@@ -102,10 +102,12 @@ export default async function ReplicaOneDrivePage({ searchParams }: { searchPara
         totalGB: d.quota.total / 1024 ** 3,
       };
     } catch (e: any) {
-      errorAlmacenamiento = String(e?.message ?? e).slice(0, 200);
+      // Que Graph no responda no debe tumbar la pagina: el resto se calcula
+      // contra la base de datos y sigue siendo util.
+      console.error("ONEDRIVE_CUOTA_NO_DISPONIBLE", String(e?.message ?? e).slice(0, 200));
     }
   } else {
-    errorAlmacenamiento = "La conexion con OneDrive no esta configurada en el servidor.";
+    console.warn("ONEDRIVE_NO_CONFIGURADO en el servidor");
   }
 
   // Conteo por estado, del tenant.
@@ -117,10 +119,15 @@ export default async function ReplicaOneDrivePage({ searchParams }: { searchPara
   const conteos = await prisma.videoAttachment.groupBy({
     by: ["odStatus"],
     _count: { _all: true },
+    _sum: { size: true },
     where: base,
   });
   const porEstado: Record<string, number> = {};
-  for (const c of conteos) porEstado[String(c.odStatus)] = c._count._all;
+  const bytesPorEstado: Record<string, number> = {};
+  for (const c of conteos) {
+    porEstado[String(c.odStatus)] = c._count._all;
+    bytesPorEstado[String(c.odStatus)] = Number(c._sum.size ?? 0);
+  }
   const total = Object.values(porEstado).reduce((a, b) => a + b, 0);
 
   const where: Prisma.VideoAttachmentWhereInput = {
@@ -225,6 +232,67 @@ export default async function ReplicaOneDrivePage({ searchParams }: { searchPara
 
   const solicitudesCompletas = resumenSolicitudes.filter((r) => r.estado === "Completa").length;
 
+  // --- Series para los graficos ---------------------------------------------
+  // Volumen copiado por dia en los ultimos 30 dias (hora Bogota).
+  const filasDia = await prisma.$queryRaw<{ dia: Date; archivos: bigint; bytes: bigint }[]>`
+    SELECT date_trunc('day', va."odSyncedAt" AT TIME ZONE 'America/Bogota')::date AS dia,
+           COUNT(*)::bigint AS archivos,
+           COALESCE(SUM(va."size"), 0)::bigint AS bytes
+      FROM "VideoAttachment" va
+      JOIN "VideoDownloadRequest" vr ON vr."id" = va."requestId"
+      JOIN "Case" c ON c."id" = vr."caseId"
+     WHERE c."tenantId" = ${tenantId}
+       AND va."odStatus" = 'REPLICADO'
+       AND va."odSyncedAt" >= now() - interval '30 days'
+     GROUP BY 1
+     ORDER BY 1
+  `;
+
+  const fmtDia = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short" });
+  const porDia: PuntoDia[] = filasDia.map((f) => ({
+    dia: fmtDia.format(new Date(f.dia)),
+    gb: Number((Number(f.bytes) / 1024 ** 3).toFixed(2)),
+    archivos: Number(f.archivos),
+  }));
+
+  // Peso del historico por mes del caso, separando lo ya copiado de lo pendiente.
+  const filasMes = await prisma.$queryRaw<
+    { mes: string; bytes_replicado: bigint; bytes_pendiente: bigint }[]
+  >`
+    SELECT to_char(c."createdAt" AT TIME ZONE 'America/Bogota', 'YYYY-MM') AS mes,
+           COALESCE(SUM(va."size") FILTER (WHERE va."odStatus" = 'REPLICADO'), 0)::bigint AS bytes_replicado,
+           COALESCE(SUM(va."size") FILTER (WHERE va."odStatus" <> 'REPLICADO'), 0)::bigint AS bytes_pendiente
+      FROM "VideoAttachment" va
+      JOIN "VideoDownloadRequest" vr ON vr."id" = va."requestId"
+      JOIN "Case" c ON c."id" = vr."caseId"
+     WHERE c."tenantId" = ${tenantId}
+       AND va."odStatus" IS NOT NULL
+     GROUP BY 1
+     ORDER BY 1
+  `;
+
+  const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const porMes: PuntoMes[] = filasMes.map((f) => {
+    const [anio, mes] = f.mes.split("-");
+    return {
+      mes: `${MESES_CORTOS[Number(mes) - 1] ?? mes} ${anio.slice(2)}`,
+      gbReplicado: Number((Number(f.bytes_replicado) / 1024 ** 3).toFixed(2)),
+      gbPendiente: Number((Number(f.bytes_pendiente) / 1024 ** 3).toFixed(2)),
+    };
+  });
+
+  const datosEstados: EstadoDato[] = [
+    { clave: "REPLICADO", etiqueta: "En OneDrive", color: "#0ca30c" },
+    { clave: "SUBIENDO", etiqueta: "Subiendo", color: "#2a78d6" },
+    { clave: "PENDIENTE", etiqueta: "Pendientes", color: "#fab219" },
+    { clave: "ERROR", etiqueta: "Con error", color: "#d03b3b" },
+    { clave: "OMITIDO", etiqueta: "Omitidos", color: "#898781" },
+  ].map((e) => ({
+    ...e,
+    n: porEstado[e.clave] ?? 0,
+    bytes: bytesPorEstado[e.clave] ?? 0,
+  }));
+
   const conError = porEstado[OneDriveSyncStatus.ERROR] ?? 0;
   const replicados = porEstado[OneDriveSyncStatus.REPLICADO] ?? 0;
   const porcentaje = total > 0 ? Math.round((replicados / total) * 100) : 0;
@@ -256,40 +324,12 @@ export default async function ReplicaOneDrivePage({ searchParams }: { searchPara
         ) : null}
       </div>
 
-      <div className="sts-card p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">Almacenamiento en el OneDrive de CapitalBus</h2>
-          {almacenamiento ? (
-            <span className="text-xs text-muted-foreground">
-              {almacenamiento.usadoGB.toFixed(1)} GB usados de {almacenamiento.totalGB.toFixed(0)} GB
-            </span>
-          ) : null}
-        </div>
-        {almacenamiento ? (
-          <>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full rounded-full ${
-                  almacenamiento.usadoGB / almacenamiento.totalGB > 0.9
-                    ? "bg-red-500"
-                    : almacenamiento.usadoGB / almacenamiento.totalGB > 0.75
-                    ? "bg-amber-500"
-                    : "bg-emerald-500"
-                }`}
-                style={{
-                  width: `${Math.min(100, Math.max(1, (almacenamiento.usadoGB / almacenamiento.totalGB) * 100)).toFixed(1)}%`,
-                }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Quedan {almacenamiento.libreGB.toFixed(1)} GB libres. Al ritmo actual de la operacion,
-              unos 400 GB al mes, alcanza para cerca de {(almacenamiento.libreGB / 400).toFixed(0)} meses.
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-xs text-red-600">No se pudo leer el espacio: {errorAlmacenamiento}</p>
-        )}
-      </div>
+      <ReplicaCharts
+        estados={datosEstados}
+        almacenamiento={almacenamiento}
+        porDia={porDia}
+        porMes={porMes}
+      />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {ESTADOS.map((e) => (
