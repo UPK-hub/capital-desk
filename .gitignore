@@ -55,3 +55,7 @@ next-env.d.ts
 
 # Cache de previsualizaciones de video (se regenera solo)
 /uploads/_previews/
+
+# Mapa base propio (se genera en el servidor, ver docs/mapa-propio.md)
+/tiles/
+/tools/

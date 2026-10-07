@@ -30,6 +30,7 @@ import OdometerPanel from "./OdometerPanel";
 import CoordinatesPanel from "./CoordinatesPanel";
 import TelemetryBusBreakdown, { type BusBreakdownRow } from "./TelemetryBusBreakdown";
 import TelemetryTypeBreakdown from "./TelemetryTypeBreakdown";
+import TelemetryOverview from "./TelemetryOverview";
 import { formatFechaHoraCO } from "@/lib/datetime";
 
 const TelemetrySatelliteMap = dynamic(() => import("./TelemetrySatelliteMap"), {
@@ -350,6 +351,13 @@ export default function TelemetryDashboard({
 
       {tab === "resumen" ? (
         <div className="space-y-6">
+      {/* Cabecera ejecutiva: flota, composicion y alarmas de conduccion */}
+      <TelemetryOverview
+        totals={busTotals ?? generalTotals}
+        reportStatus={reportStatus}
+        alarms={alarms}
+      />
+
       {/* Estado de reporte HOY (flota completa) */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
